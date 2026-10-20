@@ -44,10 +44,119 @@
       "cancelled": "Cancelled"
     }
   },
-  "home": {
-    "title": "Tarteeba",
-    "tagline": "Home cleaning in the UAE.",
-    "body": "Book in the Tarteeba app. These pages host policies, help and invoices."
+  "landing": {
+    "meta": {
+      "title": "Tarteeba · Home cleaning in the UAE",
+      "description": "Trained cleaners at a time that suits you. Single visits, recurring plans and full-day service."
+    },
+    "nav": {
+      "label": "Main navigation",
+      "services": "Services",
+      "how": "How it works",
+      "why": "Why Tarteeba",
+      "faq": "FAQ",
+      "getApp": "Get the app",
+      "menu": "Menu"
+    },
+    "hero": {
+      "eyebrow": "Home cleaning in the UAE",
+      "title": "A tidy home, a calm mind",
+      "body": "Trained cleaners who arrive at a time that suits you. Choose the service and slot in the app, and we confirm availability before the visit.",
+      "primary": "Book in the app",
+      "secondary": "See our services",
+      "point1": "Cleaners employed by Tarteeba",
+      "point2": "We drive them to you and back",
+      "point3": "Prices include VAT"
+    },
+    "services": {
+      "title": "Services for your home",
+      "body": "Start with one visit, make it a weekly routine, or get a cleaner for the whole day.",
+      "from": "From {price}",
+      "perWorker": "per cleaner",
+      "perMonth": "per month",
+      "visit": {
+        "title": "Cleaning visit",
+        "body": "General cleaning and tidying of rooms, kitchen and bathrooms. Choose how many cleaners suit your home.",
+        "point1": "One or more cleaners in the same visit",
+        "point2": "Morning or evening slot",
+        "point3": "Add your instructions and priorities"
+      },
+      "recurring": {
+        "title": "Recurring plan",
+        "body": "Regular weekly visits with a package discount and priority for your preferred cleaner.",
+        "point1": "Choose visits per week and the days",
+        "point2": "Pause while you travel or skip a visit",
+        "point3": "Auto-renewal you can turn off any time"
+      },
+      "liveOut": {
+        "title": "Full day",
+        "badge": "Live-out",
+        "body": "A fixed main cleaner for a full working day with a rest hour, as a trial day or a monthly plan.",
+        "point1": "Cleaning, tidying, laundry and ironing",
+        "point2": "A trained substitute if she's absent",
+        "point3": "Employed and managed by Tarteeba"
+      },
+      "excluded": "Deep cleaning and sofa or carpet cleaning are not offered yet."
+    },
+    "how": {
+      "title": "How Tarteeba works",
+      "step1Title": "Choose a service",
+      "step1Body": "Set the number of cleaners, your address and what matters most.",
+      "step2Title": "Pick a time",
+      "step2Body": "You only see days and slots that are actually available in your area.",
+      "step3Title": "Send the request",
+      "step3Body": "We place a hold on your card without charging it, and your request is pending confirmation.",
+      "step4Title": "We confirm and arrive",
+      "step4Body": "Our team confirms availability, then the charge goes through and you track the arrival in the app.",
+      "note": "A booking is final only after our bookings team confirms it. If the slot can't be served, we suggest alternatives or release the hold."
+    },
+    "why": {
+      "title": "Why Tarteeba",
+      "punctualTitle": "On time",
+      "punctualBody": "We plan vehicle routes before every slot and notify you when the car leaves and the cleaner arrives.",
+      "preferredTitle": "Your preferred cleaner first",
+      "preferredBody": "We prioritise your preferred cleaner, and may send a trained substitute when she's not available.",
+      "trainedTitle": "A trained team",
+      "trainedBody": "Cleaners employed by Tarteeba, with valid documents and a quality check after every visit.",
+      "clearTitle": "Clear pricing",
+      "clearBody": "You see VAT, fees and the expected refund before you confirm anything.",
+      "secureTitle": "Secure payment",
+      "secureBody": "Card, Apple Pay or Google Pay through the payment gateway. We never store your card details.",
+      "careTitle": "We listen",
+      "careBody": "Rate every visit, and open a complaint linked to the booking that we follow through to resolution."
+    },
+    "areas": {
+      "title": "Where we work",
+      "body": "We're starting in selected areas of Dubai and expanding step by step. Add your address in the app to see right away whether it's covered.",
+      "cta": "Check your address in the app"
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "q1": "When is my booking confirmed?",
+      "a1": "After you send a request it's pending confirmation. Our bookings team checks cleaner and vehicle availability, then confirms, and you get a notification either way.",
+      "q2": "When am I charged?",
+      "a2": "When you send the request we only place a hold on your card. You're charged when we confirm; if we don't, the hold is released.",
+      "q3": "Will I get the same cleaner every time?",
+      "a3": "We prioritise your preferred cleaner but can't guarantee she's available for every visit. If she's away we send a trained substitute and let you know in advance.",
+      "q4": "Do I need to provide cleaning materials?",
+      "a4": "You choose during booking. If the company provides them, the fee shows in the price summary before you pay.",
+      "q5": "How do I cancel or reschedule?",
+      "a5": "From the booking details in the app. We show the fee and expected refund under the policy before you confirm.",
+      "q6": "What if a payment fails?",
+      "a6": "We first check the result with the payment gateway before showing any message. Then you can retry or change the method without being charged twice."
+    },
+    "app": {
+      "title": "Book in the Tarteeba app",
+      "body": "Booking, payment, arrival tracking and invoices, all in the app, in Arabic and English.",
+      "appStore": "App Store",
+      "googlePlay": "Google Play",
+      "soon": "Coming soon"
+    },
+    "footer": {
+      "tagline": "Home cleaning in the UAE",
+      "rights": "© {year} Tarteeba. All rights reserved.",
+      "vat": "All prices are in UAE dirhams and include VAT."
+    }
   },
   "admin": {
     "login": {
