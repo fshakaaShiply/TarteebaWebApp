@@ -31,7 +31,7 @@ echo "$SHA" > "$BUILD/.next/standalone/REVISION"
 
 echo "== upload"
 ssh "${SSH_OPTS[@]}" "$USER_@$HOST" "mkdir -p $APP_ROOT/releases/$RELEASE"
-rsync -az --delete -e "ssh ${SSH_OPTS[*]}" "$BUILD/.next/standalone/" "$USER_@$HOST:$APP_ROOT/releases/$RELEASE/"
+rsync -az --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r -e "ssh ${SSH_OPTS[*]}" "$BUILD/.next/standalone/" "$USER_@$HOST:$APP_ROOT/releases/$RELEASE/"
 
 echo "== activate"
 ssh "${SSH_OPTS[@]}" "$USER_@$HOST" bash -s -- "$APP_ROOT" "$RELEASE" "$KEEP_RELEASES" <<'REMOTE'
