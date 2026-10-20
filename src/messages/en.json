@@ -1,0 +1,76 @@
+{
+  "common": {
+    "brand": "Tarteeba",
+    "language": "Language",
+    "switchToOther": "العربية",
+    "loading": "Loading…",
+    "retry": "Try again",
+    "vatIncluded": "VAT included",
+    "comingSoon": "Coming soon"
+  },
+  "status": {
+    "booking": {
+      "draft": "Draft",
+      "held": "Held",
+      "pending_confirmation": "Pending confirmation",
+      "confirmed": "Confirmed",
+      "alternative_proposed": "Alternative proposed",
+      "rejected": "Rejected",
+      "rescheduled": "Rescheduled",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    },
+    "payment": {
+      "unpaid": "Unpaid",
+      "pending": "Processing",
+      "verifying": "Verifying payment",
+      "authorized": "Payment authorized",
+      "captured": "Paid",
+      "partially_refunded": "Partially refunded",
+      "refunded": "Refunded",
+      "failed": "Payment failed",
+      "voided": "Authorization voided"
+    },
+    "visit": {
+      "scheduled": "Scheduled",
+      "worker_assigned": "Worker assigned",
+      "en_route": "On the way",
+      "arrived": "Worker arrived",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "no_show_customer": "Customer not available",
+      "missed_by_company": "Missed by company",
+      "cancelled": "Cancelled"
+    }
+  },
+  "home": {
+    "title": "Tarteeba",
+    "tagline": "Home cleaning in the UAE.",
+    "body": "Book in the Tarteeba app. These pages host policies, help and invoices."
+  },
+  "admin": {
+    "login": {
+      "brandSuffix": "Operations",
+      "intro": "Bookings, operations, accounting and HR. Each user sees only what their role allows.",
+      "title": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "otp": "Two-factor code",
+      "otpHint": "Required for system admins and accountants",
+      "submit": "Sign in",
+      "forgot": "Forgot password?",
+      "lockoutNote": "Sign-in locks for 15 minutes after 5 failed attempts. Sessions end after 30 minutes idle.",
+      "notAvailable": "Sign-in is not enabled on staging yet.",
+      "errors": {
+        "email": "Enter a valid email",
+        "password": "Enter your password",
+        "otp": "The code is 6 digits"
+      }
+    }
+  },
+  "driver": {
+    "title": "Driver trips",
+    "body": "The driver interface is in the Tarteeba app. This page is a fallback."
+  }
+}
