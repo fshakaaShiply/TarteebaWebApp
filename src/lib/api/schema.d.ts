@@ -4,6 +4,327 @@
  */
 
 export interface paths {
+    "/v1/admin/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.addons.index"];
+        put?: never;
+        post: operations["admin.catalog.addons.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/addons/{addon}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.addons.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.addons.update"];
+        trace?: never;
+    };
+    "/v1/customer/addresses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.addresses.index"];
+        put?: never;
+        post: operations["customer.addresses.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/addresses/{address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["customer.addresses.destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["customer.addresses.update"];
+        trace?: never;
+    };
+    "/v1/customer/addresses/{address}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.addresses.default"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.auth.logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.auth.login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.auth.logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.auth.forgot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.auth.reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["driver.identity.auth.login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["driver.identity.me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["driver.identity.auth.logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.catalog.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.identity.config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.identity.consents.show"];
+        put: operations["customer.identity.consents.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/coupons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.coupons.index"];
+        put?: never;
+        post: operations["admin.catalog.coupons.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/coupons/{coupon}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.coupons.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.coupons.update"];
+        trace?: never;
+    };
+    "/v1/customer/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.devices.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/devices/{device}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Only the customer's own devices; anything else is 404 */
+        delete: operations["customer.identity.devices.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/health": {
         parameters: {
             query?: never;
@@ -20,11 +341,1488 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/live-out-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.live-out-plans.index"];
+        put?: never;
+        post: operations["admin.catalog.live-out-plans.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/live-out-plans/{plan}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.live-out-plans.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.live-out-plans.update"];
+        trace?: never;
+    };
+    "/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/otp/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public.identity.otp.send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public.identity.otp.verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.packages.index"];
+        put?: never;
+        post: operations["admin.catalog.packages.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/packages/{package}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.packages.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.packages.update"];
+        trace?: never;
+    };
+    "/v1/admin/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.permissions.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/me/phone-change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.phone-change.request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/me/phone-change/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.phone-change.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.policies.index"];
+        put?: never;
+        post: operations["admin.catalog.policies.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/policies/{policy}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.policies.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Every change bumps policies.version, which bookings snapshot (spec §11.4) */
+        patch: operations["admin.catalog.policies.update"];
+        trace?: never;
+    };
+    "/v1/customer/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.identity.me.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["customer.identity.me.update"];
+        trace?: never;
+    };
+    "/v1/customer/me/locale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.me.locale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.roles.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/roles/{name}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.identity.roles.permissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.catalog.services.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/services/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.catalog.services.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.services.index"];
+        put?: never;
+        post: operations["admin.catalog.services.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/services/{service}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.services.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.services.update"];
+        trace?: never;
+    };
+    "/v1/admin/service-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.service-prices.index"];
+        put?: never;
+        post: operations["admin.catalog.service-prices.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/service-prices/{price}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.service-prices.show"];
+        put?: never;
+        post?: never;
+        /** Soft delete: the row stays for audit history and booking price snapshots */
+        delete: operations["admin.catalog.service-prices.destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["admin.catalog.service-prices.update"];
+        trace?: never;
+    };
+    "/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.settings.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.settings.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.staff-users.index"];
+        put?: never;
+        post: operations["admin.identity.staff-users.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-users/{staffUser}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.staff-users.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.identity.staff-users.update"];
+        trace?: never;
+    };
+    "/v1/admin/staff-users/{staffUser}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.staff-users.suspend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-users/{staffUser}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.staff-users.activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff-users/{staffUser}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.identity.staff-users.roles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/zones/{zone}/sub-zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.sub-zones.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/sub-zones/{subZone}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.sub-zones.update"];
+        trace?: never;
+    };
+    "/v1/admin/me/two-factor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.two-factor.start"];
+        delete: operations["admin.identity.two-factor.disable"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me/two-factor/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.two-factor.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/zones/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public.zones.check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.zones.index"];
+        put?: never;
+        post: operations["admin.zones.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/zones/{zone}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.zones.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.zones.update"];
+        trace?: never;
+    };
+    "/v1/admin/zones/{zone}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.zones.deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
-    responses: never;
+    schemas: {
+        /**
+         * AddonPer
+         * @enum {string}
+         */
+        AddonPer: "visit" | "worker" | "month";
+        /**
+         * AddonRequest
+         * @description POST /admin/addons and PATCH /admin/addons/{addon}.
+         */
+        AddonRequest: {
+            code: string;
+            name: string;
+            amount_fils: number;
+            vat_inclusive: boolean;
+            per: components["schemas"]["AddonPer"];
+            is_active?: boolean;
+            sort_order?: number;
+            version?: number;
+            reason?: string | null;
+        };
+        /** AddonResource */
+        AddonResource: {
+            id: number;
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            amount_fils: number;
+            vat_inclusive: boolean;
+            per: string;
+            is_active: boolean;
+            sort_order: number;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /** AddressResource */
+        AddressResource: {
+            id: string;
+            label: string;
+            property_type: string;
+            building: string | null;
+            unit_number: string | null;
+            street: string | null;
+            area_text: string | null;
+            lat: number;
+            lng: number;
+            access_instructions: string | null;
+            has_pets: boolean;
+            pets_note: string | null;
+            parking_available: boolean;
+            entry_permit_required: boolean;
+            cleaning_materials_available: boolean;
+            is_default: boolean;
+            is_blocked: boolean;
+            zone: {
+                code: string;
+                name: string | null;
+            } | null;
+            version: number;
+        };
+        /**
+         * CatalogPreviewRequest
+         * @description POST /admin/catalog/preview (A11 "preview before publish"):
+         *       {service_code, service?: {...proposed service fields}, prices?: [{id?, delete?, ...price fields}]}
+         *     Proposed values are validated with the same rules as the real PATCH / POST endpoints. A price row with an `id`
+         *     edits that row of this service (or removes it with delete=true); a row without `id` is a new price.
+         */
+        CatalogPreviewRequest: {
+            service_code: string;
+            service?: string[];
+            prices?: {
+                id?: number;
+                delete?: boolean;
+            }[];
+        };
+        /**
+         * ConfirmPhoneChangeRequest
+         * @description POST /customer/me/phone-change/confirm (REQ C21).
+         */
+        ConfirmPhoneChangeRequest: {
+            phone: string;
+            code: string;
+        };
+        /**
+         * CouponRequest
+         * @description POST /admin/coupons and PATCH /admin/coupons/{coupon}. Codes are upper-cased and unique; percent coupons take
+         *     1..100, fixed coupons a net amount in fils (R-07).
+         */
+        CouponRequest: {
+            code: string;
+            type: components["schemas"]["DiscountType"];
+            value: number;
+            max_discount_fils?: number | null;
+            min_order_fils?: number | null;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            usage_limit_total?: number | null;
+            usage_limit_per_customer?: number | null;
+            applies_to?: {
+                service_ids?: number[];
+                package_ids?: number[];
+                first_booking_only?: boolean;
+            };
+            is_active?: boolean;
+            version?: number;
+            reason?: string | null;
+        };
+        /** CouponResource */
+        CouponResource: {
+            id: number;
+            code: string;
+            type: string;
+            value: number;
+            max_discount_fils: number | null;
+            min_order_fils: number | null;
+            valid_from: string | null;
+            valid_to: string | null;
+            usage_limit_total: number | null;
+            usage_limit_per_customer: number | null;
+            applies_to: {
+                service_ids?: number[];
+                package_ids?: number[];
+                first_booking_only?: boolean;
+            } | null;
+            is_active: boolean;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /** CustomerDeviceResource */
+        CustomerDeviceResource: {
+            id: string;
+            platform: string;
+            app_version: string | null;
+            locale: string;
+            last_seen_at: string | null;
+        };
+        /** CustomerResource */
+        CustomerResource: {
+            id: string;
+            name: string | null;
+            phone: string;
+            email: string | null;
+            email_verified: boolean;
+            locale: string;
+            status: string;
+            marketing_consent: boolean;
+            profile_complete: boolean;
+            created_at: string | null;
+        };
+        /**
+         * DeactivateZoneRequest
+         * @description POST /admin/zones/{id}/deactivate (A11).
+         */
+        DeactivateZoneRequest: {
+            version?: number;
+            reason?: string | null;
+        };
+        /**
+         * DiscountType
+         * @description Package and coupon discounts. `fixed` is a net (pre-VAT) amount in fils (decision R-07, spec §4.3).
+         * @enum {string}
+         */
+        DiscountType: "percent" | "fixed";
+        /** DriverResource */
+        DriverResource: {
+            id: number;
+            name: string;
+            email: string;
+            phone: string | null;
+            locale: string;
+        };
+        /**
+         * ForgotPasswordRequest
+         * @description POST /admin/auth/forgot.
+         */
+        ForgotPasswordRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /**
+         * LiveOutPlanKind
+         * @enum {string}
+         */
+        LiveOutPlanKind: "trial_day" | "monthly";
+        /**
+         * LiveOutPlanRequest
+         * @description POST /admin/live-out-plans and PATCH /admin/live-out-plans/{plan}. price_fils may be null: the plan is then
+         *     listed as unavailable (D-03). The service window must fit the work hours plus the break.
+         */
+        LiveOutPlanRequest: {
+            service_id: number;
+            code: string;
+            name: string;
+            kind: components["schemas"]["LiveOutPlanKind"];
+            service_days_per_month?: number;
+            rest_days_per_week?: number;
+            work_hours?: number;
+            break_minutes?: number;
+            window_start?: string;
+            window_end?: string;
+            price_fils?: number | null;
+            vat_inclusive?: boolean;
+            max_active_contracts?: number | null;
+            is_active?: boolean;
+            sort_order?: number;
+            version?: number;
+            reason?: string | null;
+        };
+        /** LiveOutPlanResource */
+        LiveOutPlanResource: {
+            id: number;
+            service_id: number;
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            kind: string;
+            service_days_per_month: number;
+            rest_days_per_week: number;
+            work_hours: number;
+            break_minutes: number;
+            window_start: string;
+            window_end: string;
+            price_fils: number | null;
+            vat_inclusive: boolean;
+            max_active_contracts: number | null;
+            is_active: boolean;
+            sort_order: number;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * MaterialsMode
+         * @description Who brings cleaning materials (REQ §6.7). DECISION: D-02b — `customer` until the owner decides.
+         * @enum {string}
+         */
+        MaterialsMode: "customer" | "company_addon" | "company_included";
+        /**
+         * PackageRequest
+         * @description POST /admin/packages and PATCH /admin/packages/{package}. Packages bundle standard visits; the term is either
+         *     weeks or months (exactly one). A fixed discount is a net amount in fils (R-07).
+         */
+        PackageRequest: {
+            service_id: number;
+            code: string;
+            name: string;
+            /** @enum {integer} */
+            visits_per_week: "1" | "2" | "3" | "4" | "6";
+            term_weeks?: number | null;
+            term_months?: number | null;
+            discount_type?: components["schemas"]["DiscountType"];
+            discount_value?: number;
+            min_visits_for_discount?: number | null;
+            auto_renew_allowed?: boolean;
+            max_skips_per_month?: number | null;
+            max_freeze_days?: number | null;
+            is_active?: boolean;
+            sort_order?: number;
+            cancellation_policy_id?: number | null;
+            reschedule_policy_id?: number | null;
+            refund_policy_id?: number | null;
+            version?: number;
+            reason?: string | null;
+        };
+        /** PackageResource */
+        PackageResource: {
+            id: number;
+            service_id: number;
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            visits_per_week: number;
+            term_weeks: number | null;
+            term_months: number | null;
+            discount_type: string;
+            discount_value: number;
+            min_visits_for_discount: number | null;
+            auto_renew_allowed: boolean;
+            max_skips_per_month: number | null;
+            max_freeze_days: number | null;
+            is_active: boolean;
+            sort_order: number;
+            cancellation_policy_id: number | null;
+            reschedule_policy_id: number | null;
+            refund_policy_id: number | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * PhoneChangeRequest
+         * @description POST /customer/me/phone-change (REQ C21).
+         */
+        PhoneChangeRequest: {
+            phone: string;
+        };
+        /**
+         * PolicyRequest
+         * @description POST /admin/policies and PATCH /admin/policies/{policy}. `rules` is validated against the §11.4 shape for the
+         *     policy's type and replaced as a whole. `type` is fixed after creation.
+         */
+        PolicyRequest: {
+            code: string;
+            type: components["schemas"]["PolicyType"];
+            name: string;
+            rules: {
+                cancellation?: {
+                    min_hours_before: number;
+                    /** @enum {string} */
+                    fee_type: "percent" | "fixed";
+                    fee_value: number;
+                }[];
+                reschedule?: {
+                    free_until_hours_before?: number;
+                    fee_fils_after?: number;
+                    max_per_booking?: number;
+                    requires_approval?: boolean;
+                };
+                company_cancellation?: {
+                    refund_percent?: number;
+                    /** @enum {string} */
+                    compensation?: "none" | "credit" | "coupon";
+                };
+                exceptions?: string[];
+            };
+            is_active?: boolean;
+            version?: number;
+            reason?: string | null;
+        };
+        /** PolicyResource */
+        PolicyResource: {
+            id: number;
+            code: string;
+            type: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            rules: {
+                [key: string]: unknown;
+            };
+            is_active: boolean;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * PolicyType
+         * @enum {string}
+         */
+        PolicyType: "cancellation" | "reschedule" | "refund";
+        /**
+         * PriceUnit
+         * @enum {string}
+         */
+        PriceUnit: "per_worker_visit" | "per_hour" | "per_day" | "per_month";
+        /**
+         * PropertyType
+         * @description Address property type (spec §6.2, screens 13/22).
+         * @enum {string}
+         */
+        PropertyType: "villa" | "apartment" | "townhouse" | "office";
+        /**
+         * RegisterDeviceRequest
+         * @description POST /customer/devices.
+         */
+        RegisterDeviceRequest: {
+            push_token: string;
+            /** @enum {string} */
+            platform: "ios" | "android";
+            app_version?: string | null;
+            /** @enum {string|null} */
+            locale?: "ar" | "en" | null;
+        };
+        /**
+         * ResetPasswordRequest
+         * @description POST /admin/auth/reset: at least 12 characters with upper and lower case letters and a number.
+         */
+        ResetPasswordRequest: {
+            /** Format: email */
+            email: string;
+            token: string;
+            password: string;
+            password_confirmation: string;
+        };
+        /** RoleResource */
+        RoleResource: {
+            name: string;
+            label: string;
+            is_system: boolean;
+            permissions: unknown[];
+            users_count?: number;
+        };
+        /**
+         * SendOtpRequest
+         * @description POST /public/otp/send (spec §13.1).
+         */
+        SendOtpRequest: {
+            phone: string;
+            /** @enum {string} */
+            purpose?: "login";
+            terms_accepted?: boolean;
+            terms_version?: string | null;
+        };
+        /**
+         * ServiceKind
+         * @enum {string}
+         */
+        ServiceKind: "standard_visit" | "live_out" | "future_specialized";
+        /**
+         * ServicePriceRequest
+         * @description POST /admin/service-prices and PATCH /admin/service-prices/{price}. A row cannot move to another service.
+         */
+        ServicePriceRequest: {
+            service_id: number;
+            zone_id?: number | null;
+            slot_template_id?: string;
+            day_of_week?: number | null;
+            /** Format: date */
+            valid_from?: string | null;
+            /** Format: date */
+            valid_to?: string | null;
+            unit: components["schemas"]["PriceUnit"];
+            amount_fils: number;
+            vat_inclusive: boolean;
+            priority?: number;
+            version?: number;
+            reason?: string | null;
+        };
+        /** ServicePriceResource */
+        ServicePriceResource: {
+            id: number;
+            service_id: number;
+            zone_id: number | null;
+            slot_template_id: number | null;
+            day_of_week: number | null;
+            valid_from: string | null;
+            valid_to: string | null;
+            unit: string;
+            amount_fils: number;
+            vat_inclusive: boolean;
+            priority: number;
+            unit_breakdown: {
+                net_fils: number;
+                vat_fils: number;
+                gross_fils: number;
+                vat_rate_percent: number;
+            };
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * ServiceRequest
+         * @description POST /admin/services and PATCH /admin/services/{service}. `code` and `kind` are fixed after creation.
+         */
+        ServiceRequest: {
+            code: string;
+            kind: components["schemas"]["ServiceKind"];
+            name: string;
+            description?: string;
+            includes?: {
+                ar: string;
+                en: string;
+            }[] | null;
+            excludes?: {
+                ar: string;
+                en: string;
+            }[] | null;
+            duration_minutes?: number;
+            min_workers?: number;
+            max_workers?: number;
+            team_size_default?: number | null;
+            requires_equipment?: boolean;
+            materials_mode?: components["schemas"]["MaterialsMode"];
+            is_active?: boolean;
+            is_bookable_online?: boolean;
+            sort_order?: number;
+            cancellation_policy_id?: number | null;
+            reschedule_policy_id?: number | null;
+            refund_policy_id?: number | null;
+            version?: number;
+            reason?: string | null;
+        };
+        /** ServiceResource */
+        ServiceResource: {
+            id: number;
+            code: string;
+            kind: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            description: {
+                ar: string;
+                en: string;
+            } | null;
+            includes: {
+                ar: string;
+                en: string;
+            }[];
+            excludes: {
+                ar: string;
+                en: string;
+            }[];
+            duration_minutes: number;
+            min_workers: number;
+            max_workers: number;
+            team_size_default: number | null;
+            requires_equipment: boolean;
+            materials_mode: string;
+            is_active: boolean;
+            is_bookable_online: boolean;
+            sort_order: number;
+            cancellation_policy_id: number | null;
+            reschedule_policy_id: number | null;
+            refund_policy_id: number | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+            prices?: components["schemas"]["ServicePriceResource"][];
+            packages?: components["schemas"]["PackageResource"][];
+            live_out_plans?: components["schemas"]["LiveOutPlanResource"][];
+        };
+        /**
+         * StaffLoginRequest
+         * @description POST /admin/auth/login and /driver/auth/login (spec §13.2, §13.3).
+         */
+        StaffLoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            code?: string | null;
+        };
+        /** StaffMeResource */
+        StaffMeResource: {
+            id: number;
+            name: string;
+            email: string;
+            locale: string;
+            roles: {
+                relations: [
+                    "roles"
+                ];
+            }[];
+            permissions: unknown[];
+            two_factor_enabled: boolean;
+            /** @description A role in Settings auth.two_factor_required_roles: two-factor cannot be turned off. */
+            two_factor_required: boolean;
+            /** @description While true, every other admin endpoint answers 403 TWO_FACTOR_SETUP_REQUIRED (Http\Middleware\EnsureAdminAccess). */
+            two_factor_setup_required: boolean;
+        };
+        /** StaffUserResource */
+        StaffUserResource: {
+            id: number;
+            name: string;
+            email: string;
+            phone: string | null;
+            locale: string;
+            status: string;
+            roles: {
+                relations: [
+                    "roles"
+                ];
+            }[];
+            two_factor_enabled: boolean;
+            locked_until: string | null;
+            last_login_at: string | null;
+            created_at: string | null;
+            version: number;
+        };
+        /**
+         * StaffUserStatusRequest
+         * @description POST /admin/staff-users/{id}/suspend (reason required) and /activate (reason optional).
+         */
+        StaffUserStatusRequest: {
+            reason?: string | null;
+        };
+        /**
+         * StartTwoFactorRequest
+         * @description POST /admin/me/two-factor {password}: the current password is re-checked before a new secret is issued.
+         */
+        StartTwoFactorRequest: {
+            password: string;
+        };
+        /**
+         * StoreAddressRequest
+         * @description POST /customer/addresses (spec §6.2, screens 13/22).
+         */
+        StoreAddressRequest: {
+            label: string;
+            property_type: components["schemas"]["PropertyType"];
+            building?: string | null;
+            unit_number?: string | null;
+            street?: string | null;
+            area_text?: string | null;
+            lat: number;
+            lng: number;
+            access_instructions?: string | null;
+            has_pets?: boolean;
+            pets_note?: string | null;
+            parking_available?: boolean;
+            entry_permit_required?: boolean;
+            cleaning_materials_available?: boolean;
+            is_default?: boolean;
+        };
+        /**
+         * StoreStaffUserRequest
+         * @description POST /admin/staff-users (A13).
+         */
+        StoreStaffUserRequest: {
+            name: string;
+            /** Format: email */
+            email: string;
+            phone?: string | null;
+            /** @enum {string} */
+            locale?: "ar" | "en";
+            roles: string[];
+        };
+        /**
+         * StoreSubZoneRequest
+         * @description POST /admin/zones/{id}/sub-zones (A11). Codes are unique within a zone.
+         */
+        StoreSubZoneRequest: {
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            polygon: string[];
+            is_active?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * StoreZoneRequest
+         * @description POST /admin/zones (A11). The polygon's shape is checked by PolygonValidator (422 POLYGON_INVALID with a reason).
+         */
+        StoreZoneRequest: {
+            /** @description Codes stay unique across soft-deleted rows too (the DB index covers them). */
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            polygon: string[];
+            is_active?: boolean;
+            default_travel_buffer_min?: number | null;
+            sort_order?: number;
+            reason?: string | null;
+        };
+        /** SubZoneAdminResource */
+        SubZoneAdminResource: {
+            id: string;
+            zone_id: string;
+            code: string;
+            name: string;
+            is_active: string;
+            polygon: string;
+            bbox: {
+                min_lat: string;
+                max_lat: string;
+                min_lng: string;
+                max_lng: string;
+            };
+            version: string;
+            active_addresses_count?: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * SyncStaffUserRolesRequest
+         * @description PUT /admin/staff-users/{id}/roles (A13).
+         */
+        SyncStaffUserRolesRequest: {
+            roles: string[];
+            version?: number;
+        };
+        /**
+         * TwoFactorCodeRequest
+         * @description POST /admin/me/two-factor/confirm {code}; DELETE /admin/me/two-factor {password, code}.
+         */
+        TwoFactorCodeRequest: {
+            code: string;
+        };
+        /**
+         * UpdateAddressRequest
+         * @description PATCH /customer/addresses/{ulid}: partial update; lat and lng travel together.
+         */
+        UpdateAddressRequest: {
+            label?: string;
+            property_type?: components["schemas"]["PropertyType"];
+            building?: string | null;
+            unit_number?: string | null;
+            street?: string | null;
+            area_text?: string | null;
+            lat?: number;
+            lng?: number;
+            access_instructions?: string | null;
+            has_pets?: boolean;
+            pets_note?: string | null;
+            parking_available?: boolean;
+            entry_permit_required?: boolean;
+            cleaning_materials_available?: boolean;
+            is_default?: boolean;
+            version?: number;
+        };
+        /**
+         * UpdateConsentsRequest
+         * @description PUT /customer/consents.
+         */
+        UpdateConsentsRequest: {
+            marketing: boolean;
+        };
+        /**
+         * UpdateCustomerProfileRequest
+         * @description PATCH /customer/me (REQ C21).
+         */
+        UpdateCustomerProfileRequest: {
+            name?: string;
+            /** Format: email */
+            email?: string | null;
+            /** @enum {string} */
+            locale?: "ar" | "en";
+        };
+        /**
+         * UpdateLocaleRequest
+         * @description POST /customer/me/locale.
+         */
+        UpdateLocaleRequest: {
+            /** @enum {string} */
+            locale: "ar" | "en";
+        };
+        /**
+         * UpdateRolePermissionsRequest
+         * @description PUT /admin/roles/{name}/permissions (A13).
+         */
+        UpdateRolePermissionsRequest: {
+            permissions: string[];
+        };
+        /**
+         * UpdateStaffUserRequest
+         * @description PATCH /admin/staff-users/{id} (A13); send the loaded version as If-Match or `version`.
+         */
+        UpdateStaffUserRequest: {
+            name?: string;
+            phone?: string | null;
+            /** @enum {string} */
+            locale?: "ar" | "en";
+            version?: number;
+        };
+        /**
+         * UpdateSubZoneRequest
+         * @description PATCH /admin/sub-zones/{id} (A11): partial update with `version` field or If-Match header.
+         */
+        UpdateSubZoneRequest: {
+            code?: string;
+            name?: {
+                ar?: string;
+                en?: string;
+            };
+            polygon?: string[];
+            is_active?: boolean;
+            version?: number;
+            reason?: string | null;
+        };
+        /**
+         * UpdateZoneRequest
+         * @description PATCH /admin/zones/{id} (A11): partial update with `version` field or If-Match header.
+         */
+        UpdateZoneRequest: {
+            code?: string;
+            name?: {
+                ar?: string;
+                en?: string;
+            };
+            polygon?: string[];
+            is_active?: boolean;
+            default_travel_buffer_min?: number | null;
+            sort_order?: number;
+            version?: number;
+            reason?: string | null;
+        };
+        /**
+         * VerifyOtpRequest
+         * @description POST /public/otp/verify (spec §13.1).
+         */
+        VerifyOtpRequest: {
+            phone: string;
+            code: string;
+            device_name?: string | null;
+        };
+        /** ZoneAdminResource */
+        ZoneAdminResource: {
+            id: string;
+            code: string;
+            name: string;
+            is_active: string;
+            polygon: string;
+            bbox: {
+                min_lat: string;
+                max_lat: string;
+                min_lng: string;
+                max_lng: string;
+            };
+            default_travel_buffer_min: string;
+            sort_order: string;
+            version: string;
+            active_addresses_count?: number;
+            sub_zones?: components["schemas"]["SubZoneAdminResource"][];
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * ZoneCheckRequest
+         * @description POST /public/zones/check
+         */
+        ZoneCheckRequest: {
+            lat: number;
+            lng: number;
+        };
+    };
+    responses: {
+        /** @description Not found */
+        NotFoundHttpException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Error overview. */
+                    message: string;
+                };
+            };
+        };
+        /** @description Unauthenticated */
+        AuthenticationException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Error overview. */
+                    message: string;
+                };
+            };
+        };
+        /** @description Validation error */
+        ValidationException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Errors overview. */
+                    message: string;
+                    /** @description A detailed description of each field that failed validation. */
+                    errors: {
+                        [key: string]: string[];
+                    };
+                };
+            };
+        };
+        /** @description Not found */
+        ModelNotFoundException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Error overview. */
+                    message: string;
+                };
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -32,6 +1830,865 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "admin.catalog.addons.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.addons.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AddonResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddonResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.addons.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The addon ID */
+                addon: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AddonResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddonResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.addons.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The addon ID */
+                addon: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AddonResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddonResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.addresses.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of `AddressResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddressResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.addresses.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreAddressRequest"];
+            };
+        };
+        responses: {
+            /** @description `AddressResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddressResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.addresses.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.addresses.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateAddressRequest"];
+            };
+        };
+        responses: {
+            /** @description `AddressResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddressResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.addresses.default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AddressResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AddressResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.auth.logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    push_token?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.auth.login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffMeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffMeResource"];
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.auth.logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "admin.identity.auth.forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            message: "إذا كان هناك حساب مرتبط بهذا البريد الإلكتروني، فقد أرسلنا إليه رابطًا لإعادة تعيين كلمة المرور.";
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.auth.reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            message: "أُعيد تعيين كلمة المرور. يمكنك تسجيل الدخول الآن.";
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.identity.auth.login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffLoginRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            token: string;
+                            user: unknown[];
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.identity.me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `DriverResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "driver.identity.auth.logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.catalog.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogPreviewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            payload: {
+                                ar: {
+                                    code: string;
+                                    kind: string;
+                                    name: string | null;
+                                    description: string | null;
+                                    includes: (string | null)[];
+                                    excludes: (string | null)[];
+                                    duration_minutes: number;
+                                    min_workers: number;
+                                    max_workers: number;
+                                    /**
+                                     * @description DECISION: D-02b — the materials mode is per service (services.materials_mode, spec §6.3) and the company
+                                     *     fee is the MATERIALS add-on (addons.amount_fils with its VAT flag and unit). The `materials.mode` and
+                                     *     `materials.fee_fils` settings seeded by SettingsDefaults are not read: the catalog is the one source.
+                                     */
+                                    materials_mode: string;
+                                    currency: string;
+                                    price_from_fils: string;
+                                    price_unit: string | null;
+                                    vat_inclusive_display: boolean;
+                                    packages: {
+                                        code: string;
+                                        name: string | null;
+                                        visits_per_week: number;
+                                        term_weeks: number | null;
+                                        term_months: number | null;
+                                        discount_type: string;
+                                        discount_value: number;
+                                        min_visits_for_discount: number | null;
+                                        auto_renew_allowed: boolean;
+                                        max_skips_per_month: number | null;
+                                        max_freeze_days: number | null;
+                                    }[];
+                                    live_out_plans: unknown[][];
+                                };
+                                en: {
+                                    code: string;
+                                    kind: string;
+                                    name: string | null;
+                                    description: string | null;
+                                    includes: (string | null)[];
+                                    excludes: (string | null)[];
+                                    duration_minutes: number;
+                                    min_workers: number;
+                                    max_workers: number;
+                                    /**
+                                     * @description DECISION: D-02b — the materials mode is per service (services.materials_mode, spec §6.3) and the company
+                                     *     fee is the MATERIALS add-on (addons.amount_fils with its VAT flag and unit). The `materials.mode` and
+                                     *     `materials.fee_fils` settings seeded by SettingsDefaults are not read: the catalog is the one source.
+                                     */
+                                    materials_mode: string;
+                                    currency: string;
+                                    price_from_fils: string;
+                                    price_unit: string | null;
+                                    vat_inclusive_display: boolean;
+                                    packages: {
+                                        code: string;
+                                        name: string | null;
+                                        visits_per_week: number;
+                                        term_weeks: number | null;
+                                        term_months: number | null;
+                                        discount_type: string;
+                                        discount_value: number;
+                                        min_visits_for_discount: number | null;
+                                        auto_renew_allowed: boolean;
+                                        max_skips_per_month: number | null;
+                                        max_freeze_days: number | null;
+                                    }[];
+                                    live_out_plans: unknown[][];
+                                };
+                            };
+                            price_examples: {
+                                workers: number;
+                                gross_fils: number;
+                                net_fils: number;
+                                vat_fils: number;
+                            }[];
+                        };
+                        meta: {
+                            persisted: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.identity.config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            locales: [
+                                "ar",
+                                "en"
+                            ];
+                            default_locale: unknown;
+                            supported_country_codes: unknown[];
+                            legal: {
+                                terms_version: unknown;
+                                privacy_version: unknown;
+                            };
+                            otp: {
+                                /** @constant */
+                                length: 6;
+                                resend_seconds: number;
+                                ttl_seconds: number;
+                                max_attempts: number;
+                            };
+                            min_app_version: string;
+                            support: {
+                                phone: string | null;
+                                whatsapp: string | null;
+                                email: string | null;
+                            };
+                            digits_style: unknown;
+                            currency: unknown;
+                            timezone: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "customer.identity.consents.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            marketing: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
+                            terms: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                            privacy: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.consents.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConsentsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            marketing: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
+                            terms: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                            privacy: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.coupons.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.coupons.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CouponRequest"];
+            };
+        };
+        responses: {
+            /** @description `CouponResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CouponResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.coupons.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The coupon ID */
+                coupon: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `CouponResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CouponResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.coupons.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The coupon ID */
+                coupon: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CouponRequest"];
+            };
+        };
+        responses: {
+            /** @description `CouponResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CouponResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.devices.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDeviceRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.devices.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "public.health": {
         parameters: {
             query?: never;
@@ -49,6 +2706,1647 @@ export interface operations {
                     "application/json": string;
                 };
             };
+        };
+    };
+    "admin.catalog.live-out-plans.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.live-out-plans.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveOutPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description `LiveOutPlanResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LiveOutPlanResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.live-out-plans.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The plan ID */
+                plan: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `LiveOutPlanResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LiveOutPlanResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.live-out-plans.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The plan ID */
+                plan: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveOutPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description `LiveOutPlanResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LiveOutPlanResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `StaffMeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffMeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "public.identity.otp.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendOtpRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phone: string;
+                            expires_in: unknown;
+                            resend_in: unknown;
+                            max_attempts: unknown;
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.identity.otp.verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyOtpRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            token: string;
+                            customer: unknown[];
+                            is_new: boolean;
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.packages.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.packages.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageRequest"];
+            };
+        };
+        responses: {
+            /** @description `PackageResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PackageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.packages.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The package ID */
+                package: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `PackageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PackageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.packages.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The package ID */
+                package: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageRequest"];
+            };
+        };
+        responses: {
+            /** @description `PackageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PackageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.permissions.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            name: string;
+                            group: string;
+                            label: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.phone-change.request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhoneChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phone: string;
+                            expires_in: unknown;
+                            resend_in: unknown;
+                            max_attempts: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.phone-change.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmPhoneChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description `CustomerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.policies.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.policies.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description `PolicyResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PolicyResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.policies.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy ID */
+                policy: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `PolicyResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PolicyResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.policies.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy ID */
+                policy: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description `PolicyResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PolicyResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.me.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `CustomerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.me.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomerProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description `CustomerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.me.locale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLocaleRequest"];
+            };
+        };
+        responses: {
+            /** @description `CustomerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.roles.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of `RoleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["RoleResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.identity.roles.permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRolePermissionsRequest"];
+            };
+        };
+        responses: {
+            /** @description `RoleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["RoleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.catalog.services.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    "public.catalog.services.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            404: components["responses"]["NotFoundHttpException"];
+        };
+    };
+    "admin.catalog.services.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.services.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceRequest"];
+            };
+        };
+        responses: {
+            /** @description `ServiceResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServiceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.services.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The service ID */
+                service: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ServiceResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServiceResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.services.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The service ID */
+                service: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceRequest"];
+            };
+        };
+        responses: {
+            /** @description `ServiceResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServiceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.service-prices.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_id?: number;
+                zone_id?: number;
+                kind?: string;
+                type?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.service-prices.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePriceRequest"];
+            };
+        };
+        responses: {
+            /** @description `ServicePriceResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServicePriceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.service-prices.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The price ID */
+                price: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ServicePriceResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServicePriceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.catalog.service-prices.destroy": {
+        parameters: {
+            query?: {
+                version?: number;
+                reason?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description The price ID */
+                price: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.service-prices.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The price ID */
+                price: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServicePriceRequest"];
+            };
+        };
+        responses: {
+            /** @description `ServicePriceResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServicePriceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            key: string;
+                            value: unknown;
+                            type: string;
+                            group: string;
+                            description: string | null;
+                            version: number;
+                            updated_at: string | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.settings.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    value: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            key: string;
+                            value: unknown;
+                            type: string;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.index": {
+        parameters: {
+            query?: {
+                role?: string | null;
+                status?: "active" | "suspended" | null;
+                search?: string | null;
+                page?: number | null;
+                per_page?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreStaffUserRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffUserResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The staff user ID */
+                staffUser: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `StaffUserResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.identity.staff-users.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The staff user ID */
+                staffUser: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateStaffUserRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffUserResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The staff user ID */
+                staffUser: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StaffUserStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffUserResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The staff user ID */
+                staffUser: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StaffUserStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffUserResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.staff-users.roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The staff user ID */
+                staffUser: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncStaffUserRolesRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffUserResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffUserResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.sub-zones.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The zone ID */
+                zone: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreSubZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description `SubZoneAdminResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SubZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.sub-zones.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The sub zone ID */
+                subZone: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description `SubZoneAdminResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SubZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.two-factor.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartTwoFactorRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            secret: string;
+                            otpauth_url: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.two-factor.disable": {
+        parameters: {
+            query: {
+                code: string;
+                password: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `StaffMeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffMeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.two-factor.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description `StaffMeResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["StaffMeResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.zones.check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ZoneCheckRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            in_service_area: boolean;
+                            zone: {
+                                code: string;
+                                name: string;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.zones.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                is_active?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated set of `ZoneAdminResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ZoneAdminResource"][];
+                        links: {
+                            first: string | null;
+                            last: string | null;
+                            prev: string | null;
+                            next: string | null;
+                        };
+                        meta: {
+                            current_page: number;
+                            from: number | null;
+                            last_page: number;
+                            /** @description Generated paginator links. */
+                            links: {
+                                url: string | null;
+                                label: string;
+                                active: boolean;
+                            }[];
+                            /** @description Base path for paginator generated URLs. */
+                            path: string | null;
+                            /** @description Number of items shown per page. */
+                            per_page: number;
+                            /** @description Number of the last item in the slice. */
+                            to: number | null;
+                            /** @description Total number of items being paginated. */
+                            total: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.zones.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description `ZoneAdminResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.zones.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The zone ID */
+                zone: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ZoneAdminResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.zones.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The zone ID */
+                zone: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description `ZoneAdminResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.zones.deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The zone ID */
+                zone: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeactivateZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description `ZoneAdminResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ZoneAdminResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
 }

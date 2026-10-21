@@ -36,3 +36,22 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * At least a 44×44px hit area for small controls (chip remove buttons, switches, icon buttons) on tablets, without
+ * changing how they look: an invisible ::before centred on the control. Centring with left + translate works the same
+ * in both directions.
+ */
+@utility touch-target {
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
