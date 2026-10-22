@@ -36,7 +36,7 @@ export function ShiftEditor({
   const text = useOpsText();
   const errorText = useOpsErrorKey();
   const baseId = useId();
-  const setDay =(day: number, patch: Partial<ShiftDraft[number]>) => onChange?.({ ...draft, [day]: { ...draft[day], ...patch } });
+  const setDay = (day: number, patch: Partial<ShiftDraft[number]>) => onChange?.({ ...draft, [day]: { ...draft[day], ...patch } });
 
   return (
     <div className="flex flex-col gap-3">
