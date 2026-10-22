@@ -133,7 +133,8 @@ export const slotRuleFormSchema = z
     max_bookings: z.string().transform((raw, ctx): number | null => {
       if (raw.trim() === "") return null;
       const v = parseWholeNumber(raw);
-      if (v === null || v > 1000) addIssue(ctx, "maxBookings");
+      // SlotRuleRequest: integer 0–1000 (no "higher than the current limit" here; that is the override form's rule).
+      if (v === null || v > 1000) addIssue(ctx, "maxBookingsRange");
       return v;
     }),
     reason: z.string().transform((raw, ctx): string => {

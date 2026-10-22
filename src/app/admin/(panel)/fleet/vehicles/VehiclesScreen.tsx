@@ -26,7 +26,14 @@ import { applyFieldErrors } from "@/lib/admin/errors";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import type { ForceInput } from "@/lib/admin/ops/capacity";
-import { MAX_SEATS, VEHICLE_STATUSES, vehicleFormSchema, vehicleToFormValues, type VehiclePayload } from "@/lib/admin/ops/fleet";
+import {
+  MAX_SEATS,
+  VEHICLE_STATUSES,
+  usualDriverChoices,
+  vehicleFormSchema,
+  vehicleToFormValues,
+  type VehiclePayload,
+} from "@/lib/admin/ops/fleet";
 import { useAdminSession } from "@/lib/admin/session";
 import type { Vehicle, VehicleStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
@@ -296,7 +303,7 @@ function VehicleEditor({ vehicle, onClose }: { vehicle: Vehicle | null; onClose:
             control={control}
             name="default_driver_id"
             label={t("driver")}
-            options={(drivers.data ?? []).map((d) => ({
+            options={usualDriverChoices(drivers.data ?? [], vehicle?.id ?? null).map((d) => ({
               value: String(d.id),
               label: `${d.staff_user?.name ?? `#${d.id}`}${d.status === "active" ? "" : ` · ${text.driverStatus(d.status)}`}`,
             }))}
@@ -304,6 +311,7 @@ function VehicleEditor({ vehicle, onClose }: { vehicle: Vehicle | null; onClose:
             failed={drivers.isError}
             placeholder={t("noDriver")}
             loadingLabel={catalogT("loadingOptions")}
+            hint={t("driverHint")}
             error={fieldError(errors.default_driver_id)}
           />
           <TextField

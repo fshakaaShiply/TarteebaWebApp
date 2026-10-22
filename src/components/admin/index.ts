@@ -1,6 +1,6 @@
 // Shared admin UI kit (spec §27.4 admin components). Build every admin screen from these and the theme tokens.
 export { Button, ButtonLink, IconButton, buttonClasses, type ButtonSize, type ButtonVariant } from "./Button";
-export { Checkbox, CheckboxGroup, FieldShell, Select, TextArea, TextField, controlClasses } from "./Field";
+export { Checkbox, CheckboxGroup, FieldShell, Select, TextArea, TextField, controlClasses, showFieldError } from "./Field";
 export { ChipsInput } from "./ChipsInput";
 export { ConfirmDialog, Dialog, Drawer } from "./Dialog";
 export { DataTable, Pagination, type Column } from "./DataTable";

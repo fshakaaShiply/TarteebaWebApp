@@ -14,9 +14,15 @@ import type { ShiftRow, Worker } from "@/lib/admin/types";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
 import { ShiftEditor } from "./ShiftEditor";
-import { useWorkerCache } from "./workerShared";
+import { ChangedElsewhereNotice, useWorkerCache, useWorkerDraft } from "./workerShared";
 
 type ShiftsInput = { shifts: ShiftRow[]; weekly_rest_day: number };
+type ScheduleDraft = { draft: ShiftDraft; restDay: number };
+
+const readSchedule = (w: Worker): ScheduleDraft => ({ draft: toShiftDraft(w.shifts), restDay: w.weekly_rest_day });
+// Hours of a day off do not count: compare what would be saved.
+const sameSchedule = (a: ScheduleDraft, b: ScheduleDraft) =>
+  a.restDay === b.restDay && JSON.stringify(serializeShifts(a.draft)) === JSON.stringify(serializeShifts(b.draft));
 
 /**
  * Schedule tab: the weekly shift pattern and rest day (PUT /admin/workers/{id}/shifts, workers.manage). Both are saved
@@ -42,40 +48,35 @@ function ScheduleForm({ worker }: { worker: Worker }) {
   const serverMessage = useServerFieldMessage();
   const errorsT = useTranslations("admin.catalog.errors");
   const cache = useWorkerCache();
-  const guard = useShortfallGuard<ShiftsInput>();
-  const [initial, setInitial] = useState(() => ({ draft: toShiftDraft(worker.shifts), restDay: worker.weekly_rest_day }));
-  const [draft, setDraft] = useState<ShiftDraft>(initial.draft);
-  const [restDay, setRestDay] = useState(initial.restDay);
+  const guard = useShortfallGuard<{ input: ShiftsInput; version: number }>();
+  // Without edits the editor shows the cached profile, so a rest day moved in the Info tab shows here too.
+  const edit = useWorkerDraft(worker, readSchedule, sameSchedule);
+  const { draft, restDay } = edit.value;
   const [attempted, setAttempted] = useState(false);
   const [serverErrors, setServerErrors] = useState<Partial<Record<number, string>>>({});
   const [stale, setStale] = useState(false);
 
-  const dirty =
-    restDay !== initial.restDay || JSON.stringify(serializeShifts(draft)) !== JSON.stringify(serializeShifts(initial.draft));
-  useUnsavedChanges(dirty);
+  useUnsavedChanges(edit.dirty);
   const errors: Partial<Record<number, ShiftError>> = attempted ? validateShifts(draft, restDay) : {};
   const noWorkingDay = Object.values(draft).every((row) => !row.working);
 
-  const load = (w: Worker) => {
-    const next = { draft: toShiftDraft(w.shifts), restDay: w.weekly_rest_day };
-    setInitial(next);
-    setDraft(next.draft);
-    setRestDay(next.restDay);
+  const load = () => {
+    edit.reset();
     setAttempted(false);
     setServerErrors({});
   };
 
   const save = useMutation({
-    mutationFn: ({ input, force }: { input: ShiftsInput; force?: ForceInput }) =>
-      updateWorkerShifts(worker.id, input, cache.version(worker), force),
+    mutationFn: ({ input, version, force }: { input: ShiftsInput; version: number; force?: ForceInput }) =>
+      updateWorkerShifts(worker.id, input, version, force),
     onSuccess: (saved) => {
       cache.saved(saved);
-      load(saved);
+      load();
       guard.clear();
       toast.success(t("saved", { name: saved.display_name }));
     },
     onError: (error, vars) => {
-      if (guard.capture(error, vars.input)) return;
+      if (guard.capture(error, { input: vars.input, version: vars.version })) return;
       if (vars.force) return;
       guard.clear();
       if (error instanceof AdminApiError && error.code === "STALE_VERSION") setStale(true);
@@ -94,7 +95,7 @@ function ScheduleForm({ worker }: { worker: Worker }) {
     setAttempted(true);
     setServerErrors({});
     if (Object.keys(validateShifts(draft, restDay)).length > 0) return;
-    save.mutate({ input: { shifts: serializeShifts(draft), weekly_rest_day: restDay } });
+    save.mutate({ input: { shifts: serializeShifts(draft), weekly_rest_day: restDay }, version: edit.version });
   };
 
   const pending = guard.state;
@@ -112,19 +113,20 @@ function ScheduleForm({ worker }: { worker: Worker }) {
         draft={draft}
         restDay={restDay}
         onChange={(next) => {
-          setDraft(next);
+          edit.set({ draft: next, restDay });
           setServerErrors({});
         }}
         onRestDayChange={(day) => {
-          setRestDay(day);
+          edit.set({ draft, restDay: day });
           setServerErrors({});
         }}
         errors={errors}
         serverErrors={serverErrors}
       />
       {otherError ? <Notice tone="danger">{describe(save.error)}</Notice> : null}
+      <ChangedElsewhereNotice show={edit.conflict} />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" disabled={!dirty || save.isPending} onClick={() => load(worker)}>
+        <Button variant="outline" disabled={!edit.dirty || save.isPending} onClick={load}>
           {t("discard")}
         </Button>
         <Button onClick={submit} loading={save.isPending && !pending}>
@@ -137,7 +139,7 @@ function ScheduleForm({ worker }: { worker: Worker }) {
           pending={save.isPending}
           forceError={save.error && !(save.error instanceof AdminApiError && save.error.code === "CAPACITY_SHORTFALL") ? save.error : null}
           onClose={guard.clear}
-          onForce={(force) => save.mutate({ input: pending.vars, force })}
+          onForce={(force) => save.mutate({ ...pending.vars, force })}
         />
       )}
       <StaleDialog
@@ -145,7 +147,7 @@ function ScheduleForm({ worker }: { worker: Worker }) {
         onClose={() => setStale(false)}
         onReload={() => {
           setStale(false);
-          void cache.reload(worker.id).then(load);
+          void cache.reload(worker.id).then(() => load());
         }}
       />
     </Card>

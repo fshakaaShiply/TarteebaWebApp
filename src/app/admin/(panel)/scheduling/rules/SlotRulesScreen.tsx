@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import {
   Button,
@@ -20,6 +20,7 @@ import {
   Switch,
   TextArea,
   TextField,
+  showFieldError,
   useToast,
   type Column,
 } from "@/components/admin";
@@ -163,9 +164,13 @@ function SlotRulesTable({ onEdit, onDelete }: { onEdit: (rule: SlotRule) => void
         return (
           <div className="flex justify-end gap-1">
             {override ? (
-              <span className="inline-flex items-center gap-1 px-2 text-xs text-ink-600" title={t("readOnlyHint")}>
-                <Lock aria-hidden className="size-3.5" />
-                {t("readOnly")}
+              // Visible text (not a tooltip), so keyboard, touch and screen-reader users get the explanation too.
+              <span className="flex max-w-56 flex-col items-end gap-0.5 px-2 text-end text-xs text-ink-600">
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <Lock aria-hidden className="size-3.5" />
+                  {t("readOnly")}
+                </span>
+                <span>{mayDelete ? t("readOnlyHint") : t("readOnlyHintNoDelete")}</span>
               </span>
             ) : (
               <Button
@@ -464,6 +469,7 @@ function DeleteRuleDialog({ rule, onClose }: { rule: SlotRule; onClose: () => vo
   const invalidate = useOpsInvalidate();
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const remove = useMutation({
     mutationFn: () => deleteSlotRule(rule.id, rule.version, reason.trim()),
@@ -485,11 +491,16 @@ function DeleteRuleDialog({ rule, onClose }: { rule: SlotRule; onClose: () => vo
       pending={remove.isPending}
       onConfirm={() => {
         const problem = checkReason(reason);
-        setReasonError(problem ? (errorText(problem) ?? null) : null);
-        if (!problem) remove.mutate();
+        if (problem) {
+          showFieldError(() => setReasonError(errorText(problem) ?? null), reasonRef.current);
+          return;
+        }
+        setReasonError(null);
+        remove.mutate();
       }}
     >
       <TextArea
+        ref={reasonRef}
         label={t("deleteReason")}
         required
         rows={2}

@@ -117,7 +117,9 @@ export type OverrideOption = {
 /**
  * The override actions that make sense for a slot:
  *   open       the slot is closed by a blackout or by a closed rule;
- *   raise_cap  the rule that applies is open with a booking cap.
+ *   raise_cap  the rule that applies is open with a booking cap, and nothing closes the slot (OverrideCapacity refuses
+ *              raise_cap with 422 NOTHING_TO_OVERRIDE while a blackout or a closed rule closes it: open it instead,
+ *              optionally with a higher cap).
  * Hard limits (no workers, no seats, past, beyond the horizon, inactive slot) cannot be overridden: no option.
  */
 export function overrideOptions(slot: CapacitySlot): OverrideOption[] {
@@ -131,8 +133,24 @@ export function overrideOptions(slot: CapacitySlot): OverrideOption[] {
   if (rule && !rule.is_open) relaxes.push({ kind: "closed_rule", rule });
   if (relaxes.length > 0) out.push({ action: "open", relaxes });
 
-  if (rule && rule.is_open && rule.max_bookings !== null) out.push({ action: "raise_cap", relaxes: [{ kind: "cap", rule }] });
+  const closedBySoftRule = slot.reason === "blackout" || slot.reason === "rule_closed";
+  if (rule && rule.is_open && rule.max_bookings !== null && !closedBySoftRule) {
+    out.push({ action: "raise_cap", relaxes: [{ kind: "cap", rule }] });
+  }
   return out;
+}
+
+/**
+ * The service an override is limited to. OverrideCapacity creates a rule for `service_id` (or for every service when
+ * it is absent), and the capacity view evaluates each slot for one service, so the rule shown on a card can be a
+ * service-specific one. Only a relaxed rule that is itself service-specific (a closed rule, or the cap being raised)
+ * limits the override to its service; a blackout alone is relaxed for every service.
+ */
+export function overrideServiceId(option: OverrideOption | undefined): number | null {
+  for (const item of option?.relaxes ?? []) {
+    if (item.kind !== "blackout" && item.rule.service_id !== null) return item.rule.service_id;
+  }
+  return null;
 }
 
 export type OverrideFormValues = { action: OverrideAction; max_bookings: string; reason: string; confirmed: boolean };
@@ -164,7 +182,8 @@ export function overrideFormSchema(currentCap: number | null) {
       let maxBookings: number | null = null;
       if (raw !== "") {
         const n = /^\d{1,4}$/.test(raw) ? Number(raw) : NaN;
-        if (!Number.isInteger(n) || n > 1000) addIssue(ctx, "maxBookings", ["max_bookings"]);
+        // Raising a cap also needs a number above the current one; an optional cap on "open" only needs 0–1000.
+        if (!Number.isInteger(n) || n > 1000) addIssue(ctx, v.action === "raise_cap" ? "maxBookings" : "maxBookingsRange", ["max_bookings"]);
         else if (v.action === "raise_cap" && currentCap !== null && n <= currentCap) addIssue(ctx, "maxBookings", ["max_bookings"]);
         else maxBookings = n;
       } else if (v.action === "raise_cap") {

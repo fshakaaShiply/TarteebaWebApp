@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import type { Driver, Vehicle } from "../types";
-import { driverFormSchema, driverToFormValues, expiryState, vehicleFormSchema, vehicleToFormValues } from "./fleet";
+import { driverFormSchema, driverToFormValues, expiryState, usualDriverChoices, vehicleFormSchema, vehicleToFormValues } from "./fleet";
 
 function issues(result: z.ZodSafeParseResult<unknown>): Record<string, string[]> {
   if (result.success) return {};
@@ -46,6 +46,18 @@ describe("document expiry badge", () => {
     expect(expiryState("2026-11-21", today)).toBe("soon");
     expect(expiryState("2026-11-22", today)).toBe("ok");
     expect(expiryState(null, today)).toBeNull();
+  });
+});
+
+describe("usual driver picker (P2-08: one vehicle per driver)", () => {
+  it("leaves out drivers of other vehicles and keeps the edited vehicle's own driver", () => {
+    const drivesVan1 = { ...driver, vehicle: { id: 1, plate_no: "DEMO-VAN-1" } };
+    const drivesVan2 = { ...driver, id: 2, vehicle: { id: 2, plate_no: "DEMO-VAN-2" } };
+    const free = { ...driver, id: 3, vehicle: null };
+    const noRelation = { ...driver, id: 4 };
+    const all = [drivesVan1, drivesVan2, free, noRelation];
+    expect(usualDriverChoices(all, null).map((d) => d.id)).toEqual([3, 4]);
+    expect(usualDriverChoices(all, 1).map((d) => d.id)).toEqual([1, 3, 4]);
   });
 });
 

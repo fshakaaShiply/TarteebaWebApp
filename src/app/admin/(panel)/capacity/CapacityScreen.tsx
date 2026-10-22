@@ -309,7 +309,13 @@ function SlotCard({ slot, vehicles, onOverride }: { slot: CapacitySlot; vehicles
 
       {can(CAPACITY_OVERRIDE_PERMISSION) &&
         (options.length > 0 ? (
-          <Button variant="secondary" className="self-start" onClick={onOverride} icon={<ShieldAlert aria-hidden className="size-4" />}>
+          <Button
+            variant="secondary"
+            className="self-start"
+            onClick={onOverride}
+            icon={<ShieldAlert aria-hidden className="size-4" />}
+            aria-label={t("overrideLabel", { slot: text.name(slot.name), time: `${slot.start}–${slot.end}` })}
+          >
             {t("override")}
           </Button>
         ) : (

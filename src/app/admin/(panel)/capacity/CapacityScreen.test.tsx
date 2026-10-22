@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CapacitySlot, CapacityView, Vehicle } from "@/lib/admin/types";
+import type { CapacitySlot, CapacityView, SlotRuleSnapshot, Vehicle } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
 import { CapacityScreen } from "./CapacityScreen";
 
@@ -94,7 +94,7 @@ describe("capacity view and manual override", () => {
     expect(within(morning).getByText("1 booking · no limit")).toBeInTheDocument();
     expect(within(morning).getByText("No rule: open with no booking limit")).toBeInTheDocument();
     // No override without capacity.override.
-    expect(screen.queryByRole("button", { name: "Override" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Override/ })).not.toBeInTheDocument();
     expect(api.fetchCapacity).toHaveBeenCalledWith({ date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), zoneId: 1 });
   });
 
@@ -107,21 +107,33 @@ describe("capacity view and manual override", () => {
     expect(within(evening).getByText("Blackout date")).toBeInTheDocument();
     // The open slot has nothing to override.
     const morning = screen.getByRole("heading", { name: "Morning" }).closest("section")!;
-    expect(within(morning).queryByRole("button", { name: "Override" })).not.toBeInTheDocument();
+    expect(within(morning).queryByRole("button", { name: /^Override/ })).not.toBeInTheDocument();
 
-    await user.click(within(evening).getByRole("button", { name: "Override" }));
+    // Each card's button names its slot.
+    await user.click(within(evening).getByRole("button", { name: "Override Evening, 15:00–19:00" }));
     const dialog = await screen.findByRole("dialog", { name: /Override capacity: Evening/ });
     expect(within(dialog).getByText("Workers and seats stay hard limits")).toBeInTheDocument();
     expect(within(dialog).getByText(/The blackout on .* in Business Bay & Downtown/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Applies to every service in this slot.")).toBeInTheDocument();
 
-    await user.type(within(dialog).getByLabelText(/^Reason/), "VIP call");
+    const reason = within(dialog).getByLabelText(/^Reason/);
+    await user.type(reason, "VIP call");
     await user.click(within(dialog).getByRole("button", { name: "Apply override" }));
     expect(await within(dialog).findByText("Enter a reason of at least 10 characters.")).toBeInTheDocument();
     expect(within(dialog).getByText("Confirm to continue.")).toBeInTheDocument();
     expect(api.overrideCapacity).not.toHaveBeenCalled();
+    await waitFor(() => expect(reason).toHaveFocus());
 
-    await user.type(within(dialog).getByLabelText(/^Reason/), " booked by phone");
-    await user.click(within(dialog).getByRole("checkbox", { name: /I understand this override is recorded/ }));
+    // With only the confirmation missing, the box gets focus and its error is its description.
+    await user.type(reason, " booked by phone");
+    await user.click(within(dialog).getByRole("button", { name: "Apply override" }));
+    const confirm = within(dialog).getByRole("checkbox", { name: /I understand this override is recorded/ });
+    await waitFor(() => expect(confirm).toHaveFocus());
+    expect(confirm).toHaveAttribute("aria-invalid", "true");
+    expect(confirm).toHaveAccessibleDescription("Confirm to continue.");
+    expect(api.overrideCapacity).not.toHaveBeenCalled();
+
+    await user.click(confirm);
     await user.click(within(dialog).getByRole("button", { name: "Apply override" }));
     await waitFor(() =>
       expect(api.overrideCapacity).toHaveBeenCalledWith({
@@ -132,6 +144,88 @@ describe("capacity view and manual override", () => {
         reason: "VIP call booked by phone",
       }),
     );
+  });
+
+  it("returns focus to the slot's Override button when the dialog closes", async () => {
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view", "capacity.override"] });
+    const user = userEvent.setup();
+    const button = await screen.findByRole("button", { name: "Override Evening, 15:00–19:00" });
+    await user.click(button);
+    const dialog = await screen.findByRole("dialog", { name: /Override capacity: Evening/ });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(button).toHaveFocus());
+
+    // Cancel too.
+    await user.click(button);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(button).toHaveFocus());
+  });
+
+  it("opens a blackout for every service and offers no cap raise while the blackout closes the slot", async () => {
+    api.overrideCapacity.mockResolvedValue({ rule: {}, relaxed: [{ type: "blackout", id: 3 }], capacity: null });
+    // The card is evaluated for the first service of the kind (CapacityBreakdown), whose own cap rule applies.
+    const serviceCap: SlotRuleSnapshot = {
+      id: 8,
+      slot_template_id: 2,
+      zone_id: 1,
+      service_id: 1,
+      day_of_week: null,
+      date_from: null,
+      date_to: null,
+      is_open: true,
+      max_bookings: 4,
+      source: "admin",
+      reason: null,
+      version: 1,
+    };
+    api.fetchCapacity.mockResolvedValue({ ...view, slots: [{ ...view.slots[1], rule: serviceCap }] });
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view", "capacity.override"] });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Override Evening, 15:00–19:00" }));
+    const dialog = await screen.findByRole("dialog", { name: /Override capacity: Evening/ });
+    // One action only: no "Raise the booking limit" select (the API answers NOTHING_TO_OVERRIDE to it here).
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Open the slot")).toBeInTheDocument();
+    expect(within(dialog).getByText("Applies to every service in this slot.")).toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText(/^Reason/), "Corporate event, all hands");
+    await user.click(within(dialog).getByRole("checkbox", { name: /I understand/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply override" }));
+    await waitFor(() => expect(api.overrideCapacity).toHaveBeenCalledTimes(1));
+    expect(api.overrideCapacity.mock.calls[0][0]).not.toHaveProperty("service_id");
+  });
+
+  it("limits the override to the service of a closed rule it relaxes", async () => {
+    api.overrideCapacity.mockResolvedValue({ rule: {}, relaxed: [{ type: "rule", id: 8 }], capacity: null });
+    const closed: SlotRuleSnapshot = {
+      id: 8,
+      slot_template_id: 2,
+      zone_id: 1,
+      service_id: 1,
+      day_of_week: null,
+      date_from: null,
+      date_to: null,
+      is_open: false,
+      max_bookings: null,
+      source: "admin",
+      reason: null,
+      version: 1,
+    };
+    api.fetchCapacity.mockResolvedValue({ ...view, slots: [{ ...view.slots[1], reason: "rule_closed", rule: closed }] });
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view", "capacity.override"] });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Override Evening, 15:00–19:00" }));
+    const dialog = await screen.findByRole("dialog", { name: /Override capacity: Evening/ });
+    expect(within(dialog).getByText(/^Applies to STANDARD_VISIT only/)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/^Reason/), "Corporate event, all hands");
+    await user.click(within(dialog).getByRole("checkbox", { name: /I understand/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply override" }));
+    await waitFor(() => expect(api.overrideCapacity).toHaveBeenCalledWith(expect.objectContaining({ service_id: 1, action: "open" })));
   });
 
   it("renders in Arabic", async () => {

@@ -88,9 +88,14 @@ describe("slot rule form (SlotRuleRequest + RuleFields)", () => {
     const values = { ...slotRuleToFormValues(null), max_bookings: "1001", date_from: "2026-12-10", date_to: "2026-12-01" };
     expect(issues(slotRuleFormSchema.safeParse(values))).toEqual({
       slot_template_id: ["slotRequired"],
-      max_bookings: ["maxBookings"],
+      // SlotRuleRequest only asks for 0–1000; "higher than the current limit" belongs to the override form.
+      max_bookings: ["maxBookingsRange"],
       reason: ["reasonRequired"],
     });
+    expect(issues(slotRuleFormSchema.safeParse({ ...values, max_bookings: "2.5" })).max_bookings).toEqual(["maxBookingsRange"]);
+    expect(
+      slotRuleFormSchema.parse({ ...values, slot_template_id: "1", is_open: true, max_bookings: "0", date_to: "", reason: "Paused" }),
+    ).toMatchObject({ max_bookings: 0 });
     const fixed = { ...values, slot_template_id: "1", max_bookings: "", reason: "Holiday season" };
     expect(issues(slotRuleFormSchema.safeParse(fixed))).toEqual({ date_to: ["dateRange"] });
   });

@@ -43,10 +43,14 @@ const PER_PAGE = 25;
 function MaskedLicence({ last4 }: { last4: string }) {
   const t = useTranslations("admin.fleet.drivers");
   if (!last4) return <span className="text-sm text-ink-600">{t("licenceHidden")}</span>;
+  // aria-label is ignored on a generic element such as <bdi>: the spoken text is a visually hidden span instead.
   return (
-    <bdi dir="ltr" className="font-latin text-sm text-ink-900" aria-label={t("licenceEnding", { last4 })}>
-      •••• {last4}
-    </bdi>
+    <>
+      <span className="sr-only">{t("licenceEnding", { last4 })}</span>
+      <bdi aria-hidden dir="ltr" className="font-latin text-sm text-ink-900">
+        •••• {last4}
+      </bdi>
+    </>
   );
 }
 

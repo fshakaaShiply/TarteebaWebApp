@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { useId, type ComponentPropsWithRef, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 /*
  * Form fields: label above, optional hint, error below (design system TextField). Every control is labelled and
@@ -24,6 +25,16 @@ type FieldShellProps = {
   className?: string;
   children: ReactNode;
 };
+
+/**
+ * For a field validated by hand (outside react-hook-form, e.g. a reason in a confirmation dialog): renders the error
+ * first, then moves focus to the field, so a screen reader announces the field with its error (aria-invalid,
+ * aria-describedby) instead of nothing happening on the button. Call it from an event handler.
+ */
+export function showFieldError(show: () => void, field: HTMLElement | null | undefined) {
+  flushSync(show);
+  field?.focus();
+}
 
 export function fieldDescribedBy(id: string, hint?: ReactNode, error?: ReactNode): string | undefined {
   const ids = [error ? `${id}-error` : null, hint ? `${id}-hint` : null].filter(Boolean);
@@ -168,28 +179,42 @@ export function Select({
   );
 }
 
-type CheckboxProps = Omit<ComponentPropsWithRef<"input">, "type"> & { label: ReactNode; description?: ReactNode };
+type CheckboxProps = Omit<ComponentPropsWithRef<"input">, "type"> & {
+  label: ReactNode;
+  description?: ReactNode;
+  /** E.g. a required confirmation left unticked; linked to the box with aria-describedby. */
+  error?: ReactNode;
+};
 
-export function Checkbox({ label, description, id, className, ...props }: CheckboxProps) {
+export function Checkbox({ label, description, error, id, className, ...props }: CheckboxProps) {
   const autoId = useId();
   const fieldId = id ?? autoId;
+  const describedBy = [error ? `${fieldId}-error` : null, description ? `${fieldId}-desc` : null].filter(Boolean).join(" ");
   return (
     <div className={clsx("flex items-start gap-2.5", className)}>
       <input
         id={fieldId}
         type="checkbox"
-        aria-describedby={description ? `${fieldId}-desc` : undefined}
+        aria-describedby={describedBy || undefined}
+        aria-invalid={error ? true : undefined}
         className="mt-0.5 size-4.5 shrink-0 accent-petrol-700"
         {...props}
       />
-      <label htmlFor={fieldId} className="flex flex-col text-sm">
-        <span className="font-medium text-ink-900">{label}</span>
-        {description && (
-          <span id={`${fieldId}-desc`} className="text-xs text-ink-600">
-            {description}
-          </span>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={fieldId} className="flex flex-col text-sm">
+          <span className="font-medium text-ink-900">{label}</span>
+          {description && (
+            <span id={`${fieldId}-desc`} className="text-xs text-ink-600">
+              {description}
+            </span>
+          )}
+        </label>
+        {error && (
+          <p id={`${fieldId}-error`} className="text-xs font-medium text-danger-700">
+            {error}
+          </p>
         )}
-      </label>
+      </div>
     </div>
   );
 }

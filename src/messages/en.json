@@ -1742,6 +1742,7 @@
         "forceReasonMin": "Enter a reason of at least 10 characters.",
         "forceReasonMax": "Keep the reason under 500 characters.",
         "maxBookings": "Enter a whole number from 0 to 1000, higher than the current limit.",
+        "maxBookingsRange": "Enter a whole number from 0 to 1000.",
         "maxBookingsRequired": "Enter the new booking limit.",
         "plateFormat": "Use letters, digits, spaces and -, starting with a letter or digit.",
         "plateLength": "Use at most 20 characters.",
@@ -1853,6 +1854,7 @@
         "deleteLabel": "Delete the rule for {slot}",
         "readOnly": "Read only",
         "readOnlyHint": "Created by a capacity override. Delete it, or create a new override for that date.",
+        "readOnlyHintNoDelete": "Created by a capacity override. Only staff who may override capacity can remove it.",
         "tableCaption": "Slot rules",
         "empty": "There are no slot rules.",
         "emptyBody": "Without rules every active slot is open with no booking limit.",
@@ -2005,6 +2007,7 @@
       "ruleReason": "Reason: {reason}",
       "noRule": "No rule: open with no booking limit",
       "override": "Override",
+      "overrideLabel": "Override {slot}, {time}",
       "hardLimit": "Nothing to override here: workers, seats, the booking horizon and slots that have started are hard limits.",
       "overrideDialog": {
         "title": "Override capacity: {slot}, {date}",
@@ -2022,6 +2025,8 @@
           "closedRule": "Rule #{id}: {effect}",
           "cap": "Rule #{id}: {effect}"
         },
+        "scopeAllServices": "Applies to every service in this slot.",
+        "scopeOneService": "Applies to {service} only, the service of the rule it relaxes. Other services in this slot stay as they are.",
         "newCap": "New booking limit",
         "newCapOptional": "Booking limit once open (optional)",
         "newCapHint": "Higher than the current limit of {current}.",
@@ -2109,7 +2114,8 @@
           "leaves": "Leave"
         },
         "onLeaveUntil": "On leave until {date}",
-        "liveOut": "Live-out"
+        "liveOut": "Live-out",
+        "changedElsewhere": "This profile changed after you started editing here, for example in another section. Saving will ask you to reload the latest version first."
       },
       "info": {
         "title": "Profile",
@@ -2276,6 +2282,7 @@
         "zone": "Zone",
         "zoneHint": "The zone whose workers it carries.",
         "driver": "Usual driver",
+        "driverHint": "A driver is the usual driver of one vehicle only, so drivers of other vehicles are not listed.",
         "insurance": "Insurance expires on",
         "registration": "Registration expires on",
         "expiryHint": "Dates within 30 days are marked \"Expires soon\".",

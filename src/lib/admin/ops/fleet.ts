@@ -109,6 +109,15 @@ export function vehicleToFormValues(v: Vehicle | null): VehicleFormValues {
   };
 }
 
+/**
+ * Drivers a vehicle may have as its usual driver: a driver is the usual driver of at most one vehicle (decision P2-08,
+ * StoreVehicleRequest: default_driver_id unique across vehicles), so drivers of another vehicle are left out. The
+ * vehicle being edited (`vehicleId`, null when creating) keeps its own driver.
+ */
+export function usualDriverChoices(drivers: readonly Driver[], vehicleId: number | null): Driver[] {
+  return drivers.filter((d) => !d.vehicle || d.vehicle.id === vehicleId);
+}
+
 // ---- Drivers ---------------------------------------------------------------------------------------------------
 
 export type DriverFormValues = {

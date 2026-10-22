@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarPlus, Check, Undo2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Button,
@@ -19,6 +19,7 @@ import {
   StatusBadge,
   TextArea,
   TextField,
+  showFieldError,
   useToast,
   type Column,
 } from "@/components/admin";
@@ -343,6 +344,7 @@ function LeaveDecisionDialog({
   const invalidate = useLeaveInvalidate(worker.id);
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const [forceShortfalls, setForceShortfalls] = useState<Shortfall[] | null>(null);
 
   const decide = useMutation({
@@ -365,7 +367,8 @@ function LeaveDecisionDialog({
   const parsedNote = () => {
     const result = leaveDecisionSchema(decision).safeParse({ note });
     if (!result.success) {
-      setNoteError(errorText(result.error.issues[0]?.message) ?? null);
+      const message = errorText(result.error.issues[0]?.message) ?? null;
+      showFieldError(() => setNoteError(message), noteRef.current);
       return undefined;
     }
     setNoteError(null);
@@ -404,6 +407,7 @@ function LeaveDecisionDialog({
         }}
       >
         <TextArea
+          ref={noteRef}
           label={decision === "approve" ? t("noteOptional") : t("note")}
           required={decision !== "approve"}
           hint={t("noteHint")}

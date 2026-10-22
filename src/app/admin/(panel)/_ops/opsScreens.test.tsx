@@ -126,6 +126,7 @@ const api = {
   fetchSlotRules: vi.fn(),
   fetchBlackoutDates: vi.fn(),
   deleteSlotRule: vi.fn(),
+  fetchAllDrivers: vi.fn(),
 };
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchWorkers: (...a: unknown[]) => api.fetchWorkers(...a),
@@ -141,7 +142,7 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchAllServices: async () => [],
   fetchAllWorkers: async () => [maria],
   fetchAllVehicles: async () => [van],
-  fetchAllDrivers: async () => [driver],
+  fetchAllDrivers: (...a: unknown[]) => api.fetchAllDrivers(...a),
   fetchAllSlotTemplates: async () => [morning],
   fetchSkills: async () => maria.skills,
   fetchDriverAccounts: async () => [
@@ -162,6 +163,7 @@ describe.each(["en", "ar"] as const)("operations screens (%s)", (locale) => {
     api.fetchSlotTemplates.mockResolvedValue(page([morning]));
     api.fetchSlotRules.mockResolvedValue(page([overrideRule]));
     api.fetchBlackoutDates.mockResolvedValue(page([nationalDay]));
+    api.fetchAllDrivers.mockResolvedValue([driver]);
   });
   afterEach(() => {
     // Every string these screens look up exists in this language.
@@ -182,7 +184,9 @@ describe.each(["en", "ar"] as const)("operations screens (%s)", (locale) => {
     expect(screen.getByText(locale === "en" ? "Expired" : "منتهية")).toBeInTheDocument();
 
     renderWithProviders(<DriversScreen />, { permissions: ["fleet.manage"], locale });
-    expect(await screen.findByText("•••• 0001")).toBeInTheDocument();
+    // The dots are hidden from screen readers, which read a sentence instead (aria-label is ignored on <bdi>).
+    expect(await screen.findByText("•••• 0001")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText(locale === "en" ? "Licence ending 0001" : "الرخصة المنتهية بـ 0001")).toHaveClass("sr-only");
   });
 
   it("lists slots, rules (overrides read-only) and blackout dates", async () => {
@@ -203,6 +207,7 @@ describe("operations permissions", () => {
     api.fetchWorkers.mockResolvedValue(page([maria]));
     api.fetchVehicles.mockResolvedValue(page([van]));
     api.fetchSlotRules.mockResolvedValue(page([overrideRule]));
+    api.fetchAllDrivers.mockResolvedValue([driver]);
   });
 
   it("hides create and edit from read-only roles", async () => {
@@ -222,10 +227,46 @@ describe("operations permissions", () => {
     expect(api.fetchDrivers).not.toHaveBeenCalled();
   });
 
-  it("lets only capacity.override delete an override rule", async () => {
+  it("lets only capacity.override delete an override rule, and says why in visible text", async () => {
     renderWithProviders(<SlotRulesScreen />, { permissions: ["catalog.manage"] });
-    expect(await screen.findByText("Read only")).toBeInTheDocument();
+    const readOnly = await screen.findByText("Read only");
     expect(screen.queryByRole("button", { name: /^Delete the rule/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Created by a capacity override. Only staff who may override capacity can remove it.")).toBeVisible();
+    expect(readOnly.closest("[title]")).toBeNull();
+  });
+
+  it("tells staff with capacity.override how to remove an override rule", async () => {
+    renderWithProviders(<SlotRulesScreen />, { permissions: ["catalog.manage", "capacity.override"] });
+    expect(await screen.findByText("Created by a capacity override. Delete it, or create a new override for that date.")).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Delete the rule/ })).toBeInTheDocument();
+  });
+
+  it("offers as usual driver only drivers who don't drive another vehicle", async () => {
+    const other: Driver = { ...driver, id: 2, staff_user: { id: 7, name: "Free Driver", email: "driver2@tarteeba.test", status: "active" }, vehicle: null };
+    api.fetchAllDrivers.mockResolvedValue([driver, other]);
+    renderWithProviders(<VehiclesScreen />, { permissions: ["fleet.manage"] });
+    const user = userEvent.setup();
+    const options = (dialog: HTMLElement) =>
+      within(within(dialog).getByRole("combobox", { name: /^Usual driver/ }))
+        .getAllByRole("option")
+        .map((o) => o.textContent);
+
+    await user.click(await screen.findByRole("button", { name: "Add vehicle" }));
+    const create = await screen.findByRole("dialog");
+    await waitFor(() => expect(options(create)).toEqual(["No usual driver", "Free Driver"]));
+    expect(within(create).getByText(/drivers of other vehicles are not listed/)).toBeInTheDocument();
+  });
+
+  it("keeps a vehicle's own usual driver in its picker", async () => {
+    const other: Driver = { ...driver, id: 2, staff_user: { id: 7, name: "Free Driver", email: "driver2@tarteeba.test", status: "active" }, vehicle: null };
+    api.fetchAllDrivers.mockResolvedValue([driver, other]);
+    renderWithProviders(<VehiclesScreen />, { permissions: ["fleet.manage"] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit DEMO-VAN-1" }));
+    const edit = await screen.findByRole("dialog");
+    const picker = within(edit).getByRole("combobox", { name: /^Usual driver/ });
+    await waitFor(() => expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["No usual driver", "Test Driver", "Free Driver"]));
+    expect(picker).toHaveValue("1");
   });
 
   it("links a driver to a staff account with the driver role that isn't linked yet", async () => {

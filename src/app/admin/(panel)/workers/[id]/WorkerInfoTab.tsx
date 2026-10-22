@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Card, Notice, StatusBadge, useToast, useUnsavedChanges } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
@@ -18,7 +18,7 @@ import { InfoRow } from "../../_ops/OpsFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
 import { employmentTone, useOpsText } from "../../_ops/opsText";
 import { WORKER_FIELDS, WorkerFormFields } from "../WorkerFormFields";
-import { useWorkerCache } from "./workerShared";
+import { ChangedElsewhereNotice, editVersion, useWorkerCache } from "./workerShared";
 
 /** Info tab: the profile form for workers.manage; a read-only profile (only what the API sent) for everyone else. */
 export function WorkerInfoTab({ worker }: { worker: Worker }) {
@@ -31,9 +31,12 @@ function WorkerInfoForm({ worker }: { worker: Worker }) {
   const toast = useToast();
   const cache = useWorkerCache();
   const privateFields = hasPrivateFields(worker);
-  const guard = useShortfallGuard<WorkerPayload>();
+  const guard = useShortfallGuard<{ payload: WorkerPayload; version: number }>();
   const [fieldsApplied, setFieldsApplied] = useState(false);
   const [stale, setStale] = useState(false);
+  // The profile the form was loaded from. `values` resets the form whenever it changes.
+  const [base, setBase] = useState(worker);
+  const values = useMemo(() => workerToFormValues(base), [base]);
 
   const {
     register,
@@ -42,20 +45,28 @@ function WorkerInfoForm({ worker }: { worker: Worker }) {
     setError,
     reset,
     formState: { errors, isDirty },
-  } = useForm({ resolver: zodResolver(workerFormSchema({ privateFields })), defaultValues: workerToFormValues(worker) });
+  } = useForm({ resolver: zodResolver(workerFormSchema({ privateFields })), values });
   useUnsavedChanges(isDirty);
+  // Without edits the form follows the cached profile (e.g. a rest day moved in the Schedule tab).
+  if (!isDirty && worker.version > base.version) setBase(worker);
+  const { version, conflict } = editVersion(worker, isDirty ? base : null, workerToFormValues);
+
+  const load = (w: Worker) => {
+    setBase(w);
+    reset(workerToFormValues(w));
+  };
 
   const save = useMutation({
-    mutationFn: ({ payload, force }: { payload: WorkerPayload; force?: ForceInput }) =>
-      updateWorker(worker.id, payload, cache.version(worker), force),
+    mutationFn: ({ payload, version: ifMatch, force }: { payload: WorkerPayload; version: number; force?: ForceInput }) =>
+      updateWorker(worker.id, payload, ifMatch, force),
     onSuccess: (saved) => {
       cache.saved(saved);
-      reset(workerToFormValues(saved));
+      load(saved);
       guard.clear();
       toast.success(t("saved", { name: saved.display_name }));
     },
     onError: (error, vars) => {
-      if (guard.capture(error, vars.payload)) return;
+      if (guard.capture(error, { payload: vars.payload, version: vars.version })) return;
       // A failed "save anyway" keeps the shortfall dialog open with its error.
       if (vars.force) return;
       guard.clear();
@@ -76,11 +87,12 @@ function WorkerInfoForm({ worker }: { worker: Worker }) {
   return (
     <Card title={t("title")}>
       <p className="text-sm/6 text-ink-600">{t("intro")}</p>
-      <form noValidate onSubmit={handleSubmit((payload) => save.mutate({ payload }))} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit((payload) => save.mutate({ payload, version }))} className="flex flex-col gap-4">
         <WorkerFormFields register={register} control={control} errors={errors} privateFields={privateFields} />
         {save.error && !guard.state ? <FormErrorNotice error={save.error} fieldsApplied={fieldsApplied} /> : null}
+        <ChangedElsewhereNotice show={conflict} />
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" disabled={!isDirty || save.isPending} onClick={() => reset(workerToFormValues(worker))}>
+          <Button variant="outline" disabled={!isDirty || save.isPending} onClick={() => load(worker)}>
             {t("discard")}
           </Button>
           <Button type="submit" loading={save.isPending && !guard.state}>
@@ -94,7 +106,7 @@ function WorkerInfoForm({ worker }: { worker: Worker }) {
           pending={save.isPending}
           forceError={save.error && !(save.error instanceof AdminApiError && save.error.code === "CAPACITY_SHORTFALL") ? save.error : null}
           onClose={guard.clear}
-          onForce={(force) => save.mutate({ payload: pending.vars, force })}
+          onForce={(force) => save.mutate({ ...pending.vars, force })}
         />
       )}
       <StaleDialog
@@ -102,7 +114,7 @@ function WorkerInfoForm({ worker }: { worker: Worker }) {
         onClose={() => setStale(false)}
         onReload={() => {
           setStale(false);
-          void cache.reload(worker.id).then((fresh) => reset(workerToFormValues(fresh)));
+          void cache.reload(worker.id).then(load);
         }}
       />
     </Card>

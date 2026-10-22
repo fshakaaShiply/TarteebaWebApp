@@ -2,8 +2,8 @@
 
 import { ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
-import { Button, DataTable, Dialog, Notice, TextArea, type Column } from "@/components/admin";
+import { useCallback, useRef, useState } from "react";
+import { Button, DataTable, Dialog, Notice, TextArea, showFieldError, type Column } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import {
   CAPACITY_OVERRIDE_PERMISSION,
@@ -106,12 +106,17 @@ export function ShortfallDialog({
   const errorText = useOpsErrorKey();
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   const mayForce = allowForce && can(CAPACITY_OVERRIDE_PERMISSION);
 
   const submit = () => {
     const problem = checkForceReason(reason);
-    setReasonError(problem ? (errorText(problem) ?? null) : null);
-    if (!problem) onForce({ reason: reason.trim() });
+    if (problem) {
+      showFieldError(() => setReasonError(errorText(problem) ?? null), reasonRef.current);
+      return;
+    }
+    setReasonError(null);
+    onForce({ reason: reason.trim() });
   };
 
   return (
@@ -140,6 +145,7 @@ export function ShortfallDialog({
         <>
           <Notice tone="warning">{t("forceNote")}</Notice>
           <TextArea
+            ref={reasonRef}
             label={t("reason")}
             hint={t("reasonHint")}
             required

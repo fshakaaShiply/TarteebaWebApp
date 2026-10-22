@@ -11,9 +11,10 @@ import { AdminApiError } from "@/lib/admin/client";
 import { overrideCapacity } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
-import { FORCE_REASON_MAX, overrideFormSchema, overrideOptions, type OverrideFormValues } from "@/lib/admin/ops/capacity";
+import { FORCE_REASON_MAX, overrideFormSchema, overrideOptions, overrideServiceId, type OverrideFormValues } from "@/lib/admin/ops/capacity";
 import type { CapacitySlot, CapacityView, OverrideAction } from "@/lib/admin/types";
 import { useOpsInvalidate } from "../_ops/invalidate";
+import { useServiceChoices } from "../_ops/options";
 import { useOpsFieldError, useOpsText } from "../_ops/opsText";
 import { useRuleText } from "../_ops/ruleText";
 
@@ -30,6 +31,7 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
   const describe = useAdminErrorMessage();
   const toast = useToast();
   const invalidate = useOpsInvalidate();
+  const services = useServiceChoices();
   const formId = useId();
   const options = overrideOptions(slot);
   const cap = options.find((o) => o.action === "raise_cap")?.relaxes[0];
@@ -47,19 +49,26 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
   });
   const action = useWatch({ control, name: "action" }) as OverrideAction;
   const selected = options.find((o) => o.action === action) ?? options[0];
+  const serviceId = overrideServiceId(selected);
+  const serviceName = (id: number) => {
+    const found = services.data?.find((s) => s.id === id);
+    return found ? text.name(found.name) : slot.service?.id === id ? slot.service.code : `#${id}`;
+  };
 
   const save = useMutation({
-    mutationFn: (values: { action: OverrideAction; max_bookings: number | null; reason: string }) =>
-      overrideCapacity({
+    mutationFn: (values: { action: OverrideAction; max_bookings: number | null; reason: string }) => {
+      // Limited to one service only when a relaxed rule is for that service; a blackout is relaxed for every service.
+      const service = overrideServiceId(options.find((o) => o.action === values.action));
+      return overrideCapacity({
         date: view.date,
         zone_id: view.zone.id,
         slot_template_id: slot.slot_template_id,
-        // A service-specific rule is relaxed for that service; otherwise the override applies to every service.
-        ...(slot.rule?.service_id ? { service_id: slot.rule.service_id } : {}),
+        ...(service !== null ? { service_id: service } : {}),
         action: values.action,
         ...(values.max_bookings !== null ? { max_bookings: values.max_bookings } : {}),
         reason: values.reason,
-      }),
+      });
+    },
     onSuccess: (result) => {
       invalidate(adminKeys.scheduling());
       const status = result.capacity ? text.slotStatus(result.capacity.status) : null;
@@ -129,6 +138,9 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
               </li>
             ))}
           </ul>
+          <p className="text-sm text-ink-600">
+            {serviceId === null ? t("scopeAllServices") : t("scopeOneService", { service: serviceName(serviceId) })}
+          </p>
         </section>
 
         <TextField
@@ -158,15 +170,16 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
           control={control}
           name="confirmed"
           render={({ field }) => (
-            <div className="flex flex-col gap-1">
-              <Checkbox
-                label={t("confirm")}
-                checked={field.value}
-                onChange={(e) => field.onChange(e.target.checked)}
-                aria-invalid={errors.confirmed ? true : undefined}
-              />
-              {errors.confirmed && <p className="text-xs font-medium text-danger-700">{t("confirmRequired")}</p>}
-            </div>
+            // The ref lets the form focus the box when the confirmation is the missing item.
+            <Checkbox
+              ref={field.ref}
+              name={field.name}
+              label={t("confirm")}
+              checked={field.value}
+              onChange={(e) => field.onChange(e.target.checked)}
+              onBlur={field.onBlur}
+              error={errors.confirmed ? t("confirmRequired") : undefined}
+            />
           )}
         />
         {save.error && !fieldsError ? <Notice tone="danger">{describe(save.error)}</Notice> : null}

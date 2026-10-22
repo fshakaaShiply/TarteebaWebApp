@@ -141,7 +141,9 @@ describe("public holidays editor (calendar.public_holidays)", () => {
     await user.click(screen.getByRole("button", { name: "Add" }));
     fireEvent.change(input, { target: { value: "2026-12-02" } });
     await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(screen.getByText("This date is already in the list.")).toBeInTheDocument();
+    // Announced as it appears (Enter in the field adds too, without moving focus) and linked to the field.
+    expect(screen.getByText("This date is already in the list.")).toHaveAttribute("role", "alert");
+    expect(input).toHaveAccessibleDescription("This date is already in the list.");
 
     const list = screen.getByRole("list", { name: "Public holidays" });
     expect(within(list).getAllByRole("listitem").map((li) => li.querySelector("bdi")!.textContent)).toEqual(["2026-12-02", "2026-12-03"]);

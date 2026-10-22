@@ -153,7 +153,9 @@ export function HolidaysEditor({ dates, onChange, error }: { dates: string[]; on
             }
           }}
           hint={t("hint")}
-          error={addError ?? undefined}
+          // Announced as it appears: Enter in the field adds the date without moving focus, so focusing the field
+          // would not read the error out.
+          error={addError ? <span role="alert">{addError}</span> : undefined}
         />
         <Button variant="outline" onClick={add} disabled={draft === ""} icon={<CalendarPlus aria-hidden className="size-4" />}>
           {t("addButton")}

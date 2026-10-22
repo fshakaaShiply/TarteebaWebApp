@@ -125,6 +125,11 @@ describe("A05 worker tabs", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save anyway" }));
     expect(await within(dialog).findByText("Enter a reason of at least 10 characters.")).toBeInTheDocument();
     expect(api.approveLeave).toHaveBeenCalledTimes(1);
+    // Focus moves to the reason, which now carries the error, instead of staying silently on the button.
+    const reason = within(dialog).getByLabelText(/Reason for saving anyway/);
+    expect(reason).toHaveFocus();
+    expect(reason).toHaveAttribute("aria-invalid", "true");
+    expect(reason).toHaveAccessibleDescription(/Enter a reason of at least 10 characters\./);
 
     await user.type(within(dialog).getByLabelText(/Reason for saving anyway/), " — Siti covers both visits");
     await user.click(within(dialog).getByRole("button", { name: "Save anyway" }));
@@ -169,6 +174,7 @@ describe("A05 worker tabs", () => {
     await user.click(within(confirm).getByRole("button", { name: "Reject" }));
     expect(await within(confirm).findByText("Add a note explaining the decision.")).toBeInTheDocument();
     expect(api.rejectLeave).not.toHaveBeenCalled();
+    expect(within(confirm).getByLabelText(/^Note/)).toHaveFocus();
   });
 
   it("shows only the upcoming dates to staff without leave.manage", () => {

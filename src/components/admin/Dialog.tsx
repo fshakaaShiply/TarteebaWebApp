@@ -4,13 +4,36 @@ import * as RadixDialog from "@radix-ui/react-dialog";
 import clsx from "clsx";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { FormEvent, ReactNode } from "react";
+import { useRef, type FormEvent, type ReactNode } from "react";
 import { Button, type ButtonVariant } from "./Button";
 
 /*
  * Modal dialog and side drawer on Radix Dialog: focus is trapped inside, Escape and the close button dismiss it, focus
- * returns to the trigger, and the title/description are wired as the accessible name/description.
+ * returns to the control that opened it, and the title/description are wired as the accessible name/description.
  */
+
+/**
+ * Focus return for dialogs opened from state rather than a Radix Trigger (all of ours but the navigation drawer):
+ * Radix's modal content always cancels the default return and focuses its trigger, which is then null, so focus would
+ * fall to <body>. This remembers what had focus when the dialog opened and focuses it again on close (when it is still
+ * on the page; otherwise Radix's own handling runs).
+ */
+export function useReturnFocus() {
+  const returnTo = useRef<HTMLElement | null>(null);
+  return {
+    onOpenAutoFocus: () => {
+      const active = document.activeElement;
+      returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    },
+    onCloseAutoFocus: (event: Event) => {
+      const target = returnTo.current;
+      returnTo.current = null;
+      if (!target?.isConnected) return;
+      event.preventDefault();
+      target.focus();
+    },
+  };
+}
 
 type DialogProps = {
   open: boolean;
@@ -49,6 +72,7 @@ export function Dialog({
   size = "md",
   dismissible = true,
 }: DialogProps) {
+  const focus = useReturnFocus();
   const block = (e: Event) => {
     if (!dismissible) e.preventDefault();
   };
@@ -57,6 +81,7 @@ export function Dialog({
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink-900/40" />
         <RadixDialog.Content
+          {...focus}
           onEscapeKeyDown={block}
           onPointerDownOutside={block}
           onInteractOutside={block}
@@ -114,6 +139,7 @@ export function ConfirmDialog({
   children,
 }: ConfirmDialogProps) {
   const t = useTranslations("admin.ui");
+  const focus = useReturnFocus();
   const variant: ButtonVariant = tone === "danger" ? "danger" : "primary";
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -124,6 +150,7 @@ export function ConfirmDialog({
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink-900/40" />
         <RadixDialog.Content
+          {...focus}
           role="alertdialog"
           className={clsx(
             "fixed inset-0 z-50 m-auto flex h-fit max-h-[90dvh] w-[calc(100%-2rem)] flex-col overflow-y-auto rounded-lg bg-surface shadow-card",
@@ -182,11 +209,13 @@ export function Drawer({
   size = "md",
   className,
 }: DrawerProps) {
+  const focus = useReturnFocus();
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-ink-900/40" />
         <RadixDialog.Content
+          {...focus}
           className={clsx(
             "fixed inset-y-0 z-50 flex w-full flex-col bg-surface shadow-sheet",
             side === "start" ? "start-0 max-w-[300px]" : size === "lg" ? "end-0 max-w-[760px]" : "end-0 max-w-[520px]",

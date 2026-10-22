@@ -32,6 +32,7 @@ export const OPS_ERROR_KEYS = [
   "forceReasonMin",
   "forceReasonMax",
   "maxBookings",
+  "maxBookingsRange",
   "maxBookingsRequired",
   "plateFormat",
   "plateLength",

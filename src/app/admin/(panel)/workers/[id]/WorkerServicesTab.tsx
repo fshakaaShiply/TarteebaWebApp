@@ -25,9 +25,11 @@ import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
 import { useHasFullCatalog, useServiceChoices, useSkills, type ServiceChoice } from "../../_ops/options";
 import { useOpsText } from "../../_ops/opsText";
-import { useWorkerCache } from "./workerShared";
+import { ChangedElsewhereNotice, useWorkerCache, useWorkerDraft } from "./workerShared";
 
 const sameIds = (a: readonly number[], b: readonly number[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+const serviceIds = (w: Worker) => (w.services ?? []).map((s) => s.id);
+const skillIds = (w: Worker) => (w.skills ?? []).map((s) => s.id);
 
 /** Services & skills tab: what the worker is eligible for and her skills (workers.manage edits, everyone else reads). */
 export function WorkerServicesTab({ worker }: { worker: Worker }) {
@@ -49,30 +51,28 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
   const cache = useWorkerCache();
   const choices = useServiceChoices();
   const fullCatalog = useHasFullCatalog();
-  const guard = useShortfallGuard<number[]>();
-  const current = (worker.services ?? []).map((s) => s.id);
-  const [initial, setInitial] = useState<number[]>(current);
-  const [selected, setSelected] = useState<number[]>(current);
+  const guard = useShortfallGuard<{ ids: number[]; version: number }>();
+  const edit = useWorkerDraft(worker, serviceIds, sameIds);
+  const selected = edit.value;
   const [stale, setStale] = useState(false);
-  const dirty = !sameIds(selected, initial);
-  useUnsavedChanges(manage && dirty);
+  useUnsavedChanges(manage && edit.dirty);
+  const toggle = (id: number, on: boolean) => edit.set(on ? [...selected, id] : selected.filter((other) => other !== id));
 
   // Services the worker has that the choices do not list (e.g. a service now inactive) stay visible.
   const options: ServiceChoice[] = [...(choices.data ?? [])];
   for (const s of worker.services ?? []) if (!options.some((o) => o.id === s.id)) options.push({ ...s, is_active: false });
 
   const save = useMutation({
-    mutationFn: ({ ids, force }: { ids: number[]; force?: ForceInput }) => setWorkerServices(worker.id, ids, cache.version(worker), force),
+    mutationFn: ({ ids, version, force }: { ids: number[]; version: number; force?: ForceInput }) =>
+      setWorkerServices(worker.id, ids, version, force),
     onSuccess: (saved) => {
       cache.saved(saved);
-      const ids = (saved.services ?? []).map((s) => s.id);
-      setInitial(ids);
-      setSelected(ids);
+      edit.reset();
       guard.clear();
       toast.success(t("saved", { name: saved.display_name }));
     },
     onError: (error, vars) => {
-      if (guard.capture(error, vars.ids)) return;
+      if (guard.capture(error, { ids: vars.ids, version: vars.version })) return;
       if (vars.force) return;
       guard.clear();
       if (error instanceof AdminApiError && error.code === "STALE_VERSION") setStale(true);
@@ -123,7 +123,7 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
                 }
                 description={needsLiveOut ? t("needsLiveOut") : text.serviceKind(s.kind)}
                 checked={selected.includes(s.id)}
-                onChange={(e) => setSelected((list) => (e.target.checked ? [...list, s.id] : list.filter((id) => id !== s.id)))}
+                onChange={(e) => toggle(s.id, e.target.checked)}
               />
             );
           })}
@@ -132,11 +132,12 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
       {save.error && !pending && !(save.error instanceof AdminApiError && ["STALE_VERSION", "CAPACITY_SHORTFALL"].includes(save.error.code)) ? (
         <Notice tone="danger">{describe(save.error)}</Notice>
       ) : null}
+      <ChangedElsewhereNotice show={edit.conflict} />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" disabled={!dirty || save.isPending} onClick={() => setSelected(initial)}>
+        <Button variant="outline" disabled={!edit.dirty || save.isPending} onClick={edit.reset}>
           {t("discard")}
         </Button>
-        <Button onClick={() => save.mutate({ ids: selected })} disabled={!dirty} loading={save.isPending && !pending}>
+        <Button onClick={() => save.mutate({ ids: selected, version: edit.version })} disabled={!edit.dirty} loading={save.isPending && !pending}>
           {t("save")}
         </Button>
       </div>
@@ -146,7 +147,7 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
           pending={save.isPending}
           forceError={save.error && !(save.error instanceof AdminApiError && save.error.code === "CAPACITY_SHORTFALL") ? save.error : null}
           onClose={guard.clear}
-          onForce={(force) => save.mutate({ ids: pending.vars, force })}
+          onForce={(force) => save.mutate({ ...pending.vars, force })}
         />
       )}
       <StaleDialog
@@ -154,11 +155,7 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
         onClose={() => setStale(false)}
         onReload={() => {
           setStale(false);
-          void cache.reload(worker.id).then((fresh) => {
-            const ids = (fresh.services ?? []).map((s) => s.id);
-            setInitial(ids);
-            setSelected(ids);
-          });
+          void cache.reload(worker.id).then(() => edit.reset());
         }}
       />
     </Card>
@@ -172,23 +169,20 @@ function SkillsCard({ worker, manage }: { worker: Worker; manage: boolean }) {
   const describe = useAdminErrorMessage();
   const cache = useWorkerCache();
   const skills = useSkills(manage);
-  const current = (worker.skills ?? []).map((s) => s.id);
-  const [initial, setInitial] = useState<number[]>(current);
-  const [selected, setSelected] = useState<number[]>(current);
+  const current = skillIds(worker);
+  const edit = useWorkerDraft(worker, skillIds, sameIds);
+  const selected = edit.value;
   const [stale, setStale] = useState(false);
-  const dirty = !sameIds(selected, initial);
-  useUnsavedChanges(manage && dirty);
+  useUnsavedChanges(manage && edit.dirty);
 
   // Active skills, plus any inactive skill the worker still has.
   const options = (skills.data ?? []).filter((s) => s.is_active || current.includes(s.id));
 
   const save = useMutation({
-    mutationFn: (ids: number[]) => setWorkerSkills(worker.id, ids, cache.version(worker)),
+    mutationFn: ({ ids, version }: { ids: number[]; version: number }) => setWorkerSkills(worker.id, ids, version),
     onSuccess: (saved) => {
       cache.saved(saved);
-      const ids = (saved.skills ?? []).map((s) => s.id);
-      setInitial(ids);
-      setSelected(ids);
+      edit.reset();
       toast.success(t("saved", { name: saved.display_name }));
     },
     onError: (error) => {
@@ -234,7 +228,7 @@ function SkillsCard({ worker, manage }: { worker: Worker; manage: boolean }) {
                 </span>
               }
               checked={selected.includes(s.id)}
-              onChange={(e) => setSelected((list) => (e.target.checked ? [...list, s.id] : list.filter((id) => id !== s.id)))}
+              onChange={(e) => edit.set(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id))}
             />
           ))}
         </CheckboxGroup>
@@ -242,11 +236,12 @@ function SkillsCard({ worker, manage }: { worker: Worker; manage: boolean }) {
       {save.error && !(save.error instanceof AdminApiError && save.error.code === "STALE_VERSION") ? (
         <Notice tone="danger">{describe(save.error)}</Notice>
       ) : null}
+      <ChangedElsewhereNotice show={edit.conflict} />
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" disabled={!dirty || save.isPending} onClick={() => setSelected(initial)}>
+        <Button variant="outline" disabled={!edit.dirty || save.isPending} onClick={edit.reset}>
           {t("discard")}
         </Button>
-        <Button onClick={() => save.mutate(selected)} disabled={!dirty} loading={save.isPending}>
+        <Button onClick={() => save.mutate({ ids: selected, version: edit.version })} disabled={!edit.dirty} loading={save.isPending}>
           {t("save")}
         </Button>
       </div>
@@ -255,11 +250,7 @@ function SkillsCard({ worker, manage }: { worker: Worker; manage: boolean }) {
         onClose={() => setStale(false)}
         onReload={() => {
           setStale(false);
-          void cache.reload(worker.id).then((fresh) => {
-            const ids = (fresh.skills ?? []).map((s) => s.id);
-            setInitial(ids);
-            setSelected(ids);
-          });
+          void cache.reload(worker.id).then(() => edit.reset());
         }}
       />
     </Card>

@@ -7,6 +7,7 @@ import {
   checkForceReason,
   overrideFormSchema,
   overrideOptions,
+  overrideServiceId,
   readResourceConflict,
   readShortfalls,
   shortBy,
@@ -137,6 +138,29 @@ describe("manual override (spec §8.6)", () => {
     ]);
   });
 
+  it("only opens a slot a blackout closes, even when the rule that applies has a cap (raise_cap is NOTHING_TO_OVERRIDE there)", () => {
+    const capped = rule({ max_bookings: 4 });
+    expect(overrideOptions(slot({ status: "closed", reason: "blackout", rule: capped }))).toEqual([
+      { action: "open", relaxes: [{ kind: "blackout" }] },
+    ]);
+    // Once open (an override rule outranks the blackout), the cap can be raised.
+    const overrideCap = rule({ id: 9, source: "override", max_bookings: 4 });
+    expect(overrideOptions(slot({ status: "full", reason: "max_bookings", rule: overrideCap }))).toEqual([
+      { action: "raise_cap", relaxes: [{ kind: "cap", rule: overrideCap }] },
+    ]);
+  });
+
+  it("limits an override to a service only when it relaxes that service's own rule", () => {
+    const serviceCap = rule({ service_id: 2, max_bookings: 4 });
+    const serviceClosed = rule({ service_id: 2, is_open: false });
+    // Blackout only: every service, although the card shows a cap rule for one service.
+    expect(overrideServiceId(overrideOptions(slot({ status: "closed", reason: "blackout", rule: serviceCap }))[0])).toBeNull();
+    expect(overrideServiceId(overrideOptions(slot({ status: "closed", reason: "rule_closed", rule: serviceClosed }))[0])).toBe(2);
+    expect(overrideServiceId(overrideOptions(slot({ status: "full", reason: "max_bookings", rule: serviceCap }))[0])).toBe(2);
+    expect(overrideServiceId(overrideOptions(slot({ status: "full", reason: "max_bookings", rule: rule({ max_bookings: 4 }) }))[0])).toBeNull();
+    expect(overrideServiceId(undefined)).toBeNull();
+  });
+
   it("never offers to override hard limits", () => {
     expect(overrideOptions(slot({ status: "full", reason: "workers" }))).toEqual([]);
     expect(overrideOptions(slot({ status: "full", reason: "seats" }))).toEqual([]);
@@ -167,5 +191,12 @@ describe("manual override (spec §8.6)", () => {
     expect(issues(schema.safeParse({ ...base, max_bookings: "1001" }))).toEqual({ max_bookings: ["maxBookings"] });
     expect(issues(schema.safeParse({ ...base, max_bookings: "2.5" }))).toEqual({ max_bookings: ["maxBookings"] });
     expect(schema.parse({ ...base, max_bookings: "6" })).toEqual({ action: "raise_cap", max_bookings: 6, reason: "Extra van available today" });
+  });
+
+  it("only needs 0–1000 for the optional cap when opening", () => {
+    const schema = overrideFormSchema(4);
+    const base = { action: "open" as const, reason: "Extra van available today", confirmed: true };
+    expect(issues(schema.safeParse({ ...base, max_bookings: "1001" }))).toEqual({ max_bookings: ["maxBookingsRange"] });
+    expect(schema.parse({ ...base, max_bookings: "2" })).toMatchObject({ max_bookings: 2 });
   });
 });

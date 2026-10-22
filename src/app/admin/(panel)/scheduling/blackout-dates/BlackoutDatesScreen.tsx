@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   Select,
   TextArea,
   TextField,
+  showFieldError,
   useToast,
   type Column,
 } from "@/components/admin";
@@ -307,6 +308,7 @@ function DeleteBlackoutDialog({ blackout, onClose }: { blackout: BlackoutDate; o
   const invalidate = useOpsInvalidate();
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   const remove = useMutation({
     mutationFn: () => deleteBlackoutDate(blackout.id, blackout.version, reason.trim()),
@@ -328,11 +330,16 @@ function DeleteBlackoutDialog({ blackout, onClose }: { blackout: BlackoutDate; o
       pending={remove.isPending}
       onConfirm={() => {
         const problem = checkReason(reason);
-        setReasonError(problem ? (errorText(problem) ?? null) : null);
-        if (!problem) remove.mutate();
+        if (problem) {
+          showFieldError(() => setReasonError(errorText(problem) ?? null), reasonRef.current);
+          return;
+        }
+        setReasonError(null);
+        remove.mutate();
       }}
     >
       <TextArea
+        ref={reasonRef}
         label={t("deleteReason")}
         required
         rows={2}
