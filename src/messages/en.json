@@ -216,7 +216,16 @@
       "accountLocked": "Too many failed attempts. The account is locked; try again in {minutes, plural, one {# minute} other {# minutes}}.",
       "polygonInvalid": "The zone boundary isn't valid.",
       "subZoneOutsideZone": "Every point of a sub-zone must lie inside its zone.",
-      "fieldInvalid": "Check this value."
+      "fieldInvalid": "Check this value.",
+      "capacityShortfall": "This change would leave booked requests without enough workers or seats.",
+      "resourceConflict": "That time is already taken for this worker or vehicle.",
+      "shiftOnRestDay": "A worker can't have a shift on her weekly rest day. Make that day a day off, or choose another rest day.",
+      "leaveOverlap": "This worker already has a leave request or an approved leave on some of these dates.",
+      "notADriver": "This staff account doesn't have the driver role. Give it the driver role in Users & roles first.",
+      "phoneInvalid": "Enter a valid phone number with its country code, for example +971 50 123 4567.",
+      "slotInUse": "This slot has upcoming requests, so its times or service type can't change.",
+      "overrideRuleReadOnly": "This rule was created by a capacity override and can't be edited. Delete it, or create a new override for that date.",
+      "slotNotAvailableForService": "This slot isn't available for this service."
     },
     "login": {
       "brandSuffix": "Operations",
@@ -325,7 +334,15 @@
       "reports": "Reports",
       "users": "Users & audit",
       "staffUsers": "Users & roles",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "operations": "Operations",
+      "capacity": "Capacity",
+      "vehicles": "Vehicles",
+      "drivers": "Drivers",
+      "trips": "Trip planner",
+      "slotTemplates": "Slots",
+      "slotRules": "Slot rules",
+      "blackoutDates": "Blackout dates"
     },
     "stub": {
       "subtitle": "Services & settings",
@@ -432,7 +449,11 @@
         "time_format": "Times must be in 24-hour HH:MM format, with both start and end.",
         "time_order": "The end time must be after the start time.",
         "reason": "Enter the reason for this change.",
-        "reasonLength": "Keep the reason under 500 characters."
+        "reasonLength": "Keep the reason under 500 characters.",
+        "hours_format": "Choose opening and closing times on the quarter hour.",
+        "hours_order": "The closing time must be after the opening time.",
+        "date_format": "Enter a valid date.",
+        "date_duplicate": "This date is already in the list."
       },
       "groups": {
         "booking": "Booking",
@@ -446,7 +467,8 @@
         "auth": "Sign-in & security",
         "legal": "Legal",
         "locale": "Language & region",
-        "custom": "Other"
+        "custom": "Other",
+        "workforce": "Workers & leave"
       },
       "options": {
         "locale": {
@@ -525,6 +547,10 @@
           "min_lead_time_hours": {
             "label": "Minimum notice (hours)",
             "description": "Shortest time between sending a request and the visit."
+          },
+          "working_hours": {
+            "label": "Working hours for confirming requests",
+            "description": "The hours the bookings team confirms requests, for each day of the week. The confirmation time limit only counts these hours."
           }
         },
         "travel": {
@@ -573,12 +599,12 @@
             "description": "Phone country codes customers can sign in with, for example +971."
           },
           "staff_lockout_attempts": {
-            "label": "Staff sign-in attempts",
-            "description": "Failed sign-ins before a staff account is locked."
+            "label": "Staff sign-in attempts per network",
+            "description": "Failed sign-ins to one account from one network before that network is locked out of the account."
           },
           "staff_lockout_minutes": {
-            "label": "Staff lockout (minutes)",
-            "description": "How long a locked staff account stays locked."
+            "label": "Network lockout (minutes)",
+            "description": "How long one network stays locked out of an account after too many failed sign-ins."
           },
           "staff_idle_timeout_minutes": {
             "label": "Admin idle timeout (minutes)",
@@ -587,6 +613,22 @@
           "two_factor_required_roles": {
             "label": "Roles that must use two-factor",
             "description": "Role keys, for example system_admin and accountant."
+          },
+          "staff_lockout_account_ceiling": {
+            "label": "Account-wide failed sign-ins",
+            "description": "Failed sign-ins from all networks within the window that lock the whole account and alert system administrators."
+          },
+          "staff_lockout_account_window_minutes": {
+            "label": "Account-wide window (minutes)",
+            "description": "The period, from the first failure, in which failed sign-ins from all networks are counted."
+          },
+          "staff_lockout_account_minutes": {
+            "label": "Account lockout (minutes)",
+            "description": "How long the whole account stays locked after the account-wide limit. Networks used recently to sign in keep access."
+          },
+          "staff_trusted_network_days": {
+            "label": "Known network (days)",
+            "description": "A network with a successful sign-in within this many days keeps access during an account lock. 0 turns this off."
           }
         },
         "legal": {
@@ -636,7 +678,61 @@
             "label": "Allow combining coupons",
             "description": "Whether a customer can use more than one coupon on a booking."
           }
+        },
+        "calendar": {
+          "public_holidays": {
+            "label": "Public holidays",
+            "description": "Days with no working hours for confirmations. Live-out calendars also mark them."
+          }
+        },
+        "availability": {
+          "limited_threshold": {
+            "label": "\"Limited\" threshold (places)",
+            "description": "A slot shows as limited when this many worker places or fewer remain."
+          }
+        },
+        "leave": {
+          "max_range_days": {
+            "label": "Longest leave (days)",
+            "description": "The most days a single leave can cover."
+          },
+          "backdate_days": {
+            "label": "Leave start in the past (days)",
+            "description": "How many days before today a leave may start, for example to record a sick day afterwards."
+          },
+          "max_ahead_days": {
+            "label": "Leave planned ahead (days)",
+            "description": "How many days after today a leave may end."
+          }
         }
+      },
+      "shortfall": "Requests already booked in these slots would no longer have enough workers. Move or release them first, or make a smaller change.",
+      "weeklyHours": {
+        "legend": "Working hours by day",
+        "hint": "Requests are confirmed only during these hours (Asia/Dubai time). The confirmation time limit pauses outside them and on public holidays.",
+        "openLabel": "{day} is a working day",
+        "open": "Open",
+        "closed": "Closed",
+        "from": "Opens",
+        "to": "Closes",
+        "closedDay": "No confirmations on this day.",
+        "applyToAll": "Apply to all days",
+        "applyToAllLabel": "Apply {day}'s hours to all days",
+        "invalid": "Not a full week",
+        "everyDay": "Every day",
+        "closedAllWeek": "Closed every day",
+        "dayRange": "{from}–{to}"
+      },
+      "holidays": {
+        "none": "No holidays",
+        "listLabel": "Public holidays",
+        "more": "and {count, plural, one {# more} other {# more}}",
+        "add": "Add a holiday",
+        "hint": "Pick a date, then press Add. The list is kept in date order.",
+        "addButton": "Add",
+        "empty": "No public holidays yet.",
+        "remove": "Remove {date}",
+        "removeShort": "Remove"
       }
     },
     "users": {
@@ -1543,6 +1639,698 @@
         "too_many_positions": "The boundary has too many points (10,000 at most).",
         "ring_not_closed": "Each ring must end at the point where it starts.",
         "degenerate_ring": "A ring doesn't enclose any area."
+      }
+    },
+    "ops": {
+      "allZones": "All zones",
+      "weekdaysShort": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "enums": {
+        "employmentStatus": {
+          "active": "Active",
+          "on_leave": "On leave",
+          "suspended": "Suspended",
+          "terminated": "Left the company"
+        },
+        "leaveType": {
+          "annual": "Annual leave",
+          "sick": "Sick leave",
+          "unpaid": "Unpaid leave",
+          "emergency": "Emergency leave",
+          "public_holiday": "Public holiday"
+        },
+        "leaveStatus": {
+          "requested": "Requested",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "cancelled": "Cancelled"
+        },
+        "vehicleStatus": {
+          "active": "Active",
+          "maintenance": "In maintenance",
+          "inactive": "Out of service"
+        },
+        "driverStatus": {
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "slotStatus": {
+          "available": "Available",
+          "limited": "Limited",
+          "full": "Full",
+          "closed": "Closed"
+        },
+        "slotReason": {
+          "lead_time": "Too close to the start time",
+          "blackout": "Blackout date",
+          "rule_closed": "Closed by a rule",
+          "horizon": "Beyond the booking horizon",
+          "past": "Already started",
+          "inactive": "Slot not active",
+          "workers": "No workers left",
+          "seats": "No seats left",
+          "max_bookings": "Booking limit reached"
+        },
+        "exclusion": {
+          "not_active": "Not active",
+          "not_eligible": "Not trained for the service",
+          "rest_day": "Rest day",
+          "not_on_shift": "Not on shift",
+          "leave": "On leave",
+          "live_out": "Live-out day",
+          "busy": "Already booked"
+        },
+        "holderType": {
+          "visit": "a visit",
+          "live_out_day": "a Live-out day",
+          "leave": "a leave",
+          "hold": "a request being paid",
+          "manual_block": "a manual block"
+        },
+        "ruleSource": {
+          "admin": "Admin rule",
+          "override": "Capacity override"
+        }
+      },
+      "errors": {
+        "timeStep": "Choose a time on the quarter hour, for example 09:00 or 09:15.",
+        "timeOrder": "The end time must be after the start time.",
+        "startMidnight": "A start time can't be 24:00.",
+        "dateRequired": "Choose a date.",
+        "employeeNo": "Use letters, digits, - and _ (up to 30 characters), starting with a letter or digit.",
+        "nationality": "Use the two-letter country code, for example PH or IN.",
+        "language": "Use two-letter language codes, for example ar, en or tl.",
+        "languagesRequired": "Add at least one language.",
+        "languagesMax": "Add at most 10 languages.",
+        "displayName": "Enter a display name of up to 60 characters.",
+        "phoneLength": "Keep the phone number under 30 characters.",
+        "phoneInvalid": "Enter a valid phone number with its country code, for example +971 50 123 4567.",
+        "notesLength": "Keep the notes under 2,000 characters.",
+        "zoneRequired": "Choose a home zone.",
+        "restDay": "Choose the weekly rest day.",
+        "restDayWorking": "This is the rest day, so it must be a day off.",
+        "restDayShift": "She has a shift on that day. Make it a day off on the Schedule tab first, or change the rest day there together with her shifts.",
+        "noteRequired": "Add a note explaining the decision.",
+        "noteLength": "Keep it under 500 characters.",
+        "forceReasonMin": "Enter a reason of at least 10 characters.",
+        "forceReasonMax": "Keep the reason under 500 characters.",
+        "maxBookings": "Enter a whole number from 0 to 1000, higher than the current limit.",
+        "maxBookingsRequired": "Enter the new booking limit.",
+        "plateFormat": "Use letters, digits, spaces and -, starting with a letter or digit.",
+        "plateLength": "Use at most 20 characters.",
+        "modelLength": "Use at most 80 characters.",
+        "seats": "Enter a whole number of seats from 1 to 20.",
+        "licenseLength": "The licence number has 4 to 40 characters.",
+        "staffUserRequired": "Choose the driver's staff account.",
+        "notADriver": "This account doesn't have the driver role. Give it the role in Users & roles first.",
+        "slotRequired": "Choose a slot.",
+        "sortOrder": "Enter a whole number from 0 to 1000.",
+        "blackoutReasonLength": "Use at most 200 characters."
+      },
+      "expiry": {
+        "expired": "Expired",
+        "soon": "Expires soon",
+        "none": "Not recorded"
+      },
+      "shortfall": {
+        "title": "Booked requests would be left short",
+        "body": "This change leaves some slots with more requests than workers or seats to serve them.",
+        "caption": "Slots that would be short",
+        "columns": {
+          "date": "Date",
+          "zone": "Zone",
+          "slot": "Slot",
+          "kind": "Short of",
+          "reserved": "Booked",
+          "available": "Available",
+          "short": "Missing"
+        },
+        "kind": {
+          "workers": "Workers",
+          "seats": "Seats"
+        },
+        "seatsOf": "Seats on vehicle #{vehicle}",
+        "keep": "Keep things as they are",
+        "close": "Close",
+        "saveAnyway": "Save anyway",
+        "forceNote": "Saving anyway is recorded in the audit log as a capacity override with your reason. The affected requests stay booked and show as uncovered until operations reassign them.",
+        "reason": "Reason for saving anyway",
+        "reasonHint": "At least 10 characters. Recorded in the audit log.",
+        "noPermission": "Only staff with the capacity override permission can apply this change anyway. Move or release the affected requests first, or ask an operations coordinator.",
+        "noForcePath": "This change can't be forced. Move or release the affected requests first, or make a smaller change."
+      },
+      "conflict": {
+        "title": "That time is already taken",
+        "body": "{subject} already has {holder}{hasId, select, yes { (#{id})} other {}} on {date}{hasFrom, select, yes {, from {from}} other {}}.",
+        "hint": "Nothing was changed. Move or cancel that booking first, then try again.",
+        "unknownHolder": "another booking",
+        "thisResource": "This worker"
+      }
+    },
+    "scheduling": {
+      "slots": {
+        "title": "Slots",
+        "subtitle": "The daily time windows customers book, for each type of service.",
+        "create": "Add slot",
+        "createTitle": "New slot",
+        "editTitle": "Edit slot: {name}",
+        "editorBody": "Times are Asia/Dubai wall-clock times in 15-minute steps.",
+        "edit": "Edit",
+        "editLabel": "Edit {name}",
+        "tableCaption": "Slots",
+        "empty": "There are no slots yet.",
+        "noMatches": "No slots match these filters.",
+        "columns": {
+          "slot": "Slot",
+          "window": "Time",
+          "kind": "Service type",
+          "order": "Order",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "filters": {
+          "kind": "Service type",
+          "allKinds": "All service types",
+          "status": "Status",
+          "allStatuses": "All statuses",
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "name": "Name",
+        "start": "Starts",
+        "end": "Ends",
+        "endHint": "24:00 ends the slot at midnight.",
+        "kind": "Service type",
+        "sortOrder": "Display order",
+        "sortOrderHint": "Lower numbers are shown first.",
+        "active": "Active",
+        "activeHint": "Inactive slots aren't offered to customers. Requests already made keep their slot.",
+        "inUseHint": "The times and service type can't change while upcoming requests use this slot. You can deactivate it and add a new slot instead.",
+        "inUse": {
+          "title": "This slot is in use",
+          "body": "{count, plural, one {# upcoming request uses} other {# upcoming requests use}} this slot, so its times or service type can't change. Deactivate it and add a new slot instead."
+        },
+        "created": "{name} added.",
+        "updated": "{name} saved."
+      },
+      "rules": {
+        "title": "Slot rules",
+        "subtitle": "Open or close a slot, or limit its bookings, for a zone, a service, a weekday or a season.",
+        "create": "Add rule",
+        "createTitle": "New slot rule",
+        "editTitle": "Edit slot rule",
+        "editorBody": "Leave a field empty to apply the rule to all zones, all services, every day or all dates.",
+        "edit": "Edit",
+        "editLabel": "Edit the rule for {slot}",
+        "delete": "Delete",
+        "deleteLabel": "Delete the rule for {slot}",
+        "readOnly": "Read only",
+        "readOnlyHint": "Created by a capacity override. Delete it, or create a new override for that date.",
+        "tableCaption": "Slot rules",
+        "empty": "There are no slot rules.",
+        "emptyBody": "Without rules every active slot is open with no booking limit.",
+        "noMatches": "No rules match these filters.",
+        "columns": {
+          "slot": "Slot",
+          "scope": "Applies to",
+          "effect": "Effect",
+          "source": "Source",
+          "reason": "Reason",
+          "actions": "Actions"
+        },
+        "filters": {
+          "slot": "Slot",
+          "allSlots": "All slots",
+          "zone": "Zone",
+          "allZones": "All zones",
+          "service": "Service",
+          "allServices": "All services",
+          "source": "Source",
+          "allSources": "All sources",
+          "from": "Dates from",
+          "to": "Dates to"
+        },
+        "precedence": {
+          "title": "Which rule applies",
+          "intro": "When several rules match a slot on a date, they are compared one step at a time and the first difference decides:",
+          "steps": {
+            "override": "A capacity override always wins over an admin rule.",
+            "dated": "A rule with dates (a season or a single day) wins over one without dates.",
+            "zone": "A rule for one zone wins over an all-zones rule.",
+            "service": "A rule for one service wins over an all-services rule.",
+            "weekday": "A rule for one weekday wins over an every-day rule.",
+            "latest": "If they are still equal, the most recently changed rule wins."
+          },
+          "noRule": "With no matching rule, the slot is open with no booking limit.",
+          "blackouts": "A blackout date closes every slot that day in its zone, whatever the rules say, unless a capacity override opens a slot."
+        },
+        "scope": {
+          "allZones": "All zones",
+          "allServices": "All services",
+          "everyDay": "Every day",
+          "always": "All dates",
+          "oneDay": "On {date}",
+          "between": "{from} to {to}",
+          "from": "From {date}",
+          "until": "Until {date}"
+        },
+        "effect": {
+          "closed": "Closed",
+          "openShort": "Open",
+          "open": "Open, no booking limit",
+          "capped": "Open, up to {count, plural, one {# booking} other {# bookings}}"
+        },
+        "slot": "Slot",
+        "chooseSlot": "Choose a slot",
+        "zone": "Zone",
+        "service": "Service",
+        "weekday": "Weekday",
+        "dateFrom": "First date",
+        "dateTo": "Last date",
+        "datesHint": "Optional: limit the rule to a season or a single day.",
+        "isOpen": "Slot open",
+        "isOpenHint": "Off closes the slot for everything this rule applies to.",
+        "maxBookings": "Booking limit",
+        "maxBookingsHint": "Optional: the most bookings the slot takes per zone and date. Empty means no limit.",
+        "reason": "Reason",
+        "reasonHint": "Shown in the rules list and recorded in the audit log.",
+        "created": "Rule added.",
+        "updated": "Rule saved.",
+        "deleted": "Rule deleted.",
+        "deleteTitle": "Delete this rule?",
+        "deleteBody": "The slot goes back to the next rule that matches, or opens without a limit if none does.",
+        "deleteOverrideBody": "This removes a capacity override. The slot goes back to its normal rules for that date; requests already booked stay booked.",
+        "deleteReason": "Reason for deleting"
+      },
+      "blackouts": {
+        "title": "Blackout dates",
+        "subtitle": "Days with no bookings, in every zone or in one zone.",
+        "create": "Add blackout date",
+        "createTitle": "New blackout date",
+        "editTitle": "Edit blackout: {date}",
+        "editorBody": "Customers can't book any slot on this day in the chosen zone. Requests already booked are not cancelled.",
+        "edit": "Edit",
+        "editLabel": "Edit the blackout on {date}",
+        "delete": "Delete",
+        "deleteLabel": "Delete the blackout on {date}",
+        "tableCaption": "Blackout dates",
+        "empty": "No blackout dates.",
+        "emptyBody": "Upcoming dates are shown. Clear \"From\" to see past ones.",
+        "allZones": "All zones",
+        "columns": {
+          "date": "Date",
+          "zone": "Zone",
+          "reason": "Reason",
+          "actions": "Actions"
+        },
+        "filters": {
+          "zone": "Zone",
+          "anyZone": "Any zone",
+          "zoneHint": "Blackouts for all zones are included.",
+          "from": "From",
+          "to": "To"
+        },
+        "date": "Date",
+        "zone": "Zone",
+        "zoneHint": "Leave empty to close every zone.",
+        "reasonAr": "Reason (in Arabic)",
+        "reasonEn": "Reason (in English)",
+        "reasonHint": "Optional. Fill in one or both languages.",
+        "created": "Blackout added for {date}.",
+        "updated": "Blackout for {date} saved.",
+        "deleted": "Blackout for {date} deleted.",
+        "deleteTitle": "Delete the blackout on {date}?",
+        "deleteBody": "Customers can book that day again in this zone.",
+        "deleteReason": "Reason for deleting"
+      }
+    },
+    "capacity": {
+      "title": "Capacity",
+      "subtitle": "Workers and seats per slot for one date and zone, and why a slot is limited or closed.",
+      "date": "Date",
+      "zone": "Zone",
+      "today": "Today",
+      "previousDay": "Previous day",
+      "nextDay": "Next day",
+      "chooseDate": "Choose a date.",
+      "noZones": "No zones to show",
+      "noZonesBody": "There are no zones you can see yet.",
+      "noSlots": "There are no slots.",
+      "settingsLine": "Travel buffer {buffer} min · {scope, select, window {A Live-out day blocks only its service window} other {A Live-out day blocks the whole day}}",
+      "available": "Available workers",
+      "reserved": "Reserved",
+      "competing": "including {count} in overlapping slots",
+      "remaining": "Remaining",
+      "excludedTitle": "Workers who can't take this slot",
+      "noneExcluded": "All {count, plural, one {# worker} other {# workers}} of the zone can take it.",
+      "excludedOf": "{count} of the zone's {total, plural, one {# worker} other {# workers}}:",
+      "seatsTitle": "Seats",
+      "noVehicles": "No active vehicle serves this zone.",
+      "vehicleId": "Vehicle #{id}",
+      "seatsUsed": "{used} of {seats} seats booked · {free} free",
+      "seatsMeter": "Seats booked on {vehicle}",
+      "bookings": "Bookings",
+      "bookingsNoCap": "{count, plural, one {# booking} other {# bookings}} · no limit",
+      "bookingsCap": "{count} of {max, plural, one {# booking} other {# bookings}}",
+      "holds": "Requests",
+      "holdsValue": "{active} awaiting payment · {converted} booked",
+      "rule": "Rule applied",
+      "ruleReason": "Reason: {reason}",
+      "noRule": "No rule: open with no booking limit",
+      "override": "Override",
+      "hardLimit": "Nothing to override here: workers, seats, the booking horizon and slots that have started are hard limits.",
+      "overrideDialog": {
+        "title": "Override capacity: {slot}, {date}",
+        "body": "Zone: {zone}. The change applies to this date only.",
+        "hardLimitsTitle": "Workers and seats stay hard limits",
+        "hardLimits": "An override only relaxes soft limits (a blackout date, a closed slot, a booking limit). It never books more workers or seats than exist, and never puts two jobs on one worker at the same time.",
+        "action": "Override",
+        "actions": {
+          "open": "Open the slot",
+          "raise_cap": "Raise the booking limit"
+        },
+        "relaxesTitle": "This override relaxes",
+        "relaxes": {
+          "blackout": "The blackout on {date} in {zone}",
+          "closedRule": "Rule #{id}: {effect}",
+          "cap": "Rule #{id}: {effect}"
+        },
+        "newCap": "New booking limit",
+        "newCapOptional": "Booking limit once open (optional)",
+        "newCapHint": "Higher than the current limit of {current}.",
+        "openCapHint": "Leave empty to keep the limit of the rule that applies. A higher number also relaxes that limit.",
+        "reason": "Reason",
+        "reasonHint": "At least 10 characters. Recorded in the audit log with your name.",
+        "confirm": "I understand this override is recorded in the audit log with my name and reason.",
+        "confirmRequired": "Confirm to continue.",
+        "cancel": "Cancel",
+        "apply": "Apply override",
+        "applied": "Override applied to {slot}{hasStatus, select, yes { — now {status}} other {}}."
+      }
+    },
+    "workers": {
+      "title": "Cleaners",
+      "subtitle": "Profiles, weekly schedules, eligible services, skills and leave.",
+      "create": "Add cleaner",
+      "createTitle": "New cleaner",
+      "createBody": "After saving, set her weekly schedule. Customers only see the display name.",
+      "createSubmit": "Add cleaner",
+      "cancel": "Cancel",
+      "created": "{name} added. Set her weekly schedule next.",
+      "tableCaption": "Cleaners",
+      "empty": "There are no cleaners yet.",
+      "noMatches": "No cleaners match these filters.",
+      "open": "Open",
+      "openLabel": "Open {name}",
+      "onLeaveUntil": "On leave until {date}",
+      "listSeparator": ", ",
+      "noServices": "No services",
+      "liveOutYes": "Live-out",
+      "columns": {
+        "worker": "Cleaner",
+        "zone": "Home zone",
+        "status": "Status",
+        "restDay": "Rest day",
+        "services": "Services",
+        "skills": "Skills",
+        "liveOut": "Live-out",
+        "actions": "Actions"
+      },
+      "filters": {
+        "search": "Search cleaners",
+        "searchPlaceholder": "Name or employee number",
+        "zone": "Home zone",
+        "allZones": "All zones",
+        "status": "Status",
+        "allStatuses": "All statuses",
+        "service": "Service",
+        "allServices": "All services",
+        "skill": "Skill",
+        "allSkills": "All skills"
+      },
+      "fields": {
+        "employeeNo": "Employee number",
+        "employeeNoHint": "Letters and digits, for example W-014.",
+        "displayName": "Display name",
+        "displayNameHint": "The only name customers see, for example Maria S.",
+        "fullName": "Full name",
+        "phone": "Phone",
+        "phoneHint": "With the country code, for example +971 50 123 4567. Not shown to customers.",
+        "nationality": "Nationality",
+        "nationalityHint": "Two-letter country code, for example PH.",
+        "languages": "Languages",
+        "languagesHint": "Two-letter codes such as ar, en or tl. Press Enter after each.",
+        "homeZone": "Home zone",
+        "chooseZone": "Choose a zone",
+        "restDay": "Weekly rest day",
+        "restDayHint": "Must be a day off in her schedule.",
+        "status": "Employment status",
+        "statusHint": "Only active cleaners count towards capacity.",
+        "hiredAt": "Hired on",
+        "canLiveOut": "Can work Live-out",
+        "canLiveOutHint": "Needed for Live-out services.",
+        "notes": "Internal notes",
+        "notesHint": "Visible to HR and operations only."
+      },
+      "detail": {
+        "back": "All cleaners",
+        "tabsLabel": "Cleaner sections",
+        "tabs": {
+          "info": "Info",
+          "schedule": "Schedule",
+          "services": "Services & skills",
+          "leaves": "Leave"
+        },
+        "onLeaveUntil": "On leave until {date}",
+        "liveOut": "Live-out"
+      },
+      "info": {
+        "title": "Profile",
+        "intro": "Customers only see the display name. A change of status, home zone or Live-out eligibility is checked against booked requests.",
+        "save": "Save changes",
+        "discard": "Discard changes",
+        "saved": "{name}'s profile saved.",
+        "basicView": "You see the basic profile. Phone, internal notes and leave details are visible to HR and operations.",
+        "fullNameAr": "Full name (in Arabic)",
+        "fullNameEn": "Full name (in English)",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "schedule": {
+        "title": "Weekly schedule",
+        "intro": "Working hours for each day, in 15-minute steps. The weekly rest day must be a day off; change both here together.",
+        "noWorkingDay": "She has no working day yet, so she can't be booked.",
+        "restDay": "Weekly rest day",
+        "restDayHint": "Highlighted below. It must be a day off.",
+        "restDayBadge": "Rest day",
+        "restDayOff": "Rest day, no shift",
+        "weekLabel": "Shifts by day",
+        "works": "Works",
+        "off": "Off",
+        "worksLabel": "Works on {day}",
+        "dayOff": "Day off",
+        "start": "Starts",
+        "end": "Ends",
+        "copy": "Copy to working days",
+        "copyLabel": "Copy {day}'s hours to every working day",
+        "save": "Save schedule",
+        "discard": "Discard changes",
+        "saved": "{name}'s schedule saved."
+      },
+      "services": {
+        "title": "Eligible services",
+        "intro": "She is only offered for the services ticked here.",
+        "legend": "Services",
+        "none": "No services yet.",
+        "noOptions": "There are no services to choose from.",
+        "partialList": "Only services already given to a cleaner are listed. Ask a system administrator to add one nobody has yet.",
+        "inactive": "Inactive",
+        "needsLiveOut": "Needs \"Can work Live-out\" on the Info tab.",
+        "save": "Save services",
+        "discard": "Discard changes",
+        "saved": "{name}'s services saved."
+      },
+      "skills": {
+        "title": "Skills",
+        "legend": "Skills",
+        "none": "No skills recorded.",
+        "noOptions": "There are no skills to choose from.",
+        "inactive": "Inactive",
+        "save": "Save skills",
+        "discard": "Discard changes",
+        "saved": "{name}'s skills saved."
+      },
+      "leaves": {
+        "title": "Leave",
+        "upcomingTitle": "Upcoming leave",
+        "noUpcoming": "No upcoming leave.",
+        "range": "{from} – {to}",
+        "days": "{count, plural, one {# day} other {# days}}",
+        "request": "Record leave",
+        "tableCaption": "Leave",
+        "empty": "No leave recorded.",
+        "noMatches": "No leave with this status.",
+        "columns": {
+          "dates": "Dates",
+          "type": "Type",
+          "status": "Status",
+          "history": "Details",
+          "actions": "Actions"
+        },
+        "filters": {
+          "status": "Status",
+          "allStatuses": "All statuses"
+        },
+        "requestedBy": "Recorded by {name}",
+        "approvedBy": "Approved by {name}",
+        "rejectedBy": "Rejected by {name}",
+        "cancelledBy": "Cancelled by {name}",
+        "actions": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "cancel": "Cancel leave",
+          "approveLabel": "Approve the leave from {from}",
+          "rejectLabel": "Reject the leave from {from}",
+          "cancelLabel": "Cancel the leave from {from}"
+        },
+        "requestTitle": "Record leave for {name}",
+        "requestBody": "A request holds no days until it is approved.",
+        "requestSubmit": "Record leave",
+        "cancel": "Close",
+        "type": "Type of leave",
+        "dateFrom": "First day",
+        "dateTo": "Last day",
+        "reason": "Reason",
+        "reasonHint": "Optional.",
+        "limitsHint": "A leave covers whole days, both included. The longest leave and how far back or ahead it may be are set in General settings.",
+        "requested": "Leave recorded for {from} – {to}.",
+        "overlapTitle": "These dates overlap another leave",
+        "overlapBody": "She already has a leave ({status}) from {from} to {to}.",
+        "decisionTitle": {
+          "approve": "Approve {name}'s leave?",
+          "reject": "Reject {name}'s leave?",
+          "cancel": "Cancel {name}'s leave?"
+        },
+        "decisionBody": {
+          "approve": "From {from} to {to} ({days, plural, one {# day} other {# days}}). Her whole days are blocked, so she can't be booked on them.",
+          "reject": "From {from} to {to}. The request is closed and holds no days.",
+          "cancel": "From {from} to {to}. If it was approved, her days become free again."
+        },
+        "decided": {
+          "approve": "Leave approved for {from} – {to}.",
+          "reject": "Leave rejected for {from} – {to}.",
+          "cancel": "Leave cancelled for {from} – {to}."
+        },
+        "note": "Note",
+        "noteOptional": "Note (optional)",
+        "noteHint": "Kept in her file with the decision."
+      }
+    },
+    "fleet": {
+      "vehicles": {
+        "title": "Vehicles",
+        "subtitle": "Seats, zone, usual driver and document expiry. Only active vehicles carry workers.",
+        "create": "Add vehicle",
+        "createTitle": "New vehicle",
+        "editTitle": "Edit vehicle {plate}",
+        "editorBody": "Seats are passenger seats for workers. A change of seats, zone or status is checked against booked requests.",
+        "edit": "Edit",
+        "editLabel": "Edit {plate}",
+        "tableCaption": "Vehicles",
+        "empty": "There are no vehicles yet.",
+        "noMatches": "No vehicles match these filters.",
+        "noZone": "No zone",
+        "noDriver": "No usual driver",
+        "columns": {
+          "vehicle": "Vehicle",
+          "seats": "Seats",
+          "zone": "Zone",
+          "driver": "Usual driver",
+          "insurance": "Insurance",
+          "registration": "Registration",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "filters": {
+          "search": "Search vehicles",
+          "searchPlaceholder": "Plate or model",
+          "status": "Status",
+          "allStatuses": "All statuses",
+          "zone": "Zone",
+          "allZones": "All zones"
+        },
+        "plate": "Plate number",
+        "plateHint": "Letters, digits, spaces and -.",
+        "model": "Model",
+        "seats": "Seats",
+        "seatsHint": "Passenger seats for workers, 1 to {max}.",
+        "status": "Status",
+        "statusHint": "Vehicles in maintenance or out of service carry no workers.",
+        "zone": "Zone",
+        "zoneHint": "The zone whose workers it carries.",
+        "driver": "Usual driver",
+        "insurance": "Insurance expires on",
+        "registration": "Registration expires on",
+        "expiryHint": "Dates within 30 days are marked \"Expires soon\".",
+        "created": "Vehicle {plate} added.",
+        "updated": "Vehicle {plate} saved."
+      },
+      "drivers": {
+        "title": "Drivers",
+        "subtitle": "Staff accounts with the driver role, their licence and status.",
+        "create": "Add driver",
+        "createTitle": "New driver",
+        "editTitle": "Edit driver: {name}",
+        "editorBody": "The licence number is stored encrypted and only its last characters are shown.",
+        "edit": "Edit",
+        "editLabel": "Edit {name}",
+        "tableCaption": "Drivers",
+        "empty": "There are no drivers yet.",
+        "noMatches": "No drivers match these filters.",
+        "noVehicle": "No vehicle",
+        "accountSuspended": "Account suspended",
+        "licenceHidden": "Hidden",
+        "licenceEnding": "Licence ending {last4}",
+        "columns": {
+          "driver": "Driver",
+          "phone": "Phone",
+          "licence": "Licence",
+          "vehicle": "Usual vehicle",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "filters": {
+          "search": "Search drivers",
+          "searchPlaceholder": "Name, e-mail or phone",
+          "status": "Status",
+          "allStatuses": "All statuses"
+        },
+        "account": "Staff account",
+        "chooseAccount": "Choose an account",
+        "accountHint": "Only accounts with the driver role that aren't linked yet are listed.",
+        "noAccounts": "Every account with the driver role is already linked. Give the role to another account in Users & roles.",
+        "accountFixed": "The linked account can't change.",
+        "accountId": "Staff account number",
+        "accountIdHint": "The account's number from Users & roles. It must have the driver role.",
+        "licence": "Licence number",
+        "licenceHint": "4 to 40 characters.",
+        "newLicence": "New licence number",
+        "newLicenceHint": "Leave empty to keep the current one (ending {last4}).",
+        "licenceExpiry": "Licence expires on",
+        "phone": "Phone",
+        "phoneHint": "With the country code, for example +971 50 123 4567.",
+        "status": "Status",
+        "statusHint": "Inactive drivers get no rounds.",
+        "roleNote": "The staff account needs the driver role first. Give it in Users & roles.",
+        "created": "{name} added as a driver.",
+        "updated": "{name} saved."
       }
     }
   },

@@ -13,10 +13,29 @@ import {
 import { COMPENSATIONS, POLICY_TYPES } from "@/lib/admin/catalog/policyRules";
 import { POLYGON_REASONS } from "@/lib/admin/geo";
 import { ADMIN_NAV } from "@/lib/admin/nav";
+import { EXCLUSION_REASONS, HOLDER_TYPES, RULE_SOURCES, SLOT_REASONS, SLOT_STATUSES } from "@/lib/admin/ops/capacity";
+import { OPS_ERROR_KEYS } from "@/lib/admin/ops/fields";
+import { DRIVER_STATUSES, VEHICLE_STATUSES } from "@/lib/admin/ops/fleet";
+import { RULE_PRECEDENCE } from "@/lib/admin/ops/scheduling";
+import { EMPLOYMENT_STATUSES, LEAVE_STATUSES, LEAVE_TYPES } from "@/lib/admin/ops/workforce";
 import type { SettingDraftError } from "@/lib/admin/settings";
 import { SETTING_OPTIONS } from "@/lib/admin/settings";
 import ar from "./ar.json";
 import en from "./en.json";
+
+// Operations enum labels looked up at runtime (admin.ops.enums.<group>.<value>, see _ops/opsText.ts).
+const OPS_ENUMS: Record<string, readonly string[]> = {
+  employmentStatus: EMPLOYMENT_STATUSES,
+  leaveType: LEAVE_TYPES,
+  leaveStatus: LEAVE_STATUSES,
+  vehicleStatus: VEHICLE_STATUSES,
+  driverStatus: DRIVER_STATUSES,
+  slotStatus: SLOT_STATUSES,
+  slotReason: SLOT_REASONS,
+  exclusion: EXCLUSION_REASONS,
+  holderType: HOLDER_TYPES,
+  ruleSource: RULE_SOURCES,
+};
 
 // Enum labels looked up at runtime (admin.catalog.enums.<group>.<value>, see catalogText.ts).
 const CATALOG_ENUMS: Record<string, readonly (string | number)[]> = {
@@ -54,6 +73,13 @@ const SETTING_KEYS = [
   "booking.confirmation_sla_minutes",
   "booking.booking_horizon_days",
   "booking.min_lead_time_hours",
+  // Phase 2 (R-13, §8.2, LeaveRules)
+  "booking.working_hours",
+  "calendar.public_holidays",
+  "availability.limited_threshold",
+  "leave.max_range_days",
+  "leave.backdate_days",
+  "leave.max_ahead_days",
   "travel.buffer_minutes",
   "arrival.grace_minutes",
   "reminder.before_arrival_minutes",
@@ -65,6 +91,10 @@ const SETTING_KEYS = [
   "auth.supported_country_codes",
   "auth.staff_lockout_attempts",
   "auth.staff_lockout_minutes",
+  "auth.staff_lockout_account_ceiling",
+  "auth.staff_lockout_account_window_minutes",
+  "auth.staff_lockout_account_minutes",
+  "auth.staff_trusted_network_days",
   "auth.staff_idle_timeout_minutes",
   "auth.two_factor_required_roles",
   "legal.terms_version",
@@ -94,6 +124,10 @@ const DRAFT_ERRORS: SettingDraftError[] = [
   "json_object",
   "time_format",
   "time_order",
+  "hours_format",
+  "hours_order",
+  "date_format",
+  "date_duplicate",
 ];
 
 describe.each([
@@ -153,6 +187,25 @@ describe.each([
 
   it("name every rules section the policy editor requires", () => {
     for (const type of POLICY_TYPES) expect(get(messages, `admin.catalog.common.policy.${type}`), type).toEqual(expect.any(String));
+  });
+
+  it("explain every operations form error", () => {
+    for (const key of OPS_ERROR_KEYS) expect(get(messages, `admin.ops.errors.${key}`), key).toEqual(expect.any(String));
+  });
+
+  it("label every operations enum value and short weekday", () => {
+    for (const [group, values] of Object.entries(OPS_ENUMS)) {
+      for (const value of values) {
+        expect(get(messages, `admin.ops.enums.${group}.${value}`), `${group}.${value}`).toEqual(expect.any(String));
+      }
+    }
+    for (let day = 0; day < 7; day++) expect(get(messages, `admin.ops.weekdaysShort.${day}`), String(day)).toEqual(expect.any(String));
+  });
+
+  it("explain every step of the slot rule order", () => {
+    for (const step of RULE_PRECEDENCE) {
+      expect(get(messages, `admin.scheduling.rules.precedence.steps.${step}`), step).toEqual(expect.any(String));
+    }
   });
 });
 

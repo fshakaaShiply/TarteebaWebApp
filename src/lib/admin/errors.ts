@@ -36,6 +36,17 @@ const CODE_MESSAGES: Readonly<Record<string, string>> = {
   RESET_TOKEN_INVALID: "resetTokenInvalid",
   POLYGON_INVALID: "polygonInvalid",
   SUB_ZONE_OUTSIDE_ZONE: "subZoneOutsideZone",
+  // Phase 2: workforce, fleet, scheduling and capacity. INVALID_STATE, NOTHING_TO_OVERRIDE and DATE_OUT_OF_RANGE keep
+  // the API's message, which names the status, the action or the allowed dates.
+  CAPACITY_SHORTFALL: "capacityShortfall",
+  RESOURCE_CONFLICT: "resourceConflict",
+  SHIFT_ON_REST_DAY: "shiftOnRestDay",
+  LEAVE_OVERLAP: "leaveOverlap",
+  NOT_A_DRIVER: "notADriver",
+  PHONE_INVALID: "phoneInvalid",
+  SLOT_IN_USE: "slotInUse",
+  OVERRIDE_RULE_READ_ONLY: "overrideRuleReadOnly",
+  SLOT_NOT_AVAILABLE_FOR_SERVICE: "slotNotAvailableForService",
 };
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;

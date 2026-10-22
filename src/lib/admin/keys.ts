@@ -56,4 +56,27 @@ export const adminKeys = {
   zone: (id: number) => ["admin", "zones", "detail", id] as const,
   /** Every zone (for the price-row zone select). */
   zoneOptions: () => ["admin", "zones", "options"] as const,
+
+  // Phase 2 operations. Workforce, fleet and scheduling changes move capacity, so each write also invalidates
+  // ["admin", "capacity"].
+  /** Zones and services for the operations pickers, built from what this user may read (see _ops/options.ts). */
+  zoneChoices: (scope: string) => ["admin", "choices", "zones", scope] as const,
+  serviceChoices: (scope: string) => ["admin", "choices", "services", scope] as const,
+  workers: () => ["admin", "workers"] as const,
+  workerList: (filters: Record<string, string | number>) => ["admin", "workers", "list", filters] as const,
+  worker: (id: number) => ["admin", "workers", "detail", id] as const,
+  workerLeaves: (id: number, filters: Record<string, string | number>) => ["admin", "workers", "leaves", id, filters] as const,
+  skills: () => ["admin", "skills"] as const,
+  fleet: () => ["admin", "fleet"] as const,
+  vehicleList: (filters: Record<string, string | number>) => ["admin", "fleet", "vehicles", "list", filters] as const,
+  driverList: (filters: Record<string, string | number>) => ["admin", "fleet", "drivers", "list", filters] as const,
+  driverOptions: () => ["admin", "fleet", "drivers", "options"] as const,
+  driverAccounts: () => ["admin", "fleet", "driver-accounts"] as const,
+  scheduling: () => ["admin", "scheduling"] as const,
+  slotTemplateList: (filters: Record<string, string | number>) => ["admin", "scheduling", "slot-templates", "list", filters] as const,
+  slotTemplateOptions: () => ["admin", "scheduling", "slot-templates", "options"] as const,
+  slotRuleList: (filters: Record<string, string | number>) => ["admin", "scheduling", "slot-rules", "list", filters] as const,
+  blackoutList: (filters: Record<string, string | number>) => ["admin", "scheduling", "blackout-dates", "list", filters] as const,
+  capacity: () => ["admin", "capacity"] as const,
+  capacityView: (date: string, zoneId: number) => ["admin", "capacity", date, zoneId] as const,
 };

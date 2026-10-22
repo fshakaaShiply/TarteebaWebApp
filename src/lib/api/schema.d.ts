@@ -212,6 +212,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.scheduling.availability.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/availability/alternatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Screen 19: the nearest bookable (available or limited) dates and slots around the requested one, within the
+         *     booking horizon — at most config scheduling.alternatives_max — and, when a smaller team would fit the requested
+         *     slot, how many workers do (hint.workers_that_fit)
+         * @description Each option says how many workers it fits (`workers_that_fit`, as the NoSlot design labels them: "available for
+         *          * two workers", "available for one worker only"): slots where the whole team fits, and slots where only a smaller
+         *     team fits (at least the service minimum). status and `remaining` describe the option for that many workers.
+         *
+         *     DECISION: order by distance in days, where a smaller-team option counts as one day further away; then the
+         *     whole-team option first, the same slot first, the earlier date. This is the order of the approved NoSlot design
+         *     (R-09) for a full Thursday: Friday morning for the team, Thursday evening for one worker, Saturday morning for
+         *     the team. `workers_that_fit` never exceeds the team asked for, so an option shows no more capacity than the
+         *     availability API would for that team.
+         */
+        get: operations["customer.scheduling.availability.alternatives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blackout-dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filters: from, to, zone_id (that zone's blackouts and the every-zone ones) */
+        get: operations["admin.scheduling.blackout-dates.index"];
+        put?: never;
+        post: operations["admin.scheduling.blackout-dates.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blackout-dates/{blackoutDate}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.scheduling.blackout-dates.show"];
+        put?: never;
+        post?: never;
+        delete: operations["admin.scheduling.blackout-dates.destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["admin.scheduling.blackout-dates.update"];
+        trace?: never;
+    };
+    "/v1/admin/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/capacity?date=&zone_id=&service_id= */
+        get: operations["admin.scheduling.capacity.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/capacity/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/capacity/override {date, zone_id, slot_template_id, service_id?, action: open|raise_cap,
+         *     max_bookings?, reason} → 201 {rule, relaxed: [the rule(s) or blackout(s) it relaxed], capacity}
+         */
+        post: operations["admin.scheduling.capacity.override"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/preview": {
         parameters: {
             query?: never;
@@ -325,6 +441,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.drivers.index"];
+        put?: never;
+        post: operations["admin.fleet.drivers.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/{driver}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.drivers.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.fleet.drivers.update"];
+        trace?: never;
+    };
+    "/v1/public/fake-gateway/checkout/{session}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.payment.fake-checkout.show"];
+        put?: never;
+        post: operations["public.payment.fake-checkout.submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/health": {
         parameters: {
             query?: never;
@@ -335,6 +499,103 @@ export interface paths {
         get: operations["public.health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/leaves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.workers.leaves.index"];
+        put?: never;
+        post: operations["admin.workforce.workers.leaves.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leaves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All workers' leave overlapping from..to (local dates), newest start first */
+        get: operations["admin.workforce.leaves.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leaves/{leave}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.leaves.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leaves/{leave}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.workforce.leaves.approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leaves/{leave}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.workforce.leaves.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/leaves/{leave}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.workforce.leaves.cancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -453,6 +714,56 @@ export interface paths {
         patch: operations["admin.catalog.packages.update"];
         trace?: never;
     };
+    "/v1/customer/payments/{payment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.payment.payments.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payments/{payment}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start checkout, or reopen it (a live session for the same return URL is reused) */
+        post: operations["customer.payment.payments.session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payments/{payment}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay again after a failure (failed → pending, attempts + 1) with a new session. Blocked while verifying */
+        post: operations["customer.payment.payments.retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -560,6 +871,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["customer.identity.me.locale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.catalog.quotes.store"];
         delete?: never;
         options?: never;
         head?: never;
@@ -727,6 +1054,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.skills.index"];
+        put?: never;
+        post: operations["admin.workforce.skills.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/skills/{skill}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.workforce.skills.update"];
+        trace?: never;
+    };
+    "/v1/admin/slot-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filters: slot_template_id, zone_id, service_id, source, and from/to (rules whose season overlaps them) */
+        get: operations["admin.scheduling.slot-rules.index"];
+        put?: never;
+        post: operations["admin.scheduling.slot-rules.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/slot-rules/{slotRule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.scheduling.slot-rules.show"];
+        put?: never;
+        post?: never;
+        /** An override rule (source "override") needs capacity.override too (403); PATCH refuses it (409) */
+        delete: operations["admin.scheduling.slot-rules.destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["admin.scheduling.slot-rules.update"];
+        trace?: never;
+    };
+    "/v1/admin/slot-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.scheduling.slot-templates.index"];
+        put?: never;
+        post: operations["admin.scheduling.slot-templates.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/slot-templates/{slotTemplate}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.scheduling.slot-templates.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.scheduling.slot-templates.update"];
+        trace?: never;
+    };
     "/v1/admin/staff-users": {
         parameters: {
             query?: never;
@@ -871,6 +1296,167 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.vehicles.index"];
+        put?: never;
+        post: operations["admin.fleet.vehicles.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/vehicles/{vehicle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.vehicles.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.fleet.vehicles.update"];
+        trace?: never;
+    };
+    "/v1/customer/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open entries (waiting or notified) whose slot has not started yet, soonest first */
+        get: operations["customer.scheduling.waitlist.index"];
+        put?: never;
+        post: operations["customer.scheduling.waitlist.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/waitlist/{waitlist}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["customer.scheduling.waitlist.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/payments/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["webhooks.payments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.workers.index"];
+        put?: never;
+        post: operations["admin.workforce.workers.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.workers.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.workforce.workers.update"];
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.workforce.workers.shifts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.workforce.workers.services"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.workforce.workers.skills"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/zones/check": {
         parameters: {
             query?: never;
@@ -1001,6 +1587,56 @@ export interface components {
             } | null;
             version: number;
         };
+        /** App.Modules.Identity.Http.Resources.DriverResource */
+        "App.Modules.Identity.Http.Resources.DriverResource": {
+            id: number;
+            name: string;
+            email: string;
+            phone: string | null;
+            locale: string;
+        };
+        /**
+         * BlackoutDateRequest
+         * @description POST /admin/blackout-dates and PATCH /admin/blackout-dates/{id} (A11). No zone means every zone. The reason is
+         *     optional, in Arabic and English.
+         */
+        BlackoutDateRequest: {
+            /** Format: date */
+            date: string;
+            zone_id?: number | null;
+            reason?: {
+                ar?: string | null;
+                en?: string | null;
+            };
+            version?: number;
+        };
+        /** BlackoutDateResource */
+        BlackoutDateResource: {
+            id: number;
+            date: string;
+            zone_id: number | null;
+            reason: {
+                ar?: string;
+                en?: string;
+            } | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * CapacityOverrideRequest
+         * @description POST /admin/capacity/override (spec §8.6): the reason is required, at least 10 characters.
+         */
+        CapacityOverrideRequest: {
+            /** Format: date */
+            date: string;
+            zone_id: number;
+            slot_template_id: number;
+            service_id?: number | null;
+            action: components["schemas"]["OverrideAction"];
+            max_bookings?: number | null;
+            reason: string;
+        };
         /**
          * CatalogPreviewRequest
          * @description POST /admin/catalog/preview (A11 "preview before publish"):
@@ -1110,10 +1746,45 @@ export interface components {
         /** DriverResource */
         DriverResource: {
             id: number;
-            name: string;
-            email: string;
+            staff_user_id: number;
+            staff_user?: {
+                id: number;
+                name: string;
+                email: string;
+                status: string;
+            };
+            license_no_last4: string;
+            license_expires_at: string | null;
             phone: string | null;
-            locale: string;
+            status: string;
+            vehicle?: {
+                id: number;
+                plate_no: string;
+            } | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * DriverStatus
+         * @description drivers.status (spec §6.8). Separate from the staff account status: an inactive driver gets no rounds.
+         * @enum {string}
+         */
+        DriverStatus: "active" | "inactive";
+        /**
+         * EmploymentStatus
+         * @description workers.employment_status (spec §6.7). Only active workers count towards capacity (spec §8.1 a). DECISION: `on_leave` is set by HR by hand (e.g. long unpaid leave) and is independent of worker_leaves: approving a leave does not change it, because approved leave already removes the worker through its whole-day time blocks.
+         * @enum {string}
+         */
+        EmploymentStatus: "active" | "on_leave" | "suspended" | "terminated";
+        /**
+         * FakeCheckoutRequest
+         * @description POST /public/fake-gateway/checkout/{session}: a button of the test checkout page.
+         */
+        FakeCheckoutRequest: {
+            /** @enum {string} */
+            scenario: "approve" | "approve_3ds" | "decline" | "timeout_then_approved" | "timeout_then_declined";
+            token: string;
         };
         /**
          * ForgotPasswordRequest
@@ -1123,6 +1794,81 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /**
+         * JoinWaitlistRequest
+         * @description POST /customer/waitlist (spec §8.8, screen 19).
+         */
+        JoinWaitlistRequest: {
+            service: string;
+            address_id: string;
+            workers?: number;
+            /** Format: date */
+            date: string;
+            slot_template_id: number;
+        };
+        /**
+         * LeaveDecisionRequest
+         * @description POST /admin/leaves/{id}/approve | reject | cancel (A05), with `version` or If-Match.
+         *     DECISION: a note is optional when approving and required when rejecting or cancelling, so the worker's file says why.
+         */
+        LeaveDecisionRequest: {
+            note: string;
+            version?: number;
+            force?: boolean;
+            reason?: string | null;
+        };
+        /** LeaveResource */
+        LeaveResource: {
+            id: number;
+            worker_id: number;
+            worker?: {
+                id: number;
+                employee_no: string;
+                full_name: {
+                    ar: string;
+                    en: string;
+                };
+                display_name: string;
+                home_zone_id: number;
+            };
+            type: string;
+            date_from: string;
+            date_to: string;
+            days: number;
+            status: string;
+            reason: string | null;
+            requested_by?: {
+                id: number;
+                name: string;
+            } | null;
+            requested_at: string | null;
+            decided_by?: {
+                id: number;
+                name: string;
+            } | null;
+            decided_at: string | null;
+            decision_note: string | null;
+            cancelled_by?: {
+                id: number;
+                name: string;
+            } | null;
+            cancelled_at: string | null;
+            cancellation_note: string | null;
+            version: number;
+            updated_at: string | null;
+        };
+        /**
+         * LeaveStatus
+         * @description worker_leaves.status (spec §6.7):   requested → approved | rejected | cancelled   approved  → cancelled (releases the leave's time blocks) rejected and cancelled are final.
+         * @enum {string}
+         */
+        LeaveStatus: "requested" | "approved" | "rejected" | "cancelled";
+        /**
+         * LeaveType
+         * @description worker_leaves.type (spec §6.7).
+         * @enum {string}
+         */
+        LeaveType: "annual" | "sick" | "unpaid" | "emergency" | "public_holiday";
         /**
          * LiveOutPlanKind
          * @enum {string}
@@ -1184,6 +1930,12 @@ export interface components {
          */
         MaterialsMode: "customer" | "company_addon" | "company_included";
         /**
+         * OverrideAction
+         * @description POST /admin/capacity/override (spec §8.6): open a closed slot, or raise its booking cap.
+         * @enum {string}
+         */
+        OverrideAction: "open" | "raise_cap";
+        /**
          * PackageRequest
          * @description POST /admin/packages and PATCH /admin/packages/{package}. Packages bundle standard visits; the term is either
          *     weeks or months (exactly one). A fixed discount is a net amount in fils (R-07).
@@ -1237,6 +1989,39 @@ export interface components {
             created_at: string | null;
             updated_at: string | null;
         };
+        /** PaymentResource */
+        PaymentResource: {
+            id: string;
+            status: string;
+            status_label: string;
+            message: string;
+            amount_fils: number;
+            vat_fils: number;
+            discount_fils: number;
+            captured_fils: number;
+            refunded_fils: number;
+            currency: string;
+            intent: string;
+            method: string | null;
+            three_ds_status: string | null;
+            needs_review: boolean;
+            /** @description Screen 20: retry is blocked while verifying, and once the booking (payable) no longer takes payment. */
+            retry_allowed: string;
+            attempts: number;
+            checkout_url: string | null;
+            checkout_expires_at: string | null;
+            failure_code: string | null;
+            failure_message: string | null;
+            payable: {
+                type: string;
+                id: string | null;
+            };
+            authorized_at: string | null;
+            captured_at: string | null;
+            voided_at: string | null;
+            created_at: string | null;
+            updated_at: string | null;
+        };
         /**
          * PhoneChangeRequest
          * @description POST /customer/me/phone-change (REQ C21).
@@ -1248,6 +2033,8 @@ export interface components {
          * PolicyRequest
          * @description POST /admin/policies and PATCH /admin/policies/{policy}. `rules` is validated against the §11.4 shape for the
          *     policy's type and replaced as a whole. `type` is fixed after creation.
+         *     A cancellation tier's `fee_value` is a percent (0..100) for fee_type "percent" and integer fils for fee_type "fixed"
+         *     (2500 = AED 25.00); see PolicyRules.
          */
         PolicyRequest: {
             code: string;
@@ -1310,6 +2097,24 @@ export interface components {
          * @enum {string}
          */
         PropertyType: "villa" | "apartment" | "townhouse" | "office";
+        /**
+         * QuoteRequest
+         * @description POST /customer/quotes (spec §14.2, screens 04-06). Only the shape is validated here; the business rules (service,
+         *     address ownership, slot, workers range, add-ons, coupon) are PricingService's, with their own error codes.
+         *
+         *     DECISION: service_date and slot_template_id come together or not at all. Without them the answer is the screen 04
+         *     estimate (spec §16: a live total on step 1, before the date step), with is_estimate true and no quote_token.
+         */
+        QuoteRequest: {
+            service: string;
+            address_id: string;
+            /** Format: date */
+            service_date?: string | null;
+            slot_template_id?: number | null;
+            workers_count: number;
+            addons?: string[] | null;
+            coupon_code?: string | null;
+        };
         /**
          * RegisterDeviceRequest
          * @description POST /customer/devices.
@@ -1472,6 +2277,93 @@ export interface components {
             packages?: components["schemas"]["PackageResource"][];
             live_out_plans?: components["schemas"]["LiveOutPlanResource"][];
         };
+        /** SkillResource */
+        SkillResource: {
+            id: number;
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            is_active: boolean;
+            version: number;
+        };
+        /**
+         * SlotRuleRequest
+         * @description POST /admin/slot-rules and PATCH /admin/slot-rules/{id} (A11, spec §6.4). Empty scope fields (zone, service, weekday,
+         *     season dates) mean "all"; date_to on or after date_from is checked once both values are known (RuleFields).
+         */
+        SlotRuleRequest: {
+            slot_template_id: number;
+            zone_id?: number | null;
+            service_id?: number | null;
+            day_of_week?: number | null;
+            /** Format: date */
+            date_from?: string | null;
+            /** Format: date */
+            date_to?: string | null;
+            is_open: boolean;
+            max_bookings?: number | null;
+            reason?: string | null;
+            version?: number;
+        };
+        /** SlotRuleResource */
+        SlotRuleResource: {
+            id: number;
+            slot_template_id: number;
+            slot: string | null;
+            zone_id: number | null;
+            service_id: number | null;
+            day_of_week: number | null;
+            date_from: string | null;
+            date_to: string | null;
+            is_open: boolean;
+            max_bookings: number | null;
+            source: string;
+            reason: string | null;
+            created_by: {
+                id: number;
+                name: string;
+            } | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * SlotTemplateRequest
+         * @description POST /admin/slot-templates and PATCH /admin/slot-templates/{id} (A11). Times are local "HH:MM" on the quarter hour
+         *     (time blocks are 15 minutes); the code is fixed after creation. On PATCH every field is optional; `version` or
+         *     If-Match.
+         */
+        SlotTemplateRequest: {
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            start_time: string;
+            end_time: string;
+            service_kind: components["schemas"]["ServiceKind"];
+            is_active?: boolean;
+            sort_order?: number;
+            version?: number;
+        };
+        /** SlotTemplateResource */
+        SlotTemplateResource: {
+            id: number;
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            start_time: string;
+            end_time: string;
+            service_kind: string;
+            is_active: boolean;
+            sort_order: number;
+            version: number;
+            updated_at: string | null;
+        };
         /**
          * StaffLoginRequest
          * @description POST /admin/auth/login and /driver/auth/login (spec §13.2, §13.3).
@@ -1527,6 +2419,13 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * StartCheckoutRequest
+         * @description POST /customer/payments/{ulid}/session and /retry. The allow-list check is StartCheckout's (422 RETURN_URL_NOT_ALLOWED).
+         */
+        StartCheckoutRequest: {
+            return_url: string;
+        };
+        /**
          * StartTwoFactorRequest
          * @description POST /admin/me/two-factor {password}: the current password is re-checked before a new secret is issued.
          */
@@ -1555,6 +2454,43 @@ export interface components {
             is_default?: boolean;
         };
         /**
+         * StoreDriverRequest
+         * @description POST /admin/drivers (A06): links a staff account holding the `driver` role (checked by CreateDriver).
+         */
+        StoreDriverRequest: {
+            staff_user_id: number;
+            license_no: string;
+            /** Format: date */
+            license_expires_at?: string | null;
+            phone?: string | null;
+            status?: components["schemas"]["DriverStatus"];
+        };
+        /**
+         * StoreLeaveRequest
+         * @description POST /admin/workers/{id}/leaves (A05): local dates, both inclusive. The maximum length and how far back a leave may
+         *     start are business limits checked by RequestLeave.
+         */
+        StoreLeaveRequest: {
+            type: components["schemas"]["LeaveType"];
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            reason?: string | null;
+        };
+        /**
+         * StoreSkillRequest
+         * @description POST /admin/skills (A05).
+         */
+        StoreSkillRequest: {
+            code: string;
+            name: {
+                ar: string;
+                en: string;
+            };
+            is_active?: boolean;
+        };
+        /**
          * StoreStaffUserRequest
          * @description POST /admin/staff-users (A13).
          */
@@ -1580,6 +2516,54 @@ export interface components {
             polygon: string[];
             is_active?: boolean;
             reason?: string | null;
+        };
+        /**
+         * StoreVehicleRequest
+         * @description POST /admin/vehicles (A06).
+         */
+        StoreVehicleRequest: {
+            plate_no: string;
+            model?: string | null;
+            seats: number;
+            /** Format: date */
+            insurance_expires_at?: string | null;
+            /** Format: date */
+            registration_expires_at?: string | null;
+            status?: components["schemas"]["VehicleStatus"];
+            zone_id?: number | null;
+            default_driver_id?: number | null;
+        };
+        /**
+         * StoreWorkerRequest
+         * @description POST /admin/workers (A05). Shifts, services and skills are optional here and have their own endpoints. When the
+         *     week is sent, its rows get the same rules as PUT /admin/workers/{id}/shifts (UpdateShiftsRequest::shiftRules); the
+         *     weekly pattern's quarter-hour and rest-day rules are checked by the action (WeeklyPattern).
+         */
+        StoreWorkerRequest: {
+            employee_no: string;
+            full_name: {
+                ar: string;
+                en: string;
+            };
+            display_name: string;
+            phone?: string | null;
+            nationality?: string | null;
+            languages: string[];
+            employment_status?: components["schemas"]["EmploymentStatus"];
+            /** Format: date */
+            hired_at?: string | null;
+            home_zone_id: number;
+            can_live_out?: boolean;
+            weekly_rest_day: number;
+            notes?: string | null;
+            shifts?: {
+                day_of_week: number;
+                is_working: boolean;
+                start_time?: string | null;
+                end_time?: string | null;
+            }[];
+            service_ids?: number[];
+            skill_ids?: number[];
         };
         /**
          * StoreZoneRequest
@@ -1616,6 +2600,24 @@ export interface components {
             active_addresses_count?: number;
             created_at: string | null;
             updated_at: string | null;
+        };
+        /**
+         * SyncServicesRequest
+         * @description PUT /admin/workers/{id}/services (A05): the full list of eligible services; an empty list removes them all.
+         */
+        SyncServicesRequest: {
+            service_ids: number[];
+            version?: number;
+            force?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * SyncSkillsRequest
+         * @description PUT /admin/workers/{id}/skills (A05): the full list of the worker's skills; an empty list removes them all.
+         */
+        SyncSkillsRequest: {
+            skill_ids: number[];
+            version?: number;
         };
         /**
          * SyncStaffUserRolesRequest
@@ -1673,6 +2675,19 @@ export interface components {
             locale?: "ar" | "en";
         };
         /**
+         * UpdateDriverRequest
+         * @description PATCH /admin/drivers/{id} (A06): partial update with `version` field or If-Match header; the staff account is fixed.
+         */
+        UpdateDriverRequest: {
+            staff_user_id?: string;
+            license_no?: string;
+            /** Format: date */
+            license_expires_at?: string | null;
+            phone?: string | null;
+            status?: components["schemas"]["DriverStatus"];
+            version?: number;
+        };
+        /**
          * UpdateLocaleRequest
          * @description POST /customer/me/locale.
          */
@@ -1686,6 +2701,36 @@ export interface components {
          */
         UpdateRolePermissionsRequest: {
             permissions: string[];
+        };
+        /**
+         * UpdateShiftsRequest
+         * @description PUT /admin/workers/{id}/shifts (A05): the whole weekly pattern, seven rows, plus an optional new weekly rest day so
+         *     both can change together. Quarter-hour steps, start < end and the rest-day rule are checked by WeeklyPattern.
+         */
+        UpdateShiftsRequest: {
+            shifts: {
+                day_of_week: number;
+                is_working: boolean;
+                start_time?: string | null;
+                end_time?: string | null;
+            }[];
+            weekly_rest_day?: number;
+            version?: number;
+            force?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * UpdateSkillRequest
+         * @description PATCH /admin/skills/{id} (A05): partial update; `version` field or If-Match header.
+         */
+        UpdateSkillRequest: {
+            code?: string;
+            name?: {
+                ar?: string;
+                en?: string;
+            };
+            is_active?: boolean;
+            version?: number;
         };
         /**
          * UpdateStaffUserRequest
@@ -1714,6 +2759,50 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * UpdateVehicleRequest
+         * @description PATCH /admin/vehicles/{id} (A06): partial update with `version` field or If-Match header.
+         */
+        UpdateVehicleRequest: {
+            plate_no?: string;
+            model?: string | null;
+            seats?: number;
+            /** Format: date */
+            insurance_expires_at?: string | null;
+            /** Format: date */
+            registration_expires_at?: string | null;
+            status?: components["schemas"]["VehicleStatus"];
+            zone_id?: number | null;
+            default_driver_id?: number | null;
+            version?: number;
+            force?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * UpdateWorkerRequest
+         * @description PATCH /admin/workers/{id} (A05): partial update, employment status included; `version` field or If-Match header.
+         */
+        UpdateWorkerRequest: {
+            employee_no?: string;
+            full_name?: {
+                ar?: string;
+                en?: string;
+            };
+            display_name?: string;
+            phone?: string | null;
+            nationality?: string | null;
+            languages?: string[];
+            employment_status?: components["schemas"]["EmploymentStatus"];
+            /** Format: date */
+            hired_at?: string | null;
+            home_zone_id?: number;
+            can_live_out?: boolean;
+            weekly_rest_day?: number;
+            notes?: string | null;
+            version?: number;
+            force?: boolean;
+            reason?: string | null;
+        };
+        /**
          * UpdateZoneRequest
          * @description PATCH /admin/zones/{id} (A11): partial update with `version` field or If-Match header.
          */
@@ -1730,6 +2819,40 @@ export interface components {
             version?: number;
             reason?: string | null;
         };
+        /** VehicleResource */
+        VehicleResource: {
+            id: number;
+            plate_no: string;
+            model: string | null;
+            seats: number;
+            insurance_expires_at: string | null;
+            registration_expires_at: string | null;
+            status: string;
+            zone_id: number | null;
+            zone?: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            } | null;
+            default_driver_id: number | null;
+            default_driver?: {
+                id: number;
+                name: string;
+                status: string;
+            } | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * VehicleStatus
+         * @description vehicles.status (spec §6.8). Only active vehicles carry workers (transport capacity, spec §8.1 2).
+         * @enum {string}
+         */
+        VehicleStatus: "active" | "maintenance" | "inactive";
         /**
          * VerifyOtpRequest
          * @description POST /public/otp/verify (spec §13.1).
@@ -1738,6 +2861,85 @@ export interface components {
             phone: string;
             code: string;
             device_name?: string | null;
+        };
+        /** WaitlistEntryResource */
+        WaitlistEntryResource: {
+            id: string;
+            service: {
+                code: string;
+                name: string;
+            };
+            address_id: string;
+            date: string;
+            slot: {
+                id: number;
+                code: string;
+                name: string;
+                start: string;
+                end: string;
+            };
+            workers_count: number;
+            status: string;
+            expires_at: string;
+            notified_at: string | null;
+            created_at: string | null;
+            /** @constant */
+            notice: "سنرسل لك إشعارًا إذا توفر مكان. الانضمام إلى قائمة الانتظار لا يعني تأكيد الحجز، ويُحجز المكان لأول من يكمل الدفع.";
+        };
+        /** WorkerResource */
+        WorkerResource: {
+            id: number;
+            ulid: string;
+            employee_no: string;
+            full_name: {
+                ar: string;
+                en: string;
+            };
+            display_name: string;
+            phone?: string | null;
+            nationality: string | null;
+            languages: string[];
+            employment_status: string;
+            hired_at: string | null;
+            home_zone_id: number;
+            home_zone?: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            can_live_out: boolean;
+            weekly_rest_day: number;
+            notes?: string | null;
+            skills?: components["schemas"]["SkillResource"][];
+            services?: {
+                id: number;
+                code: string;
+                kind: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            }[];
+            shifts?: (string | {
+                day_of_week: string;
+                is_working: boolean;
+                start_time: null;
+                end_time: null;
+            })[];
+            on_leave_until?: string | null;
+            upcoming_leaves?: unknown[] | {
+                id: number;
+                date_from: string;
+                date_to: string;
+                days: number;
+                status: string;
+            }[];
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
         };
         /** ZoneAdminResource */
         ZoneAdminResource: {
@@ -1782,18 +2984,6 @@ export interface components {
                 };
             };
         };
-        /** @description Unauthenticated */
-        AuthenticationException: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": {
-                    /** @description Error overview. */
-                    message: string;
-                };
-            };
-        };
         /** @description Validation error */
         ValidationException: {
             headers: {
@@ -1810,8 +3000,32 @@ export interface components {
                 };
             };
         };
+        /** @description Unauthenticated */
+        AuthenticationException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Error overview. */
+                    message: string;
+                };
+            };
+        };
         /** @description Not found */
         ModelNotFoundException: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @description Error overview. */
+                    message: string;
+                };
+            };
+        };
+        /** @description Authorization error */
+        AuthorizationException: {
             headers: {
                 [name: string]: unknown;
             };
@@ -2249,14 +3463,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description `DriverResource` */
+            /** @description `App.Modules.Identity.Http.Resources.DriverResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["DriverResource"];
+                        data: components["schemas"]["App.Modules.Identity.Http.Resources.DriverResource"];
                     };
                 };
             };
@@ -2280,6 +3494,367 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.scheduling.availability.index": {
+        parameters: {
+            query: {
+                service: string;
+                address_id: string;
+                workers?: number;
+                from?: string;
+                to?: string;
+                slot_template_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            slots: unknown[];
+                        }[];
+                        meta: {
+                            timezone: string;
+                            horizon_days: number;
+                            limited_threshold: number;
+                            workers: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.scheduling.availability.alternatives": {
+        parameters: {
+            query: {
+                service: string;
+                address_id: string;
+                workers?: number;
+                date: string;
+                slot_template_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            requested: unknown[];
+                            options: unknown[];
+                            hint: {
+                                workers_that_fit: unknown;
+                            } | null;
+                        };
+                        meta: {
+                            timezone: string;
+                            horizon_days: number;
+                            limited_threshold: number;
+                            workers: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.blackout-dates.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_kind?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                slot_template_id?: number;
+                zone_id?: number;
+                service_id?: number;
+                source?: "admin" | "override";
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.blackout-dates.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackoutDateRequest"];
+            };
+        };
+        responses: {
+            /** @description `BlackoutDateResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BlackoutDateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.blackout-dates.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The blackout date ID */
+                blackoutDate: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `BlackoutDateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BlackoutDateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.scheduling.blackout-dates.destroy": {
+        parameters: {
+            query?: {
+                version?: number;
+                reason?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description The blackout date ID */
+                blackoutDate: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.blackout-dates.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The blackout date ID */
+                blackoutDate: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackoutDateRequest"];
+            };
+        };
+        responses: {
+            /** @description `BlackoutDateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BlackoutDateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.capacity.show": {
+        parameters: {
+            query: {
+                date: string;
+                zone_id: number;
+                service_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            };
+                            timezone: string;
+                            travel_buffer_minutes: number;
+                            /** @enum {string} */
+                            live_out_block_scope: "whole_day" | "window";
+                            slots: {
+                                slot_template_id: string;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                                service_kind: string;
+                                is_active: string;
+                                service: {
+                                    id: string | number;
+                                    code: string;
+                                } | null;
+                                status: string;
+                                reason: string;
+                                available_workers: unknown;
+                                reserved_workers: number;
+                                /** @constant */
+                                reserved_competing: 0;
+                                remaining_workers: unknown;
+                                vehicles: {
+                                    id: string;
+                                    seats: string;
+                                    reserved_seats: number;
+                                    free: unknown;
+                                }[];
+                                max_single_vehicle_free: unknown;
+                                total_free_seats: number;
+                                bookings_count: number;
+                                max_bookings: number | null;
+                                rule: {
+                                    id: number;
+                                    slot_template_id: number;
+                                    zone_id: number | null;
+                                    service_id: number | null;
+                                    day_of_week: number | null;
+                                    date_from: string | null;
+                                    date_to: string | null;
+                                    is_open: boolean;
+                                    max_bookings: number | null;
+                                    source: string;
+                                    reason: string | null;
+                                    version: number;
+                                } | null;
+                                max_workers_fit: unknown;
+                                holds: {
+                                    active: string | 0;
+                                    converted: string | 0;
+                                };
+                                zone_workers: number;
+                                excluded: unknown[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.capacity.override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacityOverrideRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            rule: unknown[];
+                            relaxed: unknown[];
+                            capacity: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "admin.catalog.preview": {
@@ -2689,6 +4264,183 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
+    "admin.fleet.drivers.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                /** @description Vehicle statuses (active|maintenance|inactive) include the driver ones (active|inactive). */
+                status?: components["schemas"]["VehicleStatus"];
+                zone_id?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.drivers.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreDriverRequest"];
+            };
+        };
+        responses: {
+            /** @description `DriverResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.drivers.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The driver ID */
+                driver: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `DriverResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.fleet.drivers.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The driver ID */
+                driver: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateDriverRequest"];
+            };
+        };
+        responses: {
+            /** @description `DriverResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.payment.fake-checkout.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    "public.payment.fake-checkout.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FakeCheckoutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            303: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "public.health": {
         parameters: {
             query?: never;
@@ -2706,6 +4458,242 @@ export interface operations {
                     "application/json": string;
                 };
             };
+        };
+    };
+    "admin.workforce.workers.leaves.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: components["schemas"]["LeaveStatus"];
+                from?: string;
+                to?: string;
+                worker_id?: number;
+                zone_id?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.leaves.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreLeaveRequest"];
+            };
+        };
+        responses: {
+            /** @description `LeaveResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LeaveResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.leaves.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: components["schemas"]["LeaveStatus"];
+                from?: string;
+                to?: string;
+                worker_id?: number;
+                zone_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.leaves.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The leave ID */
+                leave: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `LeaveResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LeaveResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.leaves.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The leave ID */
+                leave: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description `LeaveResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LeaveResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.leaves.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The leave ID */
+                leave: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description `LeaveResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LeaveResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.leaves.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The leave ID */
+                leave: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaveDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description `LeaveResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LeaveResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "admin.catalog.live-out-plans.index": {
@@ -3042,6 +5030,89 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.payment.payments.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `PaymentResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PaymentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.payment.payments.session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartCheckoutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.payment.payments.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartCheckoutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "admin.identity.permissions.index": {
         parameters: {
             query?: never;
@@ -3325,6 +5396,74 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["CustomerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.catalog.quotes.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            service: {
+                                code: string;
+                                name: string;
+                            };
+                            address_id: string;
+                            service_date: string | null;
+                            slot_template_id: number | null;
+                            workers_count: number;
+                            /** @constant */
+                            visits: 1;
+                            lines: unknown[];
+                            /** @constant */
+                            subtotal_fils: 0;
+                            /** @constant */
+                            addons_fils: 0;
+                            discount_fils: number;
+                            net_fils: number;
+                            vat_rate_bp: number;
+                            vat_fils: number;
+                            total_fils: number;
+                            currency: string;
+                            coupon: {
+                                code: string;
+                                discount_fils: number;
+                            } | null;
+                            applied_rules: [
+                                {
+                                    /** @constant */
+                                    type: "coupon";
+                                    id: number;
+                                    code: string;
+                                }
+                            ];
+                            policy: {
+                                summary: string;
+                                policy_versions: unknown[];
+                            };
+                            is_estimate: boolean;
+                            quote_token: string;
+                            expires_at: string;
+                        };
                     };
                 };
             };
@@ -3778,6 +5917,371 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.workforce.skills.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of `SkillResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SkillResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.workforce.skills.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreSkillRequest"];
+            };
+        };
+        responses: {
+            /** @description `SkillResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SkillResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.skills.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The skill ID */
+                skill: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateSkillRequest"];
+            };
+        };
+        responses: {
+            /** @description `SkillResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SkillResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-rules.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_kind?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                slot_template_id?: number;
+                zone_id?: number;
+                service_id?: number;
+                source?: "admin" | "override";
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-rules.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description `SlotRuleResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-rules.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The slot rule ID */
+                slotRule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `SlotRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.scheduling.slot-rules.destroy": {
+        parameters: {
+            query?: {
+                version?: number;
+                reason?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description The slot rule ID */
+                slotRule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-rules.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The slot rule ID */
+                slotRule: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description `SlotRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-templates.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                service_kind?: string;
+                is_active?: "0" | "1" | "true" | "false";
+                slot_template_id?: number;
+                zone_id?: number;
+                service_id?: number;
+                source?: "admin" | "override";
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-templates.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description `SlotTemplateResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotTemplateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-templates.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The slot template ID */
+                slotTemplate: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `SlotTemplateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotTemplateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.scheduling.slot-templates.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The slot template ID */
+                slotTemplate: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description `SlotTemplateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SlotTemplateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "admin.identity.staff-users.index": {
         parameters: {
             query?: {
@@ -4142,6 +6646,468 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.vehicles.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                /** @description Vehicle statuses (active|maintenance|inactive) include the driver ones (active|inactive). */
+                status?: components["schemas"]["VehicleStatus"];
+                zone_id?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.vehicles.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreVehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description `VehicleResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["VehicleResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.vehicles.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The vehicle ID */
+                vehicle: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `VehicleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["VehicleResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.fleet.vehicles.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The vehicle ID */
+                vehicle: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description `VehicleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["VehicleResource"] & Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.scheduling.waitlist.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.scheduling.waitlist.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinWaitlistRequest"];
+            };
+        };
+        responses: {
+            /** @description `WaitlistEntryResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WaitlistEntryResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.scheduling.waitlist.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                waitlist: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `WaitlistEntryResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WaitlistEntryResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "webhooks.payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            received: boolean;
+                            duplicate: boolean;
+                        };
+                    };
+                };
+            };
+            404: components["responses"]["NotFoundHttpException"];
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Error overview. */
+                        message: string;
+                    };
+                };
+            };
+        };
+    };
+    "admin.workforce.workers.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                zone_id?: number;
+                status?: components["schemas"]["EmploymentStatus"];
+                service_id?: number;
+                skill?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreWorkerRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.workers.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkerRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateShiftsRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncServicesRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncSkillsRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };

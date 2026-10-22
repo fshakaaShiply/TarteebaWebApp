@@ -1,4 +1,12 @@
-import { filsToAedInput, parseAedToFils } from "@/lib/money";
+import { filsToAedInput, normalizeDigits, parseAedToFils } from "@/lib/money";
+import { isIsoDate } from "./format";
+import {
+  serializeWeeklyDraft,
+  toWeeklyDraft,
+  validateWeeklyDraft,
+  WEEK_ORDER,
+  type WeeklyHoursDraft,
+} from "./ops/weeklyHours";
 import type { Setting } from "./types";
 
 /*
@@ -16,7 +24,14 @@ export type EditorKind =
   | "chips"
   | "json-list"
   | "time_range"
-  | "json";
+  | "json"
+  /** booking.working_hours: seven weekday rows (R-13). */
+  | "weekly_hours"
+  /** calendar.public_holidays: a sorted list of YYYY-MM-DD dates. */
+  | "dates";
+
+/** List settings whose items are local dates (edited with a date picker, saved sorted without duplicates). */
+export const DATE_LIST_SETTINGS: readonly string[] = ["calendar.public_holidays"];
 
 /**
  * Modes the API code understands for some string settings (from SettingsDefaults descriptions). A value outside the
@@ -29,9 +44,13 @@ export const SETTING_OPTIONS: Readonly<Record<string, { messageKey: string; valu
   "payments.mode": { messageKey: "paymentsMode", values: ["authorize_capture", "sale_then_refund"] },
 };
 
-export type SettingDraft = string | boolean | string[];
+export type SettingDraft = string | boolean | string[] | WeeklyHoursDraft;
 
 export type SettingDraftError =
+  | "hours_format"
+  | "hours_order"
+  | "date_format"
+  | "date_duplicate"
   | "required"
   | "int"
   | "int_min"
@@ -61,9 +80,12 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
     case "string":
       return SETTING_OPTIONS[setting.key] ? "enum" : "string";
     case "list":
+      if (DATE_LIST_SETTINGS.includes(setting.key) && isStringList(setting.value)) return "dates";
       return isStringList(setting.value) ? "chips" : "json-list";
     case "time_range":
       return "time_range";
+    case "weekly_hours":
+      return "weekly_hours";
     default:
       return "json";
   }
@@ -84,6 +106,10 @@ export function toDraft(kind: EditorKind, value: unknown): SettingDraft {
       return typeof value === "number" ? filsToAedInput(value) : "";
     case "chips":
       return isStringList(value) ? [...value] : [];
+    case "dates":
+      return isStringList(value) ? sortDates(value) : [];
+    case "weekly_hours":
+      return toWeeklyDraft(value);
     case "enum":
     case "string":
       return typeof value === "string" ? value : "";
@@ -166,6 +192,21 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
       return { ok: true, value: items };
     }
 
+    case "dates": {
+      const items = (Array.isArray(draft) ? draft : []).map((v) => normalizeDigits(v).trim());
+      if (items.some((v) => !isIsoDate(v))) return { ok: false, error: "date_format" };
+      if (new Set(items).size !== items.length) return { ok: false, error: "date_duplicate" };
+      return { ok: true, value: sortDates(items) };
+    }
+
+    case "weekly_hours": {
+      if (!isWeeklyDraft(draft)) return { ok: false, error: "hours_format" };
+      const errors = validateWeeklyDraft(draft);
+      // First problem in display order (Monday first), so the summary matches the first highlighted row.
+      const first = WEEK_ORDER.map((d) => errors[d]).find(Boolean);
+      return first ? { ok: false, error: first } : { ok: true, value: serializeWeeklyDraft(draft) };
+    }
+
     case "json-list": {
       const parsed = parseJson(String(draft));
       if (!parsed.ok) return { ok: false, error: "json" };
@@ -196,6 +237,25 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
   }
 }
 
+function isWeeklyDraft(draft: SettingDraft): draft is WeeklyHoursDraft {
+  return draft !== null && typeof draft === "object" && !Array.isArray(draft);
+}
+
+/** Dates ascending ("YYYY-MM-DD" sorts as text). */
+export function sortDates(dates: readonly string[]): string[] {
+  return [...dates].sort();
+}
+
+export type AddDateResult = { ok: true; dates: string[] } | { ok: false; error: "date_format" | "date_duplicate" };
+
+/** Adds one date to a holiday list: it must be a real YYYY-MM-DD date and not already listed; the list stays sorted. */
+export function addDate(dates: readonly string[], raw: string): AddDateResult {
+  const date = normalizeDigits(raw).trim();
+  if (!isIsoDate(date)) return { ok: false, error: "date_format" };
+  if (dates.includes(date)) return { ok: false, error: "date_duplicate" };
+  return { ok: true, dates: sortDates([...dates, date]) };
+}
+
 /** "09:00–18:00" for {start, end}; null when the value is not a time range. */
 export function formatTimeRange(value: unknown): string | null {
   if (!isPlainObject(value) || typeof value.start !== "string" || typeof value.end !== "string") return null;
@@ -212,6 +272,7 @@ export const SETTING_GROUP_ORDER = [
   "finance",
   "catalog",
   "quality",
+  "workforce",
   "auth",
   "legal",
   "locale",

@@ -19,6 +19,8 @@ import { AdminApiError } from "@/lib/admin/client";
 import { updateSetting } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
+import { readShortfalls } from "@/lib/admin/ops/capacity";
+import { validateWeeklyDraft, type WeeklyHoursDraft, type WeeklyHoursError } from "@/lib/admin/ops/weeklyHours";
 import {
   SETTING_OPTIONS,
   editorKind,
@@ -29,6 +31,8 @@ import {
   type SettingDraftError,
 } from "@/lib/admin/settings";
 import type { Setting } from "@/lib/admin/types";
+import { ShortfallTable } from "../_ops/Shortfall";
+import { HolidaysEditor, WeeklyHoursEditor } from "./WeeklyHoursEditor";
 import { useSettingText } from "./settingText";
 
 const REASON_MAX = 500;
@@ -64,6 +68,7 @@ export function SettingEditDialog({
   const [reason, setReason] = useState("");
   const [valueError, setValueError] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
+  const [dayErrors, setDayErrors] = useState<Partial<Record<number, WeeklyHoursError>>>({});
 
   const save = useMutation({
     mutationFn: ({ value }: { value: unknown }) => updateSetting(setting.key, value, reason.trim(), setting.version),
@@ -91,6 +96,7 @@ export function SettingEditDialog({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (kind === "weekly_hours") setDayErrors(validateWeeklyDraft(draft as WeeklyHoursDraft));
     const parsed = parseDraft(kind, draft, { allowNull: setting.value === null, options: enumValues });
     const trimmedReason = reason.trim();
     setValueError(parsed.ok ? null : draftMessage(parsed.error));
@@ -99,8 +105,10 @@ export function SettingEditDialog({
     save.mutate({ value: parsed.value });
   };
 
+  const shortfalls = readShortfalls(save.error);
   const otherError =
     save.error &&
+    !shortfalls &&
     !(save.error instanceof AdminApiError && ["STALE_VERSION", "INVALID_SETTING_VALUE", "VALIDATION_FAILED"].includes(save.error.code));
 
   return (
@@ -110,6 +118,7 @@ export function SettingEditDialog({
       title={t("editTitle", { name: text.label(setting) })}
       description={text.description(setting) ?? undefined}
       dismissible={!save.isPending}
+      size={kind === "weekly_hours" ? "lg" : "md"}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={save.isPending}>
@@ -129,8 +138,10 @@ export function SettingEditDialog({
           onChange={(d) => {
             setDraft(d);
             setValueError(null);
+            if (kind === "weekly_hours" && Object.keys(dayErrors).length > 0) setDayErrors(validateWeeklyDraft(d as WeeklyHoursDraft));
           }}
           error={valueError}
+          dayErrors={dayErrors}
           allowNull={setting.value === null}
           enumValues={enumValues ?? []}
         />
@@ -147,6 +158,12 @@ export function SettingEditDialog({
           }}
           error={reasonError}
         />
+        {shortfalls && (
+          <Notice tone="danger" title={describe(save.error)}>
+            <p>{t("shortfall")}</p>
+          </Notice>
+        )}
+        {shortfalls && shortfalls.length > 0 && <ShortfallTable shortfalls={shortfalls} />}
         {otherError && <Notice tone="danger">{describe(save.error)}</Notice>}
       </form>
     </Dialog>
@@ -159,6 +176,7 @@ function ValueEditor({
   draft,
   onChange,
   error,
+  dayErrors,
   allowNull,
   enumValues,
 }: {
@@ -167,6 +185,7 @@ function ValueEditor({
   draft: SettingDraft;
   onChange: (draft: SettingDraft) => void;
   error: string | null;
+  dayErrors: Partial<Record<number, WeeklyHoursError>>;
   allowNull: boolean;
   enumValues: readonly string[];
 }) {
@@ -175,6 +194,15 @@ function ValueEditor({
   const label = t("value");
 
   switch (kind) {
+    case "weekly_hours":
+      return (
+        <div className="flex flex-col gap-1.5">
+          <WeeklyHoursEditor draft={draft as WeeklyHoursDraft} onChange={onChange} errors={dayErrors} />
+          {error && Object.keys(dayErrors).length === 0 && <p className="text-xs font-medium text-danger-700">{error}</p>}
+        </div>
+      );
+    case "dates":
+      return <HolidaysEditor dates={Array.isArray(draft) ? draft : []} onChange={onChange} error={error} />;
     case "bool":
       return (
         <div className="flex flex-col gap-1.5">

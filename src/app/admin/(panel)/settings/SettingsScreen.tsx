@@ -20,9 +20,11 @@ import { formatAed } from "@/lib/money";
 import { fetchSettings } from "@/lib/admin/endpoints";
 import { formatDateTime } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
+import { summarizeWeeklyHours } from "@/lib/admin/ops/weeklyHours";
 import { editorKind, formatTimeRange, groupSettings } from "@/lib/admin/settings";
 import type { Setting } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
+import { useOpsText } from "../_ops/opsText";
 import { SettingEditDialog } from "./SettingEditDialog";
 import { useSettingText } from "./settingText";
 
@@ -155,6 +157,51 @@ function SettingRow({ setting, onEdit }: { setting: Setting; onEdit: () => void 
   );
 }
 
+/** "Mon–Thu 08:00–20:00 · Fri closed" (Monday first). */
+function WeeklyHoursSummary({ value }: { value: unknown }) {
+  const t = useTranslations("admin.settings.weeklyHours");
+  const text = useOpsText();
+  const runs = summarizeWeeklyHours(value);
+  if (!runs) return <span className="text-sm text-ink-600">{t("invalid")}</span>;
+  if (runs.length === 1) {
+    const hours = runs[0].hours;
+    return (
+      <span className="font-medium text-ink-900">
+        {hours ? (
+          <>
+            {t("everyDay")}{" "}
+            <bdi dir="ltr" className="font-latin">
+              {hours.open}–{hours.close}
+            </bdi>
+          </>
+        ) : (
+          t("closedAllWeek")
+        )}
+      </span>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-0.5 text-sm">
+      {runs.map((run) => {
+        const first = text.weekdayShort(run.days[0]);
+        const days = run.days.length === 1 ? first : t("dayRange", { from: first, to: text.weekdayShort(run.days[run.days.length - 1]) });
+        return (
+          <li key={run.days.join("-")} className="text-ink-900">
+            <span className="font-medium">{days}</span>{" "}
+            {run.hours ? (
+              <bdi dir="ltr" className="font-latin">
+                {run.hours.open}–{run.hours.close}
+              </bdi>
+            ) : (
+              <span className="text-ink-600">{t("closed")}</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function isRangeList(value: unknown): value is { start: string; end: string }[] {
   return Array.isArray(value) && value.length > 0 && value.every((v) => formatTimeRange(v) !== null);
 }
@@ -169,6 +216,25 @@ export function SettingValue({ setting }: { setting: Setting }) {
   if (value === null || value === undefined) return <StatusBadge tone="pending">{t("notSet")}</StatusBadge>;
 
   switch (kind) {
+    case "weekly_hours":
+      return <WeeklyHoursSummary value={value} />;
+    case "dates": {
+      const dates = value as string[];
+      if (dates.length === 0) return <span className="text-sm text-ink-600">{t("holidays.none")}</span>;
+      const shown = dates.slice(0, 6);
+      return (
+        <ul className="flex flex-wrap gap-1.5" aria-label={t("holidays.listLabel")}>
+          {shown.map((date) => (
+            <li key={date} dir="ltr" className="rounded-pill bg-petrol-50 px-2.5 py-0.5 font-latin text-[13px] font-medium text-petrol-700">
+              {date}
+            </li>
+          ))}
+          {dates.length > shown.length && (
+            <li className="px-1 text-[13px] text-ink-600">{t("holidays.more", { count: dates.length - shown.length })}</li>
+          )}
+        </ul>
+      );
+    }
     case "bool":
       return <StatusBadge tone={value === true ? "success" : "neutral"}>{value === true ? t("on") : t("off")}</StatusBadge>;
     case "money":

@@ -1,7 +1,14 @@
 import { adminApi, unwrap } from "./client";
+import { withForce, type ForceInput, type OverridePayload } from "./ops/capacity";
+import type { DriverPayload, VehiclePayload } from "./ops/fleet";
+import type { BlackoutPayload, SlotRulePayload, SlotTemplatePayload } from "./ops/scheduling";
+import type { LeaveRequestPayload, WorkerPayload } from "./ops/workforce";
 import type {
   Addon,
   AddonPer,
+  BlackoutDate,
+  CapacityOverrideResult,
+  CapacityView,
   CatalogPackage,
   CatalogPreview,
   CatalogService,
@@ -9,7 +16,11 @@ import type {
   CouponAppliesTo,
   DataEnvelope,
   DiscountType,
+  Driver,
+  DriverStatus,
+  EmploymentStatus,
   GeoPolygon,
+  LeaveStatus,
   LiveOutPlan,
   LiveOutPlanKind,
   MaterialsMode,
@@ -24,11 +35,19 @@ import type {
   ServiceKind,
   ServicePrice,
   Setting,
+  ShiftRow,
+  Skill,
+  SlotRule,
+  SlotTemplate,
   StaffMe,
   StaffUser,
   SubZone,
   Translatable,
   TwoFactorSetup,
+  Vehicle,
+  VehicleStatus,
+  Worker,
+  WorkerLeave,
   Zone,
 } from "./types";
 
@@ -660,5 +679,372 @@ export async function updateSubZone(
       headers: ifMatch(version),
     }),
   );
+  return body.data;
+}
+
+// ---- Phase 2 ------------------------------------------------------------------------------------------------------
+// Workforce and fleet changes that could leave reserved capacity short answer 409 CAPACITY_SHORTFALL; staff with
+// capacity.override may send them again with `force` (a reason of at least 10 characters), see lib/admin/ops/capacity.
+// The generated schema types these resources loosely, so bodies are typed here and passed `as never`.
+
+/** Drops empty filters so the query string only carries what is set. */
+function compact<T extends Record<string, unknown>>(query: T): T {
+  return Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== "")) as T;
+}
+
+// A05 workers (workers.view to read, workers.manage to write, leave.manage for leave)
+
+export type WorkerListQuery = {
+  page?: number;
+  perPage?: number;
+  zoneId?: number;
+  status?: EmploymentStatus | "";
+  serviceId?: number;
+  skill?: string;
+  search?: string;
+};
+
+export async function fetchWorkers(q: WorkerListQuery): Promise<Paginated<Worker>> {
+  return unwrap<Paginated<Worker>>(
+    adminApi.GET("/v1/admin/workers", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          zone_id: q.zoneId,
+          status: q.status,
+          service_id: q.serviceId,
+          skill: q.skill,
+          search: q.search?.trim(),
+        }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchAllWorkers(): Promise<Worker[]> {
+  return fetchAllPages((page) => fetchWorkers({ page, perPage: OPTIONS_PAGE }));
+}
+
+export async function fetchWorker(id: number): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(adminApi.GET("/v1/admin/workers/{worker}", { params: { path: { worker: id } } }));
+  return body.data;
+}
+
+export async function createWorker(input: WorkerPayload): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(adminApi.POST("/v1/admin/workers", { body: input as never }));
+  return body.data;
+}
+
+export async function updateWorker(id: number, input: Partial<WorkerPayload>, version: number, force?: ForceInput | null): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(
+    adminApi.PATCH("/v1/admin/workers/{worker}", {
+      params: { path: { worker: id } },
+      body: withForce({ ...input, version }, force) as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** The whole week (seven rows) and, optionally, a new weekly rest day so both change together. */
+export async function updateWorkerShifts(
+  id: number,
+  input: { shifts: ShiftRow[]; weekly_rest_day?: number },
+  version: number,
+  force?: ForceInput | null,
+): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(
+    adminApi.PUT("/v1/admin/workers/{worker}/shifts", {
+      params: { path: { worker: id } },
+      body: withForce({ ...input, version }, force) as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** The full list of eligible services; an empty list removes them all. */
+export async function setWorkerServices(id: number, serviceIds: number[], version: number, force?: ForceInput | null): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(
+    adminApi.PUT("/v1/admin/workers/{worker}/services", {
+      params: { path: { worker: id } },
+      body: withForce({ service_ids: serviceIds, version }, force) as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function setWorkerSkills(id: number, skillIds: number[], version: number): Promise<Worker> {
+  const body = await unwrap<DataEnvelope<Worker>>(
+    adminApi.PUT("/v1/admin/workers/{worker}/skills", {
+      params: { path: { worker: id } },
+      body: { skill_ids: skillIds, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** GET /admin/skills (workers.view): the skill catalogue, not paginated. */
+export async function fetchSkills(): Promise<Skill[]> {
+  const body = await unwrap<DataEnvelope<Skill[]>>(adminApi.GET("/v1/admin/skills"));
+  return body.data;
+}
+
+export type LeaveListQuery = { page?: number; perPage?: number; status?: LeaveStatus | ""; from?: string; to?: string };
+
+export async function fetchWorkerLeaves(workerId: number, q: LeaveListQuery): Promise<Paginated<WorkerLeave>> {
+  return unwrap<Paginated<WorkerLeave>>(
+    adminApi.GET("/v1/admin/workers/{worker}/leaves", {
+      params: {
+        path: { worker: workerId },
+        query: compact({ page: q.page, per_page: q.perPage, status: q.status, from: q.from, to: q.to }) as never,
+      },
+    }),
+  );
+}
+
+export async function requestLeave(workerId: number, input: LeaveRequestPayload): Promise<WorkerLeave> {
+  const body = await unwrap<DataEnvelope<WorkerLeave>>(
+    adminApi.POST("/v1/admin/workers/{worker}/leaves", { params: { path: { worker: workerId } }, body: input as never }),
+  );
+  return body.data;
+}
+
+/** Approve (note optional): writes the leave's whole-day blocks; may answer RESOURCE_CONFLICT or CAPACITY_SHORTFALL. */
+export async function approveLeave(id: number, note: string | null, version: number, force?: ForceInput | null): Promise<WorkerLeave> {
+  const body = await unwrap<DataEnvelope<WorkerLeave>>(
+    adminApi.POST("/v1/admin/leaves/{leave}/approve", {
+      params: { path: { leave: id } },
+      body: withForce({ note, version }, force) as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function rejectLeave(id: number, note: string, version: number): Promise<WorkerLeave> {
+  const body = await unwrap<DataEnvelope<WorkerLeave>>(
+    adminApi.POST("/v1/admin/leaves/{leave}/reject", {
+      params: { path: { leave: id } },
+      body: { note, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function cancelLeave(id: number, note: string, version: number): Promise<WorkerLeave> {
+  const body = await unwrap<DataEnvelope<WorkerLeave>>(
+    adminApi.POST("/v1/admin/leaves/{leave}/cancel", {
+      params: { path: { leave: id } },
+      body: { note, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+// A06 vehicles (fleet.manage, readable with schedule.view) and drivers (fleet.manage)
+
+export type FleetListQuery = { page?: number; perPage?: number; status?: VehicleStatus | DriverStatus | ""; zoneId?: number; search?: string };
+
+export async function fetchVehicles(q: FleetListQuery): Promise<Paginated<Vehicle>> {
+  return unwrap<Paginated<Vehicle>>(
+    adminApi.GET("/v1/admin/vehicles", {
+      params: {
+        query: compact({ page: q.page, per_page: q.perPage, status: q.status, zone_id: q.zoneId, search: q.search?.trim() }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchAllVehicles(): Promise<Vehicle[]> {
+  return fetchAllPages((page) => fetchVehicles({ page, perPage: OPTIONS_PAGE }));
+}
+
+export async function createVehicle(input: VehiclePayload): Promise<Vehicle> {
+  const body = await unwrap<DataEnvelope<Vehicle>>(adminApi.POST("/v1/admin/vehicles", { body: input as never }));
+  return body.data;
+}
+
+export async function updateVehicle(id: number, input: Partial<VehiclePayload>, version: number, force?: ForceInput | null): Promise<Vehicle> {
+  const body = await unwrap<DataEnvelope<Vehicle>>(
+    adminApi.PATCH("/v1/admin/vehicles/{vehicle}", {
+      params: { path: { vehicle: id } },
+      body: withForce({ ...input, version }, force) as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function fetchDrivers(q: FleetListQuery): Promise<Paginated<Driver>> {
+  return unwrap<Paginated<Driver>>(
+    adminApi.GET("/v1/admin/drivers", {
+      params: { query: compact({ page: q.page, per_page: q.perPage, status: q.status, search: q.search?.trim() }) as never },
+    }),
+  );
+}
+
+export async function fetchAllDrivers(): Promise<Driver[]> {
+  return fetchAllPages((page) => fetchDrivers({ page, perPage: OPTIONS_PAGE }));
+}
+
+/** The staff account must hold the driver role (422 NOT_A_DRIVER otherwise). */
+export async function createDriver(input: DriverPayload): Promise<Driver> {
+  const body = await unwrap<DataEnvelope<Driver>>(adminApi.POST("/v1/admin/drivers", { body: input as never }));
+  return body.data;
+}
+
+export async function updateDriver(id: number, input: Omit<DriverPayload, "staff_user_id">, version: number): Promise<Driver> {
+  const body = await unwrap<DataEnvelope<Driver>>(
+    adminApi.PATCH("/v1/admin/drivers/{driver}", {
+      params: { path: { driver: id } },
+      body: { ...input, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** Staff accounts holding the driver role (users.manage), for linking a new driver. */
+export async function fetchDriverAccounts(): Promise<StaffUser[]> {
+  return fetchAllPages((page) => fetchStaffUsers({ role: "driver", page, perPage: OPTIONS_PAGE }));
+}
+
+// A11 scheduling (catalog.manage): slot templates, slot rules, blackout dates
+
+export type SchedulingListQuery = {
+  page?: number;
+  perPage?: number;
+  serviceKind?: string;
+  isActive?: boolean;
+  slotTemplateId?: number;
+  zoneId?: number;
+  serviceId?: number;
+  source?: "admin" | "override" | "";
+  from?: string;
+  to?: string;
+};
+
+function schedulingQuery(q: SchedulingListQuery) {
+  return compact({
+    page: q.page,
+    per_page: q.perPage,
+    service_kind: q.serviceKind,
+    is_active: q.isActive === undefined ? undefined : q.isActive ? "1" : "0",
+    slot_template_id: q.slotTemplateId,
+    zone_id: q.zoneId,
+    service_id: q.serviceId,
+    source: q.source,
+    from: q.from,
+    to: q.to,
+  }) as never;
+}
+
+export async function fetchSlotTemplates(q: SchedulingListQuery): Promise<Paginated<SlotTemplate>> {
+  return unwrap<Paginated<SlotTemplate>>(adminApi.GET("/v1/admin/slot-templates", { params: { query: schedulingQuery(q) } }));
+}
+
+export async function fetchAllSlotTemplates(): Promise<SlotTemplate[]> {
+  return fetchAllPages((page) => fetchSlotTemplates({ page, perPage: OPTIONS_PAGE }));
+}
+
+export async function createSlotTemplate(input: SlotTemplatePayload): Promise<SlotTemplate> {
+  const body = await unwrap<DataEnvelope<SlotTemplate>>(adminApi.POST("/v1/admin/slot-templates", { body: input as never }));
+  return body.data;
+}
+
+/** Times and service kind cannot change while upcoming requests hold the slot (409 SLOT_IN_USE, details.holds). */
+export async function updateSlotTemplate(id: number, input: Omit<SlotTemplatePayload, "code">, version: number): Promise<SlotTemplate> {
+  const body = await unwrap<DataEnvelope<SlotTemplate>>(
+    adminApi.PATCH("/v1/admin/slot-templates/{slotTemplate}", {
+      params: { path: { slotTemplate: id } },
+      body: { ...input, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function fetchSlotRules(q: SchedulingListQuery): Promise<Paginated<SlotRule>> {
+  return unwrap<Paginated<SlotRule>>(adminApi.GET("/v1/admin/slot-rules", { params: { query: schedulingQuery(q) } }));
+}
+
+export async function createSlotRule(input: SlotRulePayload): Promise<SlotRule> {
+  const body = await unwrap<DataEnvelope<SlotRule>>(adminApi.POST("/v1/admin/slot-rules", { body: input as never }));
+  return body.data;
+}
+
+/** Override rules (source "override") are read-only: 409 OVERRIDE_RULE_READ_ONLY. */
+export async function updateSlotRule(id: number, input: SlotRulePayload, version: number): Promise<SlotRule> {
+  const body = await unwrap<DataEnvelope<SlotRule>>(
+    adminApi.PATCH("/v1/admin/slot-rules/{slotRule}", {
+      params: { path: { slotRule: id } },
+      body: { ...input, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** Deleting an override rule also needs capacity.override (403). */
+export async function deleteSlotRule(id: number, version: number, reason: string): Promise<void> {
+  await unwrap(
+    adminApi.DELETE("/v1/admin/slot-rules/{slotRule}", {
+      params: { path: { slotRule: id } },
+      // The OpenAPI document lists these as query parameters; the reason goes in the body (Laravel reads both).
+      body: { version, reason },
+      headers: ifMatch(version),
+    } as never),
+  );
+}
+
+export async function fetchBlackoutDates(q: SchedulingListQuery): Promise<Paginated<BlackoutDate>> {
+  return unwrap<Paginated<BlackoutDate>>(adminApi.GET("/v1/admin/blackout-dates", { params: { query: schedulingQuery(q) } }));
+}
+
+export async function createBlackoutDate(input: BlackoutPayload): Promise<BlackoutDate> {
+  const body = await unwrap<DataEnvelope<BlackoutDate>>(adminApi.POST("/v1/admin/blackout-dates", { body: input as never }));
+  return body.data;
+}
+
+export async function updateBlackoutDate(id: number, input: BlackoutPayload, version: number): Promise<BlackoutDate> {
+  const body = await unwrap<DataEnvelope<BlackoutDate>>(
+    adminApi.PATCH("/v1/admin/blackout-dates/{blackoutDate}", {
+      params: { path: { blackoutDate: id } },
+      body: { ...input, version } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function deleteBlackoutDate(id: number, version: number, reason: string): Promise<void> {
+  await unwrap(
+    adminApi.DELETE("/v1/admin/blackout-dates/{blackoutDate}", {
+      params: { path: { blackoutDate: id } },
+      body: { version, reason },
+      headers: ifMatch(version),
+    } as never),
+  );
+}
+
+// Capacity (schedule.view) and manual override (capacity.override)
+
+export async function fetchCapacity(q: { date: string; zoneId: number; serviceId?: number }): Promise<CapacityView> {
+  const body = await unwrap<DataEnvelope<CapacityView>>(
+    adminApi.GET("/v1/admin/capacity", {
+      params: { query: compact({ date: q.date, zone_id: q.zoneId, service_id: q.serviceId }) as never },
+    }),
+  );
+  return body.data;
+}
+
+export async function overrideCapacity(input: OverridePayload): Promise<CapacityOverrideResult> {
+  const body = await unwrap<DataEnvelope<CapacityOverrideResult>>(adminApi.POST("/v1/admin/capacity/override", { body: input as never }));
   return body.data;
 }

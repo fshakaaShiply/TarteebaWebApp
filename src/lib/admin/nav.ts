@@ -20,6 +20,7 @@ export type NavModule = NavLeaf & {
 
 export const TWO_FACTOR_PATH = "/admin/security/two-factor";
 export const OVERVIEW_PLACEHOLDER_PATH = "/admin/overview";
+export const CAPACITY_PATH = "/admin/capacity";
 
 const CATALOG = ["catalog.manage"] as const;
 
@@ -28,15 +29,33 @@ export const ADMIN_NAV: readonly NavModule[] = [
   { id: "access", code: "A01", labelKey: "access", href: TWO_FACTOR_PATH, anyOf: [], built: true },
   { id: "overview", code: "A02", labelKey: "overview", href: "/admin/overview", anyOf: [], built: false },
   { id: "bookings", code: "A03", labelKey: "bookings", href: "/admin/bookings", anyOf: ["bookings.view"], built: false },
-  { id: "schedule", code: "A04", labelKey: "schedule", href: "/admin/schedule", anyOf: ["schedule.view"], built: false },
-  { id: "workers", code: "A05", labelKey: "workers", href: "/admin/workers", anyOf: ["workers.view"], built: false },
+  {
+    // A04 operations: the schedule board comes later; the capacity view (spec §14.3 "Capacity") is built.
+    id: "operations",
+    code: "A04",
+    labelKey: "operations",
+    href: CAPACITY_PATH,
+    anyOf: ["schedule.view"],
+    built: true,
+    children: [
+      { id: "schedule", labelKey: "schedule", href: "/admin/schedule", anyOf: ["schedule.view"], built: false },
+      { id: "capacity", labelKey: "capacity", href: CAPACITY_PATH, anyOf: ["schedule.view"], built: true },
+    ],
+  },
+  { id: "workers", code: "A05", labelKey: "workers", href: "/admin/workers", anyOf: ["workers.view"], built: true },
   {
     id: "fleet",
     code: "A06",
     labelKey: "fleet",
-    href: "/admin/fleet",
-    anyOf: ["fleet.manage", "trips.manage"],
-    built: false,
+    href: "/admin/fleet/vehicles",
+    anyOf: ["fleet.manage", "trips.manage", "schedule.view"],
+    built: true,
+    children: [
+      // Schedule viewers read vehicles (seats per zone); editing and drivers need fleet.manage.
+      { id: "vehicles", labelKey: "vehicles", href: "/admin/fleet/vehicles", anyOf: ["fleet.manage", "schedule.view"], built: true },
+      { id: "drivers", labelKey: "drivers", href: "/admin/fleet/drivers", anyOf: ["fleet.manage"], built: true },
+      { id: "trips", labelKey: "trips", href: "/admin/fleet/trips", anyOf: ["trips.manage"], built: false },
+    ],
   },
   {
     id: "customers",
@@ -84,8 +103,11 @@ export const ADMIN_NAV: readonly NavModule[] = [
       { id: "addons", labelKey: "addons", href: "/admin/catalog/addons", anyOf: CATALOG, built: true },
       { id: "coupons", labelKey: "coupons", href: "/admin/catalog/coupons", anyOf: CATALOG, built: true },
       { id: "policies", labelKey: "policies", href: "/admin/catalog/policies", anyOf: CATALOG, built: true },
-      // Zones use catalog.manage (decision P1-05).
+      // Zones use catalog.manage (decision P1-05), and so do the scheduling tables (Scheduling routes/admin.php).
       { id: "zones", labelKey: "zones", href: "/admin/zones", anyOf: CATALOG, built: true },
+      { id: "slotTemplates", labelKey: "slotTemplates", href: "/admin/scheduling/slots", anyOf: CATALOG, built: true },
+      { id: "slotRules", labelKey: "slotRules", href: "/admin/scheduling/rules", anyOf: CATALOG, built: true },
+      { id: "blackoutDates", labelKey: "blackoutDates", href: "/admin/scheduling/blackout-dates", anyOf: CATALOG, built: true },
       { id: "settings", labelKey: "settings", href: "/admin/settings", anyOf: ["settings.manage"], built: true },
     ],
   },
@@ -129,11 +151,17 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
   return out;
 }
 
-/** Where /admin sends a user: catalog for catalog.manage, settings, users, else the overview placeholder. */
+/**
+ * Where /admin sends a user: catalog for catalog.manage, settings, users, then the operations pages a role works in
+ * (capacity, workers, vehicles), else the overview placeholder.
+ */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("catalog.manage")) return "/admin/catalog/services";
   if (permissions.includes("settings.manage")) return "/admin/settings";
   if (permissions.includes("users.manage")) return "/admin/users";
+  if (permissions.includes("schedule.view")) return CAPACITY_PATH;
+  if (permissions.includes("workers.view")) return "/admin/workers";
+  if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 
