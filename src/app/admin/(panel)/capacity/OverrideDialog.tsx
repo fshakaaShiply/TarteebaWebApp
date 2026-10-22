@@ -14,7 +14,7 @@ import { adminKeys } from "@/lib/admin/keys";
 import { FORCE_REASON_MAX, overrideFormSchema, overrideOptions, overrideServiceId, type OverrideFormValues } from "@/lib/admin/ops/capacity";
 import type { CapacitySlot, CapacityView, OverrideAction } from "@/lib/admin/types";
 import { useOpsInvalidate } from "../_ops/invalidate";
-import { useServiceChoices } from "../_ops/options";
+import { useServiceName } from "../_ops/options";
 import { useOpsFieldError, useOpsText } from "../_ops/opsText";
 import { useRuleText } from "../_ops/ruleText";
 
@@ -31,7 +31,7 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
   const describe = useAdminErrorMessage();
   const toast = useToast();
   const invalidate = useOpsInvalidate();
-  const services = useServiceChoices();
+  const serviceName = useServiceName();
   const formId = useId();
   const options = overrideOptions(slot);
   const cap = options.find((o) => o.action === "raise_cap")?.relaxes[0];
@@ -50,10 +50,6 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
   const action = useWatch({ control, name: "action" }) as OverrideAction;
   const selected = options.find((o) => o.action === action) ?? options[0];
   const serviceId = overrideServiceId(selected);
-  const serviceName = (id: number) => {
-    const found = services.data?.find((s) => s.id === id);
-    return found ? text.name(found.name) : slot.service?.id === id ? slot.service.code : `#${id}`;
-  };
 
   const save = useMutation({
     mutationFn: (values: { action: OverrideAction; max_bookings: number | null; reason: string }) => {
@@ -139,7 +135,9 @@ export function OverrideDialog({ view, slot, onClose }: { view: CapacityView; sl
             ))}
           </ul>
           <p className="text-sm text-ink-600">
-            {serviceId === null ? t("scopeAllServices") : t("scopeOneService", { service: serviceName(serviceId) })}
+            {serviceId === null
+              ? t("scopeAllServices")
+              : t("scopeOneService", { service: serviceName(serviceId, slot.service?.id === serviceId ? slot.service.code : null) })}
           </p>
         </section>
 

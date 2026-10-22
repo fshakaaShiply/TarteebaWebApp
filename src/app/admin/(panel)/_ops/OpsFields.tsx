@@ -2,12 +2,11 @@
 
 import clsx from "clsx";
 import { useTranslations } from "next-intl";
-import { useCallback, type ComponentPropsWithRef, type ReactNode } from "react";
+import type { ComponentPropsWithRef, ReactNode } from "react";
 import { Select, StatusBadge } from "@/components/admin";
 import { businessToday } from "@/lib/admin/format";
 import { END_TIMES, START_TIMES } from "@/lib/admin/ops/fields";
 import { expiryState } from "@/lib/admin/ops/fleet";
-import type { ZoneChoice } from "./options";
 import { useOpsText } from "./opsText";
 
 type TimeSelectProps = Omit<ComponentPropsWithRef<"select">, "children"> & {
@@ -61,20 +60,6 @@ export function ExpiryDate({ date }: { date: string | null | undefined }) {
       <span className="text-sm text-ink-900">{text.dateShort(date)}</span>
       <ExpiryBadge date={date} />
     </span>
-  );
-}
-
-/** A zone's name in the UI language, or "#id" when it is not among the loaded choices. */
-export function useZoneName(zones: readonly ZoneChoice[] | undefined) {
-  const text = useOpsText();
-  const t = useTranslations("admin.ops");
-  return useCallback(
-    (id: number | null | undefined) => {
-      if (id === null || id === undefined) return t("allZones");
-      const zone = zones?.find((z) => z.id === id);
-      return zone ? text.name(zone.name) : `#${id}`;
-    },
-    [zones, text, t],
   );
 }
 

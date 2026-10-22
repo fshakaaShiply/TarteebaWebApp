@@ -5,7 +5,7 @@ import { Controller, type Control, type FieldErrors, type UseFormRegister } from
 import { ChipsInput, Select, Switch, TextArea, TextField } from "@/components/admin";
 import { EMPLOYMENT_STATUSES, WEEK_ORDER, type WorkerFormValues, type WorkerPayload } from "@/lib/admin/ops/workforce";
 import { AsyncOptionsSelect, BilingualFields } from "../catalog/_components/CatalogFields";
-import { useZoneChoices } from "../_ops/options";
+import { useChoiceOptions, useZoneChoices } from "../_ops/options";
 import { useOpsFieldError, useOpsText } from "../_ops/opsText";
 
 /** API field names of the worker form, for VALIDATION_FAILED messages (applyFieldErrors). */
@@ -47,6 +47,7 @@ export function WorkerFormFields({
   const text = useOpsText();
   const fieldError = useOpsFieldError();
   const zones = useZoneChoices();
+  const choiceOptions = useChoiceOptions();
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -121,7 +122,7 @@ export function WorkerFormFields({
         control={control}
         name="home_zone_id"
         label={t("homeZone")}
-        options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+        options={choiceOptions(zones.data)}
         loading={zones.isPending}
         failed={zones.isError}
         placeholder={t("chooseZone")}

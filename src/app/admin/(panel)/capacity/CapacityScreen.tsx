@@ -25,7 +25,7 @@ import { CAPACITY_OVERRIDE_PERMISSION, EXCLUSION_REASONS, overrideOptions } from
 import { useAdminSession } from "@/lib/admin/session";
 import type { CapacitySlot, CapacityView, Vehicle } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
-import { useZoneChoices } from "../_ops/options";
+import { useChoiceOptions, useZoneChoices } from "../_ops/options";
 import { slotTone, useOpsText } from "../_ops/opsText";
 import { useRuleText } from "../_ops/ruleText";
 import { OverrideDialog } from "./OverrideDialog";
@@ -49,9 +49,10 @@ function CapacityContent() {
   const t = useTranslations("admin.capacity");
   const text = useOpsText();
   const zones = useZoneChoices();
+  const choiceOptions = useChoiceOptions();
   const [date, setDate] = useState(() => businessToday());
   const [zoneChoice, setZoneChoice] = useState("");
-  // The first zone until the user picks one.
+  // The first active zone until the user picks one.
   const zoneId = zoneChoice ? Number(zoneChoice) : (zones.data?.find((z) => z.is_active)?.id ?? zones.data?.[0]?.id ?? null);
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
 
@@ -115,7 +116,7 @@ function CapacityContent() {
             label={t("zone")}
             value={zoneId === null ? "" : String(zoneId)}
             onChange={(e) => setZoneChoice(e.target.value)}
-            options={zones.data.map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+            options={choiceOptions(zones.data)}
             containerClassName="min-w-[200px]"
           />
           <Button variant="ghost" onClick={() => setDate(businessToday())}>

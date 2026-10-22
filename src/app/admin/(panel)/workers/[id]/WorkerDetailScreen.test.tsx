@@ -17,9 +17,8 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchWorker: (...a: unknown[]) => api.fetchWorker(...a),
   updateWorker: (...a: unknown[]) => api.updateWorker(...a),
   updateWorkerShifts: (...a: unknown[]) => api.updateWorkerShifts(...a),
-  fetchAllWorkers: async () => [],
-  fetchAllVehicles: async () => [],
-  fetchAllZones: async () => [],
+  fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
+  fetchServiceOptions: async () => [],
 }));
 
 // DemoWorkforceSeeder (R-14): Maria works every day but Friday, her rest day.

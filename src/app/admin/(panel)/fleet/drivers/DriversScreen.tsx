@@ -5,15 +5,15 @@ import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import {
   Button,
+  ButtonLink,
   Card,
   DataTable,
   EmptyState,
   FilterBar,
   LtrText,
-  Notice,
   PageHeader,
   SearchField,
   Select,
@@ -31,10 +31,10 @@ import { DRIVER_STATUSES, driverFormSchema, driverToFormValues, type DriverPaylo
 import { useAdminSession } from "@/lib/admin/session";
 import type { Driver, DriverStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
-import { AsyncOptionsSelect, EditorShell, FormErrorNotice, StaleDialog } from "../../catalog/_components/CatalogFields";
+import { EditorShell, FormErrorNotice, StaleDialog } from "../../catalog/_components/CatalogFields";
 import { ExpiryDate } from "../../_ops/OpsFields";
 import { useOpsInvalidate } from "../../_ops/invalidate";
-import { useDriverAccounts, useDriverOptions } from "../../_ops/options";
+import { useDriverCandidates } from "../../_ops/options";
 import { driverTone, useOpsFieldError, useOpsText } from "../../_ops/opsText";
 
 const PER_PAGE = 25;
@@ -216,10 +216,9 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
   const toast = useToast();
   const invalidate = useOpsInvalidate();
   const { can } = useAdminSession();
-  // Picking a staff account needs the staff user list (users.manage); without it the account id is typed in.
-  const canPickAccount = mode === "create" && can("users.manage");
-  const accounts = useDriverAccounts(canPickAccount);
-  const drivers = useDriverOptions(canPickAccount);
+  // A new driver links one of the active driver-role accounts no driver uses yet (GET /admin/drivers/candidates).
+  const candidates = useDriverCandidates(mode === "create");
+  const noCandidates = mode === "create" && candidates.isSuccess && candidates.data.length === 0;
   const formId = useId();
   const [fieldsApplied, setFieldsApplied] = useState(false);
   const [stale, setStale] = useState(false);
@@ -229,8 +228,16 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
     control,
     handleSubmit,
     setError,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm({ resolver: zodResolver(driverFormSchema(mode)), defaultValues: driverToFormValues(driver) });
+
+  /** The account's phone becomes the driver's phone, unless one is typed already. */
+  const pickAccount = (id: string) => {
+    const account = candidates.data?.find((c) => String(c.id) === id);
+    if (account?.phone && getValues("phone").trim() === "") setValue("phone", account.phone, { shouldDirty: true });
+  };
 
   const save = useMutation({
     // The edit schema never carries staff_user_id (the account is fixed; the API prohibits it).
@@ -244,20 +251,16 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
     onError: (error) => {
       if (error instanceof AdminApiError && error.code === "STALE_VERSION") setStale(true);
       else if (error instanceof AdminApiError && error.code === "NOT_A_DRIVER") {
+        // The account lost the role (or got linked) since the list loaded.
         setError("staff_user_id", { message: "notADriver" });
         setFieldsApplied(true);
+        void candidates.refetch();
       } else if (error instanceof AdminApiError && error.code === "PHONE_INVALID") {
         setError("phone", { message: "phoneInvalid" });
         setFieldsApplied(true);
       } else setFieldsApplied(applyFieldErrors(error, setError, FIELDS));
     },
   });
-
-  // Accounts already linked to a driver cannot be linked again.
-  const linked = new Set((drivers.data ?? []).map((d) => d.staff_user_id));
-  const accountOptions = (accounts.data ?? [])
-    .filter((a) => !linked.has(a.id))
-    .map((a) => ({ value: String(a.id), label: `${a.name} · ${a.email}${a.status === "active" ? "" : ` · ${t("accountSuspended")}`}` }));
 
   return (
     <>
@@ -267,6 +270,7 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
         description={t("editorBody")}
         formId={formId}
         pending={save.isPending}
+        submitDisabled={noCandidates}
         onClose={onClose}
       >
         <form id={formId} noValidate onSubmit={handleSubmit((payload) => save.mutate(payload))} className="grid gap-4 sm:grid-cols-2">
@@ -278,29 +282,43 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
                 {driver.staff_user && <LtrText className="text-xs text-ink-600">{driver.staff_user.email}</LtrText>}
                 <span className="text-xs text-ink-600">{t("accountFixed")}</span>
               </div>
-            ) : canPickAccount ? (
-              <AsyncOptionsSelect
-                control={control}
-                name="staff_user_id"
-                label={t("account")}
-                options={accountOptions}
-                loading={accounts.isPending || drivers.isPending}
-                failed={accounts.isError}
-                placeholder={t("chooseAccount")}
-                loadingLabel={catalogT("loadingOptions")}
-                hint={accounts.data && accountOptions.length === 0 ? t("noAccounts") : t("accountHint")}
-                error={fieldError(errors.staff_user_id)}
+            ) : noCandidates ? (
+              <EmptyState
+                title={t("noCandidatesTitle")}
+                body={t("noCandidates")}
+                action={
+                  can("users.manage") ? (
+                    <ButtonLink href="/admin/users" variant="outline" size="sm">
+                      {t("openUsers")}
+                    </ButtonLink>
+                  ) : undefined
+                }
+                className="rounded-md bg-neutral-100"
               />
             ) : (
-              <TextField
-                label={t("accountId")}
-                required
-                inputMode="numeric"
-                dir="ltr"
-                className="font-latin text-start"
-                hint={t("accountIdHint")}
-                error={fieldError(errors.staff_user_id)}
-                {...register("staff_user_id")}
+              <Controller
+                control={control}
+                name="staff_user_id"
+                render={({ field }) => (
+                  <Select
+                    label={t("account")}
+                    required
+                    placeholder={candidates.isPending ? catalogT("loadingOptions") : t("chooseAccount")}
+                    options={(candidates.data ?? []).map((c) => ({ value: String(c.id), label: `${c.name} · ${c.email}` }))}
+                    hint={candidates.isError ? catalogT("optionsFailed") : t("accountHint")}
+                    error={fieldError(errors.staff_user_id)}
+                    name={field.name}
+                    ref={field.ref}
+                    value={field.value}
+                    onChange={(e) => {
+                      field.onChange(e.target.value);
+                      pickAccount(e.target.value);
+                    }}
+                    onBlur={field.onBlur}
+                    disabled={candidates.isPending}
+                    aria-busy={candidates.isPending || undefined}
+                  />
+                )}
               />
             )}
           </div>
@@ -339,11 +357,6 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
             error={fieldError(errors.status)}
             {...register("status")}
           />
-          {!driver && (
-            <div className="sm:col-span-2">
-              <Notice tone="info">{t("roleNote")}</Notice>
-            </div>
-          )}
           <div className="sm:col-span-2">
             <FormErrorNotice error={save.error} fieldsApplied={fieldsApplied} />
           </div>

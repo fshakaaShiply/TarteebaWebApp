@@ -27,9 +27,8 @@ vi.mock("@/lib/admin/endpoints", () => ({
   updateWorkerShifts: (...a: unknown[]) => api.updateWorkerShifts(...a),
   updateWorker: (...a: unknown[]) => api.updateWorker(...a),
   fetchWorker: (...a: unknown[]) => api.fetchWorker(...a),
-  fetchAllWorkers: async () => [],
-  fetchAllVehicles: async () => [],
-  fetchAllZones: async () => [],
+  fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
+  fetchServiceOptions: async () => [],
 }));
 
 // DemoWorkforceSeeder (R-14): Maria works Sunday–Thursday and Saturday 09:00–20:00 and rests on Friday.

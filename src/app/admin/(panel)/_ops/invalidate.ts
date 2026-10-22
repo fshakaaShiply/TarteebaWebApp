@@ -14,7 +14,6 @@ export function useOpsInvalidate() {
     (...keys: QueryKey[]) => {
       for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey });
       void queryClient.invalidateQueries({ queryKey: adminKeys.capacity() });
-      void queryClient.invalidateQueries({ queryKey: ["admin", "choices"] });
     },
     [queryClient],
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
-import type { CatalogService, ServicePrice } from "../types";
+import type { CatalogService, ServiceKind, ServicePrice, SlotTemplate } from "../types";
 import {
   addonFormSchema,
   addonToFormValues,
@@ -11,6 +11,7 @@ import {
   packageToFormValues,
   planToFormValues,
   priceFormSchema,
+  priceSlotChoices,
   priceToFormValues,
   serviceCreateSchema,
   serviceFormSchema,
@@ -158,6 +159,7 @@ describe("price form: AED in the form, integer fils in the API", () => {
     expect(values.amount).toBe("120.50");
     expect(priceFormSchema.parse(values).payload).toEqual({
       zone_id: 2,
+      slot_template_id: null,
       day_of_week: 5,
       valid_from: "2026-11-01",
       valid_to: null,
@@ -191,10 +193,37 @@ describe("price form: AED in the form, integer fils in the API", () => {
     expect(issues(priceFormSchema.safeParse(values))).toEqual({ amount: [key] });
   });
 
-  it("defaults new rows to all zones, any day, VAT inclusive and the kind's unit", () => {
+  it("targets one slot template, or every slot when left empty", () => {
+    const evening = { ...row, slot_template_id: 2 };
+    expect(priceToFormValues(evening, "standard_visit").slot_template_id).toBe("2");
+    expect(priceFormSchema.parse(priceToFormValues(evening, "standard_visit")).payload.slot_template_id).toBe(2);
+    expect(priceFormSchema.parse({ ...priceToFormValues(evening, "standard_visit"), slot_template_id: "" }).payload.slot_template_id).toBeNull();
+  });
+
+  it("offers the slots of the service's kind, and keeps the row's own slot whatever its kind", () => {
+    const slot = (id: number, service_kind: ServiceKind): SlotTemplate => ({
+      id,
+      code: `S${id}`,
+      name: { ar: `فترة ${id}`, en: `Slot ${id}` },
+      start_time: "10:00",
+      end_time: "14:00",
+      service_kind,
+      is_active: true,
+      sort_order: id,
+      version: 1,
+      updated_at: null,
+    });
+    const slots = [slot(1, "standard_visit"), slot(2, "live_out"), slot(3, "standard_visit")];
+    expect(priceSlotChoices(slots, "standard_visit", null).map((s) => s.id)).toEqual([1, 3]);
+    expect(priceSlotChoices(slots, "standard_visit", 2).map((s) => s.id)).toEqual([1, 2, 3]);
+    expect(priceSlotChoices(slots, "live_out", null).map((s) => s.id)).toEqual([2]);
+  });
+
+  it("defaults new rows to all zones, every slot, any day, VAT inclusive and the kind's unit", () => {
     const values = { ...priceToFormValues(null, "live_out"), amount: "4500" };
     expect(priceFormSchema.parse(values).payload).toMatchObject({
       zone_id: null,
+      slot_template_id: null,
       day_of_week: null,
       unit: "per_month",
       amount_fils: 450000,

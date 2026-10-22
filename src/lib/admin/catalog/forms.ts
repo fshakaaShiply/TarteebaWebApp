@@ -16,6 +16,7 @@ import type {
   LiveOutPlan,
   ServiceKind,
   ServicePrice,
+  SlotTemplate,
   Translatable,
 } from "../types";
 import {
@@ -170,6 +171,8 @@ export function newServiceValues(kind: ServiceKind = "standard_visit"): ServiceC
 export const priceFormSchema = z
   .object({
     zone_id: idSelect,
+    // One slot template only (e.g. evenings dearer); empty = every slot.
+    slot_template_id: idSelect,
     day_of_week: z.string().transform((v): number | null => (v === "" ? null : Number(v))),
     valid_from: dateInput,
     valid_to: dateInput,
@@ -183,6 +186,7 @@ export const priceFormSchema = z
     if (v.valid_from && v.valid_to && v.valid_from > v.valid_to) addIssue(ctx, "dateRange", ["valid_to"]);
     const payload: ServicePricePayload = {
       zone_id: v.zone_id,
+      slot_template_id: v.slot_template_id,
       day_of_week: v.day_of_week,
       valid_from: v.valid_from,
       valid_to: v.valid_to,
@@ -196,10 +200,19 @@ export const priceFormSchema = z
 
 export type PriceFormValues = z.input<typeof priceFormSchema>;
 
+/**
+ * Slot templates a price row can target: those of the service's kind (a standard visit is never booked into a
+ * Live-out slot), plus the row's current slot whatever it is now, so opening an editor never drops it.
+ */
+export function priceSlotChoices(slots: readonly SlotTemplate[], kind: ServiceKind, current: number | null): SlotTemplate[] {
+  return slots.filter((s) => s.service_kind === kind || s.id === current);
+}
+
 export function priceToFormValues(p: ServicePrice | null, kind: ServiceKind): PriceFormValues {
   if (!p) {
     return {
       zone_id: "",
+      slot_template_id: "",
       day_of_week: "",
       valid_from: "",
       valid_to: "",
@@ -212,6 +225,7 @@ export function priceToFormValues(p: ServicePrice | null, kind: ServiceKind): Pr
   }
   return {
     zone_id: numText(p.zone_id),
+    slot_template_id: numText(p.slot_template_id),
     day_of_week: numText(p.day_of_week),
     valid_from: text(p.valid_from),
     valid_to: text(p.valid_to),

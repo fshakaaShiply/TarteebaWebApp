@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnsavedChangesProvider } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
-import type { CatalogService, Policy } from "@/lib/admin/types";
+import type { CatalogService, Policy, SlotTemplate, Zone, ZoneOption } from "@/lib/admin/types";
 import { businessBay, policies, servicePreview, standardPrice, standardService } from "@/test/catalogFixtures";
 import { renderWithProviders } from "@/test/render";
 import { ServiceDetailScreen } from "./ServiceDetailScreen";
@@ -17,7 +17,8 @@ vi.mock("next/navigation", () => ({
 const api = {
   fetchService: vi.fn(),
   fetchAllPolicies: vi.fn(),
-  fetchAllZones: vi.fn(),
+  fetchZoneOptions: vi.fn(),
+  fetchAllSlotTemplates: vi.fn(),
   fetchAllServices: vi.fn(),
   previewCatalog: vi.fn(),
   updateService: vi.fn(),
@@ -28,7 +29,8 @@ const api = {
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchService: (...a: unknown[]) => api.fetchService(...a),
   fetchAllPolicies: (...a: unknown[]) => api.fetchAllPolicies(...a),
-  fetchAllZones: (...a: unknown[]) => api.fetchAllZones(...a),
+  fetchZoneOptions: (...a: unknown[]) => api.fetchZoneOptions(...a),
+  fetchAllSlotTemplates: (...a: unknown[]) => api.fetchAllSlotTemplates(...a),
   fetchAllServices: (...a: unknown[]) => api.fetchAllServices(...a),
   previewCatalog: (...a: unknown[]) => api.previewCatalog(...a),
   updateService: (...a: unknown[]) => api.updateService(...a),
@@ -47,6 +49,29 @@ function open(permissions: string[] = ["catalog.manage"], locale: "ar" | "en" = 
   return userEvent.setup();
 }
 
+/** GET /admin/zones/options row for a zone. */
+const zoneOption = (z: Zone): ZoneOption => ({ id: z.id, code: z.code, name: z.name, is_active: z.is_active });
+
+const slotTemplate = (over: Partial<SlotTemplate> & Pick<SlotTemplate, "id" | "code">): SlotTemplate => ({
+  name: { ar: "الفترة الصباحية", en: "Morning" },
+  start_time: "10:00",
+  end_time: "14:00",
+  service_kind: "standard_visit",
+  is_active: true,
+  sort_order: over.id,
+  version: 1,
+  updated_at: null,
+  ...over,
+});
+
+// SchedulingSeeder slots, plus a Live-out window (another kind) and a retired late slot.
+const slotTemplates: SlotTemplate[] = [
+  slotTemplate({ id: 1, code: "MORNING" }),
+  slotTemplate({ id: 2, code: "EVENING", name: { ar: "الفترة المسائية", en: "Evening" }, start_time: "15:00", end_time: "19:00" }),
+  slotTemplate({ id: 3, code: "LIVE_OUT_DAY", name: { ar: "يوم Live-out", en: "Live-out day" }, start_time: "09:00", end_time: "18:00", service_kind: "live_out" }),
+  slotTemplate({ id: 4, code: "LATE", name: { ar: "الفترة المتأخرة", en: "Late" }, start_time: "19:00", end_time: "22:00", is_active: false }),
+];
+
 /** The public payload after deleting the only price: no "from" price any more. */
 const withoutPrice = {
   ...servicePreview,
@@ -63,7 +88,8 @@ describe("A11 service page", () => {
     push.mockReset();
     api.fetchService.mockResolvedValue(standardService);
     api.fetchAllPolicies.mockResolvedValue(policies);
-    api.fetchAllZones.mockResolvedValue([businessBay]);
+    api.fetchZoneOptions.mockResolvedValue([zoneOption(businessBay)]);
+    api.fetchAllSlotTemplates.mockResolvedValue(slotTemplates);
     api.fetchAllServices.mockResolvedValue([standardService]);
   });
 
@@ -172,6 +198,7 @@ describe("A11 service page", () => {
     expect(api.createServicePrice.mock.calls[0][0]).toEqual({
       service_id: 1,
       zone_id: 1,
+      slot_template_id: null,
       day_of_week: null,
       valid_from: null,
       valid_to: null,
@@ -181,6 +208,73 @@ describe("A11 service page", () => {
       priority: 0,
       reason: "Business Bay rate",
     });
+  });
+
+  it("adds a price for one slot only, choosing among the service kind's slots", async () => {
+    const evening = { ...standardPrice, id: 2, amount_fils: 14000, slot_template_id: 2 };
+    api.createServicePrice.mockResolvedValue(evening);
+    const user = open();
+
+    await user.click(await screen.findByRole("tab", { name: "Prices" }));
+    await user.click(screen.getByRole("button", { name: "Add price" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add price" });
+    const slot = within(dialog).getByRole("combobox", { name: /^Slot/ });
+    // Standard-visit slots only (not the Live-out window); a retired slot stays pickable, marked.
+    await waitFor(() =>
+      expect(within(slot).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "All slots",
+        "Morning (10:00–14:00)",
+        "Evening (15:00–19:00)",
+        "Late (19:00–22:00) · inactive",
+      ]),
+    );
+    expect(slot).toHaveAccessibleDescription(/Leave as All slots unless this price is for one slot/);
+
+    await user.selectOptions(slot, "2");
+    await user.type(within(dialog).getByLabelText(/^Amount/), "140");
+    await user.type(within(dialog).getByLabelText(/Reason for the change/), "Evenings cost more");
+    api.fetchService.mockResolvedValue({ ...standardService, prices: [standardPrice, evening] });
+    await user.click(within(dialog).getByRole("button", { name: "Save price" }));
+
+    await waitFor(() => expect(api.createServicePrice).toHaveBeenCalledTimes(1));
+    expect(api.createServicePrice.mock.calls[0][0]).toEqual({
+      service_id: 1,
+      zone_id: null,
+      slot_template_id: 2,
+      day_of_week: null,
+      valid_from: null,
+      valid_to: null,
+      unit: "per_worker_visit",
+      amount_fils: 14000,
+      vat_inclusive: true,
+      priority: 0,
+      reason: "Evenings cost more",
+    });
+
+    // The new row lists its slot by name and time.
+    const table = await screen.findByRole("table", { name: "Prices" });
+    const row = (await within(table).findByText("Evening")).closest("tr")!;
+    expect(within(row).getByText("15:00–19:00")).toBeInTheDocument();
+  });
+
+  it("lists every-slot rows as All slots and keeps a row's slot when it is edited", async () => {
+    api.fetchService.mockResolvedValue({ ...standardService, prices: [{ ...standardPrice, slot_template_id: 4 }] });
+    api.updateServicePrice.mockResolvedValue({ ...standardPrice, slot_template_id: 4, version: 2 });
+    const user = open();
+
+    await user.click(await screen.findByRole("tab", { name: "Prices" }));
+    const table = screen.getByRole("table", { name: "Prices" });
+    expect(within(table).getByRole("columnheader", { name: "Slot" })).toBeInTheDocument();
+    expect(await within(table).findByText("Late")).toBeInTheDocument();
+    expect(within(table).getByText("(inactive)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit the price for All zones" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit price" });
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: /^Slot/ })).toHaveValue("4"));
+    await user.type(within(dialog).getByLabelText(/Reason for the change/), "Typo in the amount");
+    await user.click(within(dialog).getByRole("button", { name: "Save price" }));
+    await waitFor(() => expect(api.updateServicePrice).toHaveBeenCalledTimes(1));
+    expect(api.updateServicePrice.mock.calls[0][1]).toMatchObject({ slot_template_id: 4 });
   });
 
   it("previews an edited price row before saving it", async () => {
@@ -205,6 +299,7 @@ describe("A11 service page", () => {
           {
             id: 1,
             zone_id: null,
+            slot_template_id: null,
             day_of_week: null,
             valid_from: null,
             valid_to: null,

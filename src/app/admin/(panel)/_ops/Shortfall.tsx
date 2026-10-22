@@ -16,16 +16,14 @@ import {
 } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { Shortfall } from "@/lib/admin/types";
-import { useZoneName } from "./OpsFields";
-import { useZoneChoices } from "./options";
+import { useZoneName } from "./options";
 import { useOpsErrorKey, useOpsText } from "./opsText";
 
 /** The pools a change would leave short (409 CAPACITY_SHORTFALL details.shortfalls). */
 export function ShortfallTable({ shortfalls }: { shortfalls: readonly Shortfall[] }) {
   const t = useTranslations("admin.ops.shortfall");
   const text = useOpsText();
-  const zones = useZoneChoices();
-  const zoneName = useZoneName(zones.data);
+  const zoneName = useZoneName();
   const columns: Column<Shortfall>[] = [
     { id: "date", header: t("columns.date"), cell: (s) => text.dateShort(s.date) },
     { id: "zone", header: t("columns.zone"), cell: (s) => zoneName(s.zone_id) },

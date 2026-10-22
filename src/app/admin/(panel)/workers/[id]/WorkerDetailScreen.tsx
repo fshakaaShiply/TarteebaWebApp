@@ -9,6 +9,7 @@ import { AdminApiError } from "@/lib/admin/client";
 import { fetchWorker } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
 import { RequirePermission } from "../../../_components/RequirePermission";
+import { useZoneName } from "../../_ops/options";
 import { employmentTone, useOpsText } from "../../_ops/opsText";
 import { WorkerInfoTab } from "./WorkerInfoTab";
 import { WorkerLeavesTab } from "./WorkerLeavesTab";
@@ -48,6 +49,7 @@ function BackLink() {
 function WorkerDetail({ id, initialTab }: { id: number | null; initialTab: Tab }) {
   const t = useTranslations("admin.workers.detail");
   const text = useOpsText();
+  const zoneName = useZoneName();
   const [tab, setTab] = useState<Tab>(initialTab);
   // Panels mount on first visit and stay mounted (hidden), so unsaved edits survive a tab switch.
   const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set([initialTab]));
@@ -113,12 +115,8 @@ function WorkerDetail({ id, initialTab }: { id: number | null; initialTab: Tab }
             <bdi dir="ltr" className="font-latin">
               {worker.employee_no}
             </bdi>
-            {worker.home_zone && (
-              <>
-                <span aria-hidden>·</span>
-                <span>{text.name(worker.home_zone.name)}</span>
-              </>
-            )}
+            <span aria-hidden>·</span>
+            <span>{zoneName(worker.home_zone_id, worker.home_zone && text.name(worker.home_zone.name))}</span>
           </span>
         }
         actions={

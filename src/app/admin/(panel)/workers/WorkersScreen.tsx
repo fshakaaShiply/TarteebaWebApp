@@ -34,7 +34,7 @@ import type { EmploymentStatus, Worker } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { FormErrorNotice } from "../catalog/_components/CatalogFields";
 import { useOpsInvalidate } from "../_ops/invalidate";
-import { useServiceChoices, useSkills, useZoneChoices } from "../_ops/options";
+import { useChoiceOptions, useServiceChoices, useServiceName, useSkills, useZoneChoices, useZoneName } from "../_ops/options";
 import { employmentTone, useOpsText } from "../_ops/opsText";
 import { WORKER_FIELDS, WorkerFormFields } from "./WorkerFormFields";
 
@@ -72,6 +72,9 @@ function WorkersTable() {
   const text = useOpsText();
   const zones = useZoneChoices();
   const services = useServiceChoices();
+  const choiceOptions = useChoiceOptions();
+  const zoneName = useZoneName();
+  const serviceName = useServiceName();
   const skills = useSkills();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [page, setPage] = useState(1);
@@ -108,7 +111,7 @@ function WorkersTable() {
         </div>
       ),
     },
-    { id: "zone", header: t("columns.zone"), cell: (w) => (w.home_zone ? text.name(w.home_zone.name) : `#${w.home_zone_id}`) },
+    { id: "zone", header: t("columns.zone"), cell: (w) => zoneName(w.home_zone_id, w.home_zone && text.name(w.home_zone.name)) },
     {
       id: "status",
       header: t("columns.status"),
@@ -129,7 +132,7 @@ function WorkersTable() {
       header: t("columns.services"),
       cell: (w) =>
         w.services && w.services.length > 0 ? (
-          <span className="text-sm">{w.services.map((s) => text.name(s.name)).join(t("listSeparator"))}</span>
+          <span className="text-sm">{w.services.map((s) => serviceName(s.id, text.name(s.name))).join(t("listSeparator"))}</span>
         ) : (
           <span className="text-sm text-ink-600">{t("noServices")}</span>
         ),
@@ -191,7 +194,7 @@ function WorkersTable() {
           placeholder={t("filters.allZones")}
           value={filters.zone}
           onChange={(e) => setFilter("zone", e.target.value)}
-          options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+          options={choiceOptions(zones.data)}
           containerClassName="min-w-[170px]"
         />
         <Select
@@ -207,7 +210,7 @@ function WorkersTable() {
           placeholder={t("filters.allServices")}
           value={filters.service}
           onChange={(e) => setFilter("service", e.target.value)}
-          options={(services.data ?? []).map((s) => ({ value: String(s.id), label: text.name(s.name) }))}
+          options={choiceOptions(services.data)}
           containerClassName="min-w-[170px]"
         />
         <Select

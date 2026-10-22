@@ -16,6 +16,7 @@ import type { Worker } from "@/lib/admin/types";
 import { FormErrorNotice, StaleDialog } from "../../catalog/_components/CatalogFields";
 import { InfoRow } from "../../_ops/OpsFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
+import { useZoneName } from "../../_ops/options";
 import { employmentTone, useOpsText } from "../../_ops/opsText";
 import { WORKER_FIELDS, WorkerFormFields } from "../WorkerFormFields";
 import { ChangedElsewhereNotice, editVersion, useWorkerCache } from "./workerShared";
@@ -126,6 +127,7 @@ function WorkerInfoView({ worker }: { worker: Worker }) {
   const t = useTranslations("admin.workers.fields");
   const info = useTranslations("admin.workers.info");
   const text = useOpsText();
+  const zoneName = useZoneName();
   return (
     <Card title={info("title")}>
       {!hasPrivateFields(worker) && <Notice tone="neutral">{info("basicView")}</Notice>}
@@ -170,7 +172,7 @@ function WorkerInfoView({ worker }: { worker: Worker }) {
         <InfoRow label={t("status")}>
           <StatusBadge tone={employmentTone[worker.employment_status] ?? "neutral"}>{text.employmentStatus(worker.employment_status)}</StatusBadge>
         </InfoRow>
-        {worker.home_zone && <InfoRow label={t("homeZone")}>{text.name(worker.home_zone.name)}</InfoRow>}
+        <InfoRow label={t("homeZone")}>{zoneName(worker.home_zone_id, worker.home_zone && text.name(worker.home_zone.name))}</InfoRow>
         <InfoRow label={t("restDay")}>{text.weekday(worker.weekly_rest_day)}</InfoRow>
         <InfoRow label={t("canLiveOut")}>{worker.can_live_out ? info("yes") : info("no")}</InfoRow>
         {worker.hired_at && <InfoRow label={t("hiredAt")}>{text.date(worker.hired_at)}</InfoRow>}

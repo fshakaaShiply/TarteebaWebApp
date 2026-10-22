@@ -17,6 +17,7 @@ import type {
   DataEnvelope,
   DiscountType,
   Driver,
+  DriverCandidate,
   DriverStatus,
   EmploymentStatus,
   GeoPolygon,
@@ -33,6 +34,7 @@ import type {
   PublicService,
   Role,
   ServiceKind,
+  ServiceOption,
   ServicePrice,
   Setting,
   ShiftRow,
@@ -49,6 +51,7 @@ import type {
   Worker,
   WorkerLeave,
   Zone,
+  ZoneOption,
 } from "./types";
 
 /*
@@ -58,6 +61,17 @@ import type {
  */
 
 const ifMatch = (version: number) => ({ "If-Match": String(version) });
+
+/**
+ * GETs the generated schema does not list yet (the API added them after the last openapi.json, so `pnpm gen:api`
+ * cannot type them). Only these exact paths go through the untyped call; their responses are typed in types.ts.
+ */
+type HandTypedGetPath = "/v1/admin/zones/options" | "/v1/admin/services/options" | "/v1/admin/drivers/candidates";
+
+function getHandTyped(path: HandTypedGetPath) {
+  const get = adminApi.GET as unknown as (path: string) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
+  return get(path);
+}
 
 // A01 sign-in and session
 
@@ -296,6 +310,15 @@ export async function fetchAllServices(): Promise<CatalogService[]> {
   return fetchAllPages((page) => fetchServices({ page, perPage: OPTIONS_PAGE }));
 }
 
+/**
+ * GET /admin/services/options: every service's code, name, kind and state, for pickers on pages without catalog.manage
+ * (worker eligibility, capacity, scheduling filters). Not paginated.
+ */
+export async function fetchServiceOptions(): Promise<ServiceOption[]> {
+  const body = await unwrap<DataEnvelope<ServiceOption[]>>(getHandTyped("/v1/admin/services/options"));
+  return body.data;
+}
+
 export async function fetchService(id: number): Promise<CatalogService> {
   const body = await unwrap<DataEnvelope<CatalogService>>(
     adminApi.GET("/v1/admin/services/{service}", { params: { path: { service: id } } }),
@@ -340,6 +363,8 @@ export async function fetchPublicServices(): Promise<PublicService[]> {
 export type ServicePricePayload = {
   service_id?: number;
   zone_id: number | null;
+  /** One slot template only (e.g. evenings dearer); null = every slot. */
+  slot_template_id: number | null;
   day_of_week: number | null;
   valid_from: string | null;
   valid_to: string | null;
@@ -623,8 +648,13 @@ export async function fetchZones(q: { page?: number; perPage?: number; isActive?
   );
 }
 
-export async function fetchAllZones(): Promise<Zone[]> {
-  return fetchAllPages((page) => fetchZones({ page, perPage: OPTIONS_PAGE }));
+/**
+ * GET /admin/zones/options: every zone's code, name and state (no polygons), for pickers and names on any page that
+ * works with zones. Not paginated.
+ */
+export async function fetchZoneOptions(): Promise<ZoneOption[]> {
+  const body = await unwrap<DataEnvelope<ZoneOption[]>>(getHandTyped("/v1/admin/zones/options"));
+  return body.data;
 }
 
 export async function fetchZone(id: number): Promise<Zone> {
@@ -910,9 +940,10 @@ export async function updateDriver(id: number, input: Omit<DriverPayload, "staff
   return body.data;
 }
 
-/** Staff accounts holding the driver role (users.manage), for linking a new driver. */
-export async function fetchDriverAccounts(): Promise<StaffUser[]> {
-  return fetchAllPages((page) => fetchStaffUsers({ role: "driver", page, perPage: OPTIONS_PAGE }));
+/** GET /admin/drivers/candidates (fleet.manage): the staff accounts a new driver can be linked to. */
+export async function fetchDriverCandidates(): Promise<DriverCandidate[]> {
+  const body = await unwrap<DataEnvelope<DriverCandidate[]>>(getHandTyped("/v1/admin/drivers/candidates"));
+  return body.data;
 }
 
 // A11 scheduling (catalog.manage): slot templates, slot rules, blackout dates

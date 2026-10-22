@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   approveLeave,
+  createServicePrice,
   deleteSlotRule,
+  fetchDriverCandidates,
+  fetchServiceOptions,
   fetchWorkers,
+  fetchZoneOptions,
   overrideCapacity,
   rejectLeave,
   setWorkerServices,
+  updateServicePrice,
   updateSetting,
   updateVehicle,
   updateWorker,
@@ -92,6 +97,37 @@ describe("Phase 2 endpoints", () => {
       method: "POST",
       path: "/v1/admin/capacity/override",
       options: { body: { date: "2026-10-24", zone_id: 1, slot_template_id: 1, action: "open", reason: "Phone booking for a VIP" } },
+    });
+  });
+
+  it("reads the zone, service and driver-account pick-lists from their own paths", async () => {
+    await fetchZoneOptions();
+    expect(last()).toEqual({ method: "GET", path: "/v1/admin/zones/options", options: {} });
+    await fetchServiceOptions();
+    expect(last()).toEqual({ method: "GET", path: "/v1/admin/services/options", options: {} });
+    await fetchDriverCandidates();
+    expect(last()).toEqual({ method: "GET", path: "/v1/admin/drivers/candidates", options: {} });
+  });
+
+  it("sends a price row's slot template", async () => {
+    const row = {
+      zone_id: null,
+      slot_template_id: 2,
+      day_of_week: null,
+      valid_from: null,
+      valid_to: null,
+      unit: "per_worker_visit" as const,
+      amount_fils: 14000,
+      vat_inclusive: true,
+      priority: 0,
+    };
+    await createServicePrice({ ...row, service_id: 1, reason: "Evenings cost more" });
+    expect(last()).toMatchObject({ method: "POST", path: "/v1/admin/service-prices", options: { body: { slot_template_id: 2, service_id: 1 } } });
+    await updateServicePrice(5, { ...row, slot_template_id: null }, 3);
+    expect(last()).toMatchObject({
+      method: "PATCH",
+      path: "/v1/admin/service-prices/{price}",
+      options: { body: { slot_template_id: null, version: 3 }, headers: { "If-Match": "3" } },
     });
   });
 

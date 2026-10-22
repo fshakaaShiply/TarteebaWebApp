@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CapacitySlot, CapacityView, SlotRuleSnapshot, Vehicle } from "@/lib/admin/types";
+import type { CapacitySlot, CapacityView, ServiceOption, SlotRuleSnapshot, Vehicle, ZoneOption } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
 import { CapacityScreen } from "./CapacityScreen";
 
@@ -26,9 +26,14 @@ vi.mock("@/lib/admin/endpoints", () => ({
       updated_at: null,
     },
   ],
-  fetchAllWorkers: async () => [],
-  fetchAllZones: async () => [],
-  fetchAllServices: async () => [],
+  // GET /admin/zones/options and /admin/services/options (readable with schedule.view), in the API's order.
+  fetchZoneOptions: async (): Promise<ZoneOption[]> => [
+    { id: 3, code: "OLD_TOWN", name: { ar: "البلدة القديمة", en: "Old Town" }, is_active: false },
+    { id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true },
+  ],
+  fetchServiceOptions: async (): Promise<ServiceOption[]> => [
+    { id: 1, code: "STANDARD_VISIT", name: { ar: "زيارة تنظيف", en: "Cleaning visit" }, kind: "standard_visit", is_active: true },
+  ],
 }));
 
 const slot = (over: Partial<CapacitySlot>): CapacitySlot => ({
@@ -96,6 +101,17 @@ describe("capacity view and manual override", () => {
     // No override without capacity.override.
     expect(screen.queryByRole("button", { name: /^Override/ })).not.toBeInTheDocument();
     expect(api.fetchCapacity).toHaveBeenCalledWith({ date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), zoneId: 1 });
+  });
+
+  it("picks the zone from every zone by name, inactive ones marked, starting on the first active one", async () => {
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view"] });
+    const user = userEvent.setup();
+    const zone = await screen.findByRole("combobox", { name: "Zone" });
+    expect(within(zone).getAllByRole("option").map((o) => o.textContent)).toEqual(["Old Town (inactive)", "Business Bay & Downtown"]);
+    expect(zone).toHaveValue("1");
+
+    await user.selectOptions(zone, "3");
+    await waitFor(() => expect(api.fetchCapacity).toHaveBeenLastCalledWith({ date: expect.any(String), zoneId: 3 }));
   });
 
   it("overrides a blackout with a reason of at least 10 characters and an explicit confirmation", async () => {
@@ -221,7 +237,9 @@ describe("capacity view and manual override", () => {
 
     await user.click(await screen.findByRole("button", { name: "Override Evening, 15:00–19:00" }));
     const dialog = await screen.findByRole("dialog", { name: /Override capacity: Evening/ });
-    expect(within(dialog).getByText(/^Applies to STANDARD_VISIT only/)).toBeInTheDocument();
+    // The service by its name from the pick-list (schedule.view alone), in the notice and in the rule's scope.
+    expect(within(dialog).getByText(/^Applies to Cleaning visit only/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Business Bay & Downtown · Cleaning visit · Every day · All dates")).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(/^Reason/), "Corporate event, all hands");
     await user.click(within(dialog).getByRole("checkbox", { name: /I understand/ }));
     await user.click(within(dialog).getByRole("button", { name: "Apply override" }));

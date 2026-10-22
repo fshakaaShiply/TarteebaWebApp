@@ -32,9 +32,8 @@ import { blackoutFormSchema, blackoutToFormValues, type BlackoutPayload } from "
 import type { BlackoutDate } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { AsyncOptionsSelect, EditorShell, FormErrorNotice, StaleDialog } from "../../catalog/_components/CatalogFields";
-import { useZoneName } from "../../_ops/OpsFields";
 import { useOpsInvalidate } from "../../_ops/invalidate";
-import { useZoneChoices } from "../../_ops/options";
+import { useChoiceOptions, useZoneChoices, useZoneName } from "../../_ops/options";
 import { useOpsErrorKey, useOpsFieldError, useOpsText } from "../../_ops/opsText";
 
 const PER_PAGE = 25;
@@ -69,7 +68,8 @@ function BlackoutTable({ onEdit, onDelete }: { onEdit: (b: BlackoutDate) => void
   const t = useTranslations("admin.scheduling.blackouts");
   const text = useOpsText();
   const zones = useZoneChoices();
-  const zoneName = useZoneName(zones.data);
+  const choiceOptions = useChoiceOptions();
+  const zoneName = useZoneName();
   // Upcoming dates by default; clearing "From" shows past ones too.
   const [filters, setFilters] = useState(() => ({ zone: "", from: businessToday(), to: "" }));
   const [page, setPage] = useState(1);
@@ -154,7 +154,7 @@ function BlackoutTable({ onEdit, onDelete }: { onEdit: (b: BlackoutDate) => void
           placeholder={t("filters.anyZone")}
           value={filters.zone}
           onChange={(e) => setFilter("zone", e.target.value)}
-          options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+          options={choiceOptions(zones.data)}
           hint={filters.zone ? t("filters.zoneHint") : undefined}
           containerClassName="min-w-[180px]"
         />
@@ -205,6 +205,7 @@ function BlackoutEditor({ blackout, onClose }: { blackout: BlackoutDate | null; 
   const toast = useToast();
   const invalidate = useOpsInvalidate();
   const zones = useZoneChoices();
+  const choiceOptions = useChoiceOptions();
   const formId = useId();
   const [fieldsApplied, setFieldsApplied] = useState(false);
   const [stale, setStale] = useState(false);
@@ -255,7 +256,7 @@ function BlackoutEditor({ blackout, onClose }: { blackout: BlackoutDate | null; 
             control={control}
             name="zone_id"
             label={t("zone")}
-            options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+            options={choiceOptions(zones.data)}
             loading={zones.isPending}
             failed={zones.isError}
             placeholder={t("allZones")}

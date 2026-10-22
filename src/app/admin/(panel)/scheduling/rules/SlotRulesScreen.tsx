@@ -37,7 +37,7 @@ import type { SlotRule } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { AsyncOptionsSelect, EditorShell, FormErrorNotice, StaleDialog } from "../../catalog/_components/CatalogFields";
 import { useOpsInvalidate } from "../../_ops/invalidate";
-import { useServiceChoices, useSlotTemplateOptions, useZoneChoices } from "../../_ops/options";
+import { useChoiceOptions, useServiceChoices, useSlotTemplateOptions, useZoneChoices } from "../../_ops/options";
 import { useOpsErrorKey, useOpsFieldError, useOpsText } from "../../_ops/opsText";
 import { useRuleText } from "../../_ops/ruleText";
 
@@ -95,6 +95,7 @@ function SlotRulesTable({ onEdit, onDelete }: { onEdit: (rule: SlotRule) => void
   const slots = useSlotTemplateOptions();
   const zones = useZoneChoices();
   const services = useServiceChoices();
+  const choiceOptions = useChoiceOptions();
   const [filters, setFilters] = useState({ slot: "", zone: "", service: "", source: "", from: "", to: "" });
   const [page, setPage] = useState(1);
   const setFilter = (name: keyof typeof filters, value: string) => {
@@ -225,7 +226,7 @@ function SlotRulesTable({ onEdit, onDelete }: { onEdit: (rule: SlotRule) => void
           placeholder={t("filters.allZones")}
           value={filters.zone}
           onChange={(e) => setFilter("zone", e.target.value)}
-          options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+          options={choiceOptions(zones.data)}
           containerClassName="min-w-[170px]"
         />
         <Select
@@ -233,7 +234,7 @@ function SlotRulesTable({ onEdit, onDelete }: { onEdit: (rule: SlotRule) => void
           placeholder={t("filters.allServices")}
           value={filters.service}
           onChange={(e) => setFilter("service", e.target.value)}
-          options={(services.data ?? []).map((s) => ({ value: String(s.id), label: text.name(s.name) }))}
+          options={choiceOptions(services.data)}
           containerClassName="min-w-[170px]"
         />
         <Select
@@ -306,6 +307,7 @@ function SlotRuleEditor({ rule, onClose }: { rule: SlotRule | null; onClose: () 
   const slots = useSlotTemplateOptions();
   const zones = useZoneChoices();
   const services = useServiceChoices();
+  const choiceOptions = useChoiceOptions();
   const formId = useId();
   const [fieldsApplied, setFieldsApplied] = useState(false);
   const [stale, setStale] = useState(false);
@@ -363,7 +365,7 @@ function SlotRuleEditor({ rule, onClose }: { rule: SlotRule | null; onClose: () 
             control={control}
             name="zone_id"
             label={t("zone")}
-            options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+            options={choiceOptions(zones.data)}
             loading={zones.isPending}
             failed={zones.isError}
             placeholder={t("scope.allZones")}
@@ -374,7 +376,7 @@ function SlotRuleEditor({ rule, onClose }: { rule: SlotRule | null; onClose: () 
             control={control}
             name="service_id"
             label={t("service")}
-            options={(services.data ?? []).map((s) => ({ value: String(s.id), label: text.name(s.name) }))}
+            options={choiceOptions(services.data)}
             loading={services.isPending}
             failed={services.isError}
             placeholder={t("scope.allServices")}

@@ -20,10 +20,10 @@ import { setWorkerServices, setWorkerSkills } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import type { ForceInput } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
-import type { Worker } from "@/lib/admin/types";
+import type { ServiceOption, Worker } from "@/lib/admin/types";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
-import { useHasFullCatalog, useServiceChoices, useSkills, type ServiceChoice } from "../../_ops/options";
+import { useServiceChoices, useServiceName, useSkills } from "../../_ops/options";
 import { useOpsText } from "../../_ops/opsText";
 import { ChangedElsewhereNotice, useWorkerCache, useWorkerDraft } from "./workerShared";
 
@@ -50,7 +50,7 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
   const describe = useAdminErrorMessage();
   const cache = useWorkerCache();
   const choices = useServiceChoices();
-  const fullCatalog = useHasFullCatalog();
+  const serviceName = useServiceName();
   const guard = useShortfallGuard<{ ids: number[]; version: number }>();
   const edit = useWorkerDraft(worker, serviceIds, sameIds);
   const selected = edit.value;
@@ -58,8 +58,8 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
   useUnsavedChanges(manage && edit.dirty);
   const toggle = (id: number, on: boolean) => edit.set(on ? [...selected, id] : selected.filter((other) => other !== id));
 
-  // Services the worker has that the choices do not list (e.g. a service now inactive) stay visible.
-  const options: ServiceChoice[] = [...(choices.data ?? [])];
+  // Every service from the pick-list (inactive ones marked); one the worker has that it no longer lists stays visible.
+  const options: ServiceOption[] = [...(choices.data ?? [])];
   for (const s of worker.services ?? []) if (!options.some((o) => o.id === s.id)) options.push({ ...s, is_active: false });
 
   const save = useMutation({
@@ -89,7 +89,7 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
           <ul className="flex flex-wrap gap-1.5">
             {(worker.services ?? []).map((s) => (
               <li key={s.id} className="rounded-pill bg-petrol-50 px-2.5 py-0.5 text-[13px] font-medium text-petrol-700">
-                {text.name(s.name)}
+                {serviceName(s.id, text.name(s.name))}
               </li>
             ))}
           </ul>
@@ -101,7 +101,6 @@ function ServicesCard({ worker, manage }: { worker: Worker; manage: boolean }) {
   return (
     <Card title={t("title")}>
       <p className="text-sm/6 text-ink-600">{t("intro")}</p>
-      {!fullCatalog && <Notice tone="neutral">{t("partialList")}</Notice>}
       {choices.isPending ? (
         <LoadingBlock lines={3} />
       ) : choices.isError ? (

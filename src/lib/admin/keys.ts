@@ -30,8 +30,10 @@ export const adminKeys = {
   services: () => ["admin", "catalog", "services"] as const,
   serviceList: (filters: CatalogListFilters) => ["admin", "catalog", "services", "list", filters] as const,
   service: (id: number) => ["admin", "catalog", "services", "detail", id] as const,
-  /** Every service (for selects and names), all pages. */
+  /** Every service as full records (A11 selects that need more than names), all pages. */
   serviceOptions: () => ["admin", "catalog", "services", "options"] as const,
+  /** GET /admin/services/options: every service's name, kind and state, for pickers outside A11. */
+  servicePickList: () => ["admin", "catalog", "services", "pick-list"] as const,
   publicServices: () => ["admin", "catalog", "public-services"] as const,
   /** POST /admin/catalog/preview for deleting one price row (what customers would see afterwards). */
   priceDeletePreview: (priceId: number, version: number) => ["admin", "catalog", "price-delete-preview", priceId, version] as const,
@@ -54,14 +56,11 @@ export const adminKeys = {
   zones: () => ["admin", "zones"] as const,
   zoneList: (filters: CatalogListFilters) => ["admin", "zones", "list", filters] as const,
   zone: (id: number) => ["admin", "zones", "detail", id] as const,
-  /** Every zone (for the price-row zone select). */
-  zoneOptions: () => ["admin", "zones", "options"] as const,
+  /** GET /admin/zones/options: every zone's name and state, for pickers (price rows, operations pages). */
+  zonePickList: () => ["admin", "zones", "pick-list"] as const,
 
   // Phase 2 operations. Workforce, fleet and scheduling changes move capacity, so each write also invalidates
   // ["admin", "capacity"].
-  /** Zones and services for the operations pickers, built from what this user may read (see _ops/options.ts). */
-  zoneChoices: (scope: string) => ["admin", "choices", "zones", scope] as const,
-  serviceChoices: (scope: string) => ["admin", "choices", "services", scope] as const,
   workers: () => ["admin", "workers"] as const,
   workerList: (filters: Record<string, string | number>) => ["admin", "workers", "list", filters] as const,
   worker: (id: number) => ["admin", "workers", "detail", id] as const,
@@ -71,7 +70,8 @@ export const adminKeys = {
   vehicleList: (filters: Record<string, string | number>) => ["admin", "fleet", "vehicles", "list", filters] as const,
   driverList: (filters: Record<string, string | number>) => ["admin", "fleet", "drivers", "list", filters] as const,
   driverOptions: () => ["admin", "fleet", "drivers", "options"] as const,
-  driverAccounts: () => ["admin", "fleet", "driver-accounts"] as const,
+  /** Staff accounts a new driver can be linked to; under "fleet", so creating a driver refreshes it. */
+  driverCandidates: () => ["admin", "fleet", "driver-candidates"] as const,
   scheduling: () => ["admin", "scheduling"] as const,
   slotTemplateList: (filters: Record<string, string | number>) => ["admin", "scheduling", "slot-templates", "list", filters] as const,
   slotTemplateOptions: () => ["admin", "scheduling", "slot-templates", "options"] as const,

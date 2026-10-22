@@ -41,7 +41,7 @@ import { AsyncOptionsSelect, EditorShell, FormErrorNotice, StaleDialog } from ".
 import { ExpiryDate } from "../../_ops/OpsFields";
 import { ShortfallDialog, useShortfallGuard } from "../../_ops/Shortfall";
 import { useOpsInvalidate } from "../../_ops/invalidate";
-import { useDriverOptions, useZoneChoices } from "../../_ops/options";
+import { useChoiceOptions, useDriverOptions, useZoneChoices, useZoneName } from "../../_ops/options";
 import { useOpsFieldError, useOpsText, vehicleTone } from "../../_ops/opsText";
 
 const PER_PAGE = 25;
@@ -78,6 +78,8 @@ function VehiclesTable({ onEdit }: { onEdit?: (vehicle: Vehicle) => void }) {
   const t = useTranslations("admin.fleet.vehicles");
   const text = useOpsText();
   const zones = useZoneChoices();
+  const choiceOptions = useChoiceOptions();
+  const zoneName = useZoneName();
   const [filters, setFilters] = useState({ search: "", status: "", zone: "" });
   const [page, setPage] = useState(1);
   const search = useDebouncedValue(filters.search.trim(), 300);
@@ -113,7 +115,12 @@ function VehiclesTable({ onEdit }: { onEdit?: (vehicle: Vehicle) => void }) {
       ),
     },
     { id: "seats", header: t("columns.seats"), cell: (v) => <span className="font-latin font-medium">{v.seats}</span> },
-    { id: "zone", header: t("columns.zone"), cell: (v) => (v.zone ? text.name(v.zone.name) : <span className="text-ink-600">{t("noZone")}</span>) },
+    {
+      id: "zone",
+      header: t("columns.zone"),
+      cell: (v) =>
+        v.zone_id === null ? <span className="text-ink-600">{t("noZone")}</span> : zoneName(v.zone_id, v.zone && text.name(v.zone.name)),
+    },
     {
       id: "driver",
       header: t("columns.driver"),
@@ -173,7 +180,7 @@ function VehiclesTable({ onEdit }: { onEdit?: (vehicle: Vehicle) => void }) {
           placeholder={t("filters.allZones")}
           value={filters.zone}
           onChange={(e) => setFilter("zone", e.target.value)}
-          options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+          options={choiceOptions(zones.data)}
           containerClassName="min-w-[170px]"
         />
       </FilterBar>
@@ -214,6 +221,7 @@ function VehicleEditor({ vehicle, onClose }: { vehicle: Vehicle | null; onClose:
   const toast = useToast();
   const invalidate = useOpsInvalidate();
   const zones = useZoneChoices();
+  const choiceOptions = useChoiceOptions();
   const drivers = useDriverOptions();
   const formId = useId();
   const guard = useShortfallGuard<VehiclePayload>();
@@ -291,7 +299,7 @@ function VehicleEditor({ vehicle, onClose }: { vehicle: Vehicle | null; onClose:
             control={control}
             name="zone_id"
             label={t("zone")}
-            options={(zones.data ?? []).map((z) => ({ value: String(z.id), label: text.name(z.name) }))}
+            options={choiceOptions(zones.data)}
             loading={zones.isPending}
             failed={zones.isError}
             placeholder={t("noZone")}

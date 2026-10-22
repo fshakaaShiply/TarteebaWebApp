@@ -71,8 +71,8 @@ describe("preview before publish: request built from unsaved form values", () =>
     expect(buildServicePreviewRequest("STANDARD_VISIT", { ...serviceToFormValues(service), duration_minutes: "200" })).toEqual({ ok: false });
   });
 
-  it("previews an edited price row by id, amounts in fils", () => {
-    const values = { ...priceToFormValues(null, "standard_visit"), amount: "130.50", zone_id: "2", day_of_week: "5" };
+  it("previews an edited price row by id, amounts in fils, with its slot", () => {
+    const values = { ...priceToFormValues(null, "standard_visit"), amount: "130.50", zone_id: "2", slot_template_id: "3", day_of_week: "5" };
     expect(buildPricePreviewRequest("STANDARD_VISIT", 17, values)).toEqual({
       ok: true,
       request: {
@@ -81,6 +81,7 @@ describe("preview before publish: request built from unsaved form values", () =>
           {
             id: 17,
             zone_id: 2,
+            slot_template_id: 3,
             day_of_week: 5,
             valid_from: null,
             valid_to: null,
@@ -98,6 +99,7 @@ describe("preview before publish: request built from unsaved form values", () =>
     const built = buildPricePreviewRequest("STANDARD_VISIT", null, { ...priceToFormValues(null, "standard_visit"), amount: "99" });
     expect(built.ok && built.request.prices?.[0]).toEqual({
       zone_id: null,
+      slot_template_id: null,
       day_of_week: null,
       valid_from: null,
       valid_to: null,

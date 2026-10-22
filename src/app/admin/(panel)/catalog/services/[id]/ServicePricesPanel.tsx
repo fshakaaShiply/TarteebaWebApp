@@ -33,24 +33,26 @@ import {
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
 import { REASON_MAX, checkReason } from "@/lib/admin/catalog/fields";
-import { PRICE_UNITS, WEEKDAYS, priceFormSchema, priceToFormValues } from "@/lib/admin/catalog/forms";
+import { PRICE_UNITS, WEEKDAYS, priceFormSchema, priceSlotChoices, priceToFormValues } from "@/lib/admin/catalog/forms";
 import { buildPriceDeletePreviewRequest, buildPricePreviewRequest } from "@/lib/admin/catalog/preview";
 import type { CatalogService, ServicePrice } from "@/lib/admin/types";
 import { formatAed } from "@/lib/money";
+import { useSlotTemplateOptions, useZoneChoices } from "../../../_ops/options";
 import { AsyncOptionsSelect, FormErrorNotice, ReasonField, StaleDialog, useCatalogInvalidate } from "../../_components/CatalogFields";
 import { PreviewPanel } from "../../_components/PreviewPanel";
-import { useCatalogText, useFieldError, useFieldMessageList, useZoneOptions } from "../../_components/catalogText";
+import { useCatalogText, useFieldError, useFieldMessageList } from "../../_components/catalogText";
 
 /**
- * Prices tab: the service's price matrix rows (spec §6.3: zone or all zones, weekday or any, validity, unit, amount,
- * VAT-inclusive flag, priority; the most specific row wins). Rows are created, edited (If-Match) and soft-deleted with
- * a reason; each change can be previewed as customers would see it before saving.
+ * Prices tab: the service's price matrix rows (spec §6.3: zone or all zones, one slot or every slot, weekday or any,
+ * validity, unit, amount, VAT-inclusive flag, priority; the most specific row wins). Rows are created, edited
+ * (If-Match) and soft-deleted with a reason; each change can be previewed as customers would see it before saving.
  */
 export function ServicePricesPanel({ service, onReload }: { service: CatalogService; onReload: () => void }) {
   const t = useTranslations("admin.catalog.prices");
   const locale = useLocale();
   const text = useCatalogText();
-  const zones = useZoneOptions();
+  const zones = useZoneChoices();
+  const slots = useSlotTemplateOptions();
   const [editing, setEditing] = useState<ServicePrice | "new" | null>(null);
   const [deleting, setDeleting] = useState<ServicePrice | null>(null);
   const [stale, setStale] = useState(false);
@@ -59,9 +61,26 @@ export function ServicePricesPanel({ service, onReload }: { service: CatalogServ
     const zone = zones.data?.find((z) => z.id === id);
     return zone ? `${text.name(zone.name)}${zone.is_active ? "" : ` (${t("zoneInactive")})`}` : `#${id}`;
   };
+  const slotCell = (id: number | null) => {
+    if (id === null) return t("allSlots");
+    const slot = slots.data?.find((s) => s.id === id);
+    if (!slot) return `#${id}`;
+    return (
+      <span className="flex flex-col">
+        <span>
+          {text.name(slot.name)}
+          {!slot.is_active && <span className="text-xs text-ink-600"> ({t("slotInactive")})</span>}
+        </span>
+        <bdi dir="ltr" className="self-start font-latin text-xs text-ink-600">
+          {slot.start_time}–{slot.end_time}
+        </bdi>
+      </span>
+    );
+  };
 
   const columns: Column<ServicePrice>[] = [
     { id: "zone", header: t("columns.zone"), cell: (p) => zoneName(p.zone_id) },
+    { id: "slot", header: t("columns.slot"), cell: (p) => slotCell(p.slot_template_id) },
     { id: "day", header: t("columns.day"), cell: (p) => (p.day_of_week === null ? t("anyDay") : text.weekday(p.day_of_week)) },
     {
       id: "validity",
@@ -135,7 +154,7 @@ export function ServicePricesPanel({ service, onReload }: { service: CatalogServ
         rows={service.prices ?? []}
         getRowId={(p) => p.id}
         empty={<EmptyState title={t("empty")} body={t("emptyBody")} />}
-        minWidth={860}
+        minWidth={980}
       />
       {editing && (
         <PriceDialog
@@ -174,6 +193,7 @@ export function ServicePricesPanel({ service, onReload }: { service: CatalogServ
 
 const PRICE_FIELDS = [
   "zone_id",
+  "slot_template_id",
   "day_of_week",
   "valid_from",
   "valid_to",
@@ -203,7 +223,8 @@ function PriceDialog({
   const toast = useToast();
   const invalidate = useCatalogInvalidate();
   const queryClient = useQueryClient();
-  const zones = useZoneOptions();
+  const zones = useZoneChoices();
+  const slots = useSlotTemplateOptions();
   const formId = useId();
   const [fieldsApplied, setFieldsApplied] = useState(false);
   const [previewedAt, setPreviewedAt] = useState<string | null>(null);
@@ -278,6 +299,10 @@ function PriceDialog({
     value: String(z.id),
     label: `${text.name(z.name)} (${z.code})${z.is_active ? "" : ` · ${t("zoneInactive")}`}`,
   }));
+  const slotOptions = priceSlotChoices(slots.data ?? [], service.kind, price?.slot_template_id ?? null).map((s) => ({
+    value: String(s.id),
+    label: `${text.name(s.name)} (${s.start_time}–${s.end_time})${s.is_active ? "" : ` · ${t("slotInactive")}`}`,
+  }));
 
   return (
     <Dialog
@@ -302,25 +327,39 @@ function PriceDialog({
       }
     >
       <form id={formId} noValidate onSubmit={onSave} className="grid gap-4 sm:grid-cols-2">
-        <AsyncOptionsSelect
-          control={control}
-          name="zone_id"
-          label={t("columns.zone")}
-          placeholder={t("allZones")}
-          loadingLabel={common("loadingOptions")}
-          options={zoneOptions}
-          loading={zones.isPending}
-          failed={zones.isError}
-          hint={t("zoneHint")}
-          error={fieldError(errors.zone_id)}
-        />
-        <Select
-          label={t("columns.day")}
-          placeholder={t("anyDay")}
-          options={WEEKDAYS.map((d) => ({ value: String(d), label: text.weekday(d) }))}
-          error={fieldError(errors.day_of_week)}
-          {...register("day_of_week")}
-        />
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+          <AsyncOptionsSelect
+            control={control}
+            name="zone_id"
+            label={t("columns.zone")}
+            placeholder={t("allZones")}
+            loadingLabel={common("loadingOptions")}
+            options={zoneOptions}
+            loading={zones.isPending}
+            failed={zones.isError}
+            hint={t("zoneHint")}
+            error={fieldError(errors.zone_id)}
+          />
+          <AsyncOptionsSelect
+            control={control}
+            name="slot_template_id"
+            label={t("columns.slot")}
+            placeholder={t("allSlots")}
+            loadingLabel={common("loadingOptions")}
+            options={slotOptions}
+            loading={slots.isPending}
+            failed={slots.isError}
+            hint={t("slotHint")}
+            error={fieldError(errors.slot_template_id)}
+          />
+          <Select
+            label={t("columns.day")}
+            placeholder={t("anyDay")}
+            options={WEEKDAYS.map((d) => ({ value: String(d), label: text.weekday(d) }))}
+            error={fieldError(errors.day_of_week)}
+            {...register("day_of_week")}
+          />
+        </div>
         <TextField type="date" label={t("validFrom")} hint={t("validHint")} dir="ltr" className="font-latin text-start" error={fieldError(errors.valid_from)} {...register("valid_from")} />
         <TextField type="date" label={t("validTo")} dir="ltr" className="font-latin text-start" error={fieldError(errors.valid_to)} {...register("valid_to")} />
         <Select

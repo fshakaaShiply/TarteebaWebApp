@@ -347,6 +347,24 @@ export type Zone = {
 /** A zone as other resources embed it. */
 export type ZoneRef = { id: number; code: string; name: Translatable };
 
+// ---- Pick-lists for pages that do not manage the records themselves -----------------------------------------------
+// Not in the generated schema yet (added after the last openapi.json); shapes from the API controllers.
+
+/**
+ * GET /admin/zones/options (Geo ZoneOptionsController): every zone by sort order, without polygons. Readable with
+ * catalog.manage, schedule.view, workers.view, workers.manage, fleet.manage or bookings.view.
+ */
+export type ZoneOption = { id: number; code: string; name: Translatable; is_active: boolean };
+
+/** GET /admin/services/options (Catalog ServiceOptionsController): every service by sort order, without prices. */
+export type ServiceOption = { id: number; code: string; name: Translatable; kind: ServiceKind; is_active: boolean };
+
+/**
+ * GET /admin/drivers/candidates (Fleet DriverCandidatesController, fleet.manage): active staff accounts holding the
+ * driver role that no driver profile links yet, by name.
+ */
+export type DriverCandidate = { id: number; name: string; email: string; phone: string | null };
+
 export type EmploymentStatus = "active" | "on_leave" | "suspended" | "terminated";
 export type LeaveType = "annual" | "sick" | "unpaid" | "emergency" | "public_holiday";
 export type LeaveStatus = "requested" | "approved" | "rejected" | "cancelled";

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo } from "react";
-import { fetchAllPackages, fetchAllPolicies, fetchAllServices, fetchAllZones } from "@/lib/admin/endpoints";
+import { fetchAllPackages, fetchAllPolicies, fetchAllServices } from "@/lib/admin/endpoints";
 import { allFieldMessages, useServerFieldMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
 import { pickText } from "@/lib/admin/catalog/fields";
@@ -90,8 +90,4 @@ export function usePolicyOptions() {
 
 export function usePackageOptions() {
   return useQuery({ queryKey: adminKeys.packageOptions(), queryFn: fetchAllPackages, staleTime: 60_000 });
-}
-
-export function useZoneOptions() {
-  return useQuery({ queryKey: adminKeys.zoneOptions(), queryFn: fetchAllZones, staleTime: 60_000 });
 }

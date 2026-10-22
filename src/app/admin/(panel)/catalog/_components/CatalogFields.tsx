@@ -168,6 +168,7 @@ export function EditorShell({
   children,
   wide,
   footerStart,
+  submitDisabled,
 }: {
   mode: "create" | "edit";
   title: ReactNode;
@@ -180,6 +181,8 @@ export function EditorShell({
   wide?: boolean;
   /** Extra buttons before Cancel (e.g. Preview). */
   footerStart?: ReactNode;
+  /** Nothing can be saved yet (e.g. no record to link); the form explains why. */
+  submitDisabled?: boolean;
 }) {
   const t = useTranslations("admin.catalog.common");
   const footer = (
@@ -188,7 +191,7 @@ export function EditorShell({
       <Button variant="outline" onClick={onClose} disabled={pending}>
         {t("cancel")}
       </Button>
-      <Button type="submit" form={formId} loading={pending}>
+      <Button type="submit" form={formId} loading={pending} disabled={submitDisabled}>
         {mode === "create" ? t("create") : t("save")}
       </Button>
     </>

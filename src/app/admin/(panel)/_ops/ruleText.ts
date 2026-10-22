@@ -3,8 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import type { SlotRuleSnapshot } from "@/lib/admin/types";
-import { useZoneName } from "./OpsFields";
-import { useServiceChoices, useZoneChoices } from "./options";
+import { useServiceName, useZoneName } from "./options";
 import { useOpsText } from "./opsText";
 
 /**
@@ -15,13 +14,11 @@ import { useOpsText } from "./opsText";
 export function useRuleText() {
   const t = useTranslations("admin.scheduling.rules");
   const text = useOpsText();
-  const zones = useZoneChoices();
-  const services = useServiceChoices();
-  const zoneName = useZoneName(zones.data);
+  const zoneName = useZoneName();
+  const serviceName = useServiceName();
 
   const scope = useCallback(
     (rule: Pick<SlotRuleSnapshot, "zone_id" | "service_id" | "day_of_week" | "date_from" | "date_to">): string[] => {
-      const service = rule.service_id === null ? null : services.data?.find((s) => s.id === rule.service_id);
       const dates =
         rule.date_from && rule.date_to
           ? rule.date_from === rule.date_to
@@ -34,12 +31,12 @@ export function useRuleText() {
               : t("scope.always");
       return [
         rule.zone_id === null ? t("scope.allZones") : zoneName(rule.zone_id),
-        rule.service_id === null ? t("scope.allServices") : service ? text.name(service.name) : `#${rule.service_id}`,
+        rule.service_id === null ? t("scope.allServices") : serviceName(rule.service_id),
         rule.day_of_week === null ? t("scope.everyDay") : text.weekday(rule.day_of_week),
         dates,
       ];
     },
-    [t, text, zoneName, services.data],
+    [t, text, zoneName, serviceName],
   );
 
   const effect = useCallback(
