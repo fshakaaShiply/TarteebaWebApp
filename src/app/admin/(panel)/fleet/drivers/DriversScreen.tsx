@@ -285,7 +285,8 @@ function DriverEditor({ driver, onClose }: { driver: Driver | null; onClose: () 
             ) : noCandidates ? (
               <EmptyState
                 title={t("noCandidatesTitle")}
-                body={t("noCandidates")}
+                // Only users.manage can invite or give roles; anyone else is sent to a system administrator.
+                body={can("users.manage") ? t("noCandidates") : t("noCandidatesAsk")}
                 action={
                   can("users.manage") ? (
                     <ButtonLink href="/admin/users" variant="outline" size="sm">

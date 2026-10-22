@@ -29,6 +29,10 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchWorker: (...a: unknown[]) => api.fetchWorker(...a),
   fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
   fetchServiceOptions: async () => [],
+  // The shortfall table names slots from the templates (catalog.manage) or the capacity view (schedule.view).
+  fetchAllSlotTemplates: async () => [],
+  fetchCapacity: async () => ({ slots: [] }),
+  fetchAllVehicles: async () => [],
 }));
 
 // DemoWorkforceSeeder (R-14): Maria works Sunday–Thursday and Saturday 09:00–20:00 and rests on Friday.
@@ -148,6 +152,33 @@ describe("A05 worker tabs", () => {
     expect(within(dialog).getByText(/Only staff with the capacity override permission/)).toBeInTheDocument();
   });
 
+  it("returns focus to the row's Approve button when the shortfall dialog that replaced the confirmation closes", async () => {
+    api.approveLeave.mockRejectedValue(shortfall);
+    renderWithProviders(<WorkerLeavesTab worker={maria} />, {
+      permissions: ["workers.view", "leave.manage", "capacity.override"],
+    });
+    const user = userEvent.setup();
+    const approve = await screen.findByRole("button", { name: "Approve the leave from Mon, 2 Nov 2026" });
+    await user.click(approve);
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve" }));
+
+    // The confirmation is gone and the shortfall dialog took its place; closing it must not drop focus to <body>.
+    const dialog = await screen.findByRole("dialog", { name: "Booked requests would be left short" });
+    await user.click(within(dialog).getByRole("button", { name: "Keep things as they are" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(approve).toHaveFocus());
+  });
+
+  it("names the cancel action with its visible text and mirrors its arrow in right-to-left layouts", async () => {
+    renderWithProviders(<WorkerLeavesTab worker={maria} />, { permissions: ["workers.view", "leave.manage"] });
+    const cancel = await screen.findByRole("button", { name: "Cancel leave from Mon, 2 Nov 2026" });
+    expect(cancel).toHaveTextContent("Cancel leave");
+    // Undo2 is directional, like the chevrons and the sign-out arrow elsewhere.
+    expect(cancel.querySelector("svg")).toHaveClass("rtl:-scale-x-100");
+    const approve = screen.getByRole("button", { name: "Approve the leave from Mon, 2 Nov 2026" });
+    expect(approve.querySelector("svg")).not.toHaveClass("rtl:-scale-x-100");
+  });
+
   it("names who already holds the time on RESOURCE_CONFLICT", async () => {
     api.approveLeave.mockRejectedValue(
       new AdminApiError(409, {
@@ -215,6 +246,38 @@ describe("A05 worker tabs", () => {
     expect(input.shifts.map((r: ShiftRow) => r.day_of_week)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(input.shifts[5]).toEqual({ day_of_week: 5, is_working: true, start_time: "09:00", end_time: "24:00" });
     expect(input.shifts[6]).toEqual({ day_of_week: 6, is_working: false, start_time: null, end_time: null });
+  });
+
+  it("links a day's shift problem to both of its time selects, and names the copy button with its visible text", async () => {
+    renderWithProviders(<WorkerScheduleTab worker={maria} />, { permissions: ["workers.view", "workers.manage"] });
+    const user = userEvent.setup();
+
+    expect(screen.getByRole("button", { name: "Copy to working days (Monday's hours)" })).toHaveTextContent("Copy to working days");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Ends (Monday)" }), "08:00");
+    await user.click(screen.getByRole("button", { name: "Save schedule" }));
+    expect(await screen.findByText("The end time must be after the start time.")).toBeInTheDocument();
+    for (const name of ["Starts (Monday)", "Ends (Monday)"]) {
+      const select = screen.getByRole("combobox", { name });
+      expect(select).toHaveAttribute("aria-invalid", "true");
+      expect(select).toHaveAccessibleDescription("The end time must be after the start time.");
+    }
+    expect(screen.getByRole("combobox", { name: "Ends (Tuesday)" })).not.toHaveAccessibleDescription();
+    expect(api.updateWorkerShifts).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to the languages when removing the last one is the only problem", async () => {
+    renderWithProviders(<WorkerInfoTab worker={maria} />, { permissions: ["workers.view", "workers.manage"] });
+    const user = userEvent.setup();
+    for (const code of ["en", "tl", "ar"]) await user.click(screen.getByRole("button", { name: `Remove ${code}` }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    // Without the Controller's ref, react-hook-form cannot focus the chips input and focus stays on Save, unannounced.
+    const input = screen.getByRole("textbox", { name: "Languages" });
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription("Add at least one language.");
+    expect(api.updateWorker).not.toHaveBeenCalled();
   });
 
   it("shows the basic profile without empty phone or notes rows", () => {

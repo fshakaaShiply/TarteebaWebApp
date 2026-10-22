@@ -108,6 +108,9 @@ export function WorkerFormFields({
           name="languages"
           render={({ field }) => (
             <ChipsInput
+              // The ref lets a failed submit focus the list when "add at least one language" is the first problem.
+              ref={field.ref}
+              onBlur={field.onBlur}
               label={t("languages")}
               value={field.value}
               onChange={(v) => field.onChange(v.map((l) => l.trim().toLowerCase()))}

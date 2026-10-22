@@ -28,6 +28,7 @@ export function WeeklyHoursEditor({
   const errorsT = useTranslations("admin.settings.errors");
   const text = useOpsText();
   const legendId = useId();
+  const baseId = useId();
 
   const setDay = (day: number, patch: Partial<WeeklyHoursDraft[number]>) => onChange({ ...draft, [day]: { ...draft[day], ...patch } });
 
@@ -42,6 +43,8 @@ export function WeeklyHoursEditor({
           const row = draft[day];
           const error = errors[day];
           const name = text.weekday(day);
+          // The row's problem describes both time selects, so returning to either reads why it is invalid.
+          const errorId = `${baseId}-day-${day}-error`;
           return (
             <li
               key={day}
@@ -72,6 +75,7 @@ export function WeeklyHoursEditor({
                     value={row.from}
                     onChange={(e) => setDay(day, { from: e.target.value })}
                     aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
                   />
                   <TimeSelect
                     kind="end"
@@ -85,6 +89,7 @@ export function WeeklyHoursEditor({
                     value={row.to}
                     onChange={(e) => setDay(day, { to: e.target.value })}
                     aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? errorId : undefined}
                   />
                 </>
               ) : (
@@ -101,7 +106,7 @@ export function WeeklyHoursEditor({
                 {t("applyToAll")}
               </Button>
               {error && (
-                <p role="alert" className="text-xs font-medium text-danger-700 sm:col-span-5">
+                <p id={errorId} role="alert" className="text-xs font-medium text-danger-700 sm:col-span-5">
                   {errorsT(error)}
                 </p>
               )}

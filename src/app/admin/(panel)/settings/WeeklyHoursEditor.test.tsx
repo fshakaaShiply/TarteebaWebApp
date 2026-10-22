@@ -10,6 +10,9 @@ const updateSetting = vi.fn();
 vi.mock("@/lib/admin/endpoints", () => ({
   updateSetting: (...args: unknown[]) => updateSetting(...args),
   fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
+  // The shortfall table names services and slots from these lists when the user may read them.
+  fetchServiceOptions: async () => [],
+  fetchAllSlotTemplates: async () => [],
 }));
 
 // SettingsDefaults (R-13): every day 08:00–20:00. GET /admin/settings answers the week as a list.
@@ -66,7 +69,7 @@ describe("weekly hours editor (booking.working_hours)", () => {
       "Sunday",
     ]);
 
-    await user.click(within(dialog).getByRole("switch", { name: "Friday is a working day" }));
+    await user.click(within(dialog).getByRole("switch", { name: "Open on Friday" }));
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Closes (Thursday)" }), "24:00");
     await user.type(within(dialog).getByLabelText(/Reason for the change/), "Late Thursday shift");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -89,9 +92,16 @@ describe("weekly hours editor (booking.working_hours)", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("The closing time must be after the opening time.")).toBeInTheDocument();
     expect(updateSetting).not.toHaveBeenCalled();
+    // Both of the day's selects are invalid and carry the reason, so returning to either one reads it out.
+    for (const name of ["Opens (Monday)", "Closes (Monday)"]) {
+      const select = screen.getByRole("combobox", { name });
+      expect(select).toHaveAttribute("aria-invalid", "true");
+      expect(select).toHaveAccessibleDescription("The closing time must be after the opening time.");
+    }
+    expect(screen.getByRole("combobox", { name: "Opens (Tuesday)" })).not.toHaveAccessibleDescription();
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Closes (Monday)" }), "23:30");
-    await user.click(screen.getByRole("button", { name: "Apply Monday's hours to all days" }));
+    await user.click(screen.getByRole("button", { name: "Apply to all days (Monday's hours)" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateSetting).toHaveBeenCalledTimes(1));
     const value = updateSetting.mock.calls[0][1] as Record<string, unknown>;
@@ -118,7 +128,7 @@ describe("weekly hours editor (booking.working_hours)", () => {
   it("renders in Arabic", () => {
     open(workingHours, "ar");
     expect(screen.getByRole("dialog", { name: "تعديل: ساعات العمل لتأكيد الطلبات" })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "الإثنين يوم عمل" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "مفتوح يوم الإثنين" })).toBeInTheDocument();
   });
 });
 

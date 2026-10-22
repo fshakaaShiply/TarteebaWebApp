@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { CopyCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useId } from "react";
 import { Button, Select, StatusBadge, Switch } from "@/components/admin";
 import { WEEK_ORDER, applyShiftToWorkingDays, type ShiftDraft, type ShiftError } from "@/lib/admin/ops/workforce";
 import { TimeSelect } from "../../_ops/OpsFields";
@@ -34,7 +35,8 @@ export function ShiftEditor({
   const t = useTranslations("admin.workers.schedule");
   const text = useOpsText();
   const errorText = useOpsErrorKey();
-  const setDay = (day: number, patch: Partial<ShiftDraft[number]>) => onChange?.({ ...draft, [day]: { ...draft[day], ...patch } });
+  const baseId = useId();
+  const setDay =(day: number, patch: Partial<ShiftDraft[number]>) => onChange?.({ ...draft, [day]: { ...draft[day], ...patch } });
 
   return (
     <div className="flex flex-col gap-3">
@@ -58,6 +60,9 @@ export function ShiftEditor({
           const name = text.weekday(day);
           const isRest = day === restDay;
           const error = errors?.[day] ? errorText(errors[day]) : serverErrors?.[day];
+          // The row's problem describes both time selects, so returning to either reads why it is invalid.
+          const errorId = `${baseId}-day-${day}-error`;
+          const describedBy = error ? errorId : undefined;
           return (
             <li
               key={day}
@@ -104,6 +109,7 @@ export function ShiftEditor({
                         value={row.start}
                         onChange={(e) => setDay(day, { start: e.target.value })}
                         aria-invalid={error ? true : undefined}
+                        aria-describedby={describedBy}
                       />
                       <TimeSelect
                         kind="end"
@@ -117,6 +123,7 @@ export function ShiftEditor({
                         value={row.end}
                         onChange={(e) => setDay(day, { end: e.target.value })}
                         aria-invalid={error ? true : undefined}
+                        aria-describedby={describedBy}
                       />
                       <Button
                         variant="ghost"
@@ -135,7 +142,7 @@ export function ShiftEditor({
                 </>
               )}
               {error && (
-                <p role="alert" className="text-xs font-medium text-danger-700 sm:col-span-5">
+                <p id={errorId} role="alert" className="text-xs font-medium text-danger-700 sm:col-span-5">
                   {error}
                 </p>
               )}

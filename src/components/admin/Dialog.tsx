@@ -17,8 +17,11 @@ import { Button, type ButtonVariant } from "./Button";
  * Radix's modal content always cancels the default return and focuses its trigger, which is then null, so focus would
  * fall to <body>. This remembers what had focus when the dialog opened and focuses it again on close (when it is still
  * on the page; otherwise Radix's own handling runs).
+ *
+ * `fallback` is for a dialog that takes over from another one (e.g. a shortfall dialog opened by a confirmation that
+ * has just closed): what had focus then is gone or is <body>, so focus goes back to the control that started the flow.
  */
-export function useReturnFocus() {
+export function useReturnFocus(fallback?: HTMLElement | null) {
   const returnTo = useRef<HTMLElement | null>(null);
   return {
     onOpenAutoFocus: () => {
@@ -26,8 +29,9 @@ export function useReturnFocus() {
       returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null;
     },
     onCloseAutoFocus: (event: Event) => {
-      const target = returnTo.current;
+      const opener = returnTo.current;
       returnTo.current = null;
+      const target = opener?.isConnected ? opener : fallback;
       if (!target?.isConnected) return;
       event.preventDefault();
       target.focus();
@@ -46,6 +50,8 @@ type DialogProps = {
   size?: "sm" | "md" | "lg";
   /** Prevents closing by Escape or outside click (e.g. while saving). */
   dismissible?: boolean;
+  /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
+  returnFocusTo?: HTMLElement | null;
 };
 
 const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl" };
@@ -71,8 +77,9 @@ export function Dialog({
   footer,
   size = "md",
   dismissible = true,
+  returnFocusTo,
 }: DialogProps) {
-  const focus = useReturnFocus();
+  const focus = useReturnFocus(returnFocusTo);
   const block = (e: Event) => {
     if (!dismissible) e.preventDefault();
   };
@@ -123,6 +130,8 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   /** Extra fields (e.g. a required reason) and error notices. */
   children?: ReactNode;
+  /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
+  returnFocusTo?: HTMLElement | null;
 };
 
 export function ConfirmDialog({
@@ -137,9 +146,10 @@ export function ConfirmDialog({
   size = "md",
   onConfirm,
   children,
+  returnFocusTo,
 }: ConfirmDialogProps) {
   const t = useTranslations("admin.ui");
-  const focus = useReturnFocus();
+  const focus = useReturnFocus(returnFocusTo);
   const variant: ButtonVariant = tone === "danger" ? "danger" : "primary";
   const submit = (e: FormEvent) => {
     e.preventDefault();

@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { Button } from "./Button";
 import { controlClasses, fieldDescribedBy } from "./Field";
 
@@ -16,10 +16,16 @@ type ChipsInputProps = {
   placeholder?: string;
   /** Direction of the typed values (e.g. "ltr" for codes and phone prefixes). */
   valueDir?: "ltr" | "rtl" | "auto";
+  /**
+   * The text input. Pass react-hook-form's `field.ref` from a Controller so a failed submit can focus the list when
+   * its error is the first one (the input carries aria-invalid and the error).
+   */
+  ref?: Ref<HTMLInputElement>;
+  onBlur?: () => void;
 };
 
 /** A list of short strings as removable chips; Enter or the add button adds the typed value. */
-export function ChipsInput({ label, value, onChange, hint, error, placeholder, valueDir = "auto" }: ChipsInputProps) {
+export function ChipsInput({ label, value, onChange, hint, error, placeholder, valueDir = "auto", ref, onBlur }: ChipsInputProps) {
   const t = useTranslations("admin.ui");
   const id = useId();
   const [draft, setDraft] = useState("");
@@ -69,8 +75,10 @@ export function ChipsInput({ label, value, onChange, hint, error, placeholder, v
       )}
       <div className="flex gap-2">
         <input
+          ref={ref}
           id={id}
           value={draft}
+          onBlur={onBlur}
           dir={valueDir}
           placeholder={placeholder}
           onChange={(e) => setDraft(e.target.value)}

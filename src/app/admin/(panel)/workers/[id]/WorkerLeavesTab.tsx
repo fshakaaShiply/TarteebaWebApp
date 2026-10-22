@@ -89,7 +89,8 @@ function LeavesManager({ worker }: { worker: Worker }) {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [requesting, setRequesting] = useState(false);
-  const [deciding, setDeciding] = useState<{ leave: WorkerLeave; decision: LeaveDecision } | null>(null);
+  // `opener` is the row button that started the decision; focus returns to it whichever dialog ends the flow.
+  const [deciding, setDeciding] = useState<{ leave: WorkerLeave; decision: LeaveDecision; opener: HTMLElement } | null>(null);
 
   const list = useQuery({
     queryKey: adminKeys.workerLeaves(worker.id, { page, status }),
@@ -97,7 +98,12 @@ function LeavesManager({ worker }: { worker: Worker }) {
     placeholderData: keepPreviousData,
   });
 
-  const decisionIcon = { approve: Check, reject: X, cancel: Undo2 } as const;
+  // Undo2 points back along the reading direction, so it is mirrored in RTL like the other directional icons.
+  const decisionIcon = {
+    approve: { Icon: Check, className: "size-4" },
+    reject: { Icon: X, className: "size-4" },
+    cancel: { Icon: Undo2, className: "size-4 rtl:-scale-x-100" },
+  } as const;
 
   const columns: Column<WorkerLeave>[] = [
     {
@@ -145,15 +151,15 @@ function LeavesManager({ worker }: { worker: Worker }) {
       cell: (l) => (
         <div className="flex flex-wrap justify-end gap-1">
           {leaveActions(l.status).map((decision) => {
-            const Icon = decisionIcon[decision];
+            const { Icon, className: iconClassName } = decisionIcon[decision];
             return (
               <Button
                 key={decision}
                 variant="ghost"
                 size="sm"
                 className={decision === "approve" ? undefined : "text-danger-700 hover:bg-danger-50 hover:text-danger-700"}
-                onClick={() => setDeciding({ leave: l, decision })}
-                icon={<Icon aria-hidden className="size-4" />}
+                onClick={(e) => setDeciding({ leave: l, decision, opener: e.currentTarget })}
+                icon={<Icon aria-hidden className={iconClassName} />}
                 aria-label={t(`actions.${decision}Label`, { from: text.dateShort(l.date_from) })}
               >
                 {t(`actions.${decision}`)}
@@ -208,7 +214,13 @@ function LeavesManager({ worker }: { worker: Worker }) {
       />
       {requesting && <RequestLeaveDialog worker={worker} onClose={() => setRequesting(false)} />}
       {deciding && (
-        <LeaveDecisionDialog worker={worker} leave={deciding.leave} decision={deciding.decision} onClose={() => setDeciding(null)} />
+        <LeaveDecisionDialog
+          worker={worker}
+          leave={deciding.leave}
+          decision={deciding.decision}
+          opener={deciding.opener}
+          onClose={() => setDeciding(null)}
+        />
       )}
     </Card>
   );
@@ -329,11 +341,14 @@ function LeaveDecisionDialog({
   worker,
   leave,
   decision,
+  opener,
   onClose,
 }: {
   worker: Worker;
   leave: WorkerLeave;
   decision: LeaveDecision;
+  /** The row button that opened this flow. */
+  opener: HTMLElement | null;
   onClose: () => void;
 }) {
   const t = useTranslations("admin.workers.leaves");
@@ -392,6 +407,7 @@ function LeaveDecisionDialog({
         confirmLabel={t(`actions.${decision}`)}
         tone={decision === "approve" ? "primary" : "danger"}
         pending={decide.isPending}
+        returnFocusTo={opener}
         onConfirm={() => {
           const value = parsedNote();
           if (value === undefined) return;
@@ -431,6 +447,8 @@ function LeaveDecisionDialog({
           shortfalls={forceShortfalls}
           pending={decide.isPending}
           forceError={decide.error && !readShortfalls(decide.error) ? decide.error : null}
+          // The confirmation that opened this dialog is gone; focus goes back to the row's button.
+          returnFocusTo={opener}
           onClose={onClose}
           onForce={(force) => decide.mutate({ note: note.trim() === "" ? null : note.trim(), force })}
         />

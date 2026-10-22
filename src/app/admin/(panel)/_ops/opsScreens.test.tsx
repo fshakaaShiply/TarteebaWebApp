@@ -368,6 +368,9 @@ describe("operations permissions", () => {
     const dialog = await screen.findByRole("dialog", { name: "New driver" });
     expect(await within(dialog).findByText("No staff account to link")).toBeInTheDocument();
     expect(within(dialog).queryByRole("link", { name: "Open Users & roles" })).not.toBeInTheDocument();
+    // An operations coordinator cannot open Users & roles, so the copy sends them to someone who can.
+    expect(within(dialog).getByText(/Ask a system administrator to invite one/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Invite one in Users & roles/)).not.toBeInTheDocument();
   });
 });
 

@@ -240,6 +240,8 @@ function SlotTemplateEditor({ template, onClose }: { template: SlotTemplate | nu
             name="start_time"
             render={({ field }) => (
               <TimeSelect
+                // The ref lets a failed submit focus this select when the time window is the only problem.
+                ref={field.ref}
                 kind="start"
                 label={t("start")}
                 required
@@ -256,6 +258,7 @@ function SlotTemplateEditor({ template, onClose }: { template: SlotTemplate | nu
             name="end_time"
             render={({ field }) => (
               <TimeSelect
+                ref={field.ref}
                 kind="end"
                 label={t("end")}
                 required
