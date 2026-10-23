@@ -5,7 +5,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { CheckCheck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
@@ -23,6 +23,7 @@ import {
   TextField,
   useToast,
   type Column,
+  type FocusTarget,
 } from "@/components/admin";
 import { fetchDriverReports, updateDriverReport } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
@@ -35,6 +36,7 @@ import type { DriverReport, DriverReportStatus, DriverReportType } from "@/lib/a
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { useOpsText } from "../../_ops/opsText";
 import { Ltr } from "../../bookings/_components/BookingBits";
+import { useFocusRescue } from "../../bookings/_components/focus";
 import { errorCodeOf, reportTone, useTripText } from "../tripText";
 
 const PER_PAGE = 25;
@@ -72,6 +74,21 @@ function ReportsTable() {
     queryFn: () => fetchDriverReports(query),
     placeholderData: keepPreviousData,
   });
+
+  // A handled report leaves the "open" list after the refetch, and its button with it: focus goes to the button of the
+  // report now in its place (or the last one), else the table's heading, instead of falling to the page.
+  const tableId = useId();
+  const [heading, setHeading] = useState<HTMLHeadingElement | null>(null);
+  const [handledIndex, setHandledIndex] = useState(0);
+  const nextHandleButton = useCallback(() => {
+    const buttons = document.getElementById(tableId)?.querySelectorAll<HTMLElement>("[data-report-handle]") ?? [];
+    return buttons.length > 0 ? buttons[Math.min(handledIndex, buttons.length - 1)] : heading;
+  }, [tableId, handledIndex, heading]);
+  useFocusRescue(nextHandleButton, list.data);
+  const startHandling = (report: DriverReport) => {
+    setHandledIndex(Math.max(0, list.data?.data.findIndex((r) => r.id === report.id) ?? 0));
+    setHandling(report);
+  };
 
   const columns: Column<DriverReport>[] = [
     {
@@ -130,7 +147,8 @@ function ReportsTable() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setHandling(r)}
+                  onClick={() => startHandling(r)}
+                  data-report-handle={r.id}
                   aria-label={t("handleLabel", { type: trip.reportType(r.type, r.type_label), plate: r.round.vehicle.plate_no })}
                   icon={<CheckCheck aria-hidden className="size-4" />}
                 >
@@ -144,6 +162,9 @@ function ReportsTable() {
 
   return (
     <Card>
+      <h2 ref={setHeading} tabIndex={-1} className="sr-only">
+        {t("caption")}
+      </h2>
       <FilterBar
         canReset={status !== "open" || type !== "" || date !== ""}
         onReset={() => {
@@ -198,27 +219,29 @@ function ReportsTable() {
         </Button>
       </FilterBar>
       {!canHandle && <p className="text-sm text-ink-600">{t("readOnly")}</p>}
-      <DataTable
-        caption={t("caption")}
-        columns={columns}
-        rows={list.data?.data}
-        getRowId={(r) => r.id}
-        loading={list.isPending}
-        fetching={list.isFetching && list.isPlaceholderData}
-        error={list.error}
-        onRetry={() => void list.refetch()}
-        minWidth={960}
-        empty={<EmptyState title={status === "open" && !type && !date ? t("emptyOpen") : t("empty")} />}
-        pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
-      />
-      {handling && <HandleReportDialog report={handling} onClose={() => setHandling(null)} />}
+      <div id={tableId}>
+        <DataTable
+          caption={t("caption")}
+          columns={columns}
+          rows={list.data?.data}
+          getRowId={(r) => r.id}
+          loading={list.isPending}
+          fetching={list.isFetching && list.isPlaceholderData}
+          error={list.error}
+          onRetry={() => void list.refetch()}
+          minWidth={960}
+          empty={<EmptyState title={status === "open" && !type && !date ? t("emptyOpen") : t("empty")} />}
+          pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
+        />
+      </div>
+      {handling && <HandleReportDialog report={handling} returnFocusTo={nextHandleButton} onClose={() => setHandling(null)} />}
     </Card>
   );
 }
 
 const handleSchema = z.object({ status: z.enum(["acknowledged", "resolved"], { message: "required" }), note: z.string().max(REPORT_NOTE_MAX, "tooLong") });
 
-function HandleReportDialog({ report, onClose }: { report: DriverReport; onClose: () => void }) {
+function HandleReportDialog({ report, onClose, returnFocusTo }: { report: DriverReport; onClose: () => void; returnFocusTo: FocusTarget }) {
   const t = useTranslations("admin.driverReports.handleDialog");
   const f = useTranslations("admin.trips.formErrors");
   const trip = useTripText();
@@ -255,6 +278,7 @@ function HandleReportDialog({ report, onClose }: { report: DriverReport; onClose
       description={report.reason ? t("bodyWithReason", { reason: report.reason }) : t("body")}
       confirmLabel={t("submit")}
       pending={mutation.isPending}
+      returnFocusTo={returnFocusTo}
       onConfirm={() => void form.handleSubmit((values) => mutation.mutate(values as never))()}
     >
       <Select

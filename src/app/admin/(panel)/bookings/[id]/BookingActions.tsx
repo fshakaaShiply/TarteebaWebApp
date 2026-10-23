@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarClock, Check, Link2, Plus, Trash2, Undo2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFieldArray, useForm, useWatch, type Path } from "react-hook-form";
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   TextArea,
   TextField,
   useToast,
+  type FocusTarget,
 } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import {
@@ -85,7 +86,7 @@ type ActionProps = {
   /** The booking changed since the dialog opened (a newer version was loaded). */
   changed?: boolean;
   /** Focus target when the button that opened the dialog is gone after it (see _components/focus). */
-  returnFocusTo?: HTMLElement | null;
+  returnFocusTo?: FocusTarget;
 };
 
 const BAR_ACTIONS = ["confirm", "propose", "reschedule", "reject", "cancel", "paymentLink"] as const;
@@ -449,7 +450,7 @@ function ActionErrorText({ error }: { error: unknown }) {
 
 /**
  * `initial` pre-fills the new date and time, e.g. where a card was dropped on the A04 schedule board (a move to another
- * day or time is a reschedule, USE_RESCHEDULE).
+ * day or time is a reschedule, USE_RESCHEDULE); `note` is shown first (what such a drop does not carry over).
  */
 export function RescheduleBookingDialog({
   booking,
@@ -458,7 +459,8 @@ export function RescheduleBookingDialog({
   changed,
   returnFocusTo,
   initial,
-}: ActionProps & { initial?: { service_date?: string; slot_template_id?: number | null } }) {
+  note,
+}: ActionProps & { initial?: { service_date?: string; slot_template_id?: number | null }; note?: ReactNode }) {
   const t = useTranslations("admin.bookings.reschedule");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -524,6 +526,7 @@ export function RescheduleBookingDialog({
       }
     >
       <ChangedNotice changed={changed} />
+      {note}
       <form id={formId} noValidate onSubmit={form.handleSubmit((v) => mutation.mutate(v as never))} className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField

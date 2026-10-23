@@ -68,20 +68,30 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   tab signed in past spec §13.2. Only the bell's `GET /admin/alerts` is passive; other data refreshes on window focus,
   after actions and with a Refresh button.
 - **Shared zone filter:** the top bar's zone (`useAdminZone()`, `src/lib/admin/zone.tsx`) is the zone of the overview,
-  the bookings list, the capacity view, the schedule and the trip planner; a `zone_id` in a link is adopted into it. The alerts bell polls
+  the bookings list, the capacity view, the schedule and the trip planner; a `zone_id` in a link is adopted into it. The
+  schedule and the trip planner also keep it in their URL (`_ops/zoneParam.ts` `useZoneInUrl`: a change of the shared
+  zone is written back as `zone_id`, so a copied link opens the same zone). The alerts bell polls
   `GET /admin/alerts` every 20 s (D-11, `src/lib/admin/alerts.ts`) and announces new alerts in a live region. The top
   bar's search (from md) opens `/admin/bookings?search=`.
 - **Bookings (A02/A03):** `src/app/admin/(panel)/overview`, `bookings` (list, `[id]` page with actions and the
   assignment panel, `new` manual wizard); shared bits in `bookings/_components`. List filters live in the URL
   (`src/lib/admin/bookings/filters.ts`, the API's own parameter names), changed with `history.replaceState`.
-- **Schedule (A04):** `src/app/admin/(panel)/schedule` (view, date and filters in the URL, `src/lib/admin/schedule/board.ts`;
-  the zone is the shared top-bar zone). A card dropped on a cleaner's cell, or moved with its Move dialog (the keyboard
-  way), runs `POST /admin/schedule/validate-move` first and `POST /admin/schedule/move` (visit version as If-Match) only
-  on `ok` or with an override reason (`schedule/moveFlow.ts`). Another date or slot answers 422 USE_RESCHEDULE: the
-  booking's own `RescheduleBookingDialog` opens with the drop's date and time (`RescheduleHandoff.tsx`).
-- **Trip planner (A06):** `src/app/admin/(panel)/trips` (date and slot in the URL) and `trips/reports` (driver reports).
+- **Schedule (A04):** `src/app/admin/(panel)/schedule` (view, date, filters and zone in the URL,
+  `src/lib/admin/schedule/board.ts`). A card dropped on another cleaner's cell at its own time, or moved with its Move
+  dialog (the keyboard way), runs `POST /admin/schedule/validate-move` first and `POST /admin/schedule/move` (visit
+  version as If-Match) only on `ok` or with an override reason (`schedule/moveFlow.ts`); a STALE_VERSION closes the
+  dialog and reloads the board. A drop on another date or slot, in any row (its own too) or the unassigned lane, is a
+  reschedule (the API answers 422 USE_RESCHEDULE to such a move): the booking's own `RescheduleBookingDialog` opens with
+  the drop's date and time (`RescheduleHandoff.tsx`), saying that a cleaner it was dropped on is not added. A card's
+  Review button opens the design's review panel (`ReviewDrawer.tsx`: the booking page's actions, assignment panel and
+  notes, bookings.view). Booking links need bookings.view (HR reads the board without it). Focus follows a moved card to
+  its new row (`useFocusRescue` with a function target; dialogs take a `returnFocusTo` getter).
+- **Trip planner (A06):** `src/app/admin/(panel)/trips` (date, slot and zone in the URL; a draft's result and refusal
+  show only on the date, slot and zone they ran for) and `trips/reports` (driver reports).
   Round dialogs work on a snapshot of the round (its version is the If-Match); a changed round answers the recomputed
   round, which replaces the cached one (`useRoundSaved()`). Seat limits are never overridable; team rules need an
   override. No maps key yet: stops show as an ordered list with an SVG sketch of the order. Slot pickers outside A11 read
-  the slots from the day board (`_ops/daySlots.ts`), since the slot templates list needs catalog.manage.
+  the slots from the day board (`_ops/daySlots.ts`), since the slot templates list needs catalog.manage; a trips.manage
+  role without schedule.view is told that drafting needs it. Departure times become instants through the zone
+  (`zonedDateTimeIso` in `src/lib/admin/format.ts`, spec §4.1), never a fixed offset.
 - **Tests:** `renderWithProviders()` in `src/test/render.tsx` for component tests.

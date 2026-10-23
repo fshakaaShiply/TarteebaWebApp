@@ -1,4 +1,4 @@
-import { isIsoDate } from "../format";
+import { BUSINESS_TIME_ZONE, zonedDateTimeIso } from "../format";
 import type {
   DriverReportStatus,
   DriverReportType,
@@ -87,10 +87,9 @@ export function splitWarnings(round: Pick<Round, "warnings">): { round: RoundWar
   return { round: rest, byStop };
 }
 
-/** The business clock is Asia/Dubai, UTC+4 all year (no daylight saving): "HH:MM" on a date → an instant with its offset. */
+/** "HH:MM" on the round's date, on the business clock (Asia/Dubai, converted through the zone, spec §4.1) → an instant. */
 export function departInstant(date: string, time: string): string | null {
-  if (!isIsoDate(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
-  return `${date}T${time}:00+04:00`;
+  return zonedDateTimeIso(date, time, BUSINESS_TIME_ZONE);
 }
 
 export type RoundEditValues = { vehicleId: string; driverId: string; departTime: string };

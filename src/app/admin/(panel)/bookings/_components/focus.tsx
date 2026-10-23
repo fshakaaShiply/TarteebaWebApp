@@ -21,9 +21,10 @@ export function useBookingFocusFallback(): HTMLElement | null {
 /**
  * When `key` changes and that update removed the control that had focus (focus fell to <body>), focus `target`. This
  * covers removals that land after a dialog closed (a refetch), which `returnFocusTo` cannot see. A click on the page
- * background (the last focused control is still there) is left alone.
+ * background (the last focused control is still there) is left alone. `target` may be a function, given the removed
+ * control: it picks the place to go now (e.g. the same record's control where it is shown after the change).
  */
-export function useFocusRescue(target: HTMLElement | null, key: unknown) {
+export function useFocusRescue(target: HTMLElement | null | ((removed: Element) => HTMLElement | null | undefined), key: unknown) {
   const lastFocused = useRef<Element | null>(null);
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {
@@ -37,8 +38,11 @@ export function useFocusRescue(target: HTMLElement | null, key: unknown) {
   useEffect(() => {
     if (Object.is(lastKey.current, key)) return;
     lastKey.current = key;
-    const removed = lastFocused.current !== null && !lastFocused.current.isConnected;
+    const last = lastFocused.current;
+    const removed = last !== null && !last.isConnected;
     const lost = document.activeElement === null || document.activeElement === document.body;
-    if (removed && lost && target?.isConnected) target.focus();
+    if (!removed || !lost) return;
+    const to = typeof target === "function" ? target(last) : target;
+    if (to?.isConnected) to.focus();
   }, [target, key]);
 }

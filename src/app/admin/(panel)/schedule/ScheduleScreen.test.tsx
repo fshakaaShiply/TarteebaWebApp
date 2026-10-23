@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import type { ScheduleQuery } from "@/lib/admin/endpoints";
-import { bookingDetail, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
+import type { ScheduleGrid, VisitSummary } from "@/lib/admin/types";
+import { bookingDetail, serviceOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
 import { capacityView, confirmedCard, dayBoard, monthBoard, weekBoard } from "@/test/opsBoardFixtures";
 import { renderWithProviders } from "@/test/render";
 import { ScheduleScreen } from "./ScheduleScreen";
@@ -41,6 +42,8 @@ const api = {
   fetchBooking: vi.fn(),
   fetchCapacity: vi.fn(),
   rescheduleBooking: vi.fn(),
+  fetchVisitCandidates: vi.fn(),
+  confirmBooking: vi.fn(),
 };
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchSchedule: (...a: unknown[]) => api.fetchSchedule(...a),
@@ -49,6 +52,8 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchBooking: (...a: unknown[]) => api.fetchBooking(...a),
   fetchCapacity: (...a: unknown[]) => api.fetchCapacity(...a),
   rescheduleBooking: (...a: unknown[]) => api.rescheduleBooking(...a),
+  fetchVisitCandidates: (...a: unknown[]) => api.fetchVisitCandidates(...a),
+  confirmBooking: (...a: unknown[]) => api.confirmBooking(...a),
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
   fetchAllWorkers: async () => [],
@@ -61,8 +66,25 @@ const consoleError = vi.spyOn(console, "error");
 const dataTransfer = () => ({ setData: vi.fn(), getData: vi.fn(), dropEffect: "none", effectAllowed: "all" });
 
 const rowOf = (name: string) => screen.getByRole("rowheader", { name: new RegExp(name) }).closest("tr")!;
-const cardIn = (row: HTMLElement, reference: string) => within(row).getByRole("link", { name: reference }).closest<HTMLElement>("[data-visit-card]")!;
-const cell = (workerId: number, date: string, slot: number | "any") => document.querySelector<HTMLElement>(`[data-drop-target="${workerId}:${date}:${slot}"]`)!;
+const cardIn = (row: HTMLElement, reference: string) => within(row).getByText(reference).closest<HTMLElement>("[data-visit-card]")!;
+const cell = (workerId: number | "lane", date: string, slot: number | "any") =>
+  document.querySelector<HTMLElement>(`[data-drop-target="${workerId}:${date}:${slot}"]`)!;
+const OK = { result: "ok", conflicts: [], rules: [], can_override: false, details: [] };
+
+/** TRB-K2M9QX after Tigist replaced Maria: shown in Tigist's and Nirmala's rows, no longer in Maria's (version 4). */
+function boardAfterMove(): ScheduleGrid {
+  const board = dayBoard();
+  const moved: VisitSummary = {
+    ...confirmedCard(),
+    version: 4,
+    workers: [{ id: 5, display_name: "Tigist B.", full_name: { ar: "Tigist", en: "Tigist" }, assigned_at: "2026-10-24T08:00:00+00:00" }, confirmedCard().workers[1]],
+  };
+  board.rows = board.rows.map((r) => ({
+    ...r,
+    days: r.days.map((d) => ({ ...d, cards: r.worker.id === 1 ? [] : r.worker.id === 5 || r.worker.id === 4 ? [moved] : d.cards })),
+  }));
+  return board;
+}
 
 /** Drags `from` onto `to` the way a browser fires it. */
 function dragTo(from: HTMLElement, to: HTMLElement) {
@@ -185,11 +207,66 @@ describe("A04 operations schedule", () => {
     expect(api.moveVisit).not.toHaveBeenCalled();
   });
 
-  it("does not offer the card's own row or its team as a drop target", async () => {
+  it("does not offer the card's own cell or its team's at the visit's time as a drop target", async () => {
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(4, "2026-10-24", 2));
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(1, "2026-10-24", 2));
+    expect(api.validateMove).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("reschedules a card dropped on another slot of its own row, without a team change", async () => {
+    const booking = bookingDetail({ id: 9, reference: "TRB-K2M9QX", status: "confirmed", visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }] });
+    api.fetchBooking.mockResolvedValue(booking);
+    api.rescheduleBooking.mockResolvedValue({ reschedule_request: {}, booking });
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    // Maria's own row, the morning instead of the evening: before, her own row was never a drop target.
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(1, "2026-10-24", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Reschedule TRB-K2M9QX" });
+    // The time change is the booking's (USE_RESCHEDULE): no team move is checked or sent.
+    expect(api.validateMove).not.toHaveBeenCalled();
+    expect(within(dialog).getByLabelText(/New date/)).toHaveValue("2026-10-24");
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: /New time/ })).toHaveValue("1"));
+    expect(dialog).not.toHaveTextContent("isn't added to the team");
+
+    await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Customer asked for the morning");
+    await user.click(within(dialog).getByRole("button", { name: "Reschedule" }));
+    await waitFor(() =>
+      expect(api.rescheduleBooking).toHaveBeenCalledWith(
+        9,
+        { service_date: "2026-10-24", slot_template_id: 1, reason: "Customer asked for the morning" },
+        3,
+        expect.any(String),
+      ),
+    );
+    expect(api.moveVisit).not.toHaveBeenCalled();
+  });
+
+  it("says a drop on another cleaner at another time moves only the time", async () => {
+    api.fetchBooking.mockResolvedValue(
+      bookingDetail({ id: 9, reference: "TRB-K2M9QX", status: "confirmed", visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }] }),
+    );
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Reschedule TRB-K2M9QX" });
+    expect(dialog).toHaveTextContent("Only the day and time change here: Tigist B. isn't added to the team.");
+    expect(api.validateMove).not.toHaveBeenCalled();
+  });
+
+  it("takes a lane card dropped on another slot of the lane to the reschedule hand-off", async () => {
+    api.fetchBooking.mockResolvedValue(bookingDetail());
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    dragTo(cardIn(rowOf("Visits missing cleaners"), "TRB-R4RYSD"), cell("lane", "2026-10-24", 2));
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-R4RYSD to another day or time" });
+    expect(await within(handoff).findByText(/Only a confirmed booking whose visit hasn't started can be rescheduled/)).toBeInTheDocument();
     expect(api.validateMove).not.toHaveBeenCalled();
   });
 
@@ -268,38 +345,20 @@ describe("A04 operations schedule", () => {
     expect(api.moveVisit).not.toHaveBeenCalled();
   });
 
-  it("hands a drop on another slot to the booking's reschedule dialog (USE_RESCHEDULE), with the drop's date and time", async () => {
-    api.validateMove.mockRejectedValue(apiError(422, "USE_RESCHEDULE", { visit_id: 7, booking_id: 9, service_date: "2026-10-24", slot_template_id: 2 }));
-    const booking = bookingDetail({
-      id: 9,
-      reference: "TRB-K2M9QX",
-      status: "confirmed",
-      visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }],
-    });
-    api.fetchBooking.mockResolvedValue(booking);
-    api.rescheduleBooking.mockResolvedValue({ reschedule_request: {}, booking });
+  it("still hands over to the reschedule dialog when the API answers USE_RESCHEDULE (the card was out of date)", async () => {
+    api.validateMove.mockRejectedValue(apiError(422, "USE_RESCHEDULE", { visit_id: 7, booking_id: 9, service_date: "2026-10-25", slot_template_id: 2 }));
+    api.fetchBooking.mockResolvedValue(
+      bookingDetail({ id: 9, reference: "TRB-K2M9QX", status: "confirmed", visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }] }),
+    );
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
-    const user = userEvent.setup();
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
 
-    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 1));
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
     const dialog = await screen.findByRole("dialog", { name: "Reschedule TRB-K2M9QX" });
-    expect(api.validateMove).toHaveBeenCalledWith({ visit_id: 7, from_worker_id: 1, to_worker_id: 5, date: "2026-10-24", slot_template_id: 1 });
+    expect(api.validateMove).toHaveBeenCalledWith({ visit_id: 7, from_worker_id: 1, to_worker_id: 5, date: "2026-10-24", slot_template_id: 2 });
     expect(api.fetchBooking).toHaveBeenCalledWith(9);
     expect(within(dialog).getByLabelText(/New date/)).toHaveValue("2026-10-24");
-    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: /New time/ })).toHaveValue("1"));
     expect(api.moveVisit).not.toHaveBeenCalled();
-
-    await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Customer asked for the morning");
-    await user.click(within(dialog).getByRole("button", { name: "Reschedule" }));
-    await waitFor(() =>
-      expect(api.rescheduleBooking).toHaveBeenCalledWith(
-        9,
-        { service_date: "2026-10-24", slot_template_id: 1, reason: "Customer asked for the morning" },
-        3,
-        expect.any(String),
-      ),
-    );
   });
 
   it("explains why a request still pending confirmation can't be moved to another time", async () => {
@@ -317,7 +376,7 @@ describe("A04 operations schedule", () => {
     expect(api.validateMove).not.toHaveBeenCalled();
   });
 
-  it("is read-only without assignments.manage: no Move button and nothing to drag", async () => {
+  it("is read-only without assignments.manage, and links to bookings only with bookings.view (HR reads the board)", async () => {
     renderWithProviders(<ScheduleScreen />, { permissions: ["schedule.view"] });
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
     expect(screen.getByText(/Moving cleaners between visits needs the assignments permission/)).toBeInTheDocument();
@@ -325,6 +384,153 @@ describe("A04 operations schedule", () => {
     expect(cardIn(rowOf("Maria S."), "TRB-K2M9QX")).toHaveAttribute("draggable", "false");
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
     expect(api.validateMove).not.toHaveBeenCalled();
+    // The reference is plain text: the booking page (and the review panel) would only deny this role.
+    expect(within(cardIn(rowOf("Maria S."), "TRB-K2M9QX")).queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /TRB-/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Review / })).not.toBeInTheDocument();
+  });
+
+  it("colours the day markers as the design does, never with a booking or visit status tone", async () => {
+    const board = dayBoard();
+    board.rows = board.rows.map((r) =>
+      r.worker.id === 5 ? { ...r, days: r.days.map((d) => ({ ...d, markers: [{ code: "leave", label: { ar: "إجازة", en: "On leave" }, leave_type: "annual" as const }] })) } : r,
+    );
+    api.fetchSchedule.mockResolvedValue(board);
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    const liveOut = within(rowOf("Grace N.")).getAllByText("Live-out day")[0];
+    expect(liveOut).toHaveClass("bg-sage-100");
+    const leave = within(rowOf("Tigist B.")).getAllByText(/On leave/)[0];
+    expect(leave).toHaveClass("bg-neutral-100");
+    for (const badge of [liveOut, leave, within(rowOf("Siti R.")).getAllByText("Rest day")[0]]) {
+      expect(badge).not.toHaveClass("bg-apricot-100");
+      expect(badge).not.toHaveClass("bg-petrol-50");
+    }
+  });
+
+  it("keeps the zone in the URL beside the filters, adopting a linked one and writing back a new choice", async () => {
+    url.set("/admin/schedule?date=2026-10-24&zone_id=2");
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    expect(api.fetchSchedule).toHaveBeenCalledWith(expect.objectContaining({ zoneId: 2 }));
+    expect(api.fetchSchedule).not.toHaveBeenCalledWith(expect.objectContaining({ zoneId: null }));
+    expect(url.get().get("zone_id")).toBe("2");
+
+    // Another filter keeps the zone in the link.
+    await user.selectOptions(screen.getByRole("combobox", { name: "Visit status" }), "worker_assigned");
+    expect(url.get().toString()).toBe("date=2026-10-24&zone_id=2&status=worker_assigned");
+
+    const zone = await screen.findByRole("combobox", { name: "Zone" });
+    await within(zone).findByRole("option", { name: "Business Bay & Downtown" });
+    await user.selectOptions(zone, "1");
+    await waitFor(() => expect(url.get().get("zone_id")).toBe("1"));
+    await waitFor(() => expect(api.fetchSchedule).toHaveBeenLastCalledWith(expect.objectContaining({ zoneId: 1 })));
+    await user.selectOptions(zone, "");
+    await waitFor(() => expect(url.get().has("zone_id")).toBe(false));
+    expect(url.get().toString()).toBe("date=2026-10-24&status=worker_assigned");
+  });
+
+  it("reloads the board on a stale keyboard move, so the next try sends the visit's new version", async () => {
+    let server = dayBoard();
+    api.fetchSchedule.mockImplementation(async () => server);
+    api.validateMove.mockResolvedValue(OK);
+    api.moveVisit.mockRejectedValueOnce(apiError(409, "STALE_VERSION", { current_version: 4 })).mockResolvedValueOnce(confirmedCard());
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    // Meanwhile someone else changed the visit: the server has version 4.
+    server = dayBoard();
+    server.rows = server.rows.map((r) => ({ ...r, days: r.days.map((d) => ({ ...d, cards: d.cards.map((c) => ({ ...c, version: 4 })) })) }));
+    const calls = api.fetchSchedule.mock.calls.length;
+
+    await user.click(within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }));
+    let dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
+    await waitFor(() => expect(api.moveVisit).toHaveBeenCalledWith(expect.objectContaining({ to_worker_id: 5 }), 3, {}));
+    // The dialog closes, the board says so and reloads (before, the dialog stayed with the old version).
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText("The visit changed meanwhile. The schedule is reloaded; try again.")).toBeInTheDocument();
+    await waitFor(() => expect(api.fetchSchedule.mock.calls.length).toBeGreaterThan(calls));
+
+    await user.click(within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }));
+    dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
+    await waitFor(() => expect(api.moveVisit).toHaveBeenLastCalledWith(expect.objectContaining({ to_worker_id: 5 }), 4, {}));
+  });
+
+  it("keeps keyboard focus on the moved card: its Move button in the new row once the board reloads", async () => {
+    let server = dayBoard();
+    api.fetchSchedule.mockImplementation(async () => server);
+    api.validateMove.mockResolvedValue(OK);
+    api.moveVisit.mockImplementation(async () => {
+      server = boardAfterMove();
+      return { ...confirmedCard(), version: 4 };
+    });
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }).focus();
+    await user.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
+    await waitFor(() => expect(within(rowOf("Tigist B.")).getByRole("button", { name: "Move TRB-K2M9QX" })).toBeInTheDocument());
+    expect(within(rowOf("Maria S.")).queryByText("TRB-K2M9QX")).not.toBeInTheDocument();
+    await waitFor(() => expect(within(rowOf("Tigist B.")).getByRole("button", { name: "Move TRB-K2M9QX" })).toHaveFocus());
+  });
+
+  it("gives focus back to the card's Move button after the reschedule hand-off", async () => {
+    api.fetchBooking.mockResolvedValue(bookingDetail());
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    const move = await screen.findByRole("button", { name: "Move TRB-R4RYSD" });
+    move.focus();
+    await user.keyboard("{Enter}");
+    const dialog = await screen.findByRole("dialog", { name: "Move TRB-R4RYSD" });
+    await user.click(within(dialog).getByRole("radio", { name: /Another day or time/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue to reschedule" }));
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-R4RYSD to another day or time" });
+    await within(handoff).findByText(/Only a confirmed booking/);
+    await user.click(within(handoff).getAllByRole("button", { name: "Close" }).at(-1)!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Move TRB-R4RYSD" })).toHaveFocus());
+  });
+
+  it("reviews a card's booking beside the board: the request, the availability check, notes and the actions", async () => {
+    api.fetchBooking.mockResolvedValue(bookingDetail({ preferred_worker: { id: 5, display_name: "Tigist B." } }));
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(2));
+    api.confirmBooking.mockResolvedValue(bookingDetail({ status: "confirmed", version: 4 }));
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "bookings.confirm", "bookings.reject", "bookings.propose_alternative"] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Review TRB-R4RYSD" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Review booking" });
+    expect(await within(drawer).findByRole("heading", { level: 3, name: /TRB-R4RYSD/ })).toBeInTheDocument();
+    expect(api.fetchBooking).toHaveBeenCalledWith(4);
+    expect(drawer).toHaveTextContent("Pending confirmation");
+    expect(drawer).toHaveTextContent("Sara Ahmed · Unit 1203");
+    // A preference, never a promise (spec §16).
+    expect(drawer).toHaveTextContent("Tigist B.");
+    expect(drawer).toHaveTextContent("Asked for, not promised");
+    expect(drawer).toHaveTextContent("Payment authorized");
+    expect(drawer).toHaveTextContent("App");
+    // The availability check: the visit's ranked candidates.
+    expect(within(drawer).getByRole("heading", { name: "Cleaners" })).toBeInTheDocument();
+    expect(await within(drawer).findByText("Nirmala P.")).toBeInTheDocument();
+    expect(within(drawer).getByRole("heading", { name: "Internal notes" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Suggest other times" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Reject" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("link", { name: "Open the full booking page" })).toHaveAttribute("href", "/admin/bookings/4");
+
+    await user.click(within(drawer).getByRole("button", { name: "Confirm" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Confirm TRB-R4RYSD?" });
+    await user.click(within(confirm).getByRole("button", { name: "Confirm and take payment" }));
+    await waitFor(() => expect(api.confirmBooking).toHaveBeenCalledWith(4, 3, expect.any(String)));
+    expect(await screen.findByText("TRB-R4RYSD is confirmed.")).toBeInTheDocument();
   });
 
   it("denies the page without schedule.view and shows a failed load with a retry", async () => {

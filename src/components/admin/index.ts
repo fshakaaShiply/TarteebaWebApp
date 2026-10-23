@@ -2,7 +2,7 @@
 export { Button, ButtonLink, IconButton, buttonClasses, type ButtonSize, type ButtonVariant } from "./Button";
 export { Checkbox, CheckboxGroup, FieldShell, Select, TextArea, TextField, controlClasses, showFieldError } from "./Field";
 export { ChipsInput } from "./ChipsInput";
-export { ConfirmDialog, Dialog, Drawer } from "./Dialog";
+export { ConfirmDialog, Dialog, Drawer, type FocusTarget } from "./Dialog";
 export { DataTable, Pagination, type Column } from "./DataTable";
 export { FilterBar, SearchField } from "./FilterBar";
 export { Card, Notice, PageHeader, type NoticeTone } from "./Layout";

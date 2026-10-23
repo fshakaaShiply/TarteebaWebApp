@@ -5,7 +5,8 @@ import type { BookingStatus, ScheduleGrid, ScheduleRow, ScheduleView, VisitStatu
 /*
  * A04 operations schedule (spec §14.3, §17 A04): the view, the date and the filters live in the page URL (the API's own
  * parameter names), so a link opens the board as it was and a filtered board can be bookmarked. The zone is the shared
- * top-bar zone filter (lib/admin/zone.tsx); a `zone_id` in a link is adopted into it, as on the bookings list.
+ * top-bar zone filter (lib/admin/zone.tsx), mirrored in the URL as `zone_id` (_ops/zoneParam.ts): a link's zone_id is
+ * adopted into it, and a change of the shared zone is written back.
  */
 
 export const SCHEDULE_VIEWS = ["day", "week", "month"] as const satisfies readonly ScheduleView[];
@@ -64,11 +65,12 @@ export function scheduleFiltersFromParams(params: ParamsLike): ScheduleFilters {
   };
 }
 
-/** The URL query for these filters (day view and today implied). */
-export function scheduleFiltersToParams(filters: ScheduleFilters): URLSearchParams {
+/** The URL query for these filters and the zone (day view, today and all zones implied). */
+export function scheduleFiltersToParams(filters: ScheduleFilters, zoneId: number | null = null): URLSearchParams {
   const out = new URLSearchParams();
   if (filters.view !== "day") out.set("view", filters.view);
   if (filters.date) out.set("date", filters.date);
+  if (zoneId !== null) out.set("zone_id", String(zoneId));
   if (filters.serviceId !== null) out.set("service_id", String(filters.serviceId));
   if (filters.slotTemplateId !== null) out.set("slot_template_id", String(filters.slotTemplateId));
   if (filters.workerId !== null) out.set("worker_id", String(filters.workerId));
@@ -159,14 +161,45 @@ export type DragSource = { card: VisitSummary; fromWorkerId: number | null };
 /** Where it was dropped: a worker row, and the cell's date and slot (null in the week view: the card's own slot). */
 export type DropTarget = { workerId: number; date: string; slotId: number | null };
 
+/** A cell's date and slot (a worker row's, or the unassigned lane's). */
+export type DropPlace = Pick<DropTarget, "date" | "slotId">;
+
+/** True when the drop lands on another date or slot than the visit's (a reschedule, not a team change). */
+export function isRescheduleDrop(source: DragSource, place: DropPlace): boolean {
+  return place.date !== source.card.service_date || (place.slotId !== null && place.slotId !== source.card.slot_template_id);
+}
+
 /**
- * A drop that would change nothing (back on its own row, or on a worker already on the team) is not offered as a
- * target. Another date or slot is sent as it is: the API answers USE_RESCHEDULE and the reschedule dialog takes over.
+ * Where a card may be dropped. Another date or slot is a reschedule, in any row (its own, a teammate's, another
+ * cleaner's): the booking's reschedule dialog takes over, as the API answers USE_RESCHEDULE to such a move. At the
+ * visit's own time a drop is a team change, so back on its own row or on a cleaner already on the team is no target.
  */
 export function isDropTarget(source: DragSource, target: DropTarget): boolean {
   if (!isMovable(source.card)) return false;
+  if (isRescheduleDrop(source, target)) return true;
   if (source.fromWorkerId === target.workerId) return false;
   return !source.card.workers.some((w) => w.id === target.workerId);
+}
+
+/** The unassigned lane takes only reschedules (another date or slot): the move endpoint cannot unassign. */
+export function isLaneDropTarget(source: DragSource, place: DropPlace): boolean {
+  return isMovable(source.card) && isRescheduleDrop(source, place);
+}
+
+/**
+ * The cleaner a reschedule drop landed on when that drop also meant a team change (another cleaner's row): the
+ * reschedule moves only the time, so the board says this cleaner is not added. Null for the card's own row, a
+ * teammate's row or the lane.
+ */
+export function droppedOnOtherWorker(source: DragSource, target: DropTarget | DropPlace): number | null {
+  if (!("workerId" in target)) return null;
+  if (target.workerId === source.fromWorkerId || source.card.workers.some((w) => w.id === target.workerId)) return null;
+  return target.workerId;
+}
+
+/** The time a reschedule drop asks for: the cell's slot, else (week view, a date column) the visit's own slot. */
+export function rescheduleSlotOf(source: DragSource, place: DropPlace): number {
+  return place.slotId ?? source.card.slot_template_id;
 }
 
 /** The move request for a drop (from_worker_id null = add from the unassigned lane, else replace that worker). */
@@ -178,11 +211,6 @@ export function moveInputFor(source: DragSource, target: DropTarget) {
     date: target.date,
     slot_template_id: target.slotId ?? source.card.slot_template_id,
   };
-}
-
-/** True when the drop lands on another date or slot than the visit's (a reschedule, not a team change). */
-export function isRescheduleDrop(source: DragSource, target: DropTarget): boolean {
-  return target.date !== source.card.service_date || (target.slotId !== null && target.slotId !== source.card.slot_template_id);
 }
 
 /** Workers a card can be moved to: every row of the board except those already on the team. */

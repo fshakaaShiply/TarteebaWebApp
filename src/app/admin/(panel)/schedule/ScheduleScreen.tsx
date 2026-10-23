@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   Button,
   Card,
@@ -34,11 +34,11 @@ import {
 } from "@/lib/admin/schedule/board";
 import { useAdminSession } from "@/lib/admin/session";
 import type { ScheduleView, VisitStatus } from "@/lib/admin/types";
-import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useDaySlots } from "../_ops/daySlots";
 import { useChoiceOptions, useServiceChoices, useZoneChoices } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
+import { useZoneInUrl } from "../_ops/zoneParam";
 import { useBookingText } from "../bookings/_components/bookingText";
 import { MonthView } from "./MonthView";
 import { ScheduleGridView } from "./ScheduleGrid";
@@ -49,7 +49,8 @@ const TABS_ID = "schedule-view";
  * A04 operations schedule (spec §14.3, §17 A04; design AdminSchedule.dc.html; schedule.view to read, assignments.manage
  * to move cards): day and week as cleaner rows × slot (or date) columns with the visit cards, the unassigned lane and the
  * day markers; month as per-day counts and capacity. The view, date and filters live in the URL; the zone is the shared
- * top-bar zone. No timed polling (spec §13.2): data refreshes on focus, after a move and with Refresh.
+ * top-bar zone, mirrored in the URL as zone_id. No timed polling (spec §13.2): data refreshes on focus, after a move and
+ * with Refresh.
  */
 export function ScheduleScreen() {
   const t = useTranslations("admin.schedule");
@@ -72,7 +73,6 @@ function ScheduleContent() {
   const filters = useMemo(() => scheduleFiltersFromParams(searchParams), [searchParams]);
   const today = businessToday();
   const date = filters.date || today;
-  const { zoneId, setZoneId } = useAdminZone();
   const zones = useZoneChoices();
   const services = useServiceChoices();
   const choiceOptions = useChoiceOptions();
@@ -85,20 +85,9 @@ function ScheduleContent() {
     },
     [pathname],
   );
-  const setFilters = (next: Partial<ScheduleFilters>) => writeParams(scheduleFiltersToParams({ ...filters, ...next }));
-
-  // A link may carry a zone: it becomes the shared top-bar zone (as on the bookings list).
-  const zoneParam = searchParams.get("zone_id");
-  useEffect(() => {
-    if (zoneParam === null) return;
-    const id = Number(zoneParam);
-    setZoneId(Number.isInteger(id) && id > 0 ? id : null);
-    const rest = new URLSearchParams(searchParams);
-    rest.delete("zone_id");
-    writeParams(rest);
-  }, [zoneParam, searchParams, setZoneId, writeParams]);
-  const zoneFromParam = zoneParam !== null && /^\d{1,9}$/.test(zoneParam) && Number(zoneParam) > 0 ? Number(zoneParam) : null;
-  const effectiveZone = zoneParam !== null ? zoneFromParam : zoneId;
+  // The shared top-bar zone, kept in the URL as zone_id beside the filters (a link opens the same zone).
+  const { zoneId: effectiveZone, setZoneId } = useZoneInUrl(searchParams, writeParams);
+  const setFilters = (next: Partial<ScheduleFilters>) => writeParams(scheduleFiltersToParams({ ...filters, ...next }, effectiveZone));
 
   const query = scheduleQuery(filters, date, effectiveZone);
   const board = useQuery({

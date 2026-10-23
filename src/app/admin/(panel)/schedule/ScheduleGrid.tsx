@@ -2,20 +2,25 @@
 
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ArrowRightLeft, GripVertical, X } from "lucide-react";
+import { ArrowRightLeft, ClipboardCheck, GripVertical, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useCallback, useId, useState, type DragEvent, type ReactNode } from "react";
 import { Button, EmptyState, IconButton, Notice, StatusBadge, useToast, type StatusTone } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { fetchAllVehicles } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
 import {
   cellCards,
+  droppedOnOtherWorker,
   isDropTarget,
+  isLaneDropTarget,
   isMovable,
+  isRescheduleDrop,
+  rescheduleSlotOf,
   unassignedCards,
   type DragSource,
+  type DropPlace,
   type DropTarget,
 } from "@/lib/admin/schedule/board";
 import { useAdminSession } from "@/lib/admin/session";
@@ -24,15 +29,19 @@ import { useZoneName } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 import { Ltr, SlotLabel } from "../bookings/_components/BookingBits";
 import { useBookingText, visitTone } from "../bookings/_components/bookingText";
+import { useFocusRescue } from "../bookings/_components/focus";
 import { MoveDialog } from "./MoveDialog";
 import { attemptMove, isStale, useAfterMove, type MoveOutcome } from "./moveFlow";
 import { RescheduleHandoff } from "./RescheduleHandoff";
+import { ReviewDrawer } from "./ReviewDrawer";
 
 /*
  * Day and week boards (spec §17 A04; design AdminSchedule.dc.html): cleaner rows × slot columns (day) or date columns
  * (week), the unassigned lane on top, each cell with its visit cards and the day markers (rest day, leave, Live-out day,
- * not on shift). A card is dragged onto another cleaner's cell, or moved with its Move button (the same flow, without a
- * mouse). Reading needs schedule.view; moving needs assignments.manage (the API checks it again).
+ * not on shift). A card dropped on another cleaner's cell at its own time is a team change (checked first by the dry
+ * run); dropped on another date or slot, in any row, it is a reschedule, handed to the booking's reschedule dialog. Its
+ * Move button does the same without a mouse, and its Review button opens the booking's review panel (the design's
+ * "Schedule & review"). Reading needs schedule.view; moving needs assignments.manage (the API checks it again).
  */
 
 type Column = { key: string; date: string; slotId: number | null; header: ReactNode };
@@ -52,7 +61,12 @@ const toneBorder: Record<StatusTone, string> = {
   neutral: "border-s-line-strong",
 };
 
+/** The row a card is shown in: a worker's id, or the unassigned lane. */
+const rowKey = (workerId: number | null) => (workerId === null ? "lane" : String(workerId));
+
+type CardAction = "move" | "review";
 type Banner = { reference: string; name: string; conflicts?: { code: string; message: string }[]; error?: unknown };
+type Reschedule = { source: DragSource; date: string; slotId: number | null; dropWorkerId: number | null };
 
 export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
   const t = useTranslations("admin.schedule");
@@ -60,7 +74,9 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
   const toast = useToast();
   const { can, canAny } = useAdminSession();
   const canMove = can("assignments.manage");
+  const canReview = can("bookings.view");
   const after = useAfterMove();
+  const headingId = useId();
   const vehicles = useQuery({
     queryKey: adminKeys.vehicleList({ all: 1 }),
     queryFn: fetchAllVehicles,
@@ -75,7 +91,39 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
   const [busy, setBusy] = useState<{ visitId: number; message: string } | null>(null);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [dialog, setDialog] = useState<{ source: DragSource; target?: DropTarget; outcome?: MoveOutcome } | null>(null);
-  const [reschedule, setReschedule] = useState<{ source: DragSource; date: string; slotId: number | null } | null>(null);
+  const [reschedule, setReschedule] = useState<Reschedule | null>(null);
+  const [review, setReview] = useState<{ card: VisitSummary; row: string } | null>(null);
+
+  // ---- focus: a card is re-mounted in another row after a move or a refetch, which drops focus to the page ----------
+  const gridId = useId();
+  const [heading, setHeading] = useState<HTMLHeadingElement | null>(null);
+  /** The row a visit was just moved to (written on the grid as data-moved-*, read when focus has to find the card). */
+  const [movedTo, setMovedTo] = useState<{ visitId: number; row: string } | null>(null);
+  /**
+   * The visit's Move or Review button on the board now: in the row it was just moved to, else `row`, else wherever the
+   * card is shown. It reads the page when it is called (a dialog closing, a refetch landing), not when it was made.
+   */
+  const cardButton = useCallback(
+    (visitId: number, action: CardAction, row?: string): HTMLElement | null => {
+      const root = document.getElementById(gridId);
+      if (!root) return null;
+      const moved = root.dataset.movedVisit === String(visitId) ? root.dataset.movedRow : undefined;
+      const card = (r?: string) => `[data-visit-card="${visitId}"]${r ? `[data-row="${r}"]` : ""}`;
+      const pick = (r?: string) =>
+        root.querySelector<HTMLElement>(`${card(r)} [data-card-action="${action}"]`) ?? root.querySelector<HTMLElement>(`${card(r)} [data-card-action]`);
+      return (moved ? pick(moved) : null) ?? (row ? pick(row) : null) ?? pick();
+    },
+    [gridId],
+  );
+  /** Focus on closing a card's dialog when its button is gone: the same card where it is now, else the board heading. */
+  const backTo = (visitId: number, action: CardAction, row: string) => () => cardButton(visitId, action, row) ?? heading;
+  // A refetch that takes the focused card out of its row: the same visit's button in its new row, else the heading.
+  useFocusRescue((removed) => {
+    const cardEl = removed.closest("[data-visit-card]");
+    const visitId = cardEl ? Number(cardEl.getAttribute("data-visit-card")) : null;
+    const action = (removed.getAttribute("data-card-action") as CardAction | null) ?? "move";
+    return (visitId !== null ? cardButton(visitId, action) : null) ?? heading;
+  }, board);
 
   const columns: Column[] =
     board.view === "day"
@@ -92,6 +140,7 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
     const reference = source.card.booking.reference;
     const name = nameOf(target.workerId);
     if (outcome.kind === "saved") {
+      setMovedTo({ visitId: source.card.id, row: rowKey(target.workerId) });
       toast.success(
         source.fromWorkerId === null
           ? t("drag.added", { reference, name })
@@ -101,14 +150,15 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
       return;
     }
     if (outcome.kind === "reschedule") {
-      setReschedule({ source, date: outcome.date, slotId: outcome.slotId });
+      setReschedule({ source, date: outcome.date, slotId: outcome.slotId ?? source.card.slot_template_id, dropWorkerId: droppedOnOtherWorker(source, target) });
       return;
     }
     if (outcome.kind === "override") {
       setDialog({ source, target, outcome });
       return;
     }
-    if (outcome.kind === "error" && isStale(outcome.error)) after(source.card);
+    // A refused move may have raced another change (a stale version always has): the board reloads.
+    if (outcome.kind === "error") after(source.card);
     setBanner({ reference, name, ...(outcome.kind === "conflicts" ? { conflicts: outcome.conflicts } : { error: outcome.error }) });
   };
 
@@ -120,10 +170,14 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
     settle(source, target, outcome);
   };
 
-  const dropHandlers = (row: ScheduleRow, column: Column) => {
-    const target: DropTarget = { workerId: row.worker.id, date: column.date, slotId: column.slotId };
-    const key = `${row.worker.id}:${column.key}`;
-    const allowed = !!drag && isDropTarget(drag, target);
+  /** Another date or slot: the booking's reschedule dialog, with the drop's date and time (no team change is sent). */
+  const dropToReschedule = (source: DragSource, place: DropTarget | DropPlace) => {
+    setBanner(null);
+    setReschedule({ source, date: place.date, slotId: rescheduleSlotOf(source, place), dropWorkerId: droppedOnOtherWorker(source, place) });
+  };
+
+  const cellHandlers = (key: string, accepts: (source: DragSource) => boolean, onAccept: (source: DragSource) => void) => {
+    const allowed = !!drag && accepts(drag);
     return {
       key,
       active: allowed && hover === key,
@@ -139,20 +193,40 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
         setHover(null);
         const source = drag;
         setDrag(null);
-        if (source && isDropTarget(source, target)) void drop(source, target);
+        if (source && accepts(source)) onAccept(source);
       },
     };
   };
 
+  const dropHandlers = (row: ScheduleRow, column: Column) => {
+    const target: DropTarget = { workerId: row.worker.id, date: column.date, slotId: column.slotId };
+    return cellHandlers(
+      `${row.worker.id}:${column.key}`,
+      (source) => isDropTarget(source, target),
+      (source) => (isRescheduleDrop(source, target) ? dropToReschedule(source, target) : void drop(source, target)),
+    );
+  };
+
+  const laneHandlers = (column: Column) => {
+    const place: DropPlace = { date: column.date, slotId: column.slotId };
+    return cellHandlers(
+      `lane:${column.key}`,
+      (source) => isLaneDropTarget(source, place),
+      (source) => dropToReschedule(source, place),
+    );
+  };
+
   const card = (c: VisitSummary, fromWorkerId: number | null) => (
     <VisitCard
-      key={`${c.id}:${fromWorkerId ?? "lane"}`}
+      key={`${c.id}:${rowKey(fromWorkerId)}`}
       card={c}
+      row={rowKey(fromWorkerId)}
       showTime={board.view === "week"}
       plate={plateOf(c.vehicle_id)}
       busy={busy?.visitId === c.id}
       draggable={canMove && isMovable(c) && busy === null}
       canMove={canMove && isMovable(c)}
+      canReview={canReview}
       onDragStart={() => {
         setBanner(null);
         setDrag({ card: c, fromWorkerId });
@@ -162,20 +236,28 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
         setHover(null);
       }}
       onMove={() => setDialog({ source: { card: c, fromWorkerId } })}
+      onReview={() => setReview({ card: c, row: rowKey(fromWorkerId) })}
     />
   );
 
   return (
     <>
+      <h2 ref={setHeading} id={headingId} tabIndex={-1} className="sr-only">
+        {t("grid.caption", { view: t(`views.${board.view}`) })}
+      </h2>
       <p className="text-sm text-ink-600">{canMove ? t("grid.hint") : t("grid.readOnly")}</p>
       <p role="status" aria-live="polite" className="sr-only">
         {busy?.message ?? ""}
       </p>
       {banner && <MoveBanner banner={banner} onDismiss={() => setBanner(null)} />}
 
-      <div className="overflow-x-auto rounded-lg bg-surface shadow-card">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
-          <caption className="sr-only">{t("grid.caption", { view: t(`views.${board.view}`) })}</caption>
+      <div
+        id={gridId}
+        data-moved-visit={movedTo?.visitId}
+        data-moved-row={movedTo?.row}
+        className="overflow-x-auto rounded-lg bg-surface shadow-card"
+      >
+        <table aria-labelledby={headingId} className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-line">
               <th scope="col" className="w-48 px-3 py-2.5 text-start font-bold text-ink-900">
@@ -196,8 +278,14 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
               </th>
               {columns.map((c) => {
                 const cards = unassignedCards(board, c.date, c.slotId);
+                const { key, active, ...handlers } = laneHandlers(c);
                 return (
-                  <td key={c.key} className="px-2 py-2 align-top">
+                  <td
+                    key={key}
+                    {...handlers}
+                    data-drop-target={`lane:${c.date}:${c.slotId ?? "any"}`}
+                    className={clsx("px-2 py-2 align-top transition-colors", active && "bg-petrol-50 outline-2 -outline-offset-2 outline-petrol-700 outline-dashed")}
+                  >
                     <div className="flex flex-col gap-2">
                       {cards.length === 0 ? <span className="text-xs text-ink-600">{t("grid.none")}</span> : cards.map((x) => card(x, null))}
                     </div>
@@ -219,24 +307,42 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
           source={dialog.source}
           target={dialog.target}
           outcome={dialog.outcome}
+          returnFocusTo={backTo(dialog.source.card.id, "move", rowKey(dialog.source.fromWorkerId))}
           onClose={() => setDialog(null)}
           onSettled={(target, outcome) => {
             setDialog(null);
             settle(dialog.source, target, outcome);
           }}
+          onRefresh={() => after(dialog.source.card)}
           onReschedule={() => {
             const { source } = dialog;
             setDialog(null);
-            setReschedule({ source, date: source.card.service_date, slotId: null });
+            setReschedule({ source, date: source.card.service_date, slotId: null, dropWorkerId: null });
           }}
         />
       )}
       {reschedule && (
-        <RescheduleHandoff source={reschedule.source} date={reschedule.date} slotId={reschedule.slotId} onClose={() => setReschedule(null)} />
+        <RescheduleHandoff
+          source={reschedule.source}
+          date={reschedule.date}
+          slotId={reschedule.slotId}
+          dropWorkerName={reschedule.dropWorkerId === null ? null : nameOf(reschedule.dropWorkerId)}
+          returnFocusTo={backTo(reschedule.source.card.id, "move", rowKey(reschedule.source.fromWorkerId))}
+          onClose={() => setReschedule(null)}
+        />
       )}
+      {review && <ReviewDrawer bookingId={review.card.booking.id} returnFocusTo={backTo(review.card.id, "review", review.row)} onClose={() => setReview(null)} />}
     </>
   );
 }
+
+type CellHandlers = {
+  key: string;
+  active: boolean;
+  onDragOver: (e: DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: DragEvent) => void;
+};
 
 function WorkerRow({
   row,
@@ -248,13 +354,7 @@ function WorkerRow({
   row: ScheduleRow;
   board: ScheduleGrid;
   columns: Column[];
-  dropHandlers: (row: ScheduleRow, column: Column) => {
-    key: string;
-    active: boolean;
-    onDragOver: (e: DragEvent) => void;
-    onDragLeave: () => void;
-    onDrop: (e: DragEvent) => void;
-  };
+  dropHandlers: (row: ScheduleRow, column: Column) => CellHandlers;
   renderCard: (card: VisitSummary, fromWorkerId: number | null) => ReactNode;
 }) {
   const t = useTranslations("admin.schedule");
@@ -298,12 +398,17 @@ function WorkerRow({
   );
 }
 
-const markerTone: Record<string, StatusTone> = {
+/**
+ * Day markers in the design's colours (AdminSchedule.dc.html): Live-out days sage, leave, rest days and shifts grey,
+ * an inactive cleaner red. Never the pending (apricot) or confirmed (petrol) tones: beside the visit cards those mean
+ * "pending confirmation" and "confirmed / assigned" (spec §27.5).
+ */
+export const markerTone: Record<string, StatusTone> = {
   rest_day: "neutral",
   not_on_shift: "neutral",
+  leave: "neutral",
+  live_out: "success",
   not_active: "danger",
-  leave: "pending",
-  live_out: "confirmed",
 };
 
 function MarkerBadge({ marker }: { marker: ScheduleMarker }) {
@@ -319,24 +424,30 @@ function MarkerBadge({ marker }: { marker: ScheduleMarker }) {
 
 function VisitCard({
   card,
+  row,
   showTime,
   plate,
   busy,
   draggable,
   canMove,
+  canReview,
   onDragStart,
   onDragEnd,
   onMove,
+  onReview,
 }: {
   card: VisitSummary;
+  row: string;
   showTime: boolean;
   plate: string | null;
   busy: boolean;
   draggable: boolean;
   canMove: boolean;
+  canReview: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
   onMove: () => void;
+  onReview: () => void;
 }) {
   const t = useTranslations("admin.schedule.card");
   const text = useBookingText();
@@ -356,6 +467,7 @@ function VisitCard({
       onDragEnd={onDragEnd}
       aria-busy={busy || undefined}
       data-visit-card={card.id}
+      data-row={row}
       className={clsx(
         "flex flex-col gap-1 rounded-md border border-s-4 border-line bg-surface p-2 shadow-card",
         toneBorder[tone],
@@ -366,9 +478,14 @@ function VisitCard({
       <div className="flex flex-wrap items-center justify-between gap-1">
         <span className="flex items-center gap-1">
           {draggable && <GripVertical aria-hidden className="size-3.5 text-ink-600" />}
-          <Link href={`/admin/bookings/${card.booking.id}`} className="font-bold">
-            <Ltr>{card.booking.reference}</Ltr>
-          </Link>
+          {/* The booking page needs bookings.view (HR reads the schedule without it): plain text otherwise. */}
+          {canReview ? (
+            <Link href={`/admin/bookings/${card.booking.id}`} className="font-bold">
+              <Ltr>{card.booking.reference}</Ltr>
+            </Link>
+          ) : (
+            <Ltr className="font-bold text-ink-900">{card.booking.reference}</Ltr>
+          )}
         </span>
         <StatusBadge tone={tone}>{label}</StatusBadge>
       </div>
@@ -384,18 +501,36 @@ function VisitCard({
           {t("vehicle")} <Ltr>{plate}</Ltr>
         </span>
       )}
-      {canMove && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="touch-target self-start px-2"
-          onClick={onMove}
-          disabled={busy}
-          aria-label={t("moveLabel", { reference: card.booking.reference })}
-          icon={<ArrowRightLeft aria-hidden className="size-3.5" />}
-        >
-          {t("move")}
-        </Button>
+      {(canMove || canReview) && (
+        <span className="flex flex-wrap gap-1">
+          {canReview && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="touch-target px-2"
+              onClick={onReview}
+              data-card-action="review"
+              aria-label={t("reviewLabel", { reference: card.booking.reference })}
+              icon={<ClipboardCheck aria-hidden className="size-3.5" />}
+            >
+              {t("review")}
+            </Button>
+          )}
+          {canMove && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="touch-target px-2"
+              onClick={onMove}
+              disabled={busy}
+              data-card-action="move"
+              aria-label={t("moveLabel", { reference: card.booking.reference })}
+              icon={<ArrowRightLeft aria-hidden className="size-3.5" />}
+            >
+              {t("move")}
+            </Button>
+          )}
+        </span>
       )}
     </div>
   );

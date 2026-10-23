@@ -57,6 +57,32 @@ describe("A06 driver reports", () => {
     expect(await screen.findByText("Report updated: Handled.")).toBeInTheDocument();
   });
 
+  it("moves focus to the next report's button when a handled report leaves the open list", async () => {
+    const other = driverReport({
+      id: 32,
+      type: "vehicle_issue",
+      type_label: { ar: "مشكلة في السيارة", en: "Vehicle issue" },
+      reason: "Flat tyre",
+      round: { ...driverReport().round, id: 12, vehicle: { id: 2, plate_no: "DEMO-VAN-2" } },
+    });
+    let server = page([driverReport(), other]);
+    api.fetchDriverReports.mockImplementation(async () => server);
+    api.updateDriverReport.mockImplementation(async () => {
+      server = page([other]);
+      return driverReport({ status: "resolved", status_label: { ar: "تمت المعالجة", en: "Resolved" } });
+    });
+    renderWithProviders(<DriverReportsScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    const button = await screen.findByRole("button", { name: "Mark handled: Delay on DEMO-VAN-1" });
+    button.focus();
+    await user.keyboard("{Enter}");
+    const dialog = await screen.findByRole("alertdialog", { name: "Delay on DEMO-VAN-1" });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByText("Traffic on Al Khail Road")).not.toBeInTheDocument());
+    // Before, focus fell to the page once the handled row was gone.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Mark handled: Vehicle issue on DEMO-VAN-2" })).toHaveFocus());
+  });
+
   it("shows the API's refusal (a report already closed meanwhile)", async () => {
     api.updateDriverReport.mockRejectedValue(new AdminApiError(409, { code: "INVALID_STATE", message: "This report cannot move to that status.", details: {} }));
     renderWithProviders(<DriverReportsScreen />, { permissions: ["trips.manage"] });

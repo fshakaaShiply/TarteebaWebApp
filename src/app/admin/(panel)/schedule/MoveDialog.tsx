@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { Button, Dialog, Notice, Select, TextArea, showFieldError } from "@/components/admin";
+import { Button, Dialog, Notice, Select, TextArea, showFieldError, type FocusTarget } from "@/components/admin";
 import { assignmentReasonSchema } from "@/lib/admin/bookings/forms";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
@@ -28,7 +28,9 @@ export function MoveDialog({
   outcome: initialOutcome,
   onClose,
   onSettled,
+  onRefresh,
   onReschedule,
+  returnFocusTo,
 }: {
   board: ScheduleGrid;
   source: DragSource;
@@ -36,9 +38,16 @@ export function MoveDialog({
   target?: DropTarget;
   outcome?: MoveOutcome;
   onClose: () => void;
-  /** A saved move, or an answer the board shows (a reschedule hand-off). */
+  /**
+   * A saved move, or an answer the board shows instead: a reschedule hand-off, or a stale version (the visit changed
+   * meanwhile: the board reloads it and says so, and the next try sends the new version).
+   */
   onSettled: (target: DropTarget, outcome: MoveOutcome) => void;
+  /** A refused move that may have raced another change: the board and the booking reload under the dialog. */
+  onRefresh: () => void;
   onReschedule: () => void;
+  /** Focus on close when the card's Move button is gone (the card is shown in another row after a refetch). */
+  returnFocusTo?: FocusTarget;
 }) {
   const t = useTranslations("admin.schedule.moveDialog");
   const f = useTranslations("admin.bookings.formErrors");
@@ -88,10 +97,11 @@ export function MoveDialog({
     setPending(true);
     const result = await attemptMove(source, dropTarget, override);
     setPending(false);
-    if (result.kind === "saved" || result.kind === "reschedule") {
+    if (result.kind === "saved" || result.kind === "reschedule" || (result.kind === "error" && isStale(result.error))) {
       onSettled(dropTarget, result);
       return;
     }
+    if (result.kind === "error") onRefresh();
     setOutcome(result);
   };
 
@@ -104,6 +114,7 @@ export function MoveDialog({
       title={t("title", { reference: card.booking.reference })}
       description={t("body")}
       dismissible={!pending}
+      returnFocusTo={returnFocusTo}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={pending}>
@@ -178,7 +189,7 @@ export function MoveDialog({
             )}
             {outcome?.kind === "error" && (
               <Notice tone="danger" title={t("conflictsTitle")}>
-                <p>{isStale(outcome.error) ? t("stale") : describe(outcome.error)}</p>
+                <p>{describe(outcome.error)}</p>
               </Notice>
             )}
             {overriding && (

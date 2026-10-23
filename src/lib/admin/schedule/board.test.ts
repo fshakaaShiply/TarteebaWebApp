@@ -3,10 +3,13 @@ import { card, confirmedCard, dayBoard, monthBoard } from "@/test/opsBoardFixtur
 import {
   calendarWeeks,
   cellCards,
+  droppedOnOtherWorker,
   isDropTarget,
+  isLaneDropTarget,
   isMovable,
   isRescheduleDrop,
   moveInputFor,
+  rescheduleSlotOf,
   moveTargets,
   scheduleFiltersFromParams,
   scheduleFiltersToParams,
@@ -35,6 +38,8 @@ describe("schedule URL filters", () => {
     const filters = scheduleFiltersFromParams(new URLSearchParams("view=month&status=completed"));
     expect(scheduleFiltersToParams(filters).toString()).toBe("view=month&status=completed");
     expect(scheduleFiltersToParams({ ...filters, view: "day", statuses: [] }).toString()).toBe("");
+    // The zone is written beside the filters, so a copied link opens the same zone.
+    expect(scheduleFiltersToParams({ ...filters, date: "2026-10-24" }, 3).toString()).toBe("view=month&date=2026-10-24&zone_id=3&status=completed");
     const query = scheduleQuery(filters, "2026-10-24", 1);
     expect(query).toEqual({ view: "month", date: "2026-10-24", zoneId: 1, serviceId: null, slotTemplateId: null, workerId: null, statuses: ["completed"] });
     expect(scheduleKey(query)).toEqual({ view: "month", date: "2026-10-24", zone: 1, service: 0, slot: 0, worker: 0, status: "completed" });
@@ -66,16 +71,38 @@ describe("moves", () => {
     expect(isMovable(card({ booking: { ...card().booking, status: "completed" } }))).toBe(false);
   });
 
-  it("offers every row except the card's own and its team as a drop target", () => {
+  it("at the visit's own time, offers every row except the card's own and its team as a drop target", () => {
     const source = { card: confirmedCard(), fromWorkerId: 1 };
     expect(isDropTarget(source, { workerId: 1, date: "2026-10-24", slotId: 2 })).toBe(false);
     expect(isDropTarget(source, { workerId: 4, date: "2026-10-24", slotId: 2 })).toBe(false);
     expect(isDropTarget(source, { workerId: 5, date: "2026-10-24", slotId: 2 })).toBe(true);
-    // Another slot or date is still a target: the API answers USE_RESCHEDULE.
-    expect(isDropTarget(source, { workerId: 5, date: "2026-10-25", slotId: 1 })).toBe(true);
-    expect(isRescheduleDrop(source, { workerId: 5, date: "2026-10-24", slotId: 1 })).toBe(true);
-    expect(isRescheduleDrop(source, { workerId: 5, date: "2026-10-24", slotId: null })).toBe(false);
+    // The week view's date column of the visit's own day keeps its slot: a team change too.
+    expect(isDropTarget(source, { workerId: 1, date: "2026-10-24", slotId: null })).toBe(false);
     expect(moveTargets(dayBoard(), confirmedCard()).map((w) => w.display_name)).toEqual(["Siti R.", "Tigist B.", "Grace N."]);
+  });
+
+  it("takes another slot or date in any row as a reschedule, the card's own row and its team's included", () => {
+    const source = { card: confirmedCard(), fromWorkerId: 1 };
+    for (const workerId of [1, 4, 5]) {
+      expect(isDropTarget(source, { workerId, date: "2026-10-24", slotId: 1 }), `slot, row ${workerId}`).toBe(true);
+      expect(isDropTarget(source, { workerId, date: "2026-10-25", slotId: null }), `date, row ${workerId}`).toBe(true);
+    }
+    expect(isRescheduleDrop(source, { date: "2026-10-24", slotId: 1 })).toBe(true);
+    expect(isRescheduleDrop(source, { date: "2026-10-25", slotId: null })).toBe(true);
+    expect(isRescheduleDrop(source, { date: "2026-10-24", slotId: null })).toBe(false);
+    expect(isRescheduleDrop(source, { date: "2026-10-24", slotId: 2 })).toBe(false);
+    // The unassigned lane takes reschedules only.
+    expect(isLaneDropTarget({ card: card(), fromWorkerId: null }, { date: "2026-10-24", slotId: 2 })).toBe(true);
+    expect(isLaneDropTarget({ card: card(), fromWorkerId: null }, { date: "2026-10-24", slotId: 1 })).toBe(false);
+    expect(isLaneDropTarget({ card: card({ status: "in_progress" }), fromWorkerId: null }, { date: "2026-10-25", slotId: 1 })).toBe(false);
+    // Only another cleaner's row also implies a team change, which a reschedule does not carry over.
+    expect(droppedOnOtherWorker(source, { workerId: 5, date: "2026-10-24", slotId: 1 })).toBe(5);
+    expect(droppedOnOtherWorker(source, { workerId: 1, date: "2026-10-24", slotId: 1 })).toBeNull();
+    expect(droppedOnOtherWorker(source, { workerId: 4, date: "2026-10-24", slotId: 1 })).toBeNull();
+    expect(droppedOnOtherWorker(source, { date: "2026-10-24", slotId: 1 })).toBeNull();
+    // The week view asks for the visit's own time on the new date.
+    expect(rescheduleSlotOf(source, { date: "2026-10-25", slotId: null })).toBe(2);
+    expect(rescheduleSlotOf(source, { date: "2026-10-24", slotId: 1 })).toBe(1);
   });
 
   it("sends where the card was dropped; the week view's cells keep the card's own slot", () => {

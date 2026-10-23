@@ -67,4 +67,27 @@ describe("counts read naturally", () => {
     expect(round("en")("seatsUsed", { used: 1, total: 1 })).toBe("1 of 1 seat");
     expect(card("en")("team", { assigned: 0, count: 2 })).toBe("0 of 2 cleaners");
   });
+
+  it("agrees the Arabic minutes of lateness, waiting and driver delays with the number", () => {
+    const reports = (locale: "ar" | "en") => createTranslator({ locale, messages: locale === "ar" ? ar : en, namespace: "admin.driverReports" });
+    const t = round("ar");
+    expect(t("lateBy", { minutes: 1 })).toBe("متأخرة دقيقة واحدة");
+    expect(t("lateBy", { minutes: 2 })).toBe("متأخرة دقيقتين");
+    expect(t("lateBy", { minutes: 5 })).toBe("متأخرة 5 دقائق");
+    expect(t("lateBy", { minutes: 10 })).toBe("متأخرة 10 دقائق");
+    expect(t("lateBy", { minutes: 22 })).toBe("متأخرة 22 دقيقة");
+    expect(t("afterStart", { minutes: 1 })).toBe("بعد البداية بدقيقة واحدة، ضمن التأخير المسموح");
+    expect(t("afterStart", { minutes: 7 })).toBe("بعد البداية بـ7 دقائق، ضمن التأخير المسموح");
+    expect(t("afterStart", { minutes: 15 })).toBe("بعد البداية بـ15 دقيقة، ضمن التأخير المسموح");
+    expect(t("waitsTooLong", { minutes: 2 })).toBe("ينتظر الفريق دقيقتين");
+    expect(t("waitsTooLong", { minutes: 40 })).toBe("ينتظر الفريق 40 دقيقة");
+    expect(t("teamWaits", { minutes: 3 })).toBe("ينتظر الفريق 3 دقائق بعد الزيارة");
+    expect(reports("ar")("delayValue", { minutes: 1 })).toBe("+دقيقة واحدة");
+    expect(reports("ar")("delayValue", { minutes: 5 })).toBe("+5 دقائق");
+    expect(reports("ar")("delayValue", { minutes: 10 })).toBe("+10 دقائق");
+    expect(reports("ar")("delayValue", { minutes: 15 })).toBe("+15 دقيقة");
+    // English keeps the short unit.
+    expect(round("en")("lateBy", { minutes: 5 })).toBe("5 min late");
+    expect(reports("en")("delayValue", { minutes: 5 })).toBe("+5 min");
+  });
 });

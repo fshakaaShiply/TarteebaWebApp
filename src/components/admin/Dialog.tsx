@@ -20,8 +20,12 @@ import { Button, type ButtonVariant } from "./Button";
  *
  * `fallback` is for a dialog that takes over from another one (e.g. a shortfall dialog opened by a confirmation that
  * has just closed): what had focus then is gone or is <body>, so focus goes back to the control that started the flow.
+ * It may be a function, asked when the dialog closes: for a control that moves while the dialog is open (a schedule
+ * card mounted in another row after a refetch), it finds where that control is now.
  */
-export function useReturnFocus(fallback?: HTMLElement | null) {
+export type FocusTarget = HTMLElement | null | undefined | (() => HTMLElement | null | undefined);
+
+export function useReturnFocus(fallback?: FocusTarget) {
   const returnTo = useRef<HTMLElement | null>(null);
   return {
     onOpenAutoFocus: () => {
@@ -31,7 +35,7 @@ export function useReturnFocus(fallback?: HTMLElement | null) {
     onCloseAutoFocus: (event: Event) => {
       const opener = returnTo.current;
       returnTo.current = null;
-      const target = opener?.isConnected ? opener : fallback;
+      const target = opener?.isConnected ? opener : typeof fallback === "function" ? fallback() : fallback;
       if (!target?.isConnected) return;
       event.preventDefault();
       target.focus();
@@ -51,7 +55,7 @@ type DialogProps = {
   /** Prevents closing by Escape or outside click (e.g. while saving). */
   dismissible?: boolean;
   /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
-  returnFocusTo?: HTMLElement | null;
+  returnFocusTo?: FocusTarget;
 };
 
 const widths = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-2xl" };
@@ -131,7 +135,7 @@ type ConfirmDialogProps = {
   /** Extra fields (e.g. a required reason) and error notices. */
   children?: ReactNode;
   /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
-  returnFocusTo?: HTMLElement | null;
+  returnFocusTo?: FocusTarget;
 };
 
 export function ConfirmDialog({
@@ -205,6 +209,8 @@ type DrawerProps = {
   /** Width of an end-side panel: "md" for record details, "lg" for editors with previews (A11 zones, policies). */
   size?: "md" | "lg";
   className?: string;
+  /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
+  returnFocusTo?: FocusTarget;
 };
 
 /** Side panel for record details (A03 booking drawer pattern) and the small-screen navigation. */
@@ -218,8 +224,9 @@ export function Drawer({
   side = "end",
   size = "md",
   className,
+  returnFocusTo,
 }: DrawerProps) {
-  const focus = useReturnFocus();
+  const focus = useReturnFocus(returnFocusTo);
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>

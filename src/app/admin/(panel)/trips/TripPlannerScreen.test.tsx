@@ -120,7 +120,8 @@ describe("A06 trip planner", () => {
     await panel();
     await user.click(screen.getByRole("button", { name: "Draft rounds" }));
     await waitFor(() => expect(api.planRounds).toHaveBeenCalledWith({ date: "2026-10-24", slot_template_id: 1, zone_id: null }));
-    const result = (await screen.findByRole("heading", { name: "Draft result" })).closest("section")!;
+    // The result names the date and slot it was drafted for.
+    const result = (await screen.findByRole("heading", { name: "Draft result · Sat, 24 Oct 2026 · Morning 10:00–14:00" })).closest("section")!;
     expect(result).toHaveTextContent("New rounds: 1 · rounds extended: 0 · visits already planned: 0.");
     expect(result).toHaveTextContent("1 visit not planned");
     expect(within(result).getByRole("link", { name: "TRB-R4RYSD" })).toHaveAttribute("href", "/admin/bookings/4");
@@ -128,16 +129,72 @@ describe("A06 trip planner", () => {
     expect(result).toHaveTextContent("Both rides");
   });
 
-  it("adopts a linked zone into the shared zone filter and keeps the date and slot in the URL", async () => {
+  it("keeps a draft's result and refusal with the date and slot it ran for", async () => {
+    api.planRounds.mockRejectedValueOnce(new AdminApiError(422, { code: "NOTHING_TO_PLAN", message: "No visit of this slot can be planned.", details: {} }));
+    renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
+    const user = userEvent.setup();
+    await panel();
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    expect(await screen.findByText("No visit of this slot can be planned.")).toBeInTheDocument();
+    // Before, the 24 October refusal stayed on screen for the next day.
+    await user.click(screen.getByRole("button", { name: "Next day" }));
+    expect(url.get().get("date")).toBe("2026-10-25");
+    await waitFor(() => expect(screen.queryByText("No visit of this slot can be planned.")).not.toBeInTheDocument());
+
+    // A draft that answers after the page moved on shows only on its own date.
+    let answer: (value: ReturnType<typeof planResult>) => void = () => undefined;
+    api.planRounds.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    await waitFor(() => expect(api.planRounds).toHaveBeenLastCalledWith({ date: "2026-10-25", slot_template_id: 1, zone_id: null }));
+    await user.click(screen.getByRole("button", { name: "Next day" }));
+    expect(url.get().get("date")).toBe("2026-10-26");
+    answer({ ...planResult(), date: "2026-10-25" });
+    await waitFor(() => expect(api.fetchRounds).toHaveBeenLastCalledWith({ date: "2026-10-26", slotTemplateId: 1, zoneId: null }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("heading", { name: /^Draft result/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Previous day" }));
+    expect(await screen.findByRole("heading", { name: /^Draft result · Sun, 25 Oct 2026/ })).toBeInTheDocument();
+  });
+
+  it("keeps the zone in the URL with the date and slot: a linked zone is adopted, a new choice written back", async () => {
     url.set("/admin/trips?date=2026-10-24&slot_template_id=1&zone_id=1");
     renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
     await panel();
     expect(api.fetchRounds).toHaveBeenCalledWith({ date: "2026-10-24", slotTemplateId: 1, zoneId: 1 });
-    await waitFor(() => expect(url.get().toString()).toBe("date=2026-10-24&slot_template_id=1"));
+    expect(api.fetchRounds).not.toHaveBeenCalledWith(expect.objectContaining({ zoneId: null }));
+    expect(url.get().toString()).toBe("date=2026-10-24&slot_template_id=1&zone_id=1");
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Next day" }));
-    expect(url.get().toString()).toBe("date=2026-10-25&slot_template_id=1");
+    expect(url.get().toString()).toBe("date=2026-10-25&slot_template_id=1&zone_id=1");
     await waitFor(() => expect(api.fetchRounds).toHaveBeenLastCalledWith({ date: "2026-10-25", slotTemplateId: 1, zoneId: 1 }));
+
+    const zone = screen.getByRole("combobox", { name: "Zone" });
+    await within(zone).findByRole("option", { name: "Arabian Ranches" });
+    await user.selectOptions(zone, "2");
+    await waitFor(() => expect(url.get().toString()).toBe("date=2026-10-25&slot_template_id=1&zone_id=2"));
+    await user.selectOptions(zone, "");
+    await waitFor(() => expect(url.get().toString()).toBe("date=2026-10-25&slot_template_id=1"));
+  });
+
+  it("tells a trips manager without schedule.view why rounds can't be drafted", async () => {
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    await panel();
+    expect(screen.getByText("Drafting needs the schedule view permission too")).toBeInTheDocument();
+    expect(screen.getByText(/Without the schedule view permission, rounds can't be drafted/)).toBeInTheDocument();
+    expect(screen.queryByText("Choose a slot to draft its rounds.")).not.toBeInTheDocument();
+  });
+
+  it("links stops and unplanned visits to their booking only with bookings.view", async () => {
+    api.planRounds.mockResolvedValue(planResult());
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage", "schedule.view"] });
+    const user = userEvent.setup();
+    const section = await panel();
+    expect(within(section).getByRole("listitem", { name: "Stop 1 of 2: TRB-K2M9QX" })).toHaveTextContent("TRB-K2M9QX");
+    expect(within(section).queryByRole("link", { name: /TRB-/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    const result = (await screen.findByRole("heading", { name: /^Draft result/ })).closest("section")!;
+    expect(result).toHaveTextContent("TRB-R4RYSD");
+    expect(within(result).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("needs a slot to draft rounds", async () => {

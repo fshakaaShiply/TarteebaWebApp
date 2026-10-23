@@ -67,6 +67,41 @@ export function businessToday(now: Date = new Date()): string {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+/** The UTC offset of `timeZone` at an instant, in minutes east of UTC. */
+function zoneOffsetMinutes(instant: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(instant));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const wall = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return Math.round((wall - Math.floor(instant / 1000) * 1000) / 60_000);
+}
+
+/**
+ * A wall-clock date and time in a time zone (business clock Asia/Dubai by default) as an ISO 8601 instant with that
+ * moment's offset: ("2026-10-24", "09:20") → "2026-10-24T09:20:00+04:00". Spec §4.1: the UAE has no daylight saving,
+ * but the offset is never assumed; it is read from the zone's rules for that date. Null for a malformed date or time.
+ */
+export function zonedDateTimeIso(date: string, time: string, timeZone: string = BUSINESS_TIME_ZONE): string | null {
+  if (!isIsoDate(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  const wall = Date.UTC(y, m - 1, d, hh, mm);
+  // The offset at the instant this wall time names (a second pass settles a daylight-saving change in between).
+  const guess = wall - zoneOffsetMinutes(wall, timeZone) * 60_000;
+  const offset = zoneOffsetMinutes(guess, timeZone);
+  const abs = Math.abs(offset);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date}T${time}:00${offset < 0 ? "-" : "+"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
 /** "YYYY-MM-DD" plus `days` (calendar arithmetic in UTC, so no daylight-saving surprises). */
 export function addDaysIso(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);

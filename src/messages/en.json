@@ -3272,7 +3272,7 @@
         "severalStatuses": "Several statuses"
       },
       "grid": {
-        "hint": "Drag a card onto another cleaner's row, or use Move on the card. Every move is checked first; nothing changes unless it is allowed.",
+        "hint": "Drag a card onto another cleaner's row to change the team, or onto another day or time to reschedule it; or use Move on the card. Every move is checked first; nothing changes unless it is allowed.",
         "readOnly": "You can view the schedule. Moving cleaners between visits needs the assignments permission.",
         "caption": "Operations schedule, {view} view",
         "worker": "Cleaner",
@@ -3299,7 +3299,9 @@
         "separator": ", ",
         "vehicle": "Van",
         "move": "Move",
-        "moveLabel": "Move {reference}"
+        "moveLabel": "Move {reference}",
+        "review": "Review",
+        "reviewLabel": "Review {reference}"
       },
       "drag": {
         "added": "{name} is added to {reference}.",
@@ -3330,7 +3332,6 @@
         "chooseWorkerError": "Choose a cleaner.",
         "conflictsTitle": "This move isn't allowed",
         "nothingSaved": "Nothing was saved.",
-        "stale": "The visit changed meanwhile. Close this, check the schedule and try again.",
         "overrideTitle": "Override needed",
         "overrideBody": "Only soft rules stand in the way. With an override the move is saved anyway; the reason goes into the audit log.",
         "overrideNoPermission": "Only someone with the capacity override permission can relax these rules.",
@@ -3343,8 +3344,16 @@
         "stale": "{reference} changed meanwhile. The latest version is loaded; try again.",
         "noPermission": "Your role can't reschedule bookings. A booking or operations coordinator can do it from the booking page.",
         "notReschedulable": "Only a confirmed booking whose visit hasn't started can be rescheduled. A request still pending confirmation can be offered other times from the booking page.",
+        "workerNotMoved": "Only the day and time change here: {name} isn't added to the team. Change the cleaners after the reschedule, on the booking or here on the schedule.",
         "close": "Close",
         "openBooking": "Open the booking"
+      },
+      "review": {
+        "title": "Review booking",
+        "body": "The request, the availability check and the actions, without leaving the schedule.",
+        "payment": "Payment",
+        "confirmHint": "Confirming asks the payment provider to take the held amount and tells the customer. Every action is recorded in the audit log.",
+        "openBooking": "Open the full booking page"
       },
       "month": {
         "caption": "Bookings, visits and capacity per day",
@@ -3377,8 +3386,12 @@
       "plan": {
         "submit": "Draft rounds",
         "chooseSlot": "Choose a slot to draft its rounds.",
+        "needsScheduleTitle": "Drafting needs the schedule view permission too",
+        "needsSchedule": "The slots, the visits you can add and the vans come from the schedule. Without the schedule view permission, rounds can't be drafted, stops can't be added and the van can't be changed. Ask an administrator to add it to your role.",
         "done": "{count, plural, =0 {No round was drafted.} one {# round drafted or extended.} other {# rounds drafted or extended.}}",
-        "resultTitle": "Draft result",
+        "resultTitleFor": "Draft result · {date} · {slot}",
+        "resultTitleOn": "Draft result · {date}",
+        "slotName": "{name} {start}–{end}",
         "close": "Close the draft result",
         "summary": "New rounds: {created} · rounds extended: {extended} · visits already planned: {already}.",
         "allPlaced": "Every visit of this slot has its rides.",

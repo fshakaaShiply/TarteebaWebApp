@@ -10,6 +10,7 @@ import { Button, IconButton, Notice, StatusBadge, useToast } from "@/components/
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { reorderStops } from "@/lib/admin/endpoints";
 import { formatDateTime } from "@/lib/admin/format";
+import { useAdminSession } from "@/lib/admin/session";
 import { isEditable, moveItem, splitWarnings } from "@/lib/admin/trips/rounds";
 import type { Round, RoundStop, RoundWarning } from "@/lib/admin/types";
 import { useZoneName } from "../_ops/options";
@@ -319,6 +320,7 @@ function StopItem({
 }) {
   const t = useTranslations("admin.trips.round");
   const trip = useTripText();
+  const { can } = useAdminSession();
   const late = warnings.find((w) => w.type === "late_stop");
   const pickupLate = warnings.find((w) => w.type === "pickup_late");
   const place = stopPlace(stop);
@@ -341,9 +343,14 @@ function StopItem({
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
         <span className="flex flex-wrap items-center gap-2">
-          <Link href={`/admin/bookings/${stop.booking.id}`} className="font-bold">
-            <Ltr>{stop.booking.reference}</Ltr>
-          </Link>
+          {/* The booking page needs bookings.view (HR reads the planner without it): plain text otherwise. */}
+          {can("bookings.view") ? (
+            <Link href={`/admin/bookings/${stop.booking.id}`} className="font-bold">
+              <Ltr>{stop.booking.reference}</Ltr>
+            </Link>
+          ) : (
+            <Ltr className="font-bold text-ink-900">{stop.booking.reference}</Ltr>
+          )}
           <StatusBadge tone={stopTone[stop.status] ?? "neutral"}>{trip.stopStatus(stop.status, stop.status_label)}</StatusBadge>
         </span>
         <span className="text-ink-900">{place || t("noAddress")}</span>
