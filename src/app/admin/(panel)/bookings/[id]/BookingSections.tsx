@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Check, Dog, KeyRound, ParkingSquare, SprayCan, X } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -21,6 +22,7 @@ import {
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
+import { PAYMENTS_PATH } from "@/lib/admin/nav";
 import { CAPACITY_OVERRIDE_PERMISSION } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, BookingHistoryRow, RescheduleRequest } from "@/lib/admin/types";
@@ -218,7 +220,7 @@ function PriceRow({ label, value, strong }: { label: string; value: string; stro
 export function PaymentCard({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("admin.bookings.payment");
   const text = useBookingText();
-  const { canAny } = useAdminSession();
+  const { can, canAny } = useAdminSession();
   const p = booking.payment;
   const seesRefunds = canAny(["payments.view", "refunds.create"]);
   // Any money taken may have refunds, also ones still processing or failed (refunded_fils counts only those the
@@ -290,6 +292,12 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
       )}
       {!seesRefunds && booking.cancellation.refund_fils !== null && booking.cancellation.refund_fils > 0 && (
         <p className="text-xs text-ink-600">{t("refundStatusFinance")}</p>
+      )}
+      {p && can("payments.view") && (
+        // A09 lists the payment by its ULID (the payments table's reference search).
+        <Link href={`${PAYMENTS_PATH}?reference=${encodeURIComponent(p.id)}`} className="text-sm font-bold">
+          {t("openInFinance")}
+        </Link>
       )}
     </Card>
   );

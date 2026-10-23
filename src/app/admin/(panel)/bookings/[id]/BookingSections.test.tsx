@@ -22,14 +22,20 @@ const refund = (over: Partial<AdminRefund>): AdminRefund => ({
   reason_code: "price_difference",
   reason_label: { ar: "فرق السعر", en: "Price difference" },
   reason_text: null,
+  requested_by: { type: "system", id: null, name: null },
+  gateway: "fake",
   gateway_refund_ref: null,
   failure_code: null,
+  failure_message: null,
+  credit_note_id: null,
   estimated_arrival_text: null,
   needs_review: false,
   created_at: "2026-10-23T10:00:00+00:00",
+  submitted_at: "2026-10-23T10:00:00+00:00",
   succeeded_at: null,
   failed_at: null,
-  payment: { id: 9, ulid: PAYMENT_ULID, status: "captured", payable_type: "booking", payable_id: 4 },
+  last_checked_at: null,
+  payment: { id: 9, ulid: PAYMENT_ULID, status: "captured", gateway_payment_ref: "fpay_1", payable_type: "booking", payable_id: 4 },
   ...over,
 });
 
@@ -60,7 +66,7 @@ describe("payment and refunds summary", () => {
       refund({}),
       refund({ id: 2, ulid: "01R2", amount_fils: 1500, status: "failed", status_label: { ar: "فشل", en: "Failed" }, reason_code: "unaccepted_payment", reason_label: { ar: "…", en: "Payment the booking did not accept" } }),
       // Another booking's refund for the same phone is left out.
-      refund({ id: 3, ulid: "01R3", payment: { id: 10, ulid: "01OTHER", status: "captured", payable_type: "booking", payable_id: 99 } }),
+      refund({ id: 3, ulid: "01R3", payment: { id: 10, ulid: "01OTHER", status: "captured", gateway_payment_ref: "fpay_2", payable_type: "booking", payable_id: 99 } }),
     ]);
     renderWithProviders(<PaymentCard booking={captured()} />, { permissions: ["bookings.view", "payments.view"] });
     const list = (await screen.findByText("Refunds (status from the payment provider)")).parentElement!;

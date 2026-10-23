@@ -36,6 +36,7 @@ describe("ADMIN_NAV", () => {
       "/admin/scheduling/slots",
       "/admin/scheduling/rules",
       "/admin/scheduling/blackout-dates",
+      "/admin/settings/notifications",
       "/admin/settings",
     ]);
   });
@@ -89,9 +90,9 @@ describe("filterNav", () => {
       "fleet[vehicles,drivers,trips,driverReports]",
       "customers",
       "subscriptions",
-      "finance",
+      "finance[payments,refunds,invoices,creditNotes,billingRefusals]",
       "quality",
-      "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,settings]",
+      "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,settings]",
       "reports",
       "users[staffUsers,audit]",
     ]);
@@ -135,13 +136,13 @@ describe("filterNav", () => {
       "overview",
       "bookings",
       "customers",
-      "finance",
+      "finance[payments,refunds,invoices,creditNotes,billingRefusals]",
       "reports",
     ]);
   });
 
   it("keeps a module with only the children the user may open", () => {
-    expect(ids(["settings.manage"])).toEqual(["access", "catalog[settings]"]);
+    expect(ids(["settings.manage"])).toEqual(["access", "catalog[notificationTemplates,settings]"]);
     expect(ids(["catalog.manage"])).toEqual([
       "access",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates]",
@@ -151,7 +152,7 @@ describe("filterNav", () => {
 
   it("does not mutate the shared navigation", () => {
     filterNav(ADMIN_NAV, ["settings.manage"]);
-    expect(ADMIN_NAV.find((m) => m.id === "catalog")!.children).toHaveLength(11);
+    expect(ADMIN_NAV.find((m) => m.id === "catalog")!.children).toHaveLength(12);
   });
 });
 
@@ -214,5 +215,37 @@ describe("safeAdminNext", () => {
     ]) {
       expect(safeAdminNext(bad)).toBeNull();
     }
+  });
+});
+
+describe("A09 finance and A11 notification templates", () => {
+  it("builds A09 payments, refunds, invoices, credit notes and refused documents (reconciliation later)", () => {
+    const finance = ADMIN_NAV.find((m) => m.code === "A09")!;
+    expect(finance.built).toBe(true);
+    expect(finance.children!.map((c) => `${c.href}:${c.built ? "built" : "later"}`)).toEqual([
+      "/admin/finance/payments:built",
+      "/admin/finance/refunds:built",
+      "/admin/finance/invoices:built",
+      "/admin/finance/credit-notes:built",
+      "/admin/finance/billing-refusals:built",
+      "/admin/finance/reconciliation:later",
+    ]);
+  });
+
+  it("shows each finance page to the permissions its API routes accept", () => {
+    // payments.view reads everything in A09; invoices.manage the documents; refunds.create the refunds list.
+    expect(ids(["payments.view"])).toEqual(["access", "finance[payments,refunds,invoices,creditNotes,billingRefusals]"]);
+    expect(ids(["invoices.manage"])).toEqual(["access", "finance[invoices,creditNotes,billingRefusals]"]);
+    expect(ids(["refunds.create"])).toEqual(["access", "finance[refunds]"]);
+    expect(ids(["reconciliation.run"])).toEqual(["access", "finance[reconciliation]"]);
+  });
+
+  it("opens the finance pages for finance-only roles and marks the template editor under its own entry", () => {
+    expect(firstAccessiblePath(["payments.view", "invoices.manage"])).toBe("/admin/finance/payments");
+    expect(firstAccessiblePath(["invoices.manage"])).toBe("/admin/finance/invoices");
+    expect(firstAccessiblePath(["refunds.create"])).toBe("/admin/finance/refunds");
+    const catalog = ADMIN_NAV.find((m) => m.code === "A11")!.children!;
+    expect(activeChildHref(catalog, "/admin/settings/notifications/12")).toBe("/admin/settings/notifications");
+    expect(activeChildHref(catalog, "/admin/settings")).toBe("/admin/settings");
   });
 });

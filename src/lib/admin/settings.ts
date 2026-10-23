@@ -28,10 +28,22 @@ export type EditorKind =
   /** booking.working_hours: seven weekday rows (R-13). */
   | "weekly_hours"
   /** calendar.public_holidays: a sorted list of YYYY-MM-DD dates. */
-  | "dates";
+  | "dates"
+  /** reminder.day_before_time: one local wall-clock time "HH:MM" (a string setting). */
+  | "time"
+  /** refund.estimated_arrival_text: the same text in Arabic and English, {ar, en} (a json setting). */
+  | "bilingual";
 
 /** List settings whose items are local dates (edited with a date picker, saved sorted without duplicates). */
 export const DATE_LIST_SETTINGS: readonly string[] = ["calendar.public_holidays"];
+
+/** String settings holding one 24-hour time (the API refuses anything but HH:MM for them). */
+export const TIME_SETTINGS: readonly string[] = ["reminder.day_before_time"];
+
+/** JSON settings holding one text in both languages (the API wants exactly {ar, en}, neither empty). */
+export const BILINGUAL_TEXT_SETTINGS: readonly string[] = ["refund.estimated_arrival_text"];
+
+export type BilingualDraft = { ar: string; en: string };
 
 /**
  * Modes the API code understands for some string settings (from SettingsDefaults descriptions). A value outside the
@@ -44,7 +56,7 @@ export const SETTING_OPTIONS: Readonly<Record<string, { messageKey: string; valu
   "payments.mode": { messageKey: "paymentsMode", values: ["authorize_capture", "sale_then_refund"] },
 };
 
-export type SettingDraft = string | boolean | string[] | WeeklyHoursDraft;
+export type SettingDraft = string | boolean | string[] | WeeklyHoursDraft | BilingualDraft;
 
 export type SettingDraftError =
   | "hours_format"
@@ -65,9 +77,19 @@ export type SettingDraftError =
   | "json_array"
   | "json_object"
   | "time_format"
-  | "time_order";
+  | "time_order"
+  | "time"
+  | "bilingual_required";
 
 export type DraftResult = { ok: true; value: unknown } | { ok: false; error: SettingDraftError };
+
+/** {ar, en} with text in both (or a value not set yet). */
+function isBilingualValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (!isPlainObject(value)) return false;
+  const keys = Object.keys(value).sort();
+  return keys.length === 2 && keys[0] === "ar" && keys[1] === "en" && typeof value.ar === "string" && typeof value.en === "string";
+}
 
 export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): EditorKind {
   switch (setting.type) {
@@ -78,6 +100,7 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
     case "bool":
       return "bool";
     case "string":
+      if (TIME_SETTINGS.includes(setting.key)) return "time";
       return SETTING_OPTIONS[setting.key] ? "enum" : "string";
     case "list":
       if (DATE_LIST_SETTINGS.includes(setting.key) && isStringList(setting.value)) return "dates";
@@ -86,6 +109,8 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
       return "time_range";
     case "weekly_hours":
       return "weekly_hours";
+    case "json":
+      return BILINGUAL_TEXT_SETTINGS.includes(setting.key) && isBilingualValue(setting.value) ? "bilingual" : "json";
     default:
       return "json";
   }
@@ -110,8 +135,13 @@ export function toDraft(kind: EditorKind, value: unknown): SettingDraft {
       return isStringList(value) ? sortDates(value) : [];
     case "weekly_hours":
       return toWeeklyDraft(value);
+    case "bilingual": {
+      const text = isPlainObject(value) ? value : {};
+      return { ar: typeof text.ar === "string" ? text.ar : "", en: typeof text.en === "string" ? text.en : "" };
+    }
     case "enum":
     case "string":
+    case "time":
       return typeof value === "string" ? value : "";
     default:
       return value === undefined ? "" : JSON.stringify(value, null, 2);
@@ -185,6 +215,21 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
       return value === "" ? { ok: false, error: "text_required" } : { ok: true, value };
     }
 
+    case "time": {
+      const value = normalizeDigits(String(draft)).trim();
+      if (value === "") return { ok: false, error: "required" };
+      return TIME.test(value) ? { ok: true, value } : { ok: false, error: "time" };
+    }
+
+    case "bilingual": {
+      const text = isBilingualDraft(draft) ? draft : { ar: "", en: "" };
+      const ar = text.ar.trim();
+      const en = text.en.trim();
+      if (ar === "" || en === "") return { ok: false, error: "bilingual_required" };
+      // Exactly {ar, en}, Arabic first (the API compares the keys in this order).
+      return { ok: true, value: { ar, en } };
+    }
+
     case "chips": {
       const items = (Array.isArray(draft) ? draft : []).map((v) => v.trim());
       if (items.some((v) => v === "")) return { ok: false, error: "list_empty_item" };
@@ -238,7 +283,23 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
 }
 
 function isWeeklyDraft(draft: SettingDraft): draft is WeeklyHoursDraft {
-  return draft !== null && typeof draft === "object" && !Array.isArray(draft);
+  return draft !== null && typeof draft === "object" && !Array.isArray(draft) && !isBilingualDraft(draft);
+}
+
+export function isBilingualDraft(draft: SettingDraft): draft is BilingualDraft {
+  return (
+    draft !== null &&
+    typeof draft === "object" &&
+    !Array.isArray(draft) &&
+    typeof (draft as Partial<BilingualDraft>).ar === "string" &&
+    typeof (draft as Partial<BilingualDraft>).en === "string"
+  );
+}
+
+/** "خلال 5 إلى 10 أيام عمل" / "within 5 to 10 business days" from a bilingual setting value. */
+export function bilingualText(value: unknown): BilingualDraft | null {
+  if (!isPlainObject(value) || typeof value.ar !== "string" || typeof value.en !== "string") return null;
+  return { ar: value.ar, en: value.en };
 }
 
 /** Dates ascending ("YYYY-MM-DD" sorts as text). */

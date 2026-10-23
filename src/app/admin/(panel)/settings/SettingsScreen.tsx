@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import {
   Button,
+  ButtonLink,
   Card,
   Dialog,
   EmptyState,
@@ -20,8 +21,9 @@ import { formatAed } from "@/lib/money";
 import { fetchSettings } from "@/lib/admin/endpoints";
 import { formatDateTime } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
+import { NOTIFICATION_TEMPLATES_PATH } from "@/lib/admin/nav";
 import { summarizeWeeklyHours } from "@/lib/admin/ops/weeklyHours";
-import { editorKind, formatTimeRange, groupSettings } from "@/lib/admin/settings";
+import { bilingualText, editorKind, formatTimeRange, groupSettings } from "@/lib/admin/settings";
 import type { Setting } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useOpsText } from "../_ops/opsText";
@@ -32,7 +34,15 @@ export function SettingsScreen() {
   const t = useTranslations("admin.settings");
   return (
     <RequirePermission anyOf={["settings.manage"]}>
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={
+          <ButtonLink href={NOTIFICATION_TEMPLATES_PATH} variant="outline">
+            {t("templatesLink")}
+          </ButtonLink>
+        }
+      />
       <SettingsContent />
     </RequirePermission>
   );
@@ -261,6 +271,32 @@ export function SettingValue({ setting }: { setting: Setting }) {
           {String(value)}
         </span>
       );
+    case "time":
+      return (
+        <bdi dir="ltr" className="font-latin font-medium text-ink-900">
+          {String(value)}
+        </bdi>
+      );
+    case "bilingual": {
+      const both = bilingualText(value);
+      if (!both) return <span className="text-sm text-ink-600">{t("notSet")}</span>;
+      return (
+        <dl className="flex max-w-[320px] flex-col gap-0.5 text-sm">
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 text-ink-600">{t("bilingual.arShort")}</dt>
+            <dd dir="rtl" lang="ar" className="font-medium text-ink-900">
+              {both.ar}
+            </dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 text-ink-600">{t("bilingual.enShort")}</dt>
+            <dd dir="ltr" lang="en" className="font-medium text-ink-900">
+              {both.en}
+            </dd>
+          </div>
+        </dl>
+      );
+    }
     default: {
       const range = formatTimeRange(value);
       const summary = range ?? (isRangeList(value) ? value.map((v) => formatTimeRange(v)).join(" · ") : JSON.stringify(value));

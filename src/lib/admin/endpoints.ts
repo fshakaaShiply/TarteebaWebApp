@@ -7,8 +7,25 @@ import type {
   Addon,
   AddonPer,
   AdminAlert,
+  AdminCreditNote,
+  AdminCreditNoteDetail,
+  AdminInvoice,
+  AdminInvoiceDetail,
+  AdminPayment,
+  AdminPaymentDetail,
   AdminRefund,
   AlertsPage,
+  BillingDocument,
+  BillingRefusal,
+  BillingRetryResult,
+  CreateRefundPayload,
+  DocumentUrl,
+  InvoiceStatus,
+  NotificationAudience,
+  NotificationChannel,
+  NotificationTemplate,
+  RefundStatus,
+  TemplatePreview,
   AlternativeProposal,
   BlackoutDate,
   BookingDetail,
@@ -94,17 +111,6 @@ import type {
  */
 
 const ifMatch = (version: number) => ({ "If-Match": String(version) });
-
-/**
- * GETs the generated schema does not list yet (the API added them after the last openapi.json, so `pnpm gen:api`
- * cannot type them). Only these exact paths go through the untyped call; their responses are typed in types.ts.
- */
-type HandTypedGetPath = "/v1/admin/zones/options" | "/v1/admin/services/options" | "/v1/admin/drivers/candidates";
-
-function getHandTyped(path: HandTypedGetPath) {
-  const get = adminApi.GET as unknown as (path: string) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
-  return get(path);
-}
 
 // A01 sign-in and session
 
@@ -348,7 +354,7 @@ export async function fetchAllServices(): Promise<CatalogService[]> {
  * (worker eligibility, capacity, scheduling filters). Not paginated.
  */
 export async function fetchServiceOptions(): Promise<ServiceOption[]> {
-  const body = await unwrap<DataEnvelope<ServiceOption[]>>(getHandTyped("/v1/admin/services/options"));
+  const body = await unwrap<DataEnvelope<ServiceOption[]>>(adminApi.GET("/v1/admin/services/options"));
   return body.data;
 }
 
@@ -686,7 +692,7 @@ export async function fetchZones(q: { page?: number; perPage?: number; isActive?
  * works with zones. Not paginated.
  */
 export async function fetchZoneOptions(): Promise<ZoneOption[]> {
-  const body = await unwrap<DataEnvelope<ZoneOption[]>>(getHandTyped("/v1/admin/zones/options"));
+  const body = await unwrap<DataEnvelope<ZoneOption[]>>(adminApi.GET("/v1/admin/zones/options"));
   return body.data;
 }
 
@@ -975,7 +981,7 @@ export async function updateDriver(id: number, input: Omit<DriverPayload, "staff
 
 /** GET /admin/drivers/candidates (fleet.manage): the staff accounts a new driver can be linked to. */
 export async function fetchDriverCandidates(): Promise<DriverCandidate[]> {
-  const body = await unwrap<DataEnvelope<DriverCandidate[]>>(getHandTyped("/v1/admin/drivers/candidates"));
+  const body = await unwrap<DataEnvelope<DriverCandidate[]>>(adminApi.GET("/v1/admin/drivers/candidates"));
   return body.data;
 }
 
@@ -1648,6 +1654,257 @@ export async function fetchDriverReports(q: DriverReportQuery): Promise<Paginate
 export async function updateDriverReport(id: number, input: { status: "acknowledged" | "resolved"; note?: string | null }): Promise<DriverReport> {
   const body = await unwrap<DataEnvelope<DriverReport>>(
     adminApi.PATCH("/v1/admin/driver-reports/{driverReport}", { params: { path: { driverReport: id } }, body: input as never }),
+  );
+  return body.data;
+}
+
+// A09 finance: payments and refunds (payments.view to read; a refund needs refunds.create and an Idempotency-Key),
+// invoices and credit notes (invoices.manage or payments.view to read; e-mailing and retrying need invoices.manage).
+
+export type PaymentListQuery = {
+  page?: number;
+  perPage?: number;
+  status?: PaymentStatus | "";
+  /** Created from/to, local dates (Asia/Dubai). */
+  from?: string;
+  to?: string;
+  /** At least 4 digits, matched anywhere in the customer's number. */
+  phone?: string;
+  payableType?: string;
+  needsReview?: boolean;
+  /** Our payment ULID or the provider's payment reference. */
+  reference?: string;
+};
+
+export async function fetchPayments(q: PaymentListQuery): Promise<Paginated<AdminPayment>> {
+  return unwrap<Paginated<AdminPayment>>(
+    adminApi.GET("/v1/admin/payments", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          status: q.status,
+          from: q.from,
+          to: q.to,
+          phone: q.phone?.trim(),
+          payable_type: q.payableType,
+          // Laravel's boolean rule takes 1/0, not "true".
+          needs_review: q.needsReview ? 1 : undefined,
+          reference: q.reference?.trim(),
+        }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchPayment(id: number): Promise<AdminPaymentDetail> {
+  const body = await unwrap<DataEnvelope<AdminPaymentDetail>>(adminApi.GET("/v1/admin/payments/{payment}", { params: { path: { payment: id } } }));
+  return body.data;
+}
+
+/**
+ * Refunds (part of) a captured payment (refunds.create). `key` is the intent's Idempotency-Key: the same key with the
+ * same body answers with the refund already recorded, with another body 422 IDEMPOTENCY_KEY_REUSED. 201 with the
+ * refund and the provider's status (often still processing).
+ */
+export async function createRefund(paymentId: number, input: CreateRefundPayload, key: string): Promise<AdminRefund> {
+  const body = await unwrap<DataEnvelope<AdminRefund>>(
+    adminApi.POST("/v1/admin/payments/{payment}/refunds", {
+      params: { path: { payment: paymentId } },
+      body: input,
+      headers: idempotency(key),
+    }),
+  );
+  return body.data;
+}
+
+export type RefundListQuery = {
+  page?: number;
+  perPage?: number;
+  status?: RefundStatus | "";
+  from?: string;
+  to?: string;
+  paymentId?: number;
+  reasonCode?: string;
+  needsReview?: boolean;
+  phone?: string;
+};
+
+/** Newest first (refunds.create or payments.view). */
+export async function fetchRefunds(q: RefundListQuery): Promise<Paginated<AdminRefund>> {
+  return unwrap<Paginated<AdminRefund>>(
+    adminApi.GET("/v1/admin/refunds", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          status: q.status,
+          from: q.from,
+          to: q.to,
+          payment_id: q.paymentId,
+          reason_code: q.reasonCode,
+          needs_review: q.needsReview ? 1 : undefined,
+          phone: q.phone?.trim(),
+        }) as never,
+      },
+    }),
+  );
+}
+
+export type InvoiceListQuery = {
+  page?: number;
+  perPage?: number;
+  status?: InvoiceStatus | "";
+  /** Issue date from/to. */
+  from?: string;
+  to?: string;
+  customerId?: number;
+  /** Invoice number, booking reference or customer phone (4 digits or more). */
+  search?: string;
+};
+
+export async function fetchInvoices(q: InvoiceListQuery): Promise<Paginated<AdminInvoice>> {
+  return unwrap<Paginated<AdminInvoice>>(
+    adminApi.GET("/v1/admin/invoices", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          status: q.status,
+          from: q.from,
+          to: q.to,
+          customer_id: q.customerId,
+          search: q.search?.trim(),
+        }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchInvoice(id: number): Promise<AdminInvoiceDetail> {
+  const body = await unwrap<DataEnvelope<AdminInvoiceDetail>>(adminApi.GET("/v1/admin/invoices/{invoice}", { params: { path: { invoice: id } } }));
+  return body.data;
+}
+
+/** A 15-minute signed URL of the PDF (rendered on demand; 503 INVOICE_PDF_UNAVAILABLE when it cannot be). */
+export async function fetchInvoicePdf(id: number): Promise<DocumentUrl> {
+  const body = await unwrap<DataEnvelope<DocumentUrl>>(adminApi.GET("/v1/admin/invoices/{invoice}/pdf", { params: { path: { invoice: id } } }));
+  return body.data;
+}
+
+export type InvoiceEmailResult = { status: "queued"; email: string; message: string };
+
+/** Queues the invoice e-mail to the customer's own address (202); 422 EMAIL_MISSING without one; 429 per invoice. */
+export async function emailInvoice(id: number): Promise<InvoiceEmailResult> {
+  const body = await unwrap<DataEnvelope<InvoiceEmailResult>>(adminApi.POST("/v1/admin/invoices/{invoice}/email", { params: { path: { invoice: id } } }));
+  return body.data;
+}
+
+export type CreditNoteListQuery = { page?: number; perPage?: number; from?: string; to?: string; invoiceId?: number; customerId?: number; search?: string };
+
+export async function fetchCreditNotes(q: CreditNoteListQuery): Promise<Paginated<AdminCreditNote>> {
+  return unwrap<Paginated<AdminCreditNote>>(
+    adminApi.GET("/v1/admin/credit-notes", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          from: q.from,
+          to: q.to,
+          invoice_id: q.invoiceId,
+          customer_id: q.customerId,
+          search: q.search?.trim(),
+        }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchCreditNote(id: number): Promise<AdminCreditNoteDetail> {
+  const body = await unwrap<DataEnvelope<AdminCreditNoteDetail>>(
+    adminApi.GET("/v1/admin/credit-notes/{creditNote}", { params: { path: { creditNote: id } } }),
+  );
+  return body.data;
+}
+
+export async function fetchCreditNotePdf(id: number): Promise<DocumentUrl> {
+  const body = await unwrap<DataEnvelope<DocumentUrl>>(
+    adminApi.GET("/v1/admin/credit-notes/{creditNote}/pdf", { params: { path: { creditNote: id } } }),
+  );
+  return body.data;
+}
+
+export type BillingRefusalQuery = { page?: number; perPage?: number; document?: BillingDocument | ""; paymentId?: number };
+
+/** Documents Billing refused to issue, most recently refused first (invoices.manage or payments.view). */
+export async function fetchBillingRefusals(q: BillingRefusalQuery): Promise<Paginated<BillingRefusal>> {
+  return unwrap<Paginated<BillingRefusal>>(
+    adminApi.GET("/v1/admin/billing-refusals", {
+      params: { query: compact({ page: q.page, per_page: q.perPage, document: q.document, payment_id: q.paymentId }) as never },
+    }),
+  );
+}
+
+/** Issues the refused document now (invoices.manage); 422 BILLING_DOCUMENT_REFUSED while the records still disagree. */
+export async function retryBillingRefusal(id: number): Promise<BillingRetryResult> {
+  const body = await unwrap<DataEnvelope<BillingRetryResult>>(
+    adminApi.POST("/v1/admin/billing-refusals/{refusal}/retry", { params: { path: { refusal: id } } }),
+  );
+  return body.data;
+}
+
+// A11 notification templates (settings.manage). The seeder fixes the set (one per event, audience, channel and
+// language); edits change subject, body and is_active with the loaded version as If-Match (409 STALE_VERSION).
+
+export type TemplateListQuery = { eventKey?: string; audience?: NotificationAudience; channel?: NotificationChannel };
+
+/** Every template matching the filters, all pages (174 rows at most today, 100 per page). */
+export async function fetchNotificationTemplates(q: TemplateListQuery = {}): Promise<NotificationTemplate[]> {
+  return fetchAllPages((page) =>
+    unwrap<Paginated<NotificationTemplate>>(
+      adminApi.GET("/v1/admin/notification-templates", {
+        params: {
+          query: compact({ event_key: q.eventKey, audience: q.audience, channel: q.channel, page, per_page: OPTIONS_PAGE }) as never,
+        },
+      }),
+    ),
+  );
+}
+
+export async function fetchNotificationTemplate(id: number): Promise<NotificationTemplate> {
+  const body = await unwrap<DataEnvelope<NotificationTemplate>>(
+    adminApi.GET("/v1/admin/notification-templates/{template}", { params: { path: { template: String(id) } } }),
+  );
+  return body.data;
+}
+
+export type TemplateUpdateInput = { subject?: string | null; body?: string; is_active?: boolean; reason?: string | null };
+
+/** 422 for unknown placeholders, a missing subject (push, in-app, e-mail) or a body over the channel's limit. */
+export async function updateNotificationTemplate(id: number, input: TemplateUpdateInput, version: number): Promise<NotificationTemplate> {
+  const body = await unwrap<DataEnvelope<NotificationTemplate>>(
+    adminApi.PATCH("/v1/admin/notification-templates/{template}", {
+      params: { path: { template: String(id) } },
+      body: { ...input, version },
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** A sample value: one text for both languages, or each language its own (a missing one keeps the API's sample). */
+export type SampleValue = string | { ar?: string; en?: string };
+
+export type TemplatePreviewInput = { payload?: Record<string, SampleValue>; subject?: string | null; body?: string | null };
+
+/** Renders the template (an unsaved draft of its own language when given) and its twin in the other language. */
+export async function previewNotificationTemplate(id: number, input: TemplatePreviewInput): Promise<TemplatePreview> {
+  const body = await unwrap<DataEnvelope<TemplatePreview>>(
+    adminApi.POST("/v1/admin/notification-templates/{template}/preview", {
+      params: { path: { template: String(id) } },
+      // The generated schema types the payload as a list; the API reads a map of placeholder → value.
+      body: input as never,
+    }),
   );
   return body.data;
 }

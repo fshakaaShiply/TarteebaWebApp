@@ -30,6 +30,17 @@ export const OVERVIEW_PERMISSIONS = ["bookings.view", "schedule.view"] as const;
 /** Rounds and driver reports are readable with either; changes need trips.manage (Fleet routes/admin.php). */
 export const TRIPS_READ = ["trips.manage", "schedule.view"] as const;
 
+export const PAYMENTS_PATH = "/admin/finance/payments";
+export const REFUNDS_PATH = "/admin/finance/refunds";
+export const INVOICES_PATH = "/admin/finance/invoices";
+export const CREDIT_NOTES_PATH = "/admin/finance/credit-notes";
+export const BILLING_REFUSALS_PATH = "/admin/finance/billing-refusals";
+export const NOTIFICATION_TEMPLATES_PATH = "/admin/settings/notifications";
+/** GET /admin/refunds (Payment routes/admin.php). */
+export const REFUNDS_READ = ["refunds.create", "payments.view"] as const;
+/** Invoices, credit notes and refused documents are readable with either (Billing routes/admin.php). */
+export const DOCUMENTS_READ = ["invoices.manage", "payments.view"] as const;
+
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
@@ -85,12 +96,22 @@ export const ADMIN_NAV: readonly NavModule[] = [
     built: false,
   },
   {
+    // A09: transactions and their refunds (payments.view; a refund needs refunds.create), tax invoices and credit notes,
+    // and the documents Billing refused to issue. Reconciliation is a later phase.
     id: "finance",
     code: "A09",
     labelKey: "finance",
-    href: "/admin/finance",
-    anyOf: ["payments.view", "invoices.manage", "refunds.create", "reconciliation.run"],
-    built: false,
+    href: PAYMENTS_PATH,
+    anyOf: ["payments.view", "invoices.manage", "refunds.create"],
+    built: true,
+    children: [
+      { id: "payments", labelKey: "payments", href: PAYMENTS_PATH, anyOf: ["payments.view"], built: true },
+      { id: "refunds", labelKey: "refunds", href: REFUNDS_PATH, anyOf: REFUNDS_READ, built: true },
+      { id: "invoices", labelKey: "invoices", href: INVOICES_PATH, anyOf: DOCUMENTS_READ, built: true },
+      { id: "creditNotes", labelKey: "creditNotes", href: CREDIT_NOTES_PATH, anyOf: DOCUMENTS_READ, built: true },
+      { id: "billingRefusals", labelKey: "billingRefusals", href: BILLING_REFUSALS_PATH, anyOf: DOCUMENTS_READ, built: true },
+      { id: "reconciliation", labelKey: "reconciliation", href: "/admin/finance/reconciliation", anyOf: ["reconciliation.run"], built: false },
+    ],
   },
   {
     id: "quality",
@@ -119,6 +140,8 @@ export const ADMIN_NAV: readonly NavModule[] = [
       { id: "slotTemplates", labelKey: "slotTemplates", href: "/admin/scheduling/slots", anyOf: CATALOG, built: true },
       { id: "slotRules", labelKey: "slotRules", href: "/admin/scheduling/rules", anyOf: CATALOG, built: true },
       { id: "blackoutDates", labelKey: "blackoutDates", href: "/admin/scheduling/blackout-dates", anyOf: CATALOG, built: true },
+      // Notification templates are edited with settings.manage (Notification routes/admin.php).
+      { id: "notificationTemplates", labelKey: "notificationTemplates", href: NOTIFICATION_TEMPLATES_PATH, anyOf: ["settings.manage"], built: true },
       { id: "settings", labelKey: "settings", href: "/admin/settings", anyOf: ["settings.manage"], built: true },
     ],
   },
@@ -164,7 +187,8 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
- * catalog.manage, settings, users, the workers and vehicles pages, else the overview's welcome note.
+ * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 finance pages, else the
+ * overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
@@ -174,6 +198,9 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("workers.view")) return "/admin/workers";
   if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
   if (permissions.includes("trips.manage")) return TRIPS_PATH;
+  if (permissions.includes("payments.view")) return PAYMENTS_PATH;
+  if (permissions.includes("invoices.manage")) return INVOICES_PATH;
+  if (permissions.includes("refunds.create")) return REFUNDS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 

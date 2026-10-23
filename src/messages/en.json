@@ -278,7 +278,11 @@
       "departNotOnDate": "The departure must be on the round's date.",
       "roundNeedsStop": "A round needs at least one stop. Cancel the round instead.",
       "roundUnderway": "This van's round for the slot has already left.",
-      "passengerConflict": "A cleaner already rides another round of the same slot."
+      "passengerConflict": "A cleaner already rides another round of the same slot.",
+      "emailMissing": "This customer has no email address on their profile, so the invoice can't be emailed.",
+      "invoicePdfUnavailable": "The PDF isn't available right now. Try again in a few minutes.",
+      "billingDocumentRefused": "This document still can't be issued: the records don't support it yet. Check the reasons, correct the records, then try again.",
+      "idempotencyKeyRequired": "This request was sent without its safety key. Reload the page and try again."
     },
     "login": {
       "brandSuffix": "Operations",
@@ -396,7 +400,14 @@
       "slotTemplates": "Slots",
       "slotRules": "Slot rules",
       "blackoutDates": "Blackout dates",
-      "driverReports": "Driver reports"
+      "driverReports": "Driver reports",
+      "payments": "Payments",
+      "refunds": "Refunds",
+      "invoices": "Tax invoices",
+      "creditNotes": "Credit notes",
+      "billingRefusals": "Documents not issued",
+      "reconciliation": "Reconciliation",
+      "notificationTemplates": "Notification templates"
     },
     "stub": {
       "subtitle": "Services & settings",
@@ -575,7 +586,9 @@
         "list": "Press Enter after each value.",
         "timeRange": "A JSON object with start and end times in 24-hour HH:MM format, for example start 09:00 and end 18:00.",
         "jsonList": "A JSON list. Time ranges use start and end in 24-hour HH:MM format.",
-        "json": "A JSON object or list."
+        "json": "A JSON object or list.",
+        "time": "24-hour time in Dubai time, for example 18:00.",
+        "bilingual": "Customers see the text in their app language, so enter both."
       },
       "errors": {
         "required": "Enter a value.",
@@ -598,7 +611,9 @@
         "hours_format": "Choose opening and closing times on the quarter hour.",
         "hours_order": "The closing time must be after the opening time.",
         "date_format": "Enter a valid date.",
-        "date_duplicate": "This date is already in the list."
+        "date_duplicate": "This date is already in the list.",
+        "time": "Enter a time in 24-hour format, for example 18:00.",
+        "bilingual_required": "Enter the text in both Arabic and English."
       },
       "groups": {
         "booking": "Booking",
@@ -696,6 +711,14 @@
           "working_hours": {
             "label": "Working hours for confirming requests",
             "description": "The hours the bookings team confirms requests, for each day of the week. The confirmation time limit only counts these hours."
+          },
+          "alternative_proposal_hours": {
+            "label": "Time to answer other times (hours)",
+            "description": "How long a customer has to choose one of the other times we suggest. If they don't answer in time, the request is cancelled."
+          },
+          "manual_payment_hold_minutes": {
+            "label": "Payment link hold (minutes)",
+            "description": "How long a phone or WhatsApp booking keeps its time slot while the customer pays by link."
           }
         },
         "travel": {
@@ -714,6 +737,10 @@
           "before_arrival_minutes": {
             "label": "Arrival reminder (minutes before)",
             "description": "When customers get a reminder before the cleaner arrives."
+          },
+          "day_before_time": {
+            "label": "Day-before reminder time",
+            "description": "When customers get the reminder about tomorrow's visit, in Dubai time."
           }
         },
         "otp": {
@@ -849,6 +876,38 @@
             "label": "Leave planned ahead (days)",
             "description": "How many days after today a leave may end."
           }
+        },
+        "round": {
+          "allowed_late_minutes": {
+            "label": "Allowed lateness at a stop (minutes)",
+            "description": "The trip planner warns when a van would reach a stop more than this many minutes after the slot starts."
+          },
+          "dropoff_dwell_minutes": {
+            "label": "Time at each stop (minutes)",
+            "description": "Minutes a van spends at a stop to drop off or pick up cleaners. The trip planner adds it between stops."
+          }
+        },
+        "visit": {
+          "auto_start_after_min": {
+            "label": "Start visits automatically (minutes after arrival)",
+            "description": "When nobody starts a visit, it starts this many minutes after the team arrives. 0 starts it as soon as the driver drops the team off."
+          },
+          "auto_complete_grace_minutes": {
+            "label": "Complete visits automatically (minutes after the slot)",
+            "description": "A visit still open this many minutes after its slot ends is completed by the system."
+          }
+        },
+        "notifications": {
+          "sms_on_confirm": {
+            "label": "Text message on confirmation",
+            "description": "Also send an SMS when a booking is confirmed, in addition to the app notification."
+          }
+        },
+        "refund": {
+          "estimated_arrival_text": {
+            "label": "Refund arrival estimate",
+            "description": "Shown with every refund until the payment provider gives its own estimate."
+          }
         }
       },
       "shortfall": "Requests already booked in these slots would no longer have enough workers. Move or release them first, or make a smaller change.",
@@ -878,6 +937,13 @@
         "empty": "No public holidays yet.",
         "remove": "Remove {date}",
         "removeShort": "Remove"
+      },
+      "templatesLink": "Notification templates",
+      "bilingual": {
+        "ar": "Arabic text",
+        "en": "English text",
+        "arShort": "AR",
+        "enShort": "EN"
       }
     },
     "users": {
@@ -2918,7 +2984,8 @@
         "cancelFee": "Fee kept",
         "cancelRefund": "Refund recorded",
         "refundsTitle": "Refunds (status from the payment provider)",
-        "refundStatusFinance": "Refund status from the payment provider is shown to finance."
+        "refundStatusFinance": "Refund status from the payment provider is shown to finance.",
+        "openInFinance": "Open in Payments & invoices"
       },
       "proposals": {
         "title": "Other times suggested",
@@ -3639,6 +3706,549 @@
         "note": "Note",
         "noteHint": "Optional: what was done. Up to 1000 characters.",
         "done": "Report updated: {status}."
+      }
+    },
+    "finance": {
+      "needsReview": "Needs review",
+      "enums": {
+        "payment": {
+          "unpaid": "Unpaid",
+          "pending": "Awaiting payment",
+          "verifying": "Verifying payment",
+          "authorized": "Payment authorized",
+          "captured": "Paid",
+          "partially_refunded": "Partially refunded",
+          "refunded": "Refunded",
+          "failed": "Payment failed",
+          "voided": "Payment cancelled"
+        },
+        "refund": {
+          "requested": "Requested",
+          "processing": "Refund processing",
+          "succeeded": "Refunded",
+          "failed": "Refund failed"
+        },
+        "invoice": {
+          "issued": "Paid",
+          "credited_partial": "Partially refunded",
+          "credited_full": "Refunded"
+        },
+        "payable": {
+          "booking": "Booking",
+          "subscription_period": "Subscription period",
+          "wallet_topup": "Wallet top-up"
+        },
+        "reason": {
+          "customer_cancellation": "Customer cancellation per policy",
+          "company_cancellation": "Cancelled by Tarteeba",
+          "booking_rejected": "Booking request not confirmed",
+          "complaint_compensation": "Complaint compensation",
+          "duplicate_payment": "Duplicate payment",
+          "service_not_delivered": "Service not delivered",
+          "goodwill": "Goodwill gesture",
+          "other": "Other",
+          "price_difference": "Price difference after a booking change"
+        },
+        "document": {
+          "invoice": "Tax invoice",
+          "credit_note": "Credit note"
+        },
+        "problem": {
+          "price_lines_missing": "The booking has no price lines",
+          "price_lines_malformed": "The booking's price lines are incomplete",
+          "lines_do_not_match_booking_totals": "The price lines don't add up to the booking's totals",
+          "captured_amount_mismatch": "The amount taken differs from the booking total",
+          "currency_mismatch": "The payment and the booking have different currencies",
+          "nothing_to_invoice": "There is nothing to invoice",
+          "no_invoice": "The refunded payment has no invoice to credit",
+          "amount_exceeds_open_invoice": "The refund is larger than what is left on the invoice"
+        },
+        "eventSource": {
+          "call": "Our call",
+          "webhook": "Provider message"
+        },
+        "requester": {
+          "staff": "Staff",
+          "customer": "Customer",
+          "system": "System"
+        }
+      },
+      "filters": {
+        "rangeInvalid": "The end date is before the start date.",
+        "reference": "Search",
+        "referencePlaceholder": "Provider reference or payment ID",
+        "phone": "Customer phone",
+        "phonePlaceholder": "At least 4 digits",
+        "phoneInvalid": "Enter at least 4 digits of the phone number (digits, spaces, + and - only).",
+        "status": "Status",
+        "allStatuses": "All statuses",
+        "payableType": "Paid for",
+        "allPayables": "Everything",
+        "createdFrom": "Created from",
+        "createdTo": "Created to",
+        "issuedFrom": "Issued from",
+        "issuedTo": "Issued to",
+        "needsReview": "Needs review only",
+        "emptyFilteredBody": "Try other filters, or clear them to see everything.",
+        "reason": "Reason",
+        "allReasons": "All reasons",
+        "showAllPayments": "Show all payments",
+        "onePayment": "Showing payment #{id} only.",
+        "documentSearch": "Search",
+        "invoiceSearchPlaceholder": "Invoice number, booking reference or phone",
+        "creditNoteSearchPlaceholder": "Credit note or invoice number",
+        "showAllInvoices": "Show all invoices",
+        "oneInvoice": "Showing the credit notes of invoice #{id} only.",
+        "document": "Document",
+        "allDocuments": "All documents"
+      },
+      "pdf": {
+        "get": "Download PDF",
+        "getLabel": "Download PDF of {number}",
+        "open": "Open {file}",
+        "validUntil": "The link works until {time}."
+      },
+      "document": {
+        "supplier": "Supplier",
+        "supplierName": "Name",
+        "supplierTrn": "Tax registration number (TRN)",
+        "supplierAddress": "Address",
+        "placeholderNote": "The supplier's legal address and TRN aren't configured yet, so documents print \"To be confirmed\" in their place."
+      },
+      "payments": {
+        "title": "Payments",
+        "subtitle": "Every payment with the status the payment provider reported. Amounts include VAT.",
+        "caption": "Payments",
+        "columns": {
+          "reference": "Provider reference",
+          "customer": "Customer",
+          "payable": "Paid for",
+          "status": "Status",
+          "amount": "Amount",
+          "vat": "VAT",
+          "discount": "Discount",
+          "net": "Net of VAT",
+          "capturedRefunded": "Taken",
+          "open": "Open"
+        },
+        "noReference": "No reference yet",
+        "noName": "No name",
+        "bookingLink": "Booking #{id}",
+        "refundedShort": "Refunded",
+        "open": "Open",
+        "openLabel": "Open payment {reference}",
+        "empty": "No payments yet.",
+        "emptyFiltered": "No payments match these filters."
+      },
+      "payment": {
+        "back": "Payments",
+        "refresh": "Refresh",
+        "notFound": "This payment doesn't exist.",
+        "titlePrefix": "Payment",
+        "providerStatus": "Provider status:",
+        "summary": "{amount} · created {date}",
+        "refund": "Refund",
+        "refundUnavailable": "Only a payment that has been taken, with money left to refund, can be refunded.",
+        "reviewTitle": "This payment needs a person to check it",
+        "reviewReason": "Reason:",
+        "verifying": "We're still confirming this payment with the provider (since {since}). Its status updates when the provider answers.",
+        "failedTitle": "The provider declined this payment",
+        "payer": "Customer and booking",
+        "customer": "Customer",
+        "noName": "No name",
+        "payable": "Paid for",
+        "openBooking": "Booking #{id}",
+        "amounts": {
+          "title": "Amounts",
+          "net": "Net of VAT",
+          "vat": "VAT",
+          "discount": "Discount",
+          "amount": "Amount (VAT included)",
+          "captured": "Taken",
+          "refunded": "Refunded (confirmed by the provider)",
+          "refundable": "Left to refund",
+          "fee": "Provider fee",
+          "netSettled": "Net settled",
+          "refundableNote": "Left to refund already excludes refunds that are still processing."
+        },
+        "provider": {
+          "title": "Payment provider",
+          "gateway": "Provider",
+          "reference": "Provider reference",
+          "method": "Method",
+          "methods": {
+            "card": "Card",
+            "apple_pay": "Apple Pay",
+            "google_pay": "Google Pay",
+            "wallet": "Wallet",
+            "cash_future": "Cash"
+          },
+          "intent": "Type",
+          "intents": {
+            "authorize": "Hold, then charge on confirmation",
+            "sale": "Charged at once",
+            "mit_recurring": "Recurring charge"
+          },
+          "attempts": "Attempts",
+          "threeDs": "3-D Secure",
+          "ulid": "Payment ID",
+          "session": "Payment page",
+          "authorizedAt": "Authorized",
+          "capturedAt": "Taken",
+          "voidedAt": "Cancelled"
+        },
+        "refunds": {
+          "title": "Refunds",
+          "none": "No refunds for this payment."
+        },
+        "invoices": {
+          "title": "Tax invoice",
+          "notCaptured": "An invoice is issued once the payment is taken.",
+          "none": "No invoice found for this payment yet."
+        },
+        "events": {
+          "title": "Event log",
+          "none": "No calls or provider messages yet.",
+          "outcomes": {
+            "applied": "Applied",
+            "duplicate": "Duplicate",
+            "ignored_precedence": "Ignored (older status)",
+            "stale_attempt": "Ignored (earlier attempt)",
+            "unmatched": "Not matched",
+            "informational": "Information only",
+            "review_flagged": "Flagged for review",
+            "rejected_signature": "Rejected: invalid signature",
+            "rejected_payload": "Rejected: invalid content",
+            "gateway_error": "Provider error",
+            "amount_mismatch": "Amount mismatch",
+            "result_unknown": "No answer from the provider"
+          },
+          "signatureInvalid": "Invalid signature",
+          "received": "Received {time}",
+          "payload": "Show the details (card data and tokens removed)"
+        }
+      },
+      "refunds": {
+        "title": "Refunds",
+        "subtitle": "Every refund with the status the payment provider reported, newest first.",
+        "caption": "Refunds",
+        "columns": {
+          "created": "Requested",
+          "customer": "Customer",
+          "payment": "Payment",
+          "amount": "Amount",
+          "status": "Provider status",
+          "reason": "Reason",
+          "requestedBy": "Requested by",
+          "creditNote": "Credit note"
+        },
+        "noName": "No name",
+        "estimate": "Expected {text}",
+        "creditNote": "View credit note",
+        "empty": "No refunds yet.",
+        "emptyFiltered": "No refunds match these filters.",
+        "providerStatus": "Provider status:",
+        "requestedBy": "Requested by <who>{name}</who> · {time}",
+        "succeededAt": "Refunded by the provider on {time}",
+        "failed": "The provider couldn't complete this refund.",
+        "providerRef": "Provider reference"
+      },
+      "refund": {
+        "title": "Refund this payment",
+        "description": "The money goes back to the customer through the payment provider.",
+        "amount": "Amount to refund",
+        "amountHint": "Up to {max}. Amounts include VAT.",
+        "reason": "Reason",
+        "chooseReason": "Choose a reason",
+        "noteOptional": "Note (optional)",
+        "noteRequired": "Note",
+        "noteHint": "Staff only. Recorded in the audit log.",
+        "creditNoteNote": "A credit note is issued automatically once the provider confirms the refund. The refund is recorded under your name in the audit log.",
+        "heldNote": "An earlier attempt to send this refund got no clear answer. Sending a different amount or reason now is refused, so the customer can't be refunded twice.",
+        "review": "Continue",
+        "cancel": "Cancel",
+        "confirmTitle": "Confirm the refund",
+        "amountToRefund": "Refund",
+        "customer": "Customer",
+        "note": "Note",
+        "leftAfter": "Left to refund afterwards",
+        "confirmNote": "Check the amount: once the provider has the refund, it can't be undone here.",
+        "back": "Back",
+        "confirm": "Refund {amount}",
+        "done": "Refund of {amount} sent. Provider status: {status}.",
+        "unknownTitle": "We don't know yet whether the refund was sent",
+        "unknownBody": "Try again to send the same refund: it is made only once, and if the first attempt went through, you'll see that refund.",
+        "tryAgain": "Try again",
+        "earlierTitle": "The first attempt was received",
+        "earlierBody": "The first attempt reached us before the details changed. Show that refund before you start another one.",
+        "showEarlier": "Show the refund of {amount}",
+        "errors": {
+          "amount_required": "Enter the amount to refund.",
+          "amount_invalid": "Enter an amount in dirhams, for example 120 or 120.50.",
+          "amount_precision": "Use at most two decimals.",
+          "amount_zero": "The amount must be more than zero.",
+          "amount_over": "At most {max} can be refunded.",
+          "reason_required": "Choose the reason for the refund.",
+          "note_required": "Explain the reason in a note.",
+          "note_length": "Keep the note under 500 characters."
+        },
+        "resendEarlier": "Send the earlier refund of {amount} again"
+      },
+      "invoices": {
+        "title": "Tax invoices",
+        "subtitle": "Issued when a payment is taken. Download the PDF or send it to the customer again.",
+        "refusalsLink": "Documents not issued",
+        "caption": "Tax invoices",
+        "columns": {
+          "number": "Invoice",
+          "issueDate": "Issue date",
+          "customer": "Customer",
+          "booking": "Booking",
+          "status": "Status",
+          "net": "Net of VAT",
+          "vat": "VAT",
+          "total": "Total",
+          "credited": "Credited",
+          "open": "Open"
+        },
+        "noName": "No name",
+        "open": "Open",
+        "openLabel": "Open invoice {number}",
+        "empty": "No invoices yet.",
+        "emptyBody": "Invoices appear here when payments are taken.",
+        "emptyFiltered": "No invoices match these filters."
+      },
+      "invoice": {
+        "back": "Tax invoices",
+        "refresh": "Refresh",
+        "notFound": "This invoice doesn't exist.",
+        "documentTitle": "Tax invoice",
+        "titlePrefix": "Invoice",
+        "summary": "{total} · issued {date}",
+        "details": "Invoice details",
+        "issueDate": "Issue date",
+        "supplyDate": "Date of supply",
+        "issuedAt": "Issued at",
+        "customer": "Customer",
+        "noName": "No name",
+        "customerTrn": "Customer TRN",
+        "booking": "Booking",
+        "payment": "Payment",
+        "emailedAt": "Emailed to the customer",
+        "notEmailed": "Not emailed yet",
+        "resend": "Resend by email",
+        "resendLabel": "Resend by email: invoice {number}",
+        "resent": "Invoice {number} is on its way to the customer's email address.",
+        "lines": {
+          "title": "Lines",
+          "caption": "Lines of invoice {number}",
+          "description": "Description",
+          "quantity": "Quantity",
+          "unitPrice": "Unit price excl. VAT",
+          "discount": "Discount",
+          "net": "Net",
+          "vatRate": "VAT rate",
+          "vat": "VAT",
+          "total": "Total"
+        },
+        "totals": {
+          "subtotal": "Subtotal",
+          "discount": "Discount",
+          "net": "Net of VAT",
+          "vat": "VAT ({rate})",
+          "total": "Total (AED)",
+          "credited": "Credited by credit notes"
+        },
+        "creditNotes": "Credit notes"
+      },
+      "creditNotes": {
+        "title": "Credit notes",
+        "subtitle": "Issued for each refund the provider confirms, against the original invoice.",
+        "caption": "Credit notes",
+        "columns": {
+          "number": "Credit note",
+          "issueDate": "Issue date",
+          "invoice": "Invoice",
+          "customer": "Customer",
+          "booking": "Booking",
+          "reason": "Reason",
+          "vat": "VAT",
+          "total": "Total",
+          "open": "Open"
+        },
+        "noName": "No name",
+        "open": "Open",
+        "openLabel": "Open credit note {number}",
+        "empty": "No credit notes yet.",
+        "emptyBody": "Credit notes appear here when refunds are completed.",
+        "emptyFiltered": "No credit notes match these filters."
+      },
+      "creditNote": {
+        "back": "Credit notes",
+        "refresh": "Refresh",
+        "notFound": "This credit note doesn't exist.",
+        "documentTitle": "Tax credit note",
+        "titlePrefix": "Credit note",
+        "summary": "{total} credited on invoice {invoice} · issued {date}",
+        "details": "Credit note details",
+        "invoice": "Original invoice",
+        "issueDate": "Issue date",
+        "issuedAt": "Issued at",
+        "customer": "Customer",
+        "noName": "No name",
+        "booking": "Booking",
+        "reason": "Reason",
+        "refund": "Refunded payment",
+        "openPayment": "Open the payment",
+        "lines": {
+          "title": "Lines",
+          "caption": "Lines of credit note {number}",
+          "description": "Description",
+          "net": "Net",
+          "vatRate": "VAT rate",
+          "vat": "VAT",
+          "total": "Total"
+        },
+        "totals": {
+          "net": "Net of VAT",
+          "vat": "VAT ({rate})",
+          "total": "Total credited (AED)"
+        }
+      },
+      "refusals": {
+        "title": "Documents not issued",
+        "subtitle": "Tax invoices and credit notes that couldn't be issued because the records disagree. Correct the records, then try again.",
+        "caption": "Documents not issued",
+        "columns": {
+          "document": "Document",
+          "payment": "Payment",
+          "problems": "Why",
+          "details": "Amounts compared",
+          "when": "Attempts",
+          "retry": "Retry"
+        },
+        "reported": "Flagged for review",
+        "notReported": "Not flagged yet",
+        "payment": "Payment #{id}",
+        "refund": "Refund #{id}",
+        "lastRefused": "Last refused {time}",
+        "attempts": "{count, plural, one {# attempt} other {# attempts}}",
+        "retryAfter": "Next automatic try after {time}",
+        "retry": "Retry now",
+        "retryLabel": "Retry now: {document} for payment #{id}",
+        "issued": "{document} {number} issued.",
+        "stillRefused": "Still can't be issued: {problems}.",
+        "separator": "; ",
+        "unknownProblem": "the records still disagree",
+        "empty": "Every document was issued.",
+        "emptyBody": "Nothing is waiting for a correction.",
+        "emptyFiltered": "No documents match these filters.",
+        "detailKeys": {
+          "pricing_basis": "Priced from",
+          "booking_total_fils": "Booking total",
+          "booking_net_fils": "Booking net",
+          "booking_vat_fils": "Booking VAT",
+          "lines_total_fils": "Lines total",
+          "captured_fils": "Amount taken",
+          "booking_currency": "Booking currency",
+          "payment_currency": "Payment currency",
+          "amount_fils": "Refund amount",
+          "invoice": "Invoice",
+          "invoice_open_fils": "Left on the invoice"
+        }
+      }
+    },
+    "notificationTemplates": {
+      "title": "Notification templates",
+      "subtitle": "The messages customers and staff receive for each event, in Arabic and English. Every change is recorded in the audit log.",
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Event or text",
+        "audience": "For",
+        "allAudiences": "Customers and staff",
+        "channel": "Channel",
+        "allChannels": "All channels",
+        "state": "Sending",
+        "allStates": "On and off"
+      },
+      "active": "On",
+      "inactive": "Off",
+      "count": "{total} templates, {active} switched on.",
+      "empty": "There are no templates yet.",
+      "emptyFiltered": "No templates match these filters.",
+      "tableCaption": "Templates for {event}",
+      "columns": {
+        "audience": "For",
+        "channel": "Channel"
+      },
+      "missing": "None",
+      "edit": "Edit",
+      "editLabel": "Edit {event}, {channel}, {language}",
+      "enums": {
+        "audience": {
+          "customer": "Customers",
+          "staff": "Staff"
+        },
+        "channel": {
+          "push": "Push notifications",
+          "in_app": "In-app inbox",
+          "sms": "Text messages (SMS)",
+          "email": "Email",
+          "whatsapp_future": "WhatsApp (coming later)"
+        },
+        "group": {
+          "bookings": "Bookings",
+          "payments": "Payments and refunds",
+          "reminders": "Reminders",
+          "visit_progress": "Visit progress",
+          "waitlist": "Waitlist",
+          "other": "Other"
+        },
+        "language": {
+          "ar": "Arabic",
+          "en": "English"
+        }
+      },
+      "editor": {
+        "back": "Notification templates",
+        "notFound": "This template doesn't exist.",
+        "version": "Version {version}",
+        "otherLanguage": "Edit the {language} version",
+        "editTitle": "Message",
+        "subject": "Title",
+        "subjectHint": "Shown as the notification title, inbox heading or email subject.",
+        "noSubject": "Text messages have no title: only the text below is sent.",
+        "body": "Text",
+        "bodyCount": "{count} of {max} characters",
+        "placeholders": "Placeholders",
+        "placeholdersHint": "Select one to insert it where the cursor is. Each is replaced with the booking's details when the message is sent.",
+        "noPlaceholders": "This event has no placeholders.",
+        "insert": "Insert {token}: {description}",
+        "active": "Send this message",
+        "activeHint": "When off, this message isn't sent on this channel in this language.",
+        "reason": "Reason for the change (optional)",
+        "reasonHint": "Recorded in the audit log.",
+        "discard": "Discard changes",
+        "save": "Save",
+        "saved": "{event} ({language}) saved.",
+        "noChanges": "Nothing changed.",
+        "previewTitle": "Preview",
+        "preview": "Preview",
+        "previewHint": "Your unsaved {language} text is shown with sample values. The other language shows its saved text.",
+        "samples": "Sample values",
+        "samplesHint": "Leave a value empty to use the standard sample.",
+        "sampleArabic": "Arabic",
+        "sampleEnglish": "English",
+        "previewUnknown": "These placeholders don't exist for this event and show as nothing: {names}",
+        "previewMissing": "There is no template in this language.",
+        "errors": {
+          "subject_required": "Enter a title.",
+          "subject_length": "Keep the title under {max} characters.",
+          "body_required": "Enter the message text.",
+          "body_length": "The text can have at most {max} characters on this channel.",
+          "unknown_placeholders": "Not available for this event: {names}. Use the placeholders listed below.",
+          "reason_length": "Keep the reason under 500 characters."
+        }
       }
     }
   },

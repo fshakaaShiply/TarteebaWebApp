@@ -1,6 +1,9 @@
 // Admin API shapes as the Laravel resources return them. The generated schema (src/lib/api/schema.d.ts) types
 // some of these loosely (e.g. roles as objects, permissions as unknown[]), so admin code reads responses through
-// these types; request paths and bodies still go through the typed openapi-fetch client.
+// these types; request paths and bodies still go through the typed openapi-fetch client. Where the generated schema
+// is exact (the pick-lists, the document URLs), the types come from it.
+
+import type { components, paths } from "@/lib/api/schema";
 
 export type DataEnvelope<T> = { data: T };
 
@@ -348,22 +351,28 @@ export type Zone = {
 export type ZoneRef = { id: number; code: string; name: Translatable };
 
 // ---- Pick-lists for pages that do not manage the records themselves -----------------------------------------------
-// Not in the generated schema yet (added after the last openapi.json); shapes from the API controllers.
+// The generated schema types these exactly, so they come from it (`pnpm gen:api` keeps them in step with the API).
+
+/** The JSON body of a GET in the generated schema. */
+type GetJson<P extends keyof paths> = paths[P] extends { get: { responses: { 200: { content: { "application/json": infer B } } } } } ? B : never;
 
 /**
  * GET /admin/zones/options (Geo ZoneOptionsController): every zone by sort order, without polygons. Readable with
  * catalog.manage, schedule.view, workers.view, workers.manage, fleet.manage or bookings.view.
  */
-export type ZoneOption = { id: number; code: string; name: Translatable; is_active: boolean };
+export type ZoneOption = GetJson<"/v1/admin/zones/options">["data"][number];
 
-/** GET /admin/services/options (Catalog ServiceOptionsController): every service by sort order, without prices. */
-export type ServiceOption = { id: number; code: string; name: Translatable; kind: ServiceKind; is_active: boolean };
+/**
+ * GET /admin/services/options (Catalog ServiceOptionsController): every service by sort order, without prices. `kind`
+ * is a ServiceKind; the schema types it as a string so a kind added on the API still reads.
+ */
+export type ServiceOption = GetJson<"/v1/admin/services/options">["data"][number];
 
 /**
  * GET /admin/drivers/candidates (Fleet DriverCandidatesController, fleet.manage): active staff accounts holding the
  * driver role that no driver profile links yet, by name.
  */
-export type DriverCandidate = { id: number; name: string; email: string; phone: string | null };
+export type DriverCandidate = GetJson<"/v1/admin/drivers/candidates">["data"][number];
 
 export type EmploymentStatus = "active" | "on_leave" | "suspended" | "terminated";
 export type LeaveType = "annual" | "sick" | "unpaid" | "emergency" | "public_holiday";
@@ -1194,7 +1203,11 @@ export type DeliveryLogItem = {
 
 export type RefundStatus = "requested" | "processing" | "succeeded" | "failed";
 
-/** AdminRefundResource (payments.view or refunds.create): the provider's status of one refund. */
+/**
+ * AdminRefundResource (payments.view or refunds.create): one refund with the provider's status (never ours), the
+ * reason in both languages (a closed list: never a raw code), who asked for it and the credit note once Billing issued
+ * it. The refunds list and a new refund also carry the payment and the customer; the payment page's refunds do not.
+ */
 export type AdminRefund = {
   id: number;
   ulid: string;
@@ -1205,14 +1218,29 @@ export type AdminRefund = {
   reason_code: string;
   reason_label: Translatable;
   reason_text: string | null;
+  requested_by: { type: "staff" | "customer" | "system" | (string & {}); id: number | null; name: string | null };
+  gateway: string;
   gateway_refund_ref: string | null;
   failure_code: string | null;
-  estimated_arrival_text: Partial<Translatable> | null;
+  failure_message: string | null;
+  credit_note_id: number | null;
+  /** The setting's text when the refund was made, until the provider gives its own estimate. */
+  estimated_arrival_text: { ar: string | null; en: string | null } | null;
   needs_review: boolean;
   created_at: string | null;
+  submitted_at: string | null;
   succeeded_at: string | null;
   failed_at: string | null;
-  payment?: { id: number; ulid: string; status: PaymentStatus; payable_type: string | null; payable_id: number | null };
+  last_checked_at: string | null;
+  payment?: {
+    id: number;
+    ulid: string;
+    status: PaymentStatus;
+    gateway_payment_ref: string | null;
+    payable_type: string | null;
+    payable_id: number | null;
+  };
+  customer?: FinanceCustomer | null;
 };
 
 // ---- Phase 3: A04 operations schedule (app/Modules/Scheduling/Schedule/Support/ScheduleBoard.php) ----------------
@@ -1464,6 +1492,274 @@ export type DriverReport = {
   created_at: string | null;
   updated_at: string | null;
 };
+
+// ---- Phase 3: A09 finance (app/Modules/Payment and Billing Http/Resources) -----------------------------------------
+// The generated schema types most of these as unknown[] or strings; the shapes below are the Laravel resources.
+// Money is integer fils. Payment and refund states are the provider's (spec §16): the API reports them, we only show them.
+
+/** payments.payable_type (spec §6.9). Only bookings are paid in Phase 3. */
+export type PayableType = "booking" | "subscription_period" | "wallet_topup";
+
+/** A customer as the A09 resources embed them (read even when the account is deleted). */
+export type FinanceCustomer = { id: number; ulid: string; name: string | null; phone: string };
+
+/** PaymentResource::card: the brand and last four digits the provider reported (never more). */
+export type PaymentCard = { brand: string | null; brand_label: string; last4: string | null; label: string; payment_method_id: string | null };
+
+/** AdminPaymentResource: a row of the A09 transactions table. `net_fils` = amount − VAT. */
+export type AdminPayment = {
+  id: number;
+  ulid: string;
+  customer: FinanceCustomer | null;
+  /** `public_id` is the booking's ULID (A03 links use the numeric `id`). */
+  payable: { type: PayableType | (string & {}); id: number; public_id: string | null };
+  gateway: string;
+  gateway_payment_ref: string | null;
+  method: string | null;
+  card: PaymentCard | null;
+  intent: string;
+  status: PaymentStatus;
+  status_label: Translatable;
+  currency: string;
+  amount_fils: number;
+  vat_fils: number;
+  discount_fils: number;
+  net_fils: number;
+  captured_fils: number;
+  refunded_fils: number;
+  /** From the settlement report (reconciliation, later phase). */
+  fee_fils: number | null;
+  net_settled_fils: number | null;
+  needs_review: boolean;
+  attempts: number;
+  failure_code: string | null;
+  created_at: string | null;
+  authorized_at: string | null;
+  captured_at: string | null;
+  voided_at: string | null;
+};
+
+/** One gateway call or webhook of the payment (payment_events), its payload scrubbed of card data and tokens. */
+export type PaymentEvent = {
+  id: number;
+  source: "call" | "webhook" | (string & {});
+  type: string;
+  outcome: string | null;
+  provider_event_id: string | null;
+  signature_valid: boolean | null;
+  received_at: string;
+  processed_at: string | null;
+  payload: unknown;
+};
+
+/** AdminPaymentDetailResource: the payment page (the newest 200 events, every refund). */
+export type AdminPaymentDetail = AdminPayment & {
+  version: number;
+  /** captured − refunded − refunds still open: the most a new refund may be. */
+  refundable_fils: number;
+  three_ds_status: string | null;
+  failure_message: string | null;
+  gateway_session_ref: string | null;
+  verifying_since: string | null;
+  review_reason: string | null;
+  void_reason: string | null;
+  updated_at: string | null;
+  events: PaymentEvent[];
+  refunds: AdminRefund[];
+};
+
+/** The reasons staff may pick for a refund: the API's own list (CreateRefundRequest `reason_code`). */
+export type StaffRefundReason = components["schemas"]["CreateRefundRequest"]["reason_code"];
+
+export type CreateRefundPayload = { amount_fils: number; reason_code: StaffRefundReason; reason_text: string | null };
+
+export type InvoiceStatus = "issued" | "credited_partial" | "credited_full";
+
+/** DocumentFields::supplier: the R-16 placeholders ("To be confirmed") are flagged so they can be marked. */
+export type SupplierBlock = { name: string; address: string; trn: string; address_is_placeholder: boolean; trn_is_placeholder: boolean };
+
+/** DocumentFields::invoiceTotals. `total_text` is the total as the PDF prints it, in the request language. */
+export type InvoiceTotals = {
+  subtotal_fils: number;
+  discount_fils: number;
+  net_fils: number;
+  vat_rate_bp: number;
+  vat_rate: string;
+  vat_fils: number;
+  total_fils: number;
+  credited_fils: number;
+  currency: string;
+  total_text: string;
+};
+
+/** AdminInvoiceResource: an A09 invoice row (labels in the request language). */
+export type AdminInvoice = InvoiceTotals & {
+  id: number;
+  ulid: string;
+  number: string;
+  status: InvoiceStatus;
+  status_label: string;
+  issue_reason: "capture" | (string & {});
+  issue_date: string;
+  supply_date: string;
+  issued_at: string;
+  customer: { id: number; name: string | null; phone: string | null };
+  booking: { id: number | null; reference: string | null };
+  payment: {
+    id: number;
+    ulid: string;
+    status: PaymentStatus;
+    gateway_payment_ref: string | null;
+    captured_fils: number;
+    refunded_fils: number;
+  };
+  pdf_ready: boolean;
+  emailed_at: string | null;
+};
+
+/** DocumentFields::invoiceLines: the line amounts are authoritative (R-07); discounts per line. */
+export type InvoiceLine = {
+  type: string;
+  code: string;
+  description: string;
+  unit: string | null;
+  quantity: number;
+  unit_price_excl_vat_fils: number;
+  unit_price_incl_vat_fils: number;
+  net_before_discount_fils: number;
+  discount_fils: number;
+  net_fils: number;
+  vat_rate_bp: number;
+  vat_rate: string;
+  vat_fils: number;
+  total_fils: number;
+};
+
+/** A credit note as the invoice page lists it. */
+export type InvoiceCreditNoteRef = {
+  id: number;
+  number: string;
+  issue_date: string;
+  refund_id: number | null;
+  reason_code: string | null;
+  reason: string | null;
+  net_fils: number;
+  vat_fils: number;
+  total_fils: number;
+};
+
+/** AdminInvoiceResource::detailed(): the invoice page. */
+export type AdminInvoiceDetail = AdminInvoice & {
+  supplier: SupplierBlock;
+  supplier_trn: string | null;
+  customer_trn: string | null;
+  lines: InvoiceLine[];
+  credit_notes: InvoiceCreditNoteRef[];
+  version: number;
+};
+
+/** AdminCreditNoteResource: an A09 credit note row. `reason` is the refund's own note (staff only). */
+export type AdminCreditNote = {
+  id: number;
+  ulid: string;
+  number: string;
+  title: string;
+  issue_date: string;
+  issued_at: string;
+  invoice: { id: number; number: string; status: InvoiceStatus };
+  refund_id: number | null;
+  payment_id: number;
+  customer: { id: number; name: string | null };
+  booking_reference: string | null;
+  reason_code: string | null;
+  reason: string | null;
+  net_fils: number;
+  vat_rate_bp: number;
+  vat_rate: string;
+  vat_fils: number;
+  total_fils: number;
+  currency: string;
+  total_text: string;
+  pdf_ready: boolean;
+};
+
+/** DocumentFields::creditLines: the refund shared over the invoice lines. */
+export type CreditNoteLine = {
+  line: number;
+  type: string;
+  code: string;
+  description: string;
+  net_fils: number;
+  vat_rate_bp: number;
+  vat_rate: string;
+  vat_fils: number;
+  total_fils: number;
+};
+
+export type AdminCreditNoteDetail = AdminCreditNote & { supplier: SupplierBlock; lines: CreditNoteLine[] };
+
+/** GET /admin/invoices/{id}/pdf and /admin/credit-notes/{id}/pdf: a signed download URL valid for 15 minutes. */
+export type DocumentUrl = GetJson<"/v1/admin/invoices/{invoice}/pdf">["data"];
+
+export type BillingDocument = "invoice" | "credit_note";
+
+/**
+ * AdminBillingRefusalResource: a tax document Billing refused to issue (the records disagree). `problems` are codes,
+ * `details` the amounts compared; `reported` = the payment was flagged for review for these reasons.
+ */
+export type BillingRefusal = {
+  id: number;
+  document: BillingDocument;
+  payment_id: number;
+  refund_id: number | null;
+  problems: string[];
+  details: Record<string, unknown>;
+  attempts: number;
+  reported: boolean;
+  first_refused_at: string;
+  last_refused_at: string;
+  retry_after: string;
+  flagged_at: string | null;
+};
+
+/** POST /admin/billing-refusals/{id}/retry: the document once issued. */
+export type BillingRetryResult = { status: "issued"; document: BillingDocument; id: number; number: string };
+
+// ---- Phase 3: A11 notification templates (app/Modules/Notification NotificationTemplateResource) --------------------
+
+export type NotificationChannel = "push" | "sms" | "email" | "in_app" | "whatsapp_future";
+export type NotificationAudience = "customer" | "staff";
+
+/** A placeholder the template's event offers: `token` is what goes in the text ("{{reference}}"). */
+export type TemplatePlaceholder = { name: string; token: string; description: string };
+
+/**
+ * One template: an event, audience, channel and language (the seeder fixes the set; admins edit subject, body and
+ * is_active). Labels and placeholder descriptions are in the request language. `version` goes back as If-Match.
+ */
+export type NotificationTemplate = {
+  id: number;
+  event_key: string;
+  event_label: string;
+  /** Preference group (bookings, payments, reminders, visit_progress, waitlist); null for an event the API no longer lists. */
+  group: string | null;
+  audience: NotificationAudience;
+  channel: NotificationChannel;
+  channel_label: string;
+  locale: "ar" | "en";
+  subject: string | null;
+  body: string;
+  is_active: boolean;
+  version: number;
+  placeholders: TemplatePlaceholder[];
+  updated_by: number | null;
+  updated_at: string | null;
+};
+
+export type RenderedTemplate = { subject: string | null; body: string };
+
+/** POST …/preview: the template and its other-language twin rendered with sample values; nothing is saved. */
+export type TemplatePreview = { ar: RenderedTemplate | null; en: RenderedTemplate | null; placeholders: string[]; unknown: string[] };
 
 // ---- Phase 3: public pages -----------------------------------------------------------------------------------------
 

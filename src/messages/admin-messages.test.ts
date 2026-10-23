@@ -106,6 +106,16 @@ const SETTING_KEYS = [
   "rating.low_threshold",
   "waitlist.notify_batch",
   "coupons.allow_stacking",
+  // Phase 3 (Booking, Fleet, Scheduling visits, Notification, Payment)
+  "booking.alternative_proposal_hours",
+  "booking.manual_payment_hold_minutes",
+  "round.allowed_late_minutes",
+  "round.dropoff_dwell_minutes",
+  "visit.auto_start_after_min",
+  "visit.auto_complete_grace_minutes",
+  "reminder.day_before_time",
+  "notifications.sms_on_confirm",
+  "refund.estimated_arrival_text",
 ];
 
 const DRAFT_ERRORS: SettingDraftError[] = [
@@ -128,6 +138,8 @@ const DRAFT_ERRORS: SettingDraftError[] = [
   "hours_order",
   "date_format",
   "date_duplicate",
+  "time",
+  "bilingual_required",
 ];
 
 describe.each([

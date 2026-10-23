@@ -94,4 +94,18 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   the slots from the day board (`_ops/daySlots.ts`), since the slot templates list needs catalog.manage; a trips.manage
   role without schedule.view is told that drafting needs it. Departure times become instants through the zone
   (`zonedDateTimeIso` in `src/lib/admin/format.ts`, spec §4.1), never a fixed offset.
+- **Finance (A09):** `src/app/admin/(panel)/finance` — payments (`payments/[id]` with amounts, provider details, refunds,
+  invoice and the scrubbed event log), refunds, tax invoices (`invoices/[id]`: supplier block with the R-16 placeholders
+  marked, lines, VAT, totals, credit notes, Download PDF, Resend), credit notes and the documents Billing refused to
+  issue (`billing-refusals`, retry with invoices.manage). List filters live in the URL (`src/lib/admin/finance/filters.ts`
+  specs, `_components/useUrlFilters.ts`). Payment and refund states are always the provider's (API labels); a refund is
+  "processing" until the provider says otherwise. The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the AED
+  amount against `refundable_fils` and the reason against the API's own list (`lib/admin/finance/refund.ts`, typed from
+  `CreateRefundRequest`), then confirms the exact amount; its Idempotency-Key uses `holdAfterUnknown` (no If-Match on
+  refunds). PDFs come as 15-minute signed URLs, offered as a link once fetched.
+- **Notification templates (A11):** `src/app/admin/(panel)/settings/notifications` (list grouped by event, Arabic and
+  English side by side) and `[id]` (editor: placeholders as chips inserted at the caret, on/off, optional reason, a
+  preview of the draft with sample values in both languages; only changed fields are sent, version as If-Match). The
+  rules mirror the API (`lib/admin/notifications/templates.ts`). Phase 3 settings: `reminder.day_before_time` has a time
+  editor, `refund.estimated_arrival_text` an Arabic + English pair (`lib/admin/settings.ts`).
 - **Tests:** `renderWithProviders()` in `src/test/render.tsx` for component tests.

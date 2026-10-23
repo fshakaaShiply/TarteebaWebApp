@@ -91,7 +91,8 @@ export function TextField({
   const fieldId = id ?? autoId;
   return (
     <FieldShell id={fieldId} label={label} hint={hint} error={error} required={required} className={containerClassName}>
-      <div className="relative">
+      {/* The suffix sits at the input's own end: an LTR amount in an Arabic page keeps it on the right, clear of the digits. */}
+      <div className="relative" dir={suffix ? props.dir : undefined}>
         <input
           id={fieldId}
           aria-invalid={error ? true : undefined}

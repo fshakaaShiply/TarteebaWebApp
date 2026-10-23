@@ -102,6 +102,11 @@ export const CODE_MESSAGES: Readonly<Record<string, string>> = {
   ROUND_NEEDS_STOP: "roundNeedsStop",
   ROUND_UNDERWAY: "roundUnderway",
   PASSENGER_CONFLICT: "passengerConflict",
+  // Phase 3: A09 finance (Payment and Billing errors). INVALID_STATE keeps the API's message, which names the status.
+  EMAIL_MISSING: "emailMissing",
+  INVOICE_PDF_UNAVAILABLE: "invoicePdfUnavailable",
+  BILLING_DOCUMENT_REFUSED: "billingDocumentRefused",
+  IDEMPOTENCY_KEY_REQUIRED: "idempotencyKeyRequired",
 };
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;

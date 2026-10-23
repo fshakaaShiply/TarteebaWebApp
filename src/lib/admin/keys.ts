@@ -106,4 +106,26 @@ export const adminKeys = {
   roundList: (query: Record<string, string | number>) => ["admin", "rounds", "list", query] as const,
   driverReports: () => ["admin", "driver-reports"] as const,
   driverReportList: (query: Record<string, string | number>) => ["admin", "driver-reports", "list", query] as const,
+
+  // A09 finance. A refund changes the payment, its refunds, the booking's payment status and later the invoice's
+  // credit notes, so it invalidates ["admin", "finance"] and ["admin", "bookings"] together.
+  finance: () => ["admin", "finance"] as const,
+  paymentList: (query: Record<string, string | number>) => ["admin", "finance", "payments", "list", query] as const,
+  payment: (id: number) => ["admin", "finance", "payments", "detail", id] as const,
+  refundList: (query: Record<string, string | number>) => ["admin", "finance", "refunds", "list", query] as const,
+  invoiceList: (query: Record<string, string | number>) => ["admin", "finance", "invoices", "list", query] as const,
+  invoice: (id: number) => ["admin", "finance", "invoices", "detail", id] as const,
+  /** The invoices of one customer (the payment page picks its own payment's). */
+  customerInvoices: (customerId: number) => ["admin", "finance", "invoices", "customer", customerId] as const,
+  creditNoteList: (query: Record<string, string | number>) => ["admin", "finance", "credit-notes", "list", query] as const,
+  creditNote: (id: number) => ["admin", "finance", "credit-notes", "detail", id] as const,
+  billingRefusalList: (query: Record<string, string | number>) => ["admin", "finance", "billing-refusals", "list", query] as const,
+
+  // A11 notification templates (settings.manage).
+  notificationTemplates: () => ["admin", "notification-templates"] as const,
+  notificationTemplateList: () => ["admin", "notification-templates", "list"] as const,
+  notificationTemplate: (id: number) => ["admin", "notification-templates", "detail", id] as const,
+  /** The same event, audience and channel in both languages. */
+  notificationTemplateSiblings: (eventKey: string, audience: string, channel: string) =>
+    ["admin", "notification-templates", "siblings", eventKey, audience, channel] as const,
 };

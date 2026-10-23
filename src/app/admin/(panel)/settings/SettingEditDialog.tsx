@@ -24,6 +24,7 @@ import { validateWeeklyDraft, type WeeklyHoursDraft, type WeeklyHoursError } fro
 import {
   SETTING_OPTIONS,
   editorKind,
+  isBilingualDraft,
   parseDraft,
   toDraft,
   type EditorKind,
@@ -252,6 +253,51 @@ function ValueEditor({
       return (
         <TextField label={label} dir="auto" value={String(draft)} onChange={(e) => onChange(e.target.value)} error={error} />
       );
+    case "time":
+      return (
+        <TextField
+          label={label}
+          type="time"
+          step={60}
+          dir="ltr"
+          className="text-start font-latin"
+          value={String(draft)}
+          onChange={(e) => onChange(e.target.value)}
+          hint={t("hints.time")}
+          error={error}
+        />
+      );
+    case "bilingual": {
+      const text = isBilingualDraft(draft) ? draft : { ar: "", en: "" };
+      return (
+        <fieldset className="flex flex-col gap-3" aria-describedby={error ? `${settingKey}-bilingual-error` : undefined}>
+          <legend className="mb-1 text-sm font-medium text-ink-900">{label}</legend>
+          <TextField
+            label={t("bilingual.ar")}
+            dir="rtl"
+            lang="ar"
+            value={text.ar}
+            onChange={(e) => onChange({ ar: e.target.value, en: text.en })}
+            aria-invalid={error && text.ar.trim() === "" ? true : undefined}
+          />
+          <TextField
+            label={t("bilingual.en")}
+            dir="ltr"
+            lang="en"
+            value={text.en}
+            onChange={(e) => onChange({ ar: text.ar, en: e.target.value })}
+            aria-invalid={error && text.en.trim() === "" ? true : undefined}
+          />
+          {error ? (
+            <p id={`${settingKey}-bilingual-error`} className="text-xs font-medium text-danger-700">
+              {error}
+            </p>
+          ) : (
+            <p className="text-xs text-ink-600">{t("hints.bilingual")}</p>
+          )}
+        </fieldset>
+      );
+    }
     case "chips":
       return (
         <ChipsInput
