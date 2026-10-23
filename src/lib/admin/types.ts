@@ -1215,6 +1215,256 @@ export type AdminRefund = {
   payment?: { id: number; ulid: string; status: PaymentStatus; payable_type: string | null; payable_id: number | null };
 };
 
+// ---- Phase 3: A04 operations schedule (app/Modules/Scheduling/Schedule/Support/ScheduleBoard.php) ----------------
+
+export type ScheduleView = "day" | "week" | "month";
+
+/** A worker row's day marker. `leave_type` only for viewers with leave.manage (P2-05). */
+export type ScheduleMarkerCode = "rest_day" | "leave" | "live_out" | "not_on_shift" | "not_active";
+export type ScheduleMarker = { code: ScheduleMarkerCode | (string & {}); label: Translatable; leave_type?: LeaveType };
+
+/** Candidates::worker() + employment_status. */
+export type ScheduleWorker = CandidateWorker & { employment_status: EmploymentStatus };
+
+export type ScheduleSlot = {
+  id: number;
+  code: string;
+  name: Translatable;
+  start: string;
+  end: string;
+  service_kind: ServiceKind;
+};
+
+export type ScheduleFiltersEcho = {
+  zone_id: number | null;
+  service_id: number | null;
+  slot_template_id: number | null;
+  worker_id: number | null;
+  status: VisitStatus[];
+};
+
+type ScheduleHead = {
+  view: ScheduleView;
+  date: string;
+  from: string;
+  to: string;
+  timezone: string;
+  filters: ScheduleFiltersEcho;
+};
+
+export type ScheduleDayCell = { date: string; markers: ScheduleMarker[]; cards: VisitSummary[] };
+export type ScheduleRow = { worker: ScheduleWorker; days: ScheduleDayCell[] };
+
+/** Day and week: one row per worker, one cell per date with her visit cards and markers, plus the unassigned lane. */
+export type ScheduleGrid = ScheduleHead & {
+  view: "day" | "week";
+  dates: string[];
+  slots: ScheduleSlot[];
+  rows: ScheduleRow[];
+  unassigned: VisitSummary[];
+};
+
+export type ScheduleMonthCapacity = {
+  slot_template_id: number;
+  code: string;
+  booked_units: number;
+  assigned_units: number;
+  pool_units: number;
+  remaining_units: number;
+  /** null when nothing is booked and nothing is free (the slot cannot be sold that day). */
+  used_percent: number | null;
+};
+
+export type ScheduleMonthDay = { date: string; bookings: number; visits: number; unassigned: number; capacity: ScheduleMonthCapacity[] };
+
+export type ScheduleMonth = ScheduleHead & { view: "month"; days: ScheduleMonthDay[] };
+
+export type ScheduleBoard = ScheduleGrid | ScheduleMonth;
+
+/** POST /admin/schedule/validate-move (a dry run of the move). `details` is [] when the move is fine. */
+export type MoveCheckResult = {
+  result: "ok" | "override_possible" | "conflicts";
+  conflicts: { code: string; message: string }[];
+  /** Soft rules an override relaxes (override_possible): other_zone, travel_buffer. */
+  rules: string[];
+  can_override: boolean;
+  details: Record<string, unknown> | unknown[];
+};
+
+// ---- Phase 3: A06 trip planner (app/Modules/Fleet/Http/Resources) --------------------------------------------------
+
+export type RoundKind = "dropoff" | "pickup";
+export type RoundStatus = "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+export type StopStatus = "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+
+/** RoundStop::address_snapshot; viewers without trips.manage or bookings.view get {area} only. */
+export type StopAddress = AddressSnapshot;
+
+/** RoundPresenter::stop(). Times are UTC instants plus the local "HH:MM". */
+export type RoundStop = {
+  id: number;
+  sequence: number;
+  status: StopStatus;
+  status_label: Translatable;
+  visit_id: number;
+  visit_status: VisitStatus;
+  booking: { id: number; reference: string; status: BookingStatus; workers_count: number };
+  address: StopAddress | null;
+  slot_start: string;
+  slot_end: string;
+  planned_eta: string | null;
+  eta_local: string | null;
+  /** Drop-off: minutes after the slot start (0 when on time); null on a pickup. */
+  late_by_minutes: number | null;
+  /** Pickup: minutes the team waits after its slot end; null on a drop-off. */
+  wait_minutes: number | null;
+  arrived_at: string | null;
+  completed_at: string | null;
+  failure_reason: string | null;
+  done: boolean;
+  workers: { id: number; display_name: string }[];
+};
+
+export type RoundPassenger = { seat_no: number; worker_id: number; display_name: string; full_name: Translatable; visit_id: number | null };
+
+export type RoundWarningType =
+  | "no_driver"
+  | "driver_inactive"
+  | "vehicle_unavailable"
+  | "seats_exceeded"
+  | "late_stop"
+  | "visit_not_ready"
+  | "visit_closed"
+  | "visit_moved"
+  | "team_not_aboard"
+  | "passenger_not_on_team"
+  | "seats_on_other_vehicle"
+  | "driver_action_failed"
+  | "pickup_late"
+  | "ride_clash"
+  | "action_backdated";
+
+/** Support\RoundWarnings: a type, its details (stop_id/sequence where it is about one stop) and a message in both languages. */
+export type RoundWarning = {
+  type: RoundWarningType | (string & {});
+  message: Translatable;
+  stop_id?: number;
+  sequence?: number;
+  visit_id?: number;
+  late_by_minutes?: number;
+  wait_minutes?: number;
+  allowed_late_minutes?: number;
+  eta_local?: string;
+  [key: string]: unknown;
+};
+
+export type RoundAction = {
+  id: number;
+  action: "depart" | "arrive" | "dropoff" | "pickup" | (string & {});
+  stop_id: number | null;
+  status: string;
+  occurred_at: string;
+  recorded_at: string;
+  undo_until: string | null;
+  result: unknown;
+};
+
+/** RoundPresenter: a round as the trip planner reads it. `version` goes back as If-Match. */
+export type Round = {
+  id: number;
+  ulid: string;
+  date: string;
+  kind: RoundKind;
+  kind_label: Translatable;
+  status: RoundStatus;
+  status_label: Translatable;
+  slot: { id: number; code: string; name: Translatable; start: string; end: string };
+  zone: { id: number; code: string; name: Translatable } | null;
+  vehicle: { id: number; plate_no: string; model: string | null; seats: number; status: VehicleStatus };
+  driver: { id: number; name: string; phone: string | null; status: DriverStatus } | null;
+  planned_depart_at: string;
+  depart_local: string;
+  planned_end_at: string;
+  end_local: string;
+  published: boolean;
+  published_at: string | null;
+  departed_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  seats: { total: number; used: number; free: number };
+  stops: RoundStop[];
+  passengers: RoundPassenger[];
+  last_action: RoundAction | null;
+  warnings: RoundWarning[];
+  version: number;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type UnplannedReason =
+  | "booking_not_confirmed"
+  | "workers_not_assigned"
+  | "no_vehicle"
+  | "vehicle_unavailable"
+  | "round_underway"
+  | "seats_full"
+  | "resource_conflict"
+  | "visit_already_on_round"
+  | "passenger_conflict"
+  | "visit_underway"
+  | "visit_moved"
+  | "visit_closed"
+  | "visit_completed";
+
+export type UnplannedVisit = {
+  visit_id: number;
+  booking_id: number;
+  booking_reference: string;
+  kind: RoundKind | null;
+  reason: UnplannedReason | (string & {});
+  details: Record<string, unknown> | unknown[];
+  message: Translatable;
+};
+
+/** POST /admin/rounds/plan: the rounds it created or extended, the visits it could not place and why. */
+export type PlanResult = {
+  date: string;
+  slot_template_id: number;
+  rounds: (Round & { plan: "created" | "extended" | null })[];
+  unplanned: UnplannedVisit[];
+  already_planned: { visit_id: number; kind: RoundKind; round_id: number }[];
+};
+
+export type DriverReportType = "delay" | "cannot_reach" | "vehicle_issue" | "other";
+export type DriverReportStatus = "open" | "acknowledged" | "resolved";
+
+/** DriverReportResource (§18 D03): the stop by its area only. */
+export type DriverReport = {
+  id: number;
+  type: DriverReportType;
+  type_label: Translatable;
+  status: DriverReportStatus;
+  status_label: Translatable;
+  reason: string | null;
+  eta_delay_min: number | null;
+  round: {
+    id: number;
+    date: string;
+    kind: RoundKind;
+    slot_template_id: number;
+    slot_code: string;
+    vehicle: { id: number; plate_no: string };
+  };
+  stop: { id: number; sequence: number; visit_id: number; area: string | null } | null;
+  driver: { id: number; name: string };
+  handled_by: { id: number; name: string } | null;
+  handled_at: string | null;
+  handled_note: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 // ---- Phase 3: public pages -----------------------------------------------------------------------------------------
 
 /** POST /public/zones/check. */

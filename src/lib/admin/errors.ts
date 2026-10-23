@@ -87,6 +87,21 @@ export const CODE_MESSAGES: Readonly<Record<string, string>> = {
   ORDER_TOTAL_NOT_PAYABLE: "orderTotalNotPayable",
   WORKERS_OUT_OF_RANGE: "workersOutOfRange",
   SERVICE_UNAVAILABLE: "serviceUnavailable",
+  // Phase 3: A04 schedule board and A06 trip planner (Scheduling and Fleet errors).
+  USE_RESCHEDULE: "useReschedule",
+  SEATS_EXCEEDED: "seatsExceeded",
+  SEAT_OUT_OF_RANGE: "seatOutOfRange",
+  VISIT_ALREADY_ON_ROUND: "visitAlreadyOnRound",
+  STOPS_MISMATCH: "stopsMismatch",
+  VISIT_NOT_IN_SLOT: "visitNotInSlot",
+  VISIT_NOT_PLANNABLE: "visitNotPlannable",
+  VEHICLE_UNAVAILABLE: "vehicleUnavailable",
+  DRIVER_UNAVAILABLE: "driverUnavailable",
+  DRIVER_REQUIRED: "driverRequired",
+  DEPART_NOT_ON_DATE: "departNotOnDate",
+  ROUND_NEEDS_STOP: "roundNeedsStop",
+  ROUND_UNDERWAY: "roundUnderway",
+  PASSENGER_CONFLICT: "passengerConflict",
 };
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;

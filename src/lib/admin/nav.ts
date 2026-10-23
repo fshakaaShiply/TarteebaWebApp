@@ -23,7 +23,12 @@ export const OVERVIEW_PATH = "/admin/overview";
 /** Users without the overview's permissions see a welcome note there instead of the figures. */
 export const OVERVIEW_PLACEHOLDER_PATH = OVERVIEW_PATH;
 export const CAPACITY_PATH = "/admin/capacity";
+export const SCHEDULE_PATH = "/admin/schedule";
+export const TRIPS_PATH = "/admin/trips";
+export const DRIVER_REPORTS_PATH = "/admin/trips/reports";
 export const OVERVIEW_PERMISSIONS = ["bookings.view", "schedule.view"] as const;
+/** Rounds and driver reports are readable with either; changes need trips.manage (Fleet routes/admin.php). */
+export const TRIPS_READ = ["trips.manage", "schedule.view"] as const;
 
 const CATALOG = ["catalog.manage"] as const;
 
@@ -34,15 +39,15 @@ export const ADMIN_NAV: readonly NavModule[] = [
   { id: "overview", code: "A02", labelKey: "overview", href: OVERVIEW_PATH, anyOf: OVERVIEW_PERMISSIONS, built: true },
   { id: "bookings", code: "A03", labelKey: "bookings", href: "/admin/bookings", anyOf: ["bookings.view"], built: true },
   {
-    // A04 operations: the schedule board comes later; the capacity view (spec §14.3 "Capacity") is built.
+    // A04 operations: the schedule board (moves need assignments.manage) and the capacity view (spec §14.3 "Capacity").
     id: "operations",
     code: "A04",
     labelKey: "operations",
-    href: CAPACITY_PATH,
+    href: SCHEDULE_PATH,
     anyOf: ["schedule.view"],
     built: true,
     children: [
-      { id: "schedule", labelKey: "schedule", href: "/admin/schedule", anyOf: ["schedule.view"], built: false },
+      { id: "schedule", labelKey: "schedule", href: SCHEDULE_PATH, anyOf: ["schedule.view"], built: true },
       { id: "capacity", labelKey: "capacity", href: CAPACITY_PATH, anyOf: ["schedule.view"], built: true },
     ],
   },
@@ -58,7 +63,9 @@ export const ADMIN_NAV: readonly NavModule[] = [
       // Schedule viewers read vehicles (seats per zone); editing and drivers need fleet.manage.
       { id: "vehicles", labelKey: "vehicles", href: "/admin/fleet/vehicles", anyOf: ["fleet.manage", "schedule.view"], built: true },
       { id: "drivers", labelKey: "drivers", href: "/admin/fleet/drivers", anyOf: ["fleet.manage"], built: true },
-      { id: "trips", labelKey: "trips", href: "/admin/fleet/trips", anyOf: ["trips.manage"], built: false },
+      // The trip planner and the driver reports inbox: trips.manage plans and handles; schedule.view reads (Fleet routes).
+      { id: "trips", labelKey: "trips", href: TRIPS_PATH, anyOf: TRIPS_READ, built: true },
+      { id: "driverReports", labelKey: "driverReports", href: DRIVER_REPORTS_PATH, anyOf: TRIPS_READ, built: true },
     ],
   },
   {
@@ -166,11 +173,24 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("users.manage")) return "/admin/users";
   if (permissions.includes("workers.view")) return "/admin/workers";
   if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
+  if (permissions.includes("trips.manage")) return TRIPS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 
 export function isActivePath(href: string, pathname: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * The child of a group that the page belongs to: the longest matching href, so /admin/trips/reports marks "Driver
+ * reports" and not also "Trip planner" (/admin/trips).
+ */
+export function activeChildHref(children: readonly Pick<NavLeaf, "href">[], pathname: string): string | null {
+  let best: string | null = null;
+  for (const child of children) {
+    if (isActivePath(child.href, pathname) && (best === null || child.href.length > best.length)) best = child.href;
+  }
+  return best;
 }
 
 /**

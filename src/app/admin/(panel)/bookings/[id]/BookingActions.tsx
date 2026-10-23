@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CalendarClock, Check, Link2, Plus, Trash2, Undo2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch, type Path } from "react-hook-form";
 import {
   Button,
@@ -63,7 +63,7 @@ import { FormErrorNotice } from "../../catalog/_components/CatalogFields";
 import { useBookingFocusFallback } from "../_components/focus";
 import { PaymentLinkBox } from "../_components/PaymentLinkBox";
 import { errorCode, isStaleVersion, useBookingRefresh } from "../_components/refresh";
-import { SlotSelect, useChosenSlotUnavailable } from "../_components/SlotSelect";
+import { SlotSelect, useChosenSlotUnavailable, useSlotChoices } from "../_components/SlotSelect";
 import { useBookingText } from "../_components/bookingText";
 
 /*
@@ -447,7 +447,18 @@ function ActionErrorText({ error }: { error: unknown }) {
 
 // ---- Reschedule (staff) ---------------------------------------------------------------------------------------------
 
-export function RescheduleBookingDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
+/**
+ * `initial` pre-fills the new date and time, e.g. where a card was dropped on the A04 schedule board (a move to another
+ * day or time is a reschedule, USE_RESCHEDULE).
+ */
+export function RescheduleBookingDialog({
+  booking,
+  onClose,
+  onStale,
+  changed,
+  returnFocusTo,
+  initial,
+}: ActionProps & { initial?: { service_date?: string; slot_template_id?: number | null } }) {
   const t = useTranslations("admin.bookings.reschedule");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -458,10 +469,19 @@ export function RescheduleBookingDialog({ booking, onClose, onStale, changed, re
   const formId = useId();
   const form = useForm<RescheduleValues>({
     resolver: zodResolver(rescheduleSchema) as never,
-    defaultValues: { service_date: booking.service_date, slot_template_id: "", reason: "", override: false },
+    defaultValues: { service_date: initial?.service_date ?? booking.service_date, slot_template_id: "", reason: "", override: false },
   });
   const [date, slotId, override] = useWatch({ control: form.control, name: ["service_date", "slot_template_id", "override"] });
   const unavailable = useChosenSlotUnavailable({ date, zoneId: booking.zone.id, serviceId: booking.service.id, workers: booking.workers_count, slotId });
+  // The pre-filled time is chosen once the date's slots have loaded (an option that is not there yet cannot be selected).
+  const { choices } = useSlotChoices({ date, zoneId: booking.zone.id, serviceId: booking.service.id, workers: booking.workers_count });
+  const initialSlot = initial?.slot_template_id ? String(initial.slot_template_id) : "";
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !initialSlot || !choices.some((c) => String(c.slot.slot_template_id) === initialSlot)) return;
+    prefilled.current = true;
+    form.setValue("slot_template_id", initialSlot);
+  }, [choices, initialSlot, form]);
   const mutation = useMutation({
     mutationFn: (input: Parameters<typeof rescheduleBooking>[1]) =>
       rescheduleBooking(booking.id, input, booking.version, keys.keyFor({ reschedule: booking.id, ...input })),

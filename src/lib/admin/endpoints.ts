@@ -22,11 +22,21 @@ import type {
   DashboardAlerts,
   DashboardSummary,
   DeliveryLogItem,
+  DriverReport,
+  DriverReportStatus,
+  DriverReportType,
   ManualBookingResult,
+  MoveCheckResult,
   PaymentLink,
   PaymentStatus,
+  PlanResult,
   PropertyType,
   RescheduleRequest,
+  Round,
+  RoundKind,
+  RoundStatus,
+  ScheduleBoard,
+  ScheduleView,
   VisitCandidates,
   VisitSummary,
   ZoneCheck,
@@ -1451,6 +1461,193 @@ export async function fetchBookingNotifications(id: number, page: number): Promi
 export async function fetchRefundsByPhone(phone: string): Promise<AdminRefund[]> {
   const body = await unwrap<Paginated<AdminRefund>>(
     adminApi.GET("/v1/admin/refunds", { params: { query: compact({ phone, per_page: 50 }) as never } }),
+  );
+  return body.data;
+}
+
+// A04 operations schedule (schedule.view to read; the drop dry run and the move need assignments.manage, an override
+// also capacity.override)
+
+export type ScheduleQuery = {
+  view: ScheduleView;
+  date: string;
+  zoneId?: number | null;
+  serviceId?: number | null;
+  slotTemplateId?: number | null;
+  workerId?: number | null;
+  /** Visit statuses, sent comma-separated. */
+  statuses?: readonly string[];
+};
+
+export async function fetchSchedule(q: ScheduleQuery): Promise<ScheduleBoard> {
+  const body = await unwrap<DataEnvelope<ScheduleBoard>>(
+    adminApi.GET("/v1/admin/schedule", {
+      params: {
+        query: compact({
+          view: q.view,
+          date: q.date,
+          zone_id: q.zoneId ?? undefined,
+          service_id: q.serviceId ?? undefined,
+          slot_template_id: q.slotTemplateId ?? undefined,
+          worker_id: q.workerId ?? undefined,
+          status: q.statuses && q.statuses.length > 0 ? q.statuses.join(",") : undefined,
+        }) as never,
+      },
+    }),
+  );
+  return body.data;
+}
+
+/**
+ * Where a card was dropped: the worker row, and the date and slot of the cell. A different date or slot is a reschedule
+ * (422 USE_RESCHEDULE). No from_worker_id = from the unassigned lane (adds the worker); otherwise that worker is replaced.
+ */
+export type MoveInput = {
+  visit_id: number;
+  from_worker_id: number | null;
+  to_worker_id: number;
+  date?: string | null;
+  slot_template_id?: number | null;
+};
+
+function moveBody(input: MoveInput) {
+  return compact({
+    visit_id: input.visit_id,
+    from_worker_id: input.from_worker_id ?? undefined,
+    to_worker_id: input.to_worker_id,
+    date: input.date ?? undefined,
+    slot_template_id: input.slot_template_id ?? undefined,
+  });
+}
+
+/** The move as a dry run: nothing is saved (MoveCheck rolls the real move back). */
+export async function validateMove(input: MoveInput): Promise<MoveCheckResult> {
+  const body = await unwrap<DataEnvelope<MoveCheckResult>>(adminApi.POST("/v1/admin/schedule/validate-move", { body: moveBody(input) as never }));
+  return body.data;
+}
+
+/** Saves the move (the visit's version as If-Match). `override` needs capacity.override and a 10-character reason. */
+export async function moveVisit(input: MoveInput, version: number | null, extra: OverrideFieldsInput = {}): Promise<VisitSummary> {
+  const body = await unwrap<DataEnvelope<VisitSummary>>(
+    adminApi.POST("/v1/admin/schedule/move", { body: { ...moveBody(input), ...extra } as never, headers: optionalIfMatch(version) }),
+  );
+  return body.data;
+}
+
+// A06 trip planner (trips.manage; rounds and driver reports are readable with schedule.view). Every round answer is
+// the round as the planner reads it, with its warnings and the version for If-Match.
+
+export type RoundsQuery = { date: string; slotTemplateId?: number | null; zoneId?: number | null; kind?: RoundKind | ""; status?: RoundStatus | "" };
+
+export async function fetchRounds(q: RoundsQuery): Promise<Round[]> {
+  const body = await unwrap<DataEnvelope<Round[]>>(
+    adminApi.GET("/v1/admin/rounds", {
+      params: {
+        query: compact({
+          date: q.date,
+          slot_template_id: q.slotTemplateId ?? undefined,
+          zone_id: q.zoneId ?? undefined,
+          kind: q.kind,
+          status: q.status,
+        }) as never,
+      },
+    }),
+  );
+  return body.data;
+}
+
+/** Auto-draft (spec §8.3): rounds for every confirmed, fully assigned visit of the slot; the rest come back unplanned. */
+export async function planRounds(input: { date: string; slot_template_id: number; zone_id?: number | null }): Promise<PlanResult> {
+  const body = await unwrap<DataEnvelope<PlanResult>>(adminApi.POST("/v1/admin/rounds/plan", { body: compact(input) as never }));
+  return body.data;
+}
+
+/** Only the changed fields: vehicle (its seat reservations move with it), driver (null clears it), departure instant. */
+export type RoundChanges = { vehicle_id?: number; driver_id?: number | null; planned_depart_at?: string };
+
+export async function updateRound(id: number, changes: RoundChanges, version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.PATCH("/v1/admin/rounds/{round}", { params: { path: { round: id } }, body: changes as never, headers: ifMatch(version) }),
+  );
+  return body.data;
+}
+
+/** Every stop of the round once, in the new order (422 STOPS_MISMATCH otherwise). */
+export async function reorderStops(id: number, stopIds: number[], version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.POST("/v1/admin/rounds/{round}/stops/reorder", {
+      params: { path: { round: id } },
+      body: { stop_ids: stopIds } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** Puts a visit on the round (its seats move to this van; 409 SEATS_EXCEEDED when they do not fit, never overridable). */
+export async function addStop(id: number, visitId: number, version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.POST("/v1/admin/rounds/{round}/stops", { params: { path: { round: id } }, body: { visit_id: visitId } as never, headers: ifMatch(version) }),
+  );
+  return body.data;
+}
+
+export async function removeStop(id: number, stopId: number, version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.DELETE("/v1/admin/rounds/{round}/stops/{stop}", { params: { path: { round: id, stop: stopId } }, headers: ifMatch(version) }),
+  );
+  return body.data;
+}
+
+export type PassengerSeat = { worker_id: number; seat_no: number };
+
+/**
+ * The riders by seat. A seat the van does not have is 422 SEAT_OUT_OF_RANGE (never overridable); a rider who is not on
+ * a stop's team, or a team split between vans, is 409 OVERRIDE_REQUIRED (capacity.override and a 10-character reason).
+ */
+export async function setPassengers(id: number, workers: PassengerSeat[], version: number, extra: OverrideFieldsInput = {}): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.PUT("/v1/admin/rounds/{round}/passengers", {
+      params: { path: { round: id } },
+      body: { workers, ...extra } as never,
+      headers: ifMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+/** Sends the round to the driver's app (409 DRIVER_REQUIRED, DRIVER_UNAVAILABLE, ROUND_NEEDS_STOP). */
+export async function publishRound(id: number, version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.POST("/v1/admin/rounds/{round}/publish", { params: { path: { round: id } }, headers: ifMatch(version) }),
+  );
+  return body.data;
+}
+
+export async function cancelRound(id: number, reason: string, version: number): Promise<Round> {
+  const body = await unwrap<DataEnvelope<Round>>(
+    adminApi.POST("/v1/admin/rounds/{round}/cancel", { params: { path: { round: id } }, body: { reason } as never, headers: ifMatch(version) }),
+  );
+  return body.data;
+}
+
+export type DriverReportQuery = { page?: number; perPage?: number; status?: DriverReportStatus | ""; type?: DriverReportType | ""; date?: string; roundId?: number };
+
+/** Newest first (trips.manage or schedule.view). */
+export async function fetchDriverReports(q: DriverReportQuery): Promise<Paginated<DriverReport>> {
+  return unwrap<Paginated<DriverReport>>(
+    adminApi.GET("/v1/admin/driver-reports", {
+      params: {
+        query: compact({ page: q.page, per_page: q.perPage, status: q.status, type: q.type, date: q.date, round_id: q.roundId }) as never,
+      },
+    }),
+  );
+}
+
+/** Marks a report seen or handled (trips.manage): open → acknowledged → resolved, or open → resolved. */
+export async function updateDriverReport(id: number, input: { status: "acknowledged" | "resolved"; note?: string | null }): Promise<DriverReport> {
+  const body = await unwrap<DataEnvelope<DriverReport>>(
+    adminApi.PATCH("/v1/admin/driver-reports/{driverReport}", { params: { path: { driverReport: id } }, body: input as never }),
   );
   return body.data;
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { ADMIN_NAV, filterNav, isActivePath, type NavLeaf, type NavModule } from "@/lib/admin/nav";
+import { ADMIN_NAV, activeChildHref, filterNav, isActivePath, type NavLeaf, type NavModule } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 
 /*
@@ -16,9 +16,22 @@ import { useAdminSession } from "@/lib/admin/session";
 
 const itemBase = "flex min-h-10 items-center gap-2 rounded-sm px-3 py-2 text-[15px] transition-colors";
 
-function LeafLink({ item, pathname, nested, onNavigate }: { item: NavLeaf; pathname: string; nested?: boolean; onNavigate?: () => void }) {
+function LeafLink({
+  item,
+  pathname,
+  nested,
+  activeHref,
+  onNavigate,
+}: {
+  item: NavLeaf;
+  pathname: string;
+  nested?: boolean;
+  /** In a group: the one child the page belongs to (activeChildHref). */
+  activeHref?: string | null;
+  onNavigate?: () => void;
+}) {
   const t = useTranslations("admin.nav");
-  const active = isActivePath(item.href, pathname);
+  const active = activeHref !== undefined ? activeHref === item.href : isActivePath(item.href, pathname);
 
   if (!item.built) {
     return (
@@ -55,7 +68,8 @@ function LeafLink({ item, pathname, nested, onNavigate }: { item: NavLeaf; pathn
 function Group({ item, pathname, onNavigate }: { item: NavModule; pathname: string; onNavigate?: () => void }) {
   const t = useTranslations("admin.nav");
   const id = useId();
-  const containsActive = item.children!.some((c) => isActivePath(c.href, pathname));
+  const activeHref = activeChildHref(item.children!, pathname);
+  const containsActive = activeHref !== null;
   // null = follow the route (open while one of its pages is shown) until the user toggles it.
   const [open, setOpen] = useState<boolean | null>(null);
   const expanded = open ?? containsActive;
@@ -78,7 +92,7 @@ function Group({ item, pathname, onNavigate }: { item: NavModule; pathname: stri
       </button>
       <div id={id} hidden={!expanded} className="flex flex-col gap-0.5">
         {item.children!.map((child) => (
-          <LeafLink key={child.id} item={child} pathname={pathname} nested onNavigate={onNavigate} />
+          <LeafLink key={child.id} item={child} pathname={pathname} nested activeHref={activeHref} onNavigate={onNavigate} />
         ))}
       </div>
     </div>

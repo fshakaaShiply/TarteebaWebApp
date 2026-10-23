@@ -8,7 +8,7 @@ import type { BookingDetail } from "@/lib/admin/types";
 
 /**
  * After a booking action: show the booking the API answered with at once, then refresh the lists, the overview, the
- * capacity figures and the alerts it moves.
+ * capacity figures, the schedule board and the trip planner it moves.
  */
 export function useBookingRefresh() {
   const queryClient = useQueryClient();
@@ -18,6 +18,8 @@ export function useBookingRefresh() {
       void queryClient.invalidateQueries({ queryKey: adminKeys.bookings() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.dashboard() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.capacity() });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.schedule() });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.rounds() });
     },
     [queryClient],
   );

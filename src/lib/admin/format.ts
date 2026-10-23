@@ -42,6 +42,19 @@ export function formatIsoDate(value: string | null | undefined, locale: string, 
   }).format(date);
 }
 
+/** The month of a local date: "أكتوبر 2026" / "October 2026". */
+export function formatMonth(value: string | null | undefined, locale: string): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value ?? "";
+  return new Intl.DateTimeFormat(intlLocale(locale), { month: "long", year: "numeric", timeZone: BUSINESS_TIME_ZONE }).format(
+    new Date(`${value}T12:00:00Z`),
+  );
+}
+
+/** The day of the month of a local date, Latin digits: "24". */
+export function dayOfMonth(value: string): string {
+  return String(Number(value.slice(8, 10)));
+}
+
 /** Today's business date "YYYY-MM-DD" in Asia/Dubai, whatever the browser's time zone. */
 export function businessToday(now: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

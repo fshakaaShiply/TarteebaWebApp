@@ -97,4 +97,13 @@ export const adminKeys = {
   customerLookup: (phone: string) => ["admin", "bookings", "customer-lookup", phone] as const,
   addonOptions: () => ["admin", "catalog", "addons", "options"] as const,
   workerOptions: () => ["admin", "workers", "options"] as const,
+
+  // A04 schedule board and A06 trip planner. Team changes and booking actions move cards and stops, so they invalidate
+  // ["admin", "schedule"] and ["admin", "rounds"] too (bookings/_components/refresh.ts).
+  schedule: () => ["admin", "schedule"] as const,
+  scheduleBoard: (query: Record<string, string | number>) => ["admin", "schedule", "board", query] as const,
+  rounds: () => ["admin", "rounds"] as const,
+  roundList: (query: Record<string, string | number>) => ["admin", "rounds", "list", query] as const,
+  driverReports: () => ["admin", "driver-reports"] as const,
+  driverReportList: (query: Record<string, string | number>) => ["admin", "driver-reports", "list", query] as const,
 };
