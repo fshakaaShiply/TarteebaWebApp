@@ -13,8 +13,9 @@ async function resolveLocale(): Promise<Locale> {
   return isLocale(preferred) ? preferred : defaultLocale;
 }
 
-export default getRequestConfig(async () => {
-  const locale = await resolveLocale();
+// An explicit locale (`getTranslations({ locale: "en" })`, e.g. the bilingual payment result page) wins.
+export default getRequestConfig(async ({ locale: requested }) => {
+  const locale = isLocale(requested) ? requested : await resolveLocale();
   return {
     locale,
     timeZone: "Asia/Dubai",

@@ -59,7 +59,8 @@ export function DataTable<T>({
 
   return (
     <div className={clsx("flex flex-col gap-3", className)}>
-      <div className="overflow-x-auto" aria-busy={fetching || showSkeleton || undefined}>
+      {/* relative: visually hidden (absolute) header text stays inside the scroller instead of widening the page. */}
+      <div className="relative overflow-x-auto" aria-busy={fetching || showSkeleton || undefined}>
         <table className={clsx("w-full border-collapse text-sm transition-opacity", fetching && "opacity-60")} style={{ minWidth }}>
           <caption className="sr-only">{caption}</caption>
           <thead>

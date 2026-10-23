@@ -59,4 +59,13 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   API answers in another language). Small controls carry the `touch-target` utility (44px hit area).
 - **Unsaved edits:** full-page forms call `useUnsavedChanges(isDirty)`; links then ask before leaving and the browser
   warns on reload/close (`UnsavedChangesProvider` in the admin shell).
+- **Money routes (Phase 3):** confirm, reject, reschedule, cancel, reschedule-request approval and the manual booking
+  send an `Idempotency-Key` from `useIdempotencyKeys()` (`src/lib/admin/idempotency.ts`: one UUID per request body,
+  kept for a retry after a 5xx or lost answer, new after any stored 2xx/4xx answer). The proxy forwards that header.
+- **Shared zone filter:** the top bar's zone (`useAdminZone()`, `src/lib/admin/zone.tsx`) is the zone of the overview,
+  the bookings list and the capacity view; a `zone_id` in a link is adopted into it. The alerts bell polls
+  `GET /admin/alerts` every 20 s (D-11, `src/lib/admin/alerts.ts`).
+- **Bookings (A02/A03):** `src/app/admin/(panel)/overview`, `bookings` (list, `[id]` page with actions and the
+  assignment panel, `new` manual wizard); shared bits in `bookings/_components`. List filters live in the URL
+  (`src/lib/admin/bookings/filters.ts`, the API's own parameter names), changed with `history.replaceState`.
 - **Tests:** `renderWithProviders()` in `src/test/render.tsx` for component tests.

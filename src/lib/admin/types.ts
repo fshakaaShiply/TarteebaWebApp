@@ -567,6 +567,23 @@ export type CapacityView = {
   travel_buffer_minutes: number;
   live_out_block_scope: "whole_day" | "window";
   slots: CapacitySlot[];
+  /** Phase 3: confirmed visits of the date and zone still missing workers (Scheduling UncoveredVisits). */
+  uncovered_visits?: UncoveredVisit[];
+};
+
+export type UncoveredVisit = {
+  visit_id: number;
+  booking_id: number;
+  reference: string;
+  slot_template_id: number;
+  start: string;
+  end: string;
+  workers_count: number;
+  assigned: number;
+  missing: number;
+  status: string;
+  /** Named workers who no longer fit the visit (they do not cover it). */
+  unfit_workers: { worker_id: number; reason: string }[];
 };
 
 export type OverrideAction = "open" | "raise_cap";
@@ -594,3 +611,619 @@ export type Shortfall = {
 /** Settings type "weekly_hours" (booking.working_hours, R-13): "0" (Sunday) … "6" (Saturday); null = closed. */
 export type WeeklyHoursDay = { open: string; close: string } | null;
 export type WeeklyHoursValue = Record<"0" | "1" | "2" | "3" | "4" | "5" | "6", WeeklyHoursDay>;
+
+// ---- Phase 3: A02 overview (app/Modules/Reporting/Dashboard) ------------------------------------------------------
+// The generated schema types these responses as unknown[]; shapes from DashboardSummary, BookingFigures, WorkerFigures,
+// FleetFigures, QuickStats, DashboardAlerts and Support\Links.
+
+/** Query filters of a dashboard link (nulls dropped). PHP sends an empty object as [] when there are none. */
+export type LinkParams = Record<string, string | number | boolean>;
+
+/**
+ * Where a dashboard figure or alert leads: `list` names the admin page, `path` is the API endpoint that serves it and
+ * `params` its filters. Null when the viewer could not open the target (the figure stays visible).
+ */
+export type DashboardLink = {
+  list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | (string & {});
+  path: string;
+  params: LinkParams | unknown[];
+};
+
+/** A slot as the dashboard panels name it (Support\Text::slot). */
+export type DashboardSlot = { slot_template_id: number; code: string; name: Translatable; start: string; end: string };
+
+export type DashboardSummary = {
+  date: string;
+  timezone: string;
+  is_today: boolean;
+  generated_at: string;
+  zone: ZoneRef | null;
+  cards: {
+    todays_bookings: {
+      label: Translatable;
+      value: number;
+      workers: number;
+      by_slot: (DashboardSlot & { bookings: number })[];
+      link: DashboardLink | null;
+    };
+    pending_confirmation: {
+      label: Translatable;
+      /** The live queue across every service date. */
+      value: number;
+      for_date: number;
+      /** Deadlines passed that the SLA job has not cancelled yet. */
+      overdue: number;
+      next_deadline: { booking_id: number; reference: string; deadline_at: string; minutes_left: number; link: DashboardLink | null } | null;
+      oldest_request: {
+        booking_id: number;
+        reference: string;
+        pending_since: string;
+        waiting_minutes: number;
+        link: DashboardLink | null;
+      } | null;
+      link: DashboardLink | null;
+    };
+    uncovered_visits: { label: Translatable; value: number; missing_workers: number; link: DashboardLink | null };
+    on_time_rate: {
+      label: Translatable;
+      /** Whole percent; null before the first arrival of the day. */
+      value: number | null;
+      arrived: number;
+      on_time: number;
+      late: number;
+      overdue: number;
+      grace_minutes: number;
+      link: DashboardLink | null;
+    };
+  };
+  panels: {
+    bookings_by_status: { status: BookingStatus; label: Translatable; bookings: number; link: DashboardLink | null }[];
+    bookings_by_slot: (DashboardSlot & { bookings: number; workers: number; uncovered_visits: number; link: DashboardLink | null })[];
+    bookings_by_zone: { zone_id: number; code: string; name: Translatable; bookings: number; workers: number; link: DashboardLink | null }[];
+    workers: {
+      total: number;
+      available: number;
+      absent: number;
+      live_out: number;
+      off: number;
+      assigned: number;
+      late: number;
+      link: DashboardLink | null;
+    };
+    fleet: {
+      vehicles: { total: number; active: number; maintenance: number; inactive: number; in_use: number };
+      rounds: (DashboardSlot & {
+        rounds: number;
+        planned: number;
+        departed: number;
+        completed: number;
+        cancelled: number;
+        seats_used: number;
+        seats_total: number;
+        link: DashboardLink | null;
+      })[];
+    };
+  };
+  quick_stats: {
+    /** Null without payments.view. */
+    sales: { currency: string; captured_fils: number; payments: number; refunded_fils: number; refunds: number; net_fils: number } | null;
+    occupancy: { percent: number | null; used_units: number; available_units: number };
+    cancellations: { total: number; customer: number; company: number; system: number };
+    /** Null until ratings exist (Phase 5). */
+    rating: null | { average: number; count: number };
+  };
+};
+
+export type DashboardAlertType =
+  | "visit_uncovered"
+  | "sla_due"
+  | "visit_delayed"
+  | "driver_report"
+  | "auto_cancelled"
+  | "payment_failed"
+  | "refund_failed"
+  | "payment_review"
+  | "refund_review";
+
+/** GET /admin/dashboard/alerts: urgent first, then by type order, then by time. */
+export type DashboardAlert = {
+  type: DashboardAlertType | (string & {});
+  severity: "urgent" | "warning";
+  at: string;
+  title: Translatable;
+  message: Translatable;
+  entity: { type: string; id: number; booking_id?: number; reference?: string; ulid?: string; payment_id?: number } | null;
+  link: DashboardLink | null;
+  details: Record<string, unknown>;
+};
+
+export type DashboardAlerts = {
+  data: DashboardAlert[];
+  meta: {
+    generated_at: string;
+    date: string;
+    timezone: string;
+    zone: ZoneRef | null;
+    types: string[];
+    counts: Record<string, number>;
+    total: number;
+    urgent: number;
+    limit_per_type: number;
+  };
+};
+
+// ---- Phase 3: the alerts bell (app/Modules/Notification AlertResource; D-11 polling) ------------------------------
+
+/** One in-app alert of the signed-in staff member. `title` and `body` are in the language it was raised in. */
+export type AdminAlert = {
+  id: string;
+  event: string;
+  priority: string;
+  urgent: boolean;
+  title: string;
+  body: string;
+  /** Admin web path of the entity, e.g. /admin/bookings/12. */
+  link: string | null;
+  entity: { type?: string; id?: number | string; ulid?: string; reference?: string } | null;
+  read: boolean;
+  read_at: string | null;
+  created_at: string | null;
+};
+
+export type AlertsMeta = { unread_count: number; server_time: string; poll_seconds: number };
+
+export type AlertsPage = { data: AdminAlert[]; meta: AlertsMeta & Partial<PageMeta> };
+
+// ---- Phase 3: A03 bookings (app/Modules/Booking/Http/Resources) ----------------------------------------------------
+
+export type BookingStatus =
+  | "draft"
+  | "held"
+  | "pending_confirmation"
+  | "confirmed"
+  | "alternative_proposed"
+  | "rejected"
+  | "rescheduled"
+  | "completed"
+  | "cancelled"
+  | "expired";
+
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "verifying"
+  | "authorized"
+  | "captured"
+  | "partially_refunded"
+  | "refunded"
+  | "failed"
+  | "voided";
+
+export type BookingSource = "app" | "web" | "phone" | "whatsapp" | "admin";
+
+export type VisitStatus =
+  | "scheduled"
+  | "worker_assigned"
+  | "en_route"
+  | "arrived"
+  | "in_progress"
+  | "completed"
+  | "no_show_customer"
+  | "missed_by_company"
+  | "cancelled";
+
+export type CleaningArea = "kitchen" | "bathrooms" | "bedrooms" | "living_areas" | "balcony" | "windows";
+export type PropertyType = "villa" | "apartment" | "townhouse" | "office";
+export type CancelParty = "customer" | "company" | "system";
+
+/** AdminBookingResource: one row of the A03 table. Labels come in both languages. */
+export type BookingRow = {
+  id: number;
+  ulid: string;
+  reference: string;
+  kind: string;
+  customer: { id: string; name: string | null; phone: string };
+  service: { id: number; code: string; name: Translatable };
+  service_date: string;
+  slot: { id: number; code: string; name: Translatable; start: string; end: string };
+  zone: { id: number; code: string; name: Translatable };
+  workers_count: number;
+  status: BookingStatus;
+  status_label: Translatable;
+  payment_status: PaymentStatus;
+  payment_status_label: Translatable;
+  source: BookingSource;
+  source_label: Translatable;
+  total_fils: number;
+  currency: string;
+  hold_expires_at: string | null;
+  confirmation_deadline_at: string | null;
+  created_at: string | null;
+};
+
+/** The address as it was when the booking was made (Geo address snapshot); `id` is the saved address's ULID. */
+export type AddressSnapshot = {
+  id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  area?: string | null;
+  label?: string | null;
+  street?: string | null;
+  zone_id?: number | null;
+  building?: string | null;
+  has_pets?: boolean;
+  pets_note?: string | null;
+  zone_code?: string | null;
+  sub_zone_id?: number | null;
+  unit_number?: string | null;
+  property_type?: PropertyType | (string & {}) | null;
+  sub_zone_code?: string | null;
+  parking_available?: boolean;
+  access_instructions?: string | null;
+  entry_permit_required?: boolean;
+  cleaning_materials_available?: boolean;
+};
+
+/** One price line (PricingService snapshot): VAT on the line (R-07). */
+export type PriceLine = {
+  code: string;
+  type: string;
+  unit?: string | null;
+  quantity: number;
+  description: Translatable;
+  net_fils: number;
+  vat_fils: number;
+  gross_fils: number;
+  discount_fils?: number;
+  unit_gross_fils?: number;
+  gross_before_discount_fils?: number;
+};
+
+export type BookingAmounts = {
+  subtotal_fils: number;
+  addons_fils: number;
+  discount_fils: number;
+  net_fils: number;
+  vat_rate_bp: number;
+  vat_fils: number;
+  total_fils: number;
+  currency: string;
+};
+
+export type BookingVisit = {
+  id: number;
+  ulid: string;
+  service_date: string;
+  start: string;
+  end: string;
+  status: VisitStatus;
+  status_label: Translatable;
+  sub_zone_id: number | null;
+  assignments: { worker_id: number; display_name: string; role: string; assigned_at: string }[];
+};
+
+export type BookingPayment = {
+  id: string;
+  status: PaymentStatus;
+  status_label: Translatable;
+  intent: string;
+  gateway: string;
+  gateway_payment_ref: string | null;
+  method: string | null;
+  amount_fils: number;
+  captured_fils: number;
+  refunded_fils: number;
+  currency: string;
+  attempts: number;
+  needs_review: boolean;
+  failure_code: string | null;
+  authorized_at: string | null;
+  captured_at: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
+  created_at: string | null;
+};
+
+export type BookingHold = {
+  id: string;
+  status: string;
+  workers: number;
+  vehicle_id: number | null;
+  expires_at: string | null;
+  converted_at: string | null;
+  expired_at: string | null;
+  released_at: string | null;
+  release_reason: string | null;
+  created_by_override: boolean;
+};
+
+/** A status change of the booking or one of its visits (BookingStatusHistory). */
+export type BookingHistoryRow = {
+  id: number;
+  scope: "booking" | "visit" | (string & {});
+  visit_id: number | null;
+  from_status: string | null;
+  to_status: string;
+  actor_type: "customer" | "staff" | "system" | "driver" | (string & {});
+  actor_id: number | null;
+  reason: string | null;
+  meta: Record<string, unknown> | unknown[] | null;
+  created_at: string;
+};
+
+export type BookingTimelineStep = { key: string; label: string; reached_at: string | null; current: boolean };
+
+/** PhotoUrls::present: a temporary URL of the private photo. */
+export type BookingPhoto = { id?: string; url?: string | null; thumbnail_url?: string | null; [key: string]: unknown };
+
+export type ProposalStatus = "pending" | "accepted" | "declined" | "expired";
+
+export type ProposalSlot = { id: number; name: Translatable | null; start: string | null; end: string | null };
+
+/** AlternativeProposalResource::forStaff. */
+export type AlternativeProposal = {
+  id: string;
+  proposed_by?: number | null;
+  status: ProposalStatus;
+  status_label: Translatable;
+  note: string | null;
+  options: {
+    index: number;
+    service_date: string | null;
+    slot: ProposalSlot;
+    note: string | null;
+    total_fils: number;
+    price_diff_fils: number;
+  }[];
+  expires_at: string;
+  is_open: boolean;
+  accepted_option: number | null;
+  decided_at: string | null;
+  created_at: string | null;
+};
+
+export type RescheduleRequestStatus = "pending" | "approved" | "rejected" | "auto_approved";
+
+/** RescheduleRequestResource::forStaff (admin routes use the numeric id). */
+export type RescheduleRequest = {
+  id: number;
+  ulid: string;
+  status: RescheduleRequestStatus;
+  status_label: Translatable;
+  from: { service_date: string; slot: ProposalSlot };
+  to: { service_date: string; slot: ProposalSlot };
+  fee_fils: number;
+  price_diff_fils: number;
+  new_total_fils: number;
+  decision_note: string | null;
+  decided_at: string | null;
+  created_at: string | null;
+  booking_id: number;
+  booking_reference: string;
+  requested_by_type: string | null;
+  requested_by_id: number | null;
+  reason: string | null;
+  rule_applied: string | null;
+  override: boolean | null;
+  decided_by: number | null;
+};
+
+/** BookingNoteResource: staff only, never shown to customers. */
+export type BookingNote = { id: number; body: string; author: { id: number; name: string }; created_at: string };
+
+export type CancelReview = {
+  reason_code?: string | null;
+  reason_text?: string | null;
+  party?: CancelParty | null;
+  requested_by_type?: string | null;
+  requested_at?: string | null;
+  rule_applied?: string | null;
+  decision?: "cancelled" | "declined" | "closed" | null;
+  resolved_at?: string | null;
+  decision_note?: string | null;
+};
+
+/** AdminBookingDetailResource: the A03 booking page. */
+export type BookingDetail = BookingRow & {
+  version: number;
+  address: AddressSnapshot | null;
+  priorities: CleaningArea[];
+  instructions: string | null;
+  materials_by: "customer" | "company";
+  preferred_worker: { id: number; display_name: string } | null;
+  amounts: BookingAmounts;
+  lines: PriceLine[] | null;
+  applied_rules: unknown[];
+  coupon: { id: number; code: string; discount_fils: number } | null;
+  policy_snapshot: unknown;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason_code: string | null;
+  cancel_reason_text: string | null;
+  cancelled_by_type: string | null;
+  rejected_reason: string | null;
+  expired_at: string | null;
+  visits: BookingVisit[];
+  hold: BookingHold | null;
+  payment: BookingPayment | null;
+  history: BookingHistoryRow[];
+  timeline: BookingTimelineStep[];
+  photos: BookingPhoto[];
+  created_by_staff_id: number | null;
+  confirmed_by: number | null;
+  rejected_reason_code: string | null;
+  cancellation: {
+    party: CancelParty | null;
+    cancelled_by_id: number | null;
+    fee_fils: number | null;
+    refund_fils: number | null;
+    /** Set while a customer's cancellation waits for staff review (spec §10.4). */
+    review_requested_at: string | null;
+    review: CancelReview | null;
+  };
+  reschedule_fee_fils: number;
+  reschedules_count: number;
+  customer_reschedules_count: number;
+  /** A capture whose provider answer was lost: confirm again (safe) or reject. */
+  capture_unknown_at: string | null;
+  alternative_proposals: AlternativeProposal[];
+  reschedule_requests: RescheduleRequest[];
+  notes: BookingNote[];
+};
+
+/** POST /admin/bookings/{id}/cancel/preview: the money plan before cancelling. */
+export type CancelPreview = {
+  allowed: boolean;
+  mode: "release" | "refund" | (string & {});
+  fee_fils: number | null;
+  kept_fees_fils: number;
+  refund_fils: number | null;
+  paid_fils: number;
+  held_fils: number;
+  requires_review: boolean;
+  rule_applied: string;
+  explanation: Translatable;
+};
+
+export type CancelResult = {
+  payment: "voided" | "refunded" | "kept" | "none" | (string & {});
+  fee_fils: number;
+  refund_fils: number;
+  booking: BookingDetail;
+};
+
+/** POST /admin/bookings (manual booking): 201 with the booking and its payment link (null if the gateway failed). */
+export type ManualBookingResult = {
+  booking: BookingDetail;
+  payment: { id: string; status: string; amount_fils: number; payment_link: string | null; expires_at: string | null };
+};
+
+export type PaymentLink = { payment_link: string | null; expires_at: string };
+
+// ---- Phase 3: assignment (app/Modules/Scheduling/Assignment) ------------------------------------------------------
+
+/** Assignment\Support\VisitSummary: a visit with its named team. */
+export type VisitSummary = {
+  id: number;
+  ulid: string;
+  version: number;
+  booking: {
+    id: number;
+    ulid: string;
+    reference: string;
+    status: BookingStatus;
+    status_label: Translatable;
+    service_id: number;
+    preferred_worker_id: number | null;
+  };
+  service_date: string;
+  slot_template_id: number;
+  start: string;
+  end: string;
+  zone_id: number;
+  area: string | null;
+  status: VisitStatus;
+  status_label: Translatable;
+  workers_count: number;
+  assigned_count: number;
+  missing: number;
+  vehicle_id: number | null;
+  workers: { id: number; display_name: string; full_name: Translatable; assigned_at: string }[];
+  arrived_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  late_minutes: number | null;
+};
+
+export type CandidateWorker = {
+  id: number;
+  ulid: string;
+  employee_no: string;
+  display_name: string;
+  full_name: Translatable;
+  home_zone_id: number;
+};
+
+export type CandidateReason = { code: string; label: Translatable };
+
+export type Candidate = {
+  rank: number;
+  worker: CandidateWorker;
+  reasons: CandidateReason[];
+  preferred: boolean;
+  same_zone: boolean;
+  served_customer_visits: number;
+  skill_match: boolean | null;
+  assigned_minutes_this_week: number;
+  average_rating: number | null;
+};
+
+/** A worker the rules leave out: `overridable` when only soft rules (other zone, travel buffer) apply (§8.6). */
+export type ExcludedWorker = { worker: CandidateWorker; reason: CandidateReason; reasons: CandidateReason[]; overridable: boolean; rules: string[] };
+
+/** GET /admin/visits/{id}/candidates: ranked §8.7 (top 5) and the workers left out with their reasons. */
+export type VisitCandidates = {
+  visit: VisitSummary;
+  preferred_worker: CandidateWorker | null;
+  candidates: Candidate[];
+  excluded: ExcludedWorker[];
+};
+
+/** GET /admin/bookings/{id}/notifications (DeliveryLogResource): labels in the request language; never a destination. */
+export type DeliveryLogItem = {
+  id: string;
+  event: string;
+  event_label: string;
+  channel: string;
+  channel_label: string;
+  recipient: { type: "customer" | "staff" | (string & {}); id: number; name: string | null };
+  locale: string;
+  priority: string;
+  title: string | null;
+  body: string | null;
+  status: string;
+  status_label: string;
+  error: string | null;
+  attempts: number;
+  created_at: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  failed_at: string | null;
+  read_at: string | null;
+};
+
+export type RefundStatus = "requested" | "processing" | "succeeded" | "failed";
+
+/** AdminRefundResource (payments.view or refunds.create): the provider's status of one refund. */
+export type AdminRefund = {
+  id: number;
+  ulid: string;
+  amount_fils: number;
+  currency: string;
+  status: RefundStatus;
+  status_label: Translatable;
+  reason_code: string;
+  reason_label: Translatable;
+  reason_text: string | null;
+  gateway_refund_ref: string | null;
+  failure_code: string | null;
+  estimated_arrival_text: Partial<Translatable> | null;
+  needs_review: boolean;
+  created_at: string | null;
+  succeeded_at: string | null;
+  failed_at: string | null;
+  payment?: { id: number; ulid: string; status: PaymentStatus; payable_type: string | null; payable_id: number | null };
+};
+
+// ---- Phase 3: public pages -----------------------------------------------------------------------------------------
+
+/** POST /public/zones/check. */
+export type ZoneCheck = { in_service_area: boolean; zone: { code: string; name: string } | null };
+
+/** GET /public/config: support contacts may be unset (null). */
+export type PublicConfig = {
+  support: { phone: string | null; whatsapp: string | null; email: string | null };
+  default_locale?: string;
+  currency?: string;
+  timezone?: string;
+};

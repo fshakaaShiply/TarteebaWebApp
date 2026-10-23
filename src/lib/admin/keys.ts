@@ -79,4 +79,22 @@ export const adminKeys = {
   blackoutList: (filters: Record<string, string | number>) => ["admin", "scheduling", "blackout-dates", "list", filters] as const,
   capacity: () => ["admin", "capacity"] as const,
   capacityView: (date: string, zoneId: number) => ["admin", "capacity", date, zoneId] as const,
+
+  // Phase 3. Every booking action changes figures on the overview and capacity, so writes invalidate
+  // ["admin", "bookings"], ["admin", "dashboard"] and ["admin", "capacity"] together (see bookings/_components).
+  dashboard: () => ["admin", "dashboard"] as const,
+  dashboardSummary: (date: string, zoneId: number | null) => ["admin", "dashboard", "summary", date, zoneId] as const,
+  dashboardAlerts: (zoneId: number | null) => ["admin", "dashboard", "alerts", zoneId] as const,
+  /** The bell's first page (the 20-second poll merges into it). */
+  alerts: () => ["admin", "alerts"] as const,
+  bookings: () => ["admin", "bookings"] as const,
+  bookingList: (filters: Record<string, string | number | boolean>) => ["admin", "bookings", "list", filters] as const,
+  booking: (id: number) => ["admin", "bookings", "detail", id] as const,
+  visitCandidates: (visitId: number) => ["admin", "bookings", "candidates", visitId] as const,
+  bookingRefunds: (bookingId: number) => ["admin", "bookings", "refunds", bookingId] as const,
+  bookingNotifications: (bookingId: number, page: number) => ["admin", "bookings", "notifications", bookingId, page] as const,
+  /** Customer lookup in the manual booking wizard (past bookings by phone). */
+  customerLookup: (phone: string) => ["admin", "bookings", "customer-lookup", phone] as const,
+  addonOptions: () => ["admin", "catalog", "addons", "options"] as const,
+  workerOptions: () => ["admin", "workers", "options"] as const,
 };

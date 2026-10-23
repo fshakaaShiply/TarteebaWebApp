@@ -40,9 +40,11 @@ describe("ADMIN_NAV", () => {
     ]);
   });
 
-  it("builds A05 workers, A06 vehicles and drivers, and the capacity view; the schedule board and trips come later", () => {
+  it("builds A02 overview, A03 bookings, A05 workers, A06 vehicles and drivers, and the capacity view; the schedule board and trips come later", () => {
     const built = (code: string) =>
       ADMIN_NAV.filter((m) => m.code === code).flatMap((m) => (m.children ?? [m]).map((c) => `${c.id}:${c.built ? "built" : "later"}`));
+    expect(built("A02")).toEqual(["overview:built"]);
+    expect(built("A03")).toEqual(["bookings:built"]);
     expect(built("A04")).toEqual(["schedule:later", "capacity:built"]);
     expect(built("A05")).toEqual(["workers:built"]);
     expect(built("A06")).toEqual(["vehicles:built", "drivers:built", "trips:later"]);
@@ -51,7 +53,12 @@ describe("ADMIN_NAV", () => {
 
 describe("filterNav", () => {
   it("shows only modules open to everyone when the user has no permissions", () => {
-    expect(ids([])).toEqual(["access", "overview"]);
+    expect(ids([])).toEqual(["access"]);
+  });
+
+  it("shows the overview to everyone who reads bookings or the schedule", () => {
+    expect(ids(["schedule.view"])).toContain("overview");
+    expect(ids(["bookings.view"])).toEqual(["access", "overview", "bookings"]);
   });
 
   it("shows a system admin every module", () => {
@@ -128,13 +135,12 @@ describe("filterNav", () => {
   });
 
   it("keeps a module with only the children the user may open", () => {
-    expect(ids(["settings.manage"])).toEqual(["access", "overview", "catalog[settings]"]);
+    expect(ids(["settings.manage"])).toEqual(["access", "catalog[settings]"]);
     expect(ids(["catalog.manage"])).toEqual([
       "access",
-      "overview",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates]",
     ]);
-    expect(ids(["audit.view"])).toEqual(["access", "overview", "users[audit]"]);
+    expect(ids(["audit.view"])).toEqual(["access", "users[audit]"]);
   });
 
   it("does not mutate the shared navigation", () => {
@@ -152,14 +158,15 @@ describe("hasAnyPermission", () => {
 });
 
 describe("firstAccessiblePath", () => {
-  it("prefers catalog, then settings, then users, then the operations pages, then the overview placeholder", () => {
+  it("prefers the overview, then catalog, settings, users, the operations pages, then the overview's welcome note", () => {
+    expect(firstAccessiblePath(["catalog.manage", "bookings.view"])).toBe("/admin/overview");
+    expect(firstAccessiblePath(["schedule.view", "workers.view"])).toBe("/admin/overview");
     expect(firstAccessiblePath(["users.manage", "catalog.manage", "settings.manage"])).toBe("/admin/catalog/services");
     expect(firstAccessiblePath(["users.manage", "settings.manage"])).toBe("/admin/settings");
     expect(firstAccessiblePath(["users.manage"])).toBe("/admin/users");
-    expect(firstAccessiblePath(["bookings.view", "schedule.view", "workers.view"])).toBe("/admin/capacity");
     expect(firstAccessiblePath(["workers.view"])).toBe("/admin/workers");
     expect(firstAccessiblePath(["fleet.manage"])).toBe("/admin/fleet/vehicles");
-    expect(firstAccessiblePath(["bookings.view"])).toBe("/admin/overview");
+    expect(firstAccessiblePath(["customers.view"])).toBe("/admin/overview");
   });
 });
 

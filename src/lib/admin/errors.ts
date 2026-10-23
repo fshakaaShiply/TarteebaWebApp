@@ -10,7 +10,7 @@ import { lockoutMinutes } from "./login-machine";
  * API error codes → our own copy (admin.errors.*). Codes without an entry fall back to the API's message, which is
  * already in the request language (Accept-Language), then to a generic message.
  */
-const CODE_MESSAGES: Readonly<Record<string, string>> = {
+export const CODE_MESSAGES: Readonly<Record<string, string>> = {
   NETWORK_ERROR: "network",
   FORBIDDEN: "forbidden",
   NOT_FOUND: "notFound",
@@ -47,6 +47,46 @@ const CODE_MESSAGES: Readonly<Record<string, string>> = {
   SLOT_IN_USE: "slotInUse",
   OVERRIDE_RULE_READ_ONLY: "overrideRuleReadOnly",
   SLOT_NOT_AVAILABLE_FOR_SERVICE: "slotNotAvailableForService",
+  // Phase 3: booking actions, assignment and the manual booking (Booking, Payment, Scheduling and Geo errors).
+  PAYMENT_RESULT_UNKNOWN: "paymentResultUnknown",
+  PAYMENT_VERIFYING: "paymentVerifying",
+  PAYMENT_NOT_CAPTURABLE: "paymentNotCapturable",
+  PAYMENT_GATEWAY_UNAVAILABLE: "paymentGatewayUnavailable",
+  CAPACITY_NOT_HELD: "capacityNotHeld",
+  CAPTURE_RESULT_UNKNOWN: "captureResultUnknown",
+  OPTION_PRICE_HIGHER: "optionPriceHigher",
+  OPTION_UNAVAILABLE: "optionUnavailable",
+  OPTION_SAME_AS_BOOKING: "optionSameAsBooking",
+  OPTION_NOT_PAYABLE: "optionNotPayable",
+  SAME_SLOT: "sameSlot",
+  SLOT_FULL: "slotFull",
+  SLOT_CLOSED: "slotClosed",
+  SLOT_UNAVAILABLE: "slotUnavailable",
+  RESCHEDULE_PENDING: "reschedulePending",
+  RESCHEDULE_PRICE_HIGHER: "reschedulePriceHigher",
+  RESCHEDULE_NOT_ALLOWED: "rescheduleNotAllowed",
+  CANCEL_NOT_ALLOWED: "cancelNotAllowed",
+  CANCEL_REVIEW_PENDING: "cancelReviewPending",
+  CANCEL_REVIEW_NOT_PENDING: "cancelReviewNotPending",
+  REFUND_AMOUNT_REQUIRED: "refundAmountRequired",
+  REFUND_AMOUNT_INVALID: "refundAmountInvalid",
+  REFUND_PERMISSION_REQUIRED: "refundPermissionRequired",
+  IDEMPOTENCY_IN_PROGRESS: "idempotencyInProgress",
+  IDEMPOTENCY_KEY_REUSED: "idempotencyKeyReused",
+  WORKERS_COUNT_MISMATCH: "workersCountMismatch",
+  TEAM_COMPLETE: "teamComplete",
+  WORKER_NOT_ASSIGNABLE: "workerNotAssignable",
+  OVERRIDE_REQUIRED: "overrideRequired",
+  NOT_ASSIGNED: "notAssigned",
+  SAME_WORKER: "sameWorker",
+  INVALID_STATUS_TIME: "invalidStatusTime",
+  ADDRESS_OUT_OF_SERVICE_AREA: "addressOutOfServiceArea",
+  ADDRESS_BLOCKED: "addressBlocked",
+  ACCOUNT_BLOCKED: "accountBlocked",
+  PREFERRED_WORKER_INVALID: "preferredWorkerInvalid",
+  ORDER_TOTAL_NOT_PAYABLE: "orderTotalNotPayable",
+  WORKERS_OUT_OF_RANGE: "workersOutOfRange",
+  SERVICE_UNAVAILABLE: "serviceUnavailable",
 };
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
@@ -19,11 +20,12 @@ import {
   TextField,
 } from "@/components/admin";
 import { fetchAllVehicles, fetchCapacity } from "@/lib/admin/endpoints";
-import { addDaysIso, businessToday } from "@/lib/admin/format";
+import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, EXCLUSION_REASONS, overrideOptions } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { CapacitySlot, CapacityView, Vehicle } from "@/lib/admin/types";
+import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useChoiceOptions, useZoneChoices } from "../_ops/options";
 import { slotTone, useOpsText } from "../_ops/opsText";
@@ -35,25 +37,29 @@ import { OverrideDialog } from "./OverrideDialog";
  * status, the workers available, reserved and remaining, who is excluded and why, each vehicle's seats, the booking
  * cap and the rule that applies. Staff with capacity.override can relax a soft cap from a card.
  */
-export function CapacityScreen() {
+export function CapacityScreen({ initialDate, initialZoneId }: { initialDate?: string; initialZoneId?: number | null } = {}) {
   const t = useTranslations("admin.capacity");
   return (
     <RequirePermission anyOf={["schedule.view"]}>
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <CapacityContent />
+      <CapacityContent initialDate={initialDate} initialZoneId={initialZoneId ?? null} />
     </RequirePermission>
   );
 }
 
-function CapacityContent() {
+function CapacityContent({ initialDate, initialZoneId }: { initialDate?: string; initialZoneId: number | null }) {
   const t = useTranslations("admin.capacity");
   const text = useOpsText();
   const zones = useZoneChoices();
   const choiceOptions = useChoiceOptions();
-  const [date, setDate] = useState(() => businessToday());
-  const [zoneChoice, setZoneChoice] = useState("");
-  // The first active zone until the user picks one.
-  const zoneId = zoneChoice ? Number(zoneChoice) : (zones.data?.find((z) => z.is_active)?.id ?? zones.data?.[0]?.id ?? null);
+  const shared = useAdminZone();
+  // A link from the overview may name the date and zone (?date=&zone_id=).
+  const [date, setDate] = useState(() => (initialDate && isIsoDate(initialDate) ? initialDate : businessToday()));
+  const [zoneChoice, setZoneChoice] = useState(() => (initialZoneId ? String(initialZoneId) : ""));
+  // The picked zone, else the top bar's zone, else the first active zone.
+  const zoneId = zoneChoice
+    ? Number(zoneChoice)
+    : (zones.data?.find((z) => z.id === shared.zoneId)?.id ?? zones.data?.find((z) => z.is_active)?.id ?? zones.data?.[0]?.id ?? null);
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
 
   const capacity = useQuery({
@@ -115,7 +121,11 @@ function CapacityContent() {
           <Select
             label={t("zone")}
             value={zoneId === null ? "" : String(zoneId)}
-            onChange={(e) => setZoneChoice(e.target.value)}
+            onChange={(e) => {
+              setZoneChoice(e.target.value);
+              // The page's zone is the shared top-bar zone too.
+              shared.setZoneId(e.target.value ? Number(e.target.value) : null);
+            }}
             options={choiceOptions(zones.data)}
             containerClassName="min-w-[200px]"
           />
@@ -158,6 +168,7 @@ function CapacityBody({ view, vehicles }: { view: CapacityView; vehicles: Vehicl
       <p className="text-sm text-ink-600">
         {t("settingsLine", { buffer: view.travel_buffer_minutes, scope: view.live_out_block_scope })}
       </p>
+      {view.uncovered_visits && <UncoveredVisits view={view} />}
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {view.slots.map((slot) => (
           <SlotCard key={slot.slot_template_id} slot={slot} vehicles={vehicles} onOverride={() => setOverriding(slot)} />
@@ -165,6 +176,55 @@ function CapacityBody({ view, vehicles }: { view: CapacityView; vehicles: Vehicl
       </div>
       {overriding && <OverrideDialog view={view} slot={overriding} onClose={() => setOverriding(null)} />}
     </>
+  );
+}
+
+/**
+ * Confirmed visits of this date and zone still missing workers (the overview's "uncovered visits" card opens this
+ * list); each opens its booking, where the assignment panel names the team.
+ */
+function UncoveredVisits({ view }: { view: CapacityView }) {
+  const t = useTranslations("admin.capacity.uncovered");
+  const text = useOpsText();
+  const { can } = useAdminSession();
+  const visits = view.uncovered_visits ?? [];
+  const slotName = (id: number) => {
+    const slot = view.slots.find((s) => s.slot_template_id === id);
+    return slot ? text.name(slot.name) : "";
+  };
+  return (
+    <Card title={t("title", { count: visits.length })}>
+      {visits.length === 0 ? (
+        <p className="text-sm text-ink-600">{t("none")}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {visits.map((v) => (
+            <li key={v.visit_id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
+              <span className="flex flex-col">
+                <span className="font-bold text-ink-900">
+                  <bdi dir="ltr" className="font-latin">
+                    {v.reference}
+                  </bdi>
+                </span>
+                <span className="text-sm text-ink-600">
+                  {slotName(v.slot_template_id)}{" "}
+                  <bdi dir="ltr" className="font-latin">
+                    {v.start}–{v.end}
+                  </bdi>{" "}
+                  · {t("missing", { missing: v.missing, total: v.workers_count })}
+                  {v.unfit_workers.length > 0 ? ` · ${t("unfit", { count: v.unfit_workers.length })}` : ""}
+                </span>
+              </span>
+              {can("bookings.view") && (
+                <Link href={`/admin/bookings/${v.booking_id}`} className="text-sm font-bold" aria-label={t("openLabel", { reference: v.reference })}>
+                  {t("open")}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

@@ -106,6 +106,14 @@ describe("/backend proxy: request to the API", () => {
     });
   });
 
+  it("forwards the Idempotency-Key of a money route (confirm, cancel, manual booking …)", () => {
+    const headers = upstreamRequestHeaders(
+      new Headers({ ...stagingHeaders, "idempotency-key": "3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f" }),
+      new URL("https://tarteeba.shiplytechnologies.com/backend/api/v1/admin/bookings/12/confirm"),
+    );
+    expect(headers.get("idempotency-key")).toBe("3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f");
+  });
+
   it("describes a local dev origin with its port", () => {
     const headers = upstreamRequestHeaders(
       new Headers({ host: "localhost:3000", "x-forwarded-for": "::1" }),

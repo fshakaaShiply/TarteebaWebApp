@@ -84,6 +84,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.notification.alerts.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/alerts/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.notification.alerts.read-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/alerts/{alert}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.notification.alerts.read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/auth/logout": {
         parameters: {
             query?: never;
@@ -258,6 +306,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/billing-refusals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.refusals.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing-refusals/{refusal}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 200 {document, id, number} once issued (the refusal is cleared); 422 BILLING_DOCUMENT_REFUSED with the current
+         *     problems and amounts while the records still do not support it
+         */
+        post: operations["admin.billing.refusals.retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blackout-dates": {
         parameters: {
             query?: never;
@@ -289,6 +373,417 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["admin.scheduling.blackout-dates.update"];
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/bookings/{id}/history (bookings.view): every status change of the booking and its visits */
+        get: operations["admin.booking.bookings.history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/bookings/{id}/notes (bookings.view), oldest first */
+        get: operations["admin.booking.bookings.notes.index"];
+        put?: never;
+        /** POST /admin/bookings/{id}/notes {body} (any of bookings.create_manual|confirm|reschedule|cancel): 201 with the note */
+        post: operations["admin.booking.bookings.notes.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.booking.bookings.index"];
+        put?: never;
+        /**
+         * POST /admin/bookings (bookings.create_manual, Idempotency-Key): 201 {data: {booking, payment: {…, payment_link}}}.
+         *     Behind the `idempotent` middleware; when its stored answer was lost, CreateManualBooking finds the booking by the
+         *     key and the answer carries Idempotent-Replayed: true
+         */
+        post: operations["admin.booking.bookings.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/payment-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/payment-link (bookings.create_manual): a new checkout link for a held booking */
+        post: operations["admin.booking.bookings.payment-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/confirm (bookings.confirm, Idempotency-Key) */
+        post: operations["admin.booking.bookings.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/reject {reason_code, reason_text} (bookings.reject) */
+        post: operations["admin.booking.bookings.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/propose-alternative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/propose-alternative (bookings.propose_alternative): 201 with the proposal and the booking */
+        post: operations["admin.booking.bookings.propose-alternative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/reschedule (bookings.reschedule, Idempotency-Key) */
+        post: operations["admin.booking.bookings.reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/cancel/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/cancel/preview {party} (bookings.cancel): the money plan, in both languages */
+        post: operations["admin.booking.bookings.cancel.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/bookings/{id}/cancel {reason_code, reason_text, party, refund_fils?} (bookings.cancel, Idempotency-Key) */
+        post: operations["admin.booking.bookings.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/cancel-review/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/bookings/{id}/cancel-review/decline {note} (bookings.cancel): the customer's cancellation waiting for
+         *     review is turned down and the booking kept as it is (no money moves)
+         */
+        post: operations["admin.booking.bookings.cancel-review.decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/cancel/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/bookings/{ulid}/cancel/preview: the fee and expected refund before confirming (screen 17) */
+        post: operations["customer.booking.bookings.cancel.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /customer/bookings/{ulid}/cancel {reason_code, reason_text}: 200 with the cancelled booking, or 202
+         *     {code: REVIEW_REQUIRED} when the policy asks for a review (nothing was cancelled or charged; spec §10.4)
+         */
+        post: operations["customer.booking.bookings.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/reschedule/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/bookings/{ulid}/reschedule/preview {service_date, slot_template_id} (screen 26) */
+        post: operations["customer.booking.bookings.reschedule.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /customer/bookings/{ulid}/reschedule {service_date, slot_template_id}: 201 with the request (pending for
+         *     staff approval, or auto_approved and applied) and the booking
+         */
+        post: operations["customer.booking.bookings.reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/alternatives/{proposal}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/bookings/{ulid}/alternatives/{id}/accept {option_index} (screen 31) */
+        post: operations["customer.booking.bookings.alternatives.accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/alternatives/{proposal}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/bookings/{ulid}/alternatives/{id}/decline (screen 31): the request is cancelled and released */
+        post: operations["customer.booking.bookings.alternatives.decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.notification.bookings.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.booking.bookings.photos.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}/photos/{photo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["customer.booking.bookings.photos.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Screen 08 tabs (page-based):
+         *       upcoming   held, pending confirmation, confirmed, alternative proposed or rescheduled, from today on, soonest first
+         *       past       completed, or before today and not cancelled, expired or rejected, newest first
+         *       cancelled  cancelled, rejected or expired, newest first
+         */
+        get: operations["customer.booking.bookings.index"];
+        put?: never;
+        /**
+         * Screen 06 "Send booking request": 201 {data: {booking, payment: {id, status, checkout_url, expires_at}}}. Behind
+         *     the `idempotent` middleware, so a retry with the same Idempotency-Key replays this answer; when that stored
+         *     answer was lost, CreateBooking finds the booking by the key and the answer carries Idempotent-Replayed: true
+         */
+        post: operations["customer.booking.bookings.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/bookings/{booking}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Screen 09 (and 16): the booking with its timeline, payment state and photos */
+        get: operations["customer.booking.bookings.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.booking.bookings.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/capacity": {
@@ -408,6 +903,104 @@ export interface paths {
         patch: operations["admin.catalog.coupons.update"];
         trace?: never;
     };
+    "/v1/customer/credit-notes/{number}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.billing.credit-notes.pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.credit-notes.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/credit-notes/{creditNote}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.credit-notes.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/credit-notes/{creditNote}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.credit-notes.pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/dashboard/summary?date=&zone_id= → {data: the 4 cards, the panels and the quick stats} */
+        get: operations["admin.reporting.dashboard.summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/dashboard/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/dashboard/alerts?zone_id= → {data: urgent items first, meta: counts per type} */
+        get: operations["admin.reporting.dashboard.alerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/devices": {
         parameters: {
             query?: never;
@@ -436,6 +1029,225 @@ export interface paths {
         post?: never;
         /** Only the customer's own devices; anything else is 404 */
         delete: operations["customer.identity.devices.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.drivers.candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/driver-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/driver-reports?status=&type=&date=&round_id= (newest first, paginated) */
+        get: operations["admin.fleet.driver-reports.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/driver-reports/{driverReport}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** PATCH /admin/driver-reports/{driverReport} {status, note?} */
+        patch: operations["admin.fleet.driver-reports.update"];
+        trace?: never;
+    };
+    "/v1/driver/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["driver.fleet.reports.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /driver/rounds?date= (today by default), grouped by slot */
+        get: operations["driver.fleet.rounds.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/rounds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /driver/rounds/{id} */
+        get: operations["driver.fleet.rounds.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/rounds/{id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/rounds/{id}/depart {at?} */
+        post: operations["driver.fleet.rounds.depart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/rounds/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/rounds/{id}/undo: takes back the round's latest action (depart or a stop action) */
+        post: operations["driver.fleet.rounds.undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/stops/{id}/navigation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /driver/stops/{id}/navigation */
+        get: operations["driver.fleet.stops.navigation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/stops/{id}/arrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/stops/{id}/arrive {at?} */
+        post: operations["driver.fleet.stops.arrive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/stops/{id}/dropoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/stops/{id}/dropoff {at?} */
+        post: operations["driver.fleet.stops.dropoff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/stops/{id}/pickup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/stops/{id}/pickup {at?} */
+        post: operations["driver.fleet.stops.pickup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/driver/stops/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /driver/stops/{id}/undo: takes back the latest action when it was at this stop */
+        post: operations["driver.fleet.stops.undo"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -499,6 +1311,138 @@ export interface paths {
         get: operations["public.health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Newest first, page-based */
+        get: operations["customer.billing.invoices.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/invoices/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.billing.invoices.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/invoices/{number}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** {data: {url, expires_at, file_name}}: a signed URL valid config billing.pdf.url_ttl_minutes (15) */
+        get: operations["customer.billing.invoices.pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/invoices/{number}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 202: queued to the customer's own e-mail address; 422 EMAIL_MISSING without one */
+        post: operations["customer.billing.invoices.email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.invoices.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invoices/{invoice}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.invoices.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invoices/{invoice}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.billing.invoices.pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/invoices/{invoice}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 202: queued to the customer's own e-mail address; 422 EMAIL_MISSING without one */
+        post: operations["admin.billing.invoices.email"];
         delete?: never;
         options?: never;
         head?: never;
@@ -650,6 +1594,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.notification.preferences.show"];
+        put: operations["customer.notification.preferences.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.notification.templates.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-templates/{template}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.notification.templates.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin.notification.templates.update"];
+        trace?: never;
+    };
+    "/v1/admin/notification-templates/{template}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.notification.templates.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.notification.notifications.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.notification.notifications.read-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/notifications/{notification}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.notification.notifications.read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/otp/send": {
         parameters: {
             query?: never;
@@ -714,6 +1770,94 @@ export interface paths {
         patch: operations["admin.catalog.packages.update"];
         trace?: never;
     };
+    "/v1/customer/payment-methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The customer's saved cards: the default first, then the newest */
+        get: operations["customer.payment.payment-methods.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payment-methods/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Opens the provider's "save card" page */
+        post: operations["customer.payment.payment-methods.session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payment-methods/session/{setup}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The state of a "save card" session, for the app coming back from the page. A session still pending is asked
+         *     about at the provider (at most once every few seconds, CompleteCardSetup::poll()), so a lost or slow webhook
+         *     never leaves the card unsaved
+         */
+        get: operations["customer.payment.payment-methods.session.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payment-methods/{method}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deletes a saved card (at the provider too); the newest remaining card becomes the default if needed */
+        delete: operations["customer.payment.payment-methods.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payment-methods/{method}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.payment.payment-methods.default"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/payments/{payment}": {
         parameters: {
             query?: never;
@@ -758,6 +1902,75 @@ export interface paths {
         put?: never;
         /** Pay again after a failure (failed → pending, attempts + 1) with a new session. Blocked while verifying */
         post: operations["customer.payment.payments.retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/payments/{payment}/pay-with-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay with a saved card (screens 06/24). The answer is the payment: authorized / captured, failed, verifying, or
+         *     pending with `requires_action` and `session.checkout_url` (the 3-D Secure page to open)
+         */
+        post: operations["customer.payment.payments.pay-with-method"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.payments.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payments/{payment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.payments.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payments/{payment}/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refunds (part of) a captured payment; 201 with the refund and its provider status */
+        post: operations["admin.payment.payments.refunds.store"];
         delete?: never;
         options?: never;
         head?: never;
@@ -845,6 +2058,22 @@ export interface paths {
         patch: operations["admin.catalog.policies.update"];
         trace?: never;
     };
+    "/v1/customer/preferred-workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.booking.preferred-workers.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/me": {
         parameters: {
             query?: never;
@@ -893,6 +2122,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.refunds.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reschedule-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/reschedule-requests: pending requests, oldest first (page-based) */
+        get: operations["admin.booking.reschedule-requests.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reschedule-requests/{rescheduleRequest}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/reschedule-requests/{id}/approve {note?, override?, reason?} */
+        post: operations["admin.booking.reschedule-requests.approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reschedule-requests/{rescheduleRequest}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/reschedule-requests/{id}/reject {note} */
+        post: operations["admin.booking.reschedule-requests.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/roles": {
         parameters: {
             query?: never;
@@ -919,6 +2215,212 @@ export interface paths {
         get?: never;
         put: operations["admin.identity.roles.permissions"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/stops/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/rounds/{round}/stops/reorder {stop_ids[]} */
+        post: operations["admin.fleet.rounds.stops.reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/stops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/rounds/{round}/stops {visit_id} */
+        post: operations["admin.fleet.rounds.stops.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/stops/{stop}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE /admin/rounds/{round}/stops/{stop} */
+        delete: operations["admin.fleet.rounds.stops.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/rounds?date=&slot_template_id=&zone_id=&kind=&status=&driver_id=&vehicle_id= */
+        get: operations["admin.fleet.rounds.index"];
+        put?: never;
+        /** POST /admin/rounds {date, slot_template_id, kind, vehicle_id, driver_id?, zone_id?, planned_depart_at?, visit_ids[]} */
+        post: operations["admin.fleet.rounds.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/rounds/{round} */
+        get: operations["admin.fleet.rounds.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** PATCH /admin/rounds/{round} {vehicle_id?, driver_id?, planned_depart_at?} */
+        patch: operations["admin.fleet.rounds.update"];
+        trace?: never;
+    };
+    "/v1/admin/rounds/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/rounds/plan {date, slot_template_id, zone_id?} */
+        post: operations["admin.fleet.rounds.plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/passengers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** PUT /admin/rounds/{round}/passengers {workers: [{worker_id, seat_no}], override?, reason?} */
+        put: operations["admin.fleet.rounds.passengers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/rounds/{round}/publish */
+        post: operations["admin.fleet.rounds.publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rounds/{round}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/rounds/{round}/cancel {reason} */
+        post: operations["admin.fleet.rounds.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/schedule?view=day|week|month&date=&zone_id=&service_id=&slot_template_id=&worker_id=&status= */
+        get: operations["admin.scheduling.schedule.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/schedule/validate-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/schedule/validate-move → {result: ok|override_possible|conflicts, conflicts, rules, can_override} */
+        post: operations["admin.scheduling.schedule.validate-move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/schedule/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/schedule/move → the visit with its team */
+        post: operations["admin.scheduling.schedule.move"];
         delete?: never;
         options?: never;
         head?: never;
@@ -987,6 +2489,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["admin.catalog.services.update"];
+        trace?: never;
+    };
+    "/v1/admin/services/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.services.options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/service-prices": {
@@ -1328,6 +2846,90 @@ export interface paths {
         patch: operations["admin.fleet.vehicles.update"];
         trace?: never;
     };
+    "/v1/admin/visits/{visit}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/visits/{visit}/candidates */
+        get: operations["admin.scheduling.visits.candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visits/{visit}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/visits/{visit}/assign {worker_ids[], override?, reason?} */
+        post: operations["admin.scheduling.visits.assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visits/{visit}/unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/visits/{visit}/unassign {worker_id, reason, override?} */
+        post: operations["admin.scheduling.visits.unassign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visits/{visit}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, override?} */
+        post: operations["admin.scheduling.visits.replace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/visits/{visit}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.scheduling.visits.status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/waitlist": {
         parameters: {
             query?: never;
@@ -1473,6 +3075,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/zones/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.zones.options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/zones": {
         parameters: {
             query?: never;
@@ -1525,6 +3143,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AcceptAlternativeRequest
+         * @description POST /customer/bookings/{ulid}/alternatives/{id}/accept (screen 31): the index of the chosen option (0-based).
+         */
+        AcceptAlternativeRequest: {
+            option_index: number;
+        };
+        /**
+         * AddStopRequest
+         * @description POST /admin/rounds/{id}/stops {visit_id} with If-Match or `version` (A06: move a visit to this van).
+         */
+        AddStopRequest: {
+            visit_id: number;
+            version?: number;
+        };
         /**
          * AddonPer
          * @enum {string}
@@ -1587,6 +3220,262 @@ export interface components {
             } | null;
             version: number;
         };
+        /** AdminBookingDetailResource */
+        AdminBookingDetailResource: {
+            id: number;
+            ulid: string;
+            reference: string;
+            kind: string;
+            customer: {
+                id: string;
+                name: string | null;
+                phone: string;
+            };
+            service: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            service_date: string;
+            slot: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+                start: string;
+                end: string;
+            };
+            zone: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            workers_count: number;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            payment_status: string;
+            payment_status_label: {
+                ar: string;
+                en: string;
+            };
+            source: string;
+            source_label: {
+                ar: string;
+                en: string;
+            };
+            total_fils: number;
+            currency: string;
+            hold_expires_at: string | null;
+            confirmation_deadline_at: string | null;
+            created_at: string | null;
+            version: string;
+            address: string;
+            priorities: string | string[];
+            instructions: string;
+            materials_by: string;
+            preferred_worker: {
+                id: string;
+                display_name: string;
+            } | null;
+            amounts: {
+                subtotal_fils: number;
+                addons_fils: number;
+                discount_fils: number;
+                net_fils: number;
+                vat_rate_bp: number;
+                vat_fils: number;
+                total_fils: number;
+                currency: string;
+            };
+            lines: string;
+            applied_rules: string | string[];
+            coupon: {
+                id: string;
+                code: string;
+                discount_fils: string;
+            } | null;
+            policy_snapshot: string | string[];
+            confirmed_at: string | null;
+            cancelled_at: string | null;
+            cancel_reason_code: string;
+            cancel_reason_text: string;
+            cancelled_by_type: string;
+            rejected_reason: string;
+            expired_at: string | null;
+            visits: string;
+            hold: {
+                id: string;
+                status: string;
+                workers: number;
+                vehicle_id: number | null;
+                expires_at: string | null;
+                converted_at: string | null;
+                expired_at: string | null;
+                released_at: string | null;
+                release_reason: string | null;
+                created_by_override: boolean;
+            } | null;
+            payment: {
+                id: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                intent: string;
+                gateway: string;
+                gateway_payment_ref: string | null;
+                method: string | null;
+                amount_fils: number;
+                captured_fils: number;
+                refunded_fils: number;
+                currency: string;
+                attempts: number;
+                needs_review: boolean;
+                failure_code: string | null;
+                authorized_at: string | null;
+                captured_at: string | null;
+                voided_at: string | null;
+                void_reason: string | null;
+                created_at: string | null;
+            } | null;
+            history: {
+                id: number;
+                scope: string;
+                visit_id: number | null;
+                from_status: string | null;
+                to_status: string;
+                actor_type: string;
+                actor_id: number | null;
+                reason: string | null;
+                meta: {
+                    [key: string]: unknown;
+                } | null;
+                created_at: string;
+            }[];
+            timeline: {
+                key: string;
+                label: string;
+                reached_at: string | null;
+                current: boolean;
+            }[];
+            photos: string;
+            /** @description Phase 3 operations (A03). */
+            created_by_staff_id: string;
+            confirmed_by: string;
+            rejected_reason_code: string;
+            cancellation: {
+                party: string;
+                cancelled_by_id: string;
+                fee_fils: string;
+                refund_fils: string;
+                review_requested_at: string | null;
+                review: string;
+            };
+            reschedule_fee_fils: string;
+            reschedules_count: string;
+            customer_reschedules_count: string;
+            /** @description A capture whose provider answer was lost: confirm again (safe) or reject; nothing voids it unsettled. */
+            capture_unknown_at: string | null;
+            alternative_proposals: string;
+            reschedule_requests: string;
+            notes: unknown[];
+        };
+        /** AdminPaymentDetailResource */
+        AdminPaymentDetailResource: {
+            id: number;
+            ulid: string;
+            customer: {
+                id: number;
+                ulid: string;
+                name: string | null;
+                phone: string;
+            } | null;
+            payable: {
+                type: string;
+                id: number;
+                public_id: string | null;
+            };
+            gateway: string;
+            gateway_payment_ref: string | null;
+            method: string | null;
+            card: {
+                brand: string | null;
+                brand_label: string;
+                last4: string | null;
+                label: string;
+                payment_method_id: string | null;
+            } | null;
+            intent: string;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            currency: string;
+            amount_fils: number;
+            vat_fils: number;
+            discount_fils: number;
+            net_fils: number;
+            captured_fils: number;
+            refunded_fils: number;
+            fee_fils: number | null;
+            net_settled_fils: number | null;
+            needs_review: boolean;
+            attempts: number;
+            failure_code: string | null;
+            created_at: string | null;
+            authorized_at: string | null;
+            captured_at: string | null;
+            voided_at: string | null;
+            version: string;
+            refundable_fils: string;
+            three_ds_status: string;
+            failure_message: string;
+            gateway_session_ref: string;
+            verifying_since: string | null;
+            review_reason: string | null;
+            void_reason: string;
+            updated_at: string | null;
+            events: string;
+            refunds: string;
+        };
+        /**
+         * AdminRescheduleRequest
+         * @description POST /admin/bookings/{id}/reschedule (A03): the new date and slot, the reason (audited), and `override` to go past
+         *     the soft capacity caps, which needs capacity.override (403 otherwise) and a reason of at least
+         *     CapacityForce::MIN_REASON characters (spec §8.6, P2-16).
+         */
+        AdminRescheduleRequest: {
+            /** Format: date */
+            service_date: string;
+            slot_template_id: number;
+            reason: string;
+            override?: boolean;
+        };
+        /** ApiException */
+        ApiException: {
+            errorCode: string;
+            status: number;
+            messageKey: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+            replace: {
+                [key: string]: unknown;
+            };
+        };
         /** App.Modules.Identity.Http.Resources.DriverResource */
         "App.Modules.Identity.Http.Resources.DriverResource": {
             id: number;
@@ -1594,6 +3483,15 @@ export interface components {
             email: string;
             phone: string | null;
             locale: string;
+        };
+        /**
+         * AssignWorkersRequest
+         * @description POST /admin/visits/{visit}/assign {worker_ids[], override?, reason?} (spec §14.3 Assignments).
+         */
+        AssignWorkersRequest: {
+            worker_ids: number[];
+            override?: boolean;
+            reason?: string | null;
         };
         /**
          * BlackoutDateRequest
@@ -1622,6 +3520,165 @@ export interface components {
             version: number;
             created_at: string | null;
             updated_at: string | null;
+        };
+        /**
+         * BookingNoteRequest
+         * @description POST /admin/bookings/{id}/notes (A03 internal notes).
+         */
+        BookingNoteRequest: {
+            body: string;
+        };
+        /** BookingResource */
+        BookingResource: {
+            id: string;
+            reference: string;
+            status: string;
+            status_label: string;
+            payment_status: string;
+            payment_status_label: string;
+            service: {
+                code: string;
+                name: string;
+            };
+            service_date: string;
+            slot: {
+                id: number;
+                name: string;
+                start: string;
+                end: string;
+            };
+            workers_count: number;
+            address: {
+                label: unknown;
+                area: unknown;
+                building: unknown;
+                unit: unknown;
+            };
+            assigned_workers: {
+                display_name: string;
+            }[];
+            total_fils: number;
+            currency: string;
+            payment: {
+                id: string;
+                status: string;
+                status_label: string;
+            } | null;
+            created_at: string | null;
+            priorities: unknown[];
+            instructions: string | null;
+            materials_by: string;
+            preferred_worker: {
+                display_name: string;
+                note: string;
+            } | null;
+            amounts: {
+                subtotal_fils: number;
+                addons_fils: number;
+                discount_fils: number;
+                net_fils: number;
+                vat_rate_bp: number;
+                vat_fils: number;
+                total_fils: number;
+                currency: string;
+            };
+            lines: unknown[];
+            coupon: {
+                code: string | null;
+                discount_fils: number;
+            } | null;
+            hold_expires_at: string | null;
+            /** @description Screen 20: checkout closes at this time (shortly before the hold expires; Booking::paymentDeadline()). */
+            payment_deadline_at: null;
+            confirmation_deadline_at: string | null;
+            expected_confirmation: string | null;
+            timeline: {
+                key: string;
+                label: string;
+                reached_at: string | null;
+                current: boolean;
+            }[];
+            terminal: {
+                status: string;
+                label: string;
+                at: string | null;
+                reason_code: string | null;
+                reason: string | null;
+            } | null;
+            photos: {
+                id: string;
+                url: null;
+                mime: string;
+                size_bytes: number;
+                created_at: string | null;
+            }[];
+            actions: {
+                can_pay: boolean;
+                can_cancel: boolean;
+                can_reschedule: boolean;
+                can_accept_alternative: boolean;
+                can_add_photos: boolean;
+            };
+            policy: {
+                cancel_free_until: null;
+                reschedule_free_until: null;
+                reschedules_used: number;
+                reschedules_max: number | null;
+            };
+            alternative_proposal: unknown[] | null;
+            reschedule_request: unknown[] | null;
+            cancellation: {
+                review_requested: boolean;
+                party: string | null;
+                cancelled_by: string | null;
+                reason_code: string | null;
+                reason_label: string | null;
+                fee_fils: number;
+                refund_fils: number;
+                cancelled_at: string | null;
+            } | null | {
+                review_requested: boolean;
+                review_declined: boolean;
+                message: string;
+            } | {
+                review_requested: boolean;
+                review_requested_at: string;
+                message: string;
+            };
+            refunds: {
+                paid_fils: number;
+                refunded_fils: number;
+                currency: string;
+                card: {
+                    brand: string | null;
+                    brand_label: string;
+                    last4: string | null;
+                    label: string;
+                    payment_method_id: string | null;
+                } | null;
+                items: unknown[];
+            } | null;
+        };
+        /**
+         * CancelBookingRequest
+         * @description Cancel a booking (screen 17; A03). The customer picks a reason from config booking.customer_cancel_reasons; staff
+         *     from booking.staff_cancel_reasons and say who the cancellation is attributed to (party customer|company). Staff
+         *     holding refunds.create may give the refund amount explicitly (refund_fils, required when the policy asks for a
+         *     review); anyone else sending it gets 403 before the booking is looked up. Text is required for "other". The preview
+         *     endpoints use the same request without the reason (preview()).
+         */
+        CancelBookingRequest: {
+            /** @enum {string} */
+            reason_code: "plans_changed" | "booked_by_mistake" | "time_not_suitable" | "other";
+            reason_text?: string | null;
+        };
+        /**
+         * CancelRoundRequest
+         * @description POST /admin/rounds/{id}/cancel {reason} with If-Match or `version` (A06).
+         */
+        CancelRoundRequest: {
+            reason: string;
+            version?: number;
         };
         /**
          * CapacityOverrideRequest
@@ -1708,6 +3765,89 @@ export interface components {
             created_at: string | null;
             updated_at: string | null;
         };
+        /**
+         * CreateBookingRequest
+         * @description POST /customer/bookings (spec §14.2, screens 04-06). Only the shape is validated here; pricing, capacity, coupon,
+         *     preferred worker and materials rules are Actions\CreateBooking's, with their own error codes.
+         */
+        CreateBookingRequest: {
+            quote_token: string;
+            service: string;
+            address_id: string;
+            /** Format: date */
+            service_date: string;
+            slot_template_id: number;
+            workers_count: number;
+            addons?: string[] | null;
+            coupon_code?: string | null;
+            preferred_worker_id?: string | null;
+            priorities?: ("kitchen" | "bathrooms" | "bedrooms" | "living_areas" | "balcony" | "windows")[] | null;
+            instructions?: string | null;
+            /** @enum {string|null} */
+            materials_by?: "customer" | "company" | null;
+            return_url: string;
+            /** @description Screen 06: pay with one of the customer's saved cards (screen 24) instead of the hosted checkout. */
+            payment_method_id?: string | null;
+        };
+        /**
+         * CreateManualBookingRequest
+         * @description POST /admin/bookings (A03 manual booking wizard, bookings.create_manual): the source (phone, WhatsApp or admin;
+         *     required, REQ §6.2), the customer by phone (found or created), an existing address of that customer (`address.id`)
+         *     or a new one (the Geo address fields), the order as in the app, an internal note, and `override` + `reason` to book
+         *     past the soft capacity caps (capacity.override, 403 otherwise).
+         */
+        CreateManualBookingRequest: {
+            /** @enum {string} */
+            source: "phone" | "whatsapp" | "admin";
+            customer: {
+                phone: string;
+                name?: string | null;
+                /** @enum {string|null} */
+                locale?: "ar" | "en" | null;
+            };
+            address: {
+                id?: string | null;
+                label?: string | null;
+                property_type?: components["schemas"]["PropertyType"] | null;
+                building?: string | null;
+                unit_number?: string | null;
+                street?: string | null;
+                area_text?: string | null;
+                lat?: number | null;
+                lng?: number | null;
+                access_instructions?: string | null;
+                has_pets?: boolean;
+                pets_note?: string | null;
+                parking_available?: boolean;
+                entry_permit_required?: boolean;
+                cleaning_materials_available?: boolean;
+            };
+            service: string;
+            /** Format: date */
+            service_date: string;
+            slot_template_id: number;
+            workers_count: number;
+            addons?: string[] | null;
+            priorities?: ("kitchen" | "bathrooms" | "bedrooms" | "living_areas" | "balcony" | "windows")[] | null;
+            instructions?: string | null;
+            /** @enum {string|null} */
+            materials_by?: "customer" | "company" | null;
+            preferred_worker_id?: number | null;
+            internal_note?: string | null;
+            override?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * CreateRefundRequest
+         * @description POST /admin/payments/{id}/refunds (A09, spec §10.4): amount in fils, a reason from config
+         *     payment.refund_reason_codes, a note (required for "other"). The amount confirmation dialog is the client's.
+         */
+        CreateRefundRequest: {
+            amount_fils: number;
+            /** @enum {string} */
+            reason_code: "customer_cancellation" | "company_cancellation" | "booking_rejected" | "complaint_compensation" | "duplicate_payment" | "service_not_delivered" | "goodwill" | "other";
+            reason_text?: string | null;
+        };
         /** CustomerDeviceResource */
         CustomerDeviceResource: {
             id: string;
@@ -1738,11 +3878,96 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * DecideRescheduleRequest
+         * @description POST /admin/reschedule-requests/{id}/approve | reject (A03, C26). Approve: an optional note, and `override` +
+         *     `reason` to go past the soft capacity caps (capacity.override, 403 otherwise). Reject: the note is required (the
+         *     customer is told why).
+         */
+        DecideRescheduleRequest: {
+            note?: string | null;
+            override?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * DeclineCancelReviewRequest
+         * @description POST /admin/bookings/{id}/cancel-review/decline {note} (A03, bookings.cancel): staff keep the booking and say why
+         *     (the note is required: the customer is told).
+         */
+        DeclineCancelReviewRequest: {
+            note: string;
+        };
+        /**
          * DiscountType
          * @description Package and coupon discounts. `fixed` is a net (pre-VAT) amount in fils (decision R-07, spec §4.3).
          * @enum {string}
          */
         DiscountType: "percent" | "fixed";
+        /**
+         * DriverActionRequest
+         * @description The driver's buttons (POST /driver/rounds/{id}/depart, /driver/stops/{id}/arrive|dropoff|pickup|undo): an optional
+         *     `at`, when it happened, sent by an app that queued the press offline; an ISO-8601 instant with its offset.
+         */
+        DriverActionRequest: {
+            /** Format: date-time */
+            at?: string | null;
+        };
+        /** DriverReportResource */
+        DriverReportResource: {
+            id: number;
+            type: string;
+            type_label: {
+                ar: string;
+                en: string;
+            };
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            reason: string;
+            eta_delay_min: number | null;
+            round: {
+                id: number;
+                date: string;
+                kind: string;
+                slot_template_id: number;
+                slot_code: string;
+                vehicle: {
+                    id: number;
+                    plate_no: string;
+                };
+            };
+            stop: {
+                id: number;
+                sequence: number;
+                visit_id: number;
+                area: string | null;
+            } | null;
+            driver: {
+                id: number;
+                name: string;
+            };
+            handled_by: {
+                id: number;
+                name: string;
+            } | null;
+            handled_at: string | null;
+            handled_note: string | null;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * DriverReportStatus
+         * @description driver_reports.status: open → acknowledged (operations saw it) → resolved; open → resolved directly. A resolved report is closed.
+         * @enum {string}
+         */
+        DriverReportStatus: "open" | "acknowledged" | "resolved";
+        /**
+         * DriverReportType
+         * @description driver_reports.type (spec §6.8, §18 D03).
+         * @enum {string}
+         */
+        DriverReportType: "delay" | "cannot_reach" | "vehicle_issue" | "other";
         /** DriverResource */
         DriverResource: {
             id: number;
@@ -1779,11 +4004,13 @@ export interface components {
         EmploymentStatus: "active" | "on_leave" | "suspended" | "terminated";
         /**
          * FakeCheckoutRequest
-         * @description POST /public/fake-gateway/checkout/{session}: a button of the test checkout page.
+         * @description POST /public/fake-gateway/checkout/{session}: a button of a FakeGateway hosted page. `scenario` is a checkout or
+         *     3-D Secure outcome (Enums\FakeScenario) or, on the "save card" page, a test card (Enums\FakeTestCard); the
+         *     controller checks it belongs to the session's page.
          */
         FakeCheckoutRequest: {
             /** @enum {string} */
-            scenario: "approve" | "approve_3ds" | "decline" | "timeout_then_approved" | "timeout_then_declined";
+            scenario: "approve" | "approve_3ds" | "decline" | "timeout_then_approved" | "timeout_then_declined" | "fail_3ds" | "visa_4242" | "mastercard_5454" | "visa_3ds_3220" | "visa_decline_0002" | "visa_verify_9995";
             token: string;
         };
         /**
@@ -1793,6 +4020,61 @@ export interface components {
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
+        };
+        /** InvoiceResource */
+        InvoiceResource: {
+            id: string;
+            number: string;
+            title: string;
+            status: string;
+            status_label: string;
+            issue_date: string;
+            supply_date: string;
+            issued_at: string;
+            supplier: {
+                name: string;
+                address: string;
+                trn: string;
+                address_is_placeholder: boolean;
+                trn_is_placeholder: boolean;
+            };
+            customer: {
+                name: string | null;
+                phone: string | null;
+                trn: string | null;
+            };
+            booking: {
+                id: string | null;
+                reference: string | null;
+            };
+            lines: unknown[];
+            subtotal_fils: number;
+            discount_fils: number;
+            net_fils: number;
+            vat_rate_bp: number;
+            vat_rate: string;
+            vat_fils: number;
+            total_fils: number;
+            credited_fils: number;
+            currency: string;
+            total_text: string;
+            payment: {
+                id: string;
+                method: string | null;
+                method_label: string | null;
+                card_brand: unknown;
+                card_last4: unknown;
+                reference: string | null;
+            } | null;
+            credit_notes: {
+                number: string;
+                issue_date: string;
+                total_fils: number;
+                vat_fils: number;
+                currency: string;
+            }[];
+            pdf_ready: boolean;
+            emailed_at: string | null;
         };
         /**
          * JoinWaitlistRequest
@@ -1930,6 +4212,50 @@ export interface components {
          */
         MaterialsMode: "customer" | "company_addon" | "company_included";
         /**
+         * MoveRequest
+         * @description POST /admin/schedule/validate-move and POST /admin/schedule/move {visit_id, from_worker_id?, to_worker_id,
+         *     date?, slot_template_id?, override?, reason?} (spec §14.3 A04). date and slot_template_id are where the card was
+         *     dropped: a different date or slot is 422 USE_RESCHEDULE.
+         */
+        MoveRequest: {
+            visit_id: number;
+            from_worker_id?: number | null;
+            to_worker_id: number;
+            /** Format: date */
+            date?: string | null;
+            slot_template_id?: number | null;
+            override?: boolean;
+            reason?: string | null;
+        };
+        /**
+         * NewSlotRequest
+         * @description A new date and slot for a booking: the customer's reschedule preview and request (C26, screen 26). Staff use
+         *     AdminRescheduleRequest (with a reason and the override).
+         */
+        NewSlotRequest: {
+            /** Format: date */
+            service_date: string;
+            slot_template_id: number;
+        };
+        /** NotificationTemplateResource */
+        NotificationTemplateResource: {
+            id: number;
+            event_key: string;
+            event_label: string;
+            group: string | null;
+            audience: string;
+            channel: string;
+            channel_label: string;
+            locale: string;
+            subject: string | null;
+            body: string;
+            is_active: boolean;
+            version: number;
+            placeholders: unknown[];
+            updated_by: number | null;
+            updated_at: string | null;
+        };
+        /**
          * OverrideAction
          * @description POST /admin/capacity/override (spec §8.6): open a closed slot, or raise its booking cap.
          * @enum {string}
@@ -1989,6 +4315,27 @@ export interface components {
             created_at: string | null;
             updated_at: string | null;
         };
+        /**
+         * PayWithMethodRequest
+         * @description POST /customer/payments/{ulid}/pay-with-method: pay with a saved card (its ULID). `return_url` is where a 3-D
+         *     Secure page sends the customer back (allow-listed by AuthorizeWithSavedCard; default
+         *     config payment.saved_card_return_url).
+         */
+        PayWithMethodRequest: {
+            payment_method_id: string;
+            return_url?: string | null;
+        };
+        /** PaymentMethodSetupResource */
+        PaymentMethodSetupResource: {
+            id: string;
+            status: string;
+            message: string;
+            failure_code: string | null;
+            payment_method: unknown[] | null;
+            expires_at: string | null;
+            completed_at: string | null;
+            created_at: string | null;
+        };
         /** PaymentResource */
         PaymentResource: {
             id: string;
@@ -2010,12 +4357,23 @@ export interface components {
             attempts: number;
             checkout_url: string | null;
             checkout_expires_at: string | null;
+            /** @description A saved card waiting for its 3-D Secure check: the app opens checkout_url to complete it. */
+            requires_action: string;
             failure_code: string | null;
             failure_message: string | null;
+            card: {
+                brand: string | null;
+                brand_label: string;
+                last4: string | null;
+                label: string;
+                payment_method_id: string | null;
+            } | null;
             payable: {
                 type: string;
                 id: string | null;
             };
+            /** @description Screen 18: every refund of this payment, oldest first. */
+            refunds: unknown[];
             authorized_at: string | null;
             captured_at: string | null;
             voided_at: string | null;
@@ -2028,6 +4386,16 @@ export interface components {
          */
         PhoneChangeRequest: {
             phone: string;
+        };
+        /**
+         * PlanRoundsRequest
+         * @description POST /admin/rounds/plan {date, slot_template_id, zone_id?} (A06 auto-draft).
+         */
+        PlanRoundsRequest: {
+            /** Format: date */
+            date: string;
+            slot_template_id: number;
+            zone_id?: number | null;
         };
         /**
          * PolicyRequest
@@ -2087,6 +4455,16 @@ export interface components {
          */
         PolicyType: "cancellation" | "reschedule" | "refund";
         /**
+         * PreviewNotificationTemplateRequest
+         * @description POST /admin/notification-templates/{id}/preview {payload?: {placeholder: text | {ar, en}}, subject?, body?} (A11
+         *     preview before publish): subject and body are an unsaved draft of this template's language.
+         */
+        PreviewNotificationTemplateRequest: {
+            payload?: (string | null)[];
+            subject?: string | null;
+            body?: string | null;
+        };
+        /**
          * PriceUnit
          * @enum {string}
          */
@@ -2097,6 +4475,20 @@ export interface components {
          * @enum {string}
          */
         PropertyType: "villa" | "apartment" | "townhouse" | "office";
+        /**
+         * ProposeAlternativesRequest
+         * @description POST /admin/bookings/{id}/propose-alternative (A03, C31): 1 to config booking.alternative_options_max options
+         *     {service_date, slot_template_id, note?}, all different, and a note for the customer.
+         */
+        ProposeAlternativesRequest: {
+            options: {
+                /** Format: date */
+                service_date: string;
+                slot_template_id: number;
+                note?: string | null;
+            }[];
+            note?: string | null;
+        };
         /**
          * QuoteRequest
          * @description POST /customer/quotes (spec §14.2, screens 04-06). Only the shape is validated here; the business rules (service,
@@ -2126,6 +4518,33 @@ export interface components {
             app_version?: string | null;
             /** @enum {string|null} */
             locale?: "ar" | "en" | null;
+        };
+        /**
+         * RejectBookingRequest
+         * @description POST /admin/bookings/{id}/reject (A03): a reason code from config booking.reject_reasons; text required for "other".
+         */
+        RejectBookingRequest: {
+            /** @enum {string} */
+            reason_code: "no_capacity" | "out_of_area" | "worker_unavailable" | "duplicate" | "other";
+            reason_text?: string | null;
+        };
+        /**
+         * ReorderStopsRequest
+         * @description POST /admin/rounds/{id}/stops/reorder {stop_ids[]} with If-Match or `version` (spec §8.3, A06 drag).
+         */
+        ReorderStopsRequest: {
+            stop_ids: number[];
+            version?: number;
+        };
+        /**
+         * ReplaceWorkerRequest
+         * @description POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, override?} (spec §8.7, §14.3).
+         */
+        ReplaceWorkerRequest: {
+            worker_id: number;
+            new_worker_id: number;
+            override?: boolean;
+            reason: string;
         };
         /**
          * ResetPasswordRequest
@@ -2169,7 +4588,7 @@ export interface components {
         ServicePriceRequest: {
             service_id: number;
             zone_id?: number | null;
-            slot_template_id?: string;
+            slot_template_id?: number | null;
             day_of_week?: number | null;
             /** Format: date */
             valid_from?: string | null;
@@ -2276,6 +4695,22 @@ export interface components {
             prices?: components["schemas"]["ServicePriceResource"][];
             packages?: components["schemas"]["PackageResource"][];
             live_out_plans?: components["schemas"]["LiveOutPlanResource"][];
+        };
+        /**
+         * SetPassengersRequest
+         * @description PUT /admin/rounds/{id}/passengers {workers: [{worker_id, seat_no}], override?, reason?} with If-Match or `version`
+         *     (spec §6.8, A06 seat counter). One seat per worker and one worker per seat; whether a seat exists on the van is checked
+         *     by Actions\Rounds\SetPassengers under the round lock (422 SEAT_OUT_OF_RANGE, never overridable). `override: true`
+         *     needs capacity.override (403) and a reason of at least 10 characters.
+         */
+        SetPassengersRequest: {
+            workers: {
+                worker_id: number;
+                seat_no: number;
+            }[];
+            version?: number;
+            override?: boolean;
+            reason?: string | null;
         };
         /** SkillResource */
         SkillResource: {
@@ -2420,7 +4855,8 @@ export interface components {
         };
         /**
          * StartCheckoutRequest
-         * @description POST /customer/payments/{ulid}/session and /retry. The allow-list check is StartCheckout's (422 RETURN_URL_NOT_ALLOWED).
+         * @description POST /customer/payments/{ulid}/session and /retry, and POST /customer/payment-methods/session (the "save card"
+         *     page): a return URL. The allow-list check is the Action's (422 RETURN_URL_NOT_ALLOWED).
          */
         StartCheckoutRequest: {
             return_url: string;
@@ -2454,6 +4890,30 @@ export interface components {
             is_default?: boolean;
         };
         /**
+         * StoreBookingPhotoRequest
+         * @description POST /customer/bookings/{ulid}/photos, multipart field `photo` (screen 04): JPEG, PNG, WebP or HEIC, at most
+         *     config booking.photos.max_kb (5 MB). The type is checked on the content, not only the file name (spec §4.7).
+         */
+        StoreBookingPhotoRequest: {
+            /**
+             * Format: binary
+             * @description Maximum file size: 5120 kilobytes.
+             */
+            photo: string;
+        };
+        /**
+         * StoreDriverReportRequest
+         * @description POST /driver/reports {round_id, type, reason, eta_delay_min?, stop_id?} (D03). A delay needs the expected minutes
+         *     (the design offers 10, 20, 30+).
+         */
+        StoreDriverReportRequest: {
+            round_id: number;
+            stop_id?: number | null;
+            type: components["schemas"]["DriverReportType"];
+            reason: string;
+            eta_delay_min?: number | null;
+        };
+        /**
          * StoreDriverRequest
          * @description POST /admin/drivers (A06): links a staff account holding the `driver` role (checked by CreateDriver).
          */
@@ -2477,6 +4937,24 @@ export interface components {
             /** Format: date */
             date_to: string;
             reason?: string | null;
+        };
+        /**
+         * StoreRoundRequest
+         * @description POST /admin/rounds (A06, manual round): date, slot, kind, van, optional driver and zone, optional departure (an
+         *     ISO-8601 instant with its offset, like every API instant, spec §4.1) and the visits in driving order.
+         */
+        StoreRoundRequest: {
+            /** Format: date */
+            date: string;
+            slot_template_id: number;
+            /** @enum {string} */
+            kind: "dropoff" | "pickup";
+            vehicle_id: number;
+            driver_id?: number | null;
+            zone_id?: number | null;
+            /** Format: date-time */
+            planned_depart_at?: string | null;
+            visit_ids: number[];
         };
         /**
          * StoreSkillRequest
@@ -2635,6 +5113,16 @@ export interface components {
             code: string;
         };
         /**
+         * UnassignWorkerRequest
+         * @description POST /admin/visits/{visit}/unassign {worker_id, reason, override?} (spec §14.3 Assignments). override: true applies
+         *     an unassignment that leaves the visit's pool short (capacity.override, reason of at least 10 characters).
+         */
+        UnassignWorkerRequest: {
+            worker_id: number;
+            override?: boolean;
+            reason: string;
+        };
+        /**
          * UpdateAddressRequest
          * @description PATCH /customer/addresses/{ulid}: partial update; lat and lng travel together.
          */
@@ -2675,6 +5163,15 @@ export interface components {
             locale?: "ar" | "en";
         };
         /**
+         * UpdateDriverReportRequest
+         * @description PATCH /admin/driver-reports/{id} {status: acknowledged|resolved, note?} (A06).
+         */
+        UpdateDriverReportRequest: {
+            /** @enum {string} */
+            status: "acknowledged" | "resolved";
+            note?: string | null;
+        };
+        /**
          * UpdateDriverRequest
          * @description PATCH /admin/drivers/{id} (A06): partial update with `version` field or If-Match header; the staff account is fixed.
          */
@@ -2696,11 +5193,48 @@ export interface components {
             locale: "ar" | "en";
         };
         /**
+         * UpdateNotificationPreferencesRequest
+         * @description PUT /customer/notification-preferences {preferences: [{group, channel, enabled}]} (screen 28). Transactional groups
+         *     (bookings, payments) cannot be turned off: enabled = false for them is a 422 on that item.
+         */
+        UpdateNotificationPreferencesRequest: {
+            preferences: {
+                /** @enum {string} */
+                group: "bookings" | "payments" | "reminders" | "visit_progress" | "waitlist";
+                /** @enum {string} */
+                channel: "push" | "sms" | "email";
+                enabled: boolean;
+            }[];
+        };
+        /**
+         * UpdateNotificationTemplateRequest
+         * @description PATCH /admin/notification-templates/{id} (A11): subject, body, is_active; the loaded version as If-Match or
+         *     `version` (409 STALE_VERSION on a mismatch); an optional reason for the audit log.
+         */
+        UpdateNotificationTemplateRequest: {
+            subject?: string | null;
+            body?: string;
+            is_active?: boolean;
+            version?: number;
+            reason?: string | null;
+        };
+        /**
          * UpdateRolePermissionsRequest
          * @description PUT /admin/roles/{name}/permissions (A13).
          */
         UpdateRolePermissionsRequest: {
             permissions: string[];
+        };
+        /**
+         * UpdateRoundRequest
+         * @description PATCH /admin/rounds/{id} {vehicle_id?, driver_id?, planned_depart_at?} with If-Match or `version` (A06).
+         */
+        UpdateRoundRequest: {
+            vehicle_id?: number;
+            driver_id?: number | null;
+            /** Format: date-time */
+            planned_depart_at?: string;
+            version?: number;
         };
         /**
          * UpdateShiftsRequest
@@ -2862,6 +5396,22 @@ export interface components {
             code: string;
             device_name?: string | null;
         };
+        /**
+         * VisitStatusRequest
+         * @description POST /admin/visits/{visit}/status {status, reason, at?} (spec §14.3, D-01 ops override).
+         *
+         *     `at` is an instant and must carry its UTC offset (spec §4.1: API instants are ISO-8601 with an offset), e.g.
+         *     2026-11-03T10:25:00+04:00 or 2026-11-03T06:25:00Z. DECISION: a value without an offset (what an HTML
+         *     datetime-local field sends) is refused with 422 rather than guessed: read as UTC it would be four hours off the
+         *     Dubai wall clock and corrupt arrived_at and late_minutes.
+         */
+        VisitStatusRequest: {
+            /** @enum {string} */
+            status: "arrived" | "in_progress" | "completed" | "no_show_customer" | "missed_by_company";
+            reason: string;
+            /** Format: date-time */
+            at?: string | null;
+        };
         /** WaitlistEntryResource */
         WaitlistEntryResource: {
             id: string;
@@ -2972,8 +5522,8 @@ export interface components {
         };
     };
     responses: {
-        /** @description Not found */
-        NotFoundHttpException: {
+        /** @description Unauthenticated */
+        AuthenticationException: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3000,8 +5550,8 @@ export interface components {
                 };
             };
         };
-        /** @description Unauthenticated */
-        AuthenticationException: {
+        /** @description Not found */
+        NotFoundHttpException: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3296,6 +5846,104 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
+    "admin.notification.alerts.index": {
+        parameters: {
+            query?: {
+                since?: string;
+                page?: number;
+                per_page?: number;
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            unread_count: number;
+                            server_time: string;
+                            poll_seconds: number;
+                        };
+                    } | {
+                        data: unknown[];
+                        meta: {
+                            unread_count: number;
+                            server_time: string;
+                            poll_seconds: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.notification.alerts.read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            updated: number;
+                        };
+                        meta: {
+                            unread_count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.notification.alerts.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            unread_count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "customer.identity.auth.logout": {
         parameters: {
             query?: never;
@@ -3578,6 +6226,72 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.billing.refusals.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                document?: "invoice" | "credit_note";
+                payment_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.billing.refusals.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refusal: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            status: "issued";
+                            /** @enum {string} */
+                            document: "invoice" | "credit_note";
+                            id: number;
+                            number: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
     "admin.scheduling.blackout-dates.index": {
         parameters: {
             query?: {
@@ -3732,6 +6446,871 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.booking.bookings.history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            scope: string;
+                            visit_id: number | null;
+                            from_status: string | null;
+                            to_status: string;
+                            actor_type: string;
+                            actor_id: number | null;
+                            reason: string | null;
+                            meta: {
+                                [key: string]: unknown;
+                            } | null;
+                            created_at: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.bookings.notes.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.bookings.notes.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingNoteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: "draft" | "held" | "pending_confirmation" | "confirmed" | "alternative_proposed" | "rejected" | "rescheduled" | "completed" | "cancelled" | "expired";
+                payment_status?: "unpaid" | "pending" | "verifying" | "authorized" | "captured" | "partially_refunded" | "refunded" | "failed" | "voided";
+                from?: string;
+                to?: string;
+                zone_id?: number;
+                service?: string;
+                source?: "app" | "web" | "phone" | "whatsapp" | "admin";
+                search?: string;
+                /** @description Phase 3: cancellations waiting for staff review (spec §10.4). */
+                cancel_review?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManualBookingRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            booking: unknown[];
+                            payment: {
+                                id: string;
+                                status: string;
+                                amount_fils: number;
+                                payment_link: string | null;
+                                expires_at: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.payment-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            payment_link: string | null;
+                            expires_at: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.bookings.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.bookings.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.propose-alternative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposeAlternativesRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            proposal: unknown[];
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRescheduleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            reschedule_request: unknown[];
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.cancel.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            allowed: boolean;
+                            mode: string;
+                            fee_fils: number | null;
+                            kept_fees_fils: number;
+                            refund_fils: number | null;
+                            paid_fils: number;
+                            held_fils: number;
+                            requires_review: boolean;
+                            rule_applied: string;
+                            explanation: {
+                                ar: string;
+                                en: string;
+                            } | string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            payment: string | "none";
+                            fee_fils: string | 0;
+                            refund_fils: string | 0;
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.cancel-review.decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclineCancelReviewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.cancel.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            allowed: boolean;
+                            mode: string;
+                            fee_fils: number | null;
+                            kept_fees_fils: number;
+                            refund_fils: number | null;
+                            paid_fils: number;
+                            held_fils: number;
+                            requires_review: boolean;
+                            rule_applied: string;
+                            explanation: {
+                                ar: string;
+                                en: string;
+                            } | string;
+                            currency: string;
+                            reasons: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            payment: string | "none";
+                            fee_fils: string | 0;
+                            refund_fils: string | 0;
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            code: "REVIEW_REQUIRED";
+                            message: string;
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.reschedule.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSlotRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            allowed: boolean;
+                            blockers: unknown[];
+                            requires_approval: string;
+                            fee_fils: number;
+                            price_diff_fils: number;
+                            new_total_fils: number;
+                            refund_fils: number;
+                            paid_fils: number;
+                            currency: string;
+                            availability: {
+                                status: string;
+                                reason: string | null;
+                            };
+                            rule_applied: string;
+                            explanation: string;
+                            reschedules_used: number;
+                            pending_request: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSlotRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            reschedule_request: unknown[];
+                            booking: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.alternatives.accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+                proposal: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptAlternativeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.alternatives.decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+                proposal: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.notification.bookings.index": {
+        parameters: {
+            query?: {
+                recipient?: "customer" | "staff";
+                channel?: "push" | "sms" | "email" | "in_app" | "whatsapp_future";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.photos.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["StoreBookingPhotoRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            url: null;
+                            mime: string;
+                            size_bytes: number;
+                            created_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.photos.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+                photo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.booking.bookings.index": {
+        parameters: {
+            query?: {
+                tab?: "upcoming" | "past" | "cancelled";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            tab: string;
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBookingRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            booking: unknown[];
+                            payment: {
+                                id: string;
+                                status: string;
+                                status_label: string;
+                                checkout_url: string | null;
+                                expires_at: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `BookingResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BookingResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.bookings.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminBookingDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminBookingDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "admin.scheduling.capacity.show": {
         parameters: {
             query: {
@@ -3815,6 +7394,28 @@ export interface operations {
                                 };
                                 zone_workers: number;
                                 excluded: unknown[];
+                                assignment: {
+                                    booked_units: string | 0;
+                                    assigned_units: string;
+                                    pool_units: number;
+                                    uncovered_visits: number;
+                                };
+                            }[];
+                            uncovered_visits: {
+                                visit_id: string;
+                                booking_id: string;
+                                reference: string;
+                                slot_template_id: string;
+                                start: string;
+                                end: string;
+                                workers_count: string;
+                                assigned: string;
+                                missing: number;
+                                status: string;
+                                unfit_workers: {
+                                    worker_id: number;
+                                    reason: string;
+                                }[];
                             }[];
                         };
                     };
@@ -4008,6 +7609,11 @@ export interface operations {
                             digits_style: unknown;
                             currency: unknown;
                             timezone: unknown;
+                            /**
+                             * @description D-10: authorize_capture holds the amount and charges on confirmation; sale_then_refund charges at once.
+                             *     Screen 06 words its payment note from this.
+                             */
+                            payment_mode: unknown;
                         };
                     };
                 };
@@ -4218,6 +7824,380 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.billing.credit-notes.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.billing.credit-notes.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                from?: string;
+                to?: string;
+                invoice_id?: number;
+                customer_id?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.billing.credit-notes.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creditNote: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.billing.credit-notes.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creditNote: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.reporting.dashboard.summary": {
+        parameters: {
+            query?: {
+                date?: string | null;
+                zone_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            timezone: string;
+                            is_today: boolean;
+                            generated_at: string;
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            cards: {
+                                todays_bookings: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    value: number;
+                                    workers: number;
+                                    by_slot: unknown[];
+                                    link: {
+                                        /** @constant */
+                                        list: "bookings";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null;
+                                };
+                                pending_confirmation: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    value: number;
+                                    for_date: number;
+                                    overdue: number;
+                                    next_deadline: {
+                                        booking_id: number;
+                                        reference: string;
+                                        deadline_at: string;
+                                        /** @description Negative once the deadline has passed. */
+                                        minutes_left: number;
+                                        link: {
+                                            /** @constant */
+                                            list: "booking";
+                                            path: string;
+                                            params: unknown[];
+                                        } | null;
+                                    } | null;
+                                    oldest_request: {
+                                        booking_id: number;
+                                        reference: string;
+                                        pending_since: string;
+                                        waiting_minutes: unknown;
+                                        link: {
+                                            /** @constant */
+                                            list: "booking";
+                                            path: string;
+                                            params: unknown[];
+                                        } | null;
+                                    } | null;
+                                    link: {
+                                        /** @constant */
+                                        list: "bookings";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null;
+                                };
+                                uncovered_visits: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    value: number;
+                                    missing_workers: number;
+                                    link: {
+                                        /** @constant */
+                                        list: "schedule";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null | {
+                                        /** @constant */
+                                        list: "capacity";
+                                        path: string;
+                                        params: unknown[];
+                                    };
+                                };
+                                on_time_rate: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    value: number | null;
+                                    arrived: number;
+                                    on_time: number;
+                                    late: number;
+                                    overdue: number;
+                                    grace_minutes: number;
+                                    link: {
+                                        /** @constant */
+                                        list: "schedule";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null;
+                                };
+                            };
+                            panels: {
+                                bookings_by_status: {
+                                    status: string;
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    bookings: string | 0;
+                                    link: {
+                                        /** @constant */
+                                        list: "bookings";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null;
+                                }[];
+                                bookings_by_slot: unknown[];
+                                bookings_by_zone: unknown[];
+                                workers: {
+                                    total: number;
+                                    /** @constant */
+                                    available: 0;
+                                    /** @constant */
+                                    absent: 0;
+                                    /** @constant */
+                                    live_out: 0;
+                                    /** @constant */
+                                    off: 0;
+                                    assigned: number;
+                                    late: number;
+                                    link: {
+                                        /** @constant */
+                                        list: "schedule";
+                                        path: string;
+                                        params: unknown[];
+                                    } | null;
+                                };
+                                fleet: {
+                                    vehicles: {
+                                        total: number;
+                                        active: number;
+                                        maintenance: number;
+                                        inactive: number;
+                                        in_use: number;
+                                    };
+                                    rounds: unknown[][];
+                                };
+                            };
+                            quick_stats: {
+                                sales: {
+                                    currency: string;
+                                    captured_fils: number;
+                                    payments: number;
+                                    refunded_fils: number;
+                                    refunds: number;
+                                    net_fils: number;
+                                } | null;
+                                occupancy: {
+                                    percent: number | null;
+                                    /** @constant */
+                                    used_units: 0;
+                                    /** @constant */
+                                    available_units: 0;
+                                } | {
+                                    percent: null;
+                                    /** @constant */
+                                    used_units: 0;
+                                    /** @constant */
+                                    available_units: 0;
+                                };
+                                cancellations: {
+                                    /** @constant */
+                                    total: 0;
+                                } & {
+                                    [key: string]: 0;
+                                };
+                                /** @description Ratings arrive with Phase 5 (Quality); the A02 design shows no separate rating card. */
+                                rating: null;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.reporting.dashboard.alerts": {
+        parameters: {
+            query?: {
+                zone_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: [
+                            string
+                        ];
+                        meta: {
+                            generated_at: string;
+                            date: string;
+                            timezone: string;
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            types: unknown[];
+                            counts: string;
+                            total: number;
+                            /** @constant */
+                            urgent: 0;
+                            limit_per_type: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "customer.identity.devices.store": {
         parameters: {
             query?: never;
@@ -4262,6 +8242,396 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.fleet.drivers.candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            name: string;
+                            email: string;
+                            phone: string | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.fleet.driver-reports.index": {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["DriverReportStatus"];
+                type?: components["schemas"]["DriverReportType"];
+                date?: string;
+                round_id?: number;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: string;
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.driver-reports.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The driver report ID */
+                driverReport: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDriverReportRequest"];
+            };
+        };
+        responses: {
+            /** @description `DriverReportResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverReportResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.reports.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreDriverReportRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiException"] | Record<string, never>;
+                };
+            };
+            /** @description `DriverReportResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["DriverReportResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.rounds.index": {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            slots: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.rounds.show": {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.rounds.depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.rounds.undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.stops.navigation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "driver.fleet.stops.arrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.stops.dropoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.stops.pickup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "driver.fleet.stops.undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DriverActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "admin.fleet.drivers.index": {
@@ -4458,6 +8828,239 @@ export interface operations {
                     "application/json": string;
                 };
             };
+        };
+    };
+    "customer.billing.invoices.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.billing.invoices.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `InvoiceResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["InvoiceResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.billing.invoices.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.billing.invoices.email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            status: "queued";
+                            email: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.billing.invoices.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: "issued" | "credited_partial" | "credited_full";
+                from?: string;
+                to?: string;
+                customer_id?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.billing.invoices.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.billing.invoices.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.billing.invoices.email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            status: "queued";
+                            email: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "admin.workforce.workers.leaves.index": {
@@ -4844,6 +9447,296 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
+    "customer.notification.preferences.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            groups: {
+                                group: string;
+                                label: string;
+                                description: string;
+                                locked: string;
+                                channels: {
+                                    channel: string;
+                                    label: string;
+                                    enabled: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.notification.preferences.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationPreferencesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            groups: {
+                                group: string;
+                                label: string;
+                                description: string;
+                                locked: string;
+                                channels: {
+                                    channel: string;
+                                    label: string;
+                                    enabled: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.notification.templates.index": {
+        parameters: {
+            query?: {
+                event_key?: "booking.requested" | "booking.confirmed" | "booking.alternative_proposed" | "booking.alternatives_expiring" | "booking.rejected" | "booking.cancelled" | "booking.auto_cancelled_sla" | "booking.rescheduled" | "booking.reschedule_requested" | "booking.reschedule_declined" | "booking.cancellation_review_requested" | "booking.cancellation_review_declined" | "booking.payment_link" | "visit.reminder_day_before" | "visit.reminder_before_arrival" | "round.departed" | "visit.arrived" | "visit.started" | "visit.completed" | "visit.worker_changed" | "visit.delayed" | "visit.missed" | "payment.failed" | "payment.verifying_resolved" | "payment.needs_review" | "refund.succeeded" | "refund.failed" | "invoice.issued" | "waitlist.slot_available" | "driver.report_submitted";
+                audience?: "customer" | "staff";
+                channel?: "push" | "sms" | "email" | "in_app" | "whatsapp_future";
+                locale?: "ar" | "en";
+                is_active?: boolean;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.notification.templates.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `NotificationTemplateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["NotificationTemplateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.notification.templates.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateNotificationTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description `NotificationTemplateResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["NotificationTemplateResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.notification.templates.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PreviewNotificationTemplateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            ar: string;
+                            en: string;
+                            placeholders: unknown[];
+                            unknown: unknown[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.notification.notifications.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            unread_count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.notification.notifications.read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            updated: number;
+                        };
+                        meta: {
+                            unread_count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.notification.notifications.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            unread_count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "public.identity.otp.send": {
         parameters: {
             query?: never;
@@ -5030,6 +9923,132 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.payment.payment-methods.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.payment.payment-methods.session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartCheckoutRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (unknown | {
+                            checkout_url: string;
+                            expires_at: string;
+                        })[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.payment.payment-methods.session.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                setup: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `PaymentMethodSetupResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PaymentMethodSetupResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.payment.payment-methods.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                method: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.payment.payment-methods.default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                method: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
     "customer.payment.payments.show": {
         parameters: {
             query?: never;
@@ -5110,6 +10129,183 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.payment.payments.pay-with-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayWithMethodRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (unknown | {
+                            checkout_url: string | null;
+                            expires_at: string | null;
+                        })[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.payments.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: "unpaid" | "pending" | "verifying" | "authorized" | "captured" | "partially_refunded" | "refunded" | "failed" | "voided";
+                from?: string;
+                to?: string;
+                phone?: string;
+                payable_type?: string;
+                needs_review?: boolean;
+                reference?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.payments.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminPaymentDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPaymentDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.payment.payments.refunds.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRefundRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            amount_fils: number;
+                            currency: string;
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            reason_code: string;
+                            reason_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            reason_text: string | null;
+                            requested_by: {
+                                type: string;
+                                id: number | null;
+                                name: string | null;
+                            };
+                            gateway: string;
+                            gateway_refund_ref: string | null;
+                            failure_code: string | null;
+                            failure_message: string | null;
+                            credit_note_id: number | null;
+                            estimated_arrival_text: {
+                                ar: string | null;
+                                en: string | null;
+                            };
+                            needs_review: boolean;
+                            created_at: string | null;
+                            submitted_at: string | null;
+                            succeeded_at: string | null;
+                            failed_at: string | null;
+                            last_checked_at: string | null;
+                            payment: {
+                                id: number;
+                                ulid: string;
+                                status: string;
+                                gateway_payment_ref: string | null;
+                                payable_type: string;
+                                payable_id: number;
+                            };
+                            customer: {
+                                id: number;
+                                ulid: string;
+                                name: string | null;
+                                phone: string;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -5324,6 +10520,37 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.booking.preferred-workers.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            display_name: string;
+                            photo_url: null;
+                            avg_rating: null;
+                            availability_hint: null;
+                        }[];
+                        meta: {
+                            note: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "customer.identity.me.show": {
         parameters: {
             query?: never;
@@ -5471,6 +10698,135 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.payment.refunds.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                status?: "requested" | "processing" | "succeeded" | "failed";
+                from?: string;
+                to?: string;
+                payment_id?: number;
+                reason_code?: string;
+                needs_review?: boolean;
+                phone?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.reschedule-requests.index": {
+        parameters: {
+            query?: {
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.booking.reschedule-requests.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rescheduleRequest: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecideRescheduleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.reschedule-requests.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rescheduleRequest: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecideRescheduleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "admin.identity.roles.index": {
         parameters: {
             query?: never;
@@ -5521,6 +10877,1758 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.stops.reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderStopsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.stops.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddStopRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.stops.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+                stop: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.fleet.rounds.index": {
+        parameters: {
+            query?: {
+                date?: string;
+                slot_template_id?: number;
+                zone_id?: number;
+                kind?: "dropoff" | "pickup";
+                status?: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                driver_id?: number;
+                vehicle_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        }[];
+                        meta: {
+                            date: string;
+                            count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreRoundRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.fleet.rounds.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoundRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRoundsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            slot_template_id: number;
+                            rounds: unknown[];
+                            unplanned: unknown[];
+                            already_planned: string[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.passengers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPassengersRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.rounds.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.fleet.rounds.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The round ID */
+                round: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRoundRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            kind: string;
+                            kind_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                                status: string;
+                            };
+                            driver: {
+                                id: number;
+                                name: string;
+                                phone: string | null;
+                                status: string;
+                            } | null;
+                            planned_depart_at: string;
+                            depart_local: string;
+                            planned_end_at: string;
+                            end_local: string;
+                            published: boolean;
+                            published_at: string | null;
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            cancelled_at: string | null;
+                            cancel_reason: string | null;
+                            seats: {
+                                total: number;
+                                used: number;
+                                free: unknown;
+                            };
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number;
+                                visit_status: string;
+                                booking: {
+                                    id: number;
+                                    reference: string;
+                                    status: string;
+                                    workers_count: number;
+                                };
+                                address: {
+                                    [key: string]: unknown;
+                                } | {
+                                    area: string | null;
+                                };
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                late_by_minutes: number | null;
+                                wait_minutes: number | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                done: boolean;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                }[];
+                            }[];
+                            passengers: {
+                                seat_no: number;
+                                worker_id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                visit_id: number | null;
+                            }[];
+                            last_action: {
+                                id: number;
+                                action: string;
+                                stop_id: number | null;
+                                status: string;
+                                occurred_at: string;
+                                recorded_at: string;
+                                undo_until: null;
+                                result: {
+                                    [key: string]: unknown;
+                                } | null;
+                            } | null;
+                            warnings: {
+                                [key: string]: unknown;
+                            }[];
+                            version: number;
+                            created_at: string | null;
+                            updated_at: string | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.schedule.show": {
+        parameters: {
+            query: {
+                view: "day" | "week" | "month";
+                date: string;
+                zone_id?: number | null;
+                service_id?: number | null;
+                slot_template_id?: number | null;
+                worker_id?: number | null;
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.schedule.validate-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            result: "conflicts";
+                            conflicts: [
+                                {
+                                    code: string;
+                                    message: string;
+                                }
+                            ] | [
+                                {
+                                    /** @enum {string} */
+                                    code: "leave" | "live_out" | "busy";
+                                    /** @enum {string} */
+                                    message: "scheduling::messages.fit.leave" | "scheduling::messages.fit.live_out" | "scheduling::messages.fit.busy" | "leave" | "live_out" | "busy";
+                                }
+                            ] | {
+                                code: string;
+                                message: string;
+                            }[];
+                            rules: string[];
+                            can_override: boolean;
+                            details: {
+                                [key: string]: unknown;
+                            };
+                        } | {
+                            /** @constant */
+                            result: "override_possible";
+                            conflicts: string[];
+                            rules: unknown[];
+                            can_override: boolean;
+                            details: {
+                                [key: string]: unknown;
+                            };
+                        } | {
+                            /** @constant */
+                            result: "conflicts";
+                            conflicts: unknown[];
+                            rules: string[];
+                            can_override: boolean;
+                            details: {
+                                [key: string]: unknown;
+                            };
+                        } | {
+                            /** @constant */
+                            result: "ok";
+                            conflicts: string[];
+                            rules: string[];
+                            can_override: boolean;
+                            details: string[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.schedule.move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            version: number;
+                            booking: {
+                                id: number;
+                                ulid: string;
+                                reference: string;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                service_id: number;
+                                preferred_worker_id: number | null;
+                            };
+                            service_date: string;
+                            slot_template_id: number;
+                            start: string;
+                            end: string;
+                            zone_id: number;
+                            area: unknown;
+                            status: string;
+                            status_label: {
+                                ar: string | "";
+                                en: string | "";
+                            };
+                            workers_count: number;
+                            assigned_count: number;
+                            missing: unknown;
+                            vehicle_id: number | null;
+                            workers: {
+                                id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                assigned_at: string;
+                            }[];
+                            arrived_at: string | null;
+                            started_at: string | null;
+                            completed_at: string | null;
+                            late_minutes: number | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -5696,6 +12804,37 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.catalog.services.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            code: string;
+                            name: {
+                                ar: string;
+                                en: string;
+                            };
+                            kind: string;
+                            is_active: boolean;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "admin.catalog.service-prices.index": {
@@ -6773,6 +13912,434 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.scheduling.visits.candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit ID */
+                visit: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            visit: {
+                                id: number;
+                                ulid: string;
+                                version: number;
+                                booking: {
+                                    id: number;
+                                    ulid: string;
+                                    reference: string;
+                                    status: string;
+                                    status_label: {
+                                        ar: string | "";
+                                        en: string | "";
+                                    };
+                                    service_id: number;
+                                    preferred_worker_id: number | null;
+                                };
+                                service_date: string;
+                                slot_template_id: number;
+                                start: string;
+                                end: string;
+                                zone_id: number;
+                                area: unknown;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                workers_count: number;
+                                assigned_count: number;
+                                missing: unknown;
+                                vehicle_id: number | null;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    assigned_at: string;
+                                }[];
+                                arrived_at: string | null;
+                                started_at: string | null;
+                                completed_at: string | null;
+                                late_minutes: number | null;
+                            };
+                            preferred_worker: {
+                                worker: {
+                                    id: number;
+                                    ulid: string;
+                                    employee_no: string;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    home_zone_id: number;
+                                };
+                                available: string;
+                                listed: boolean;
+                                reason: {
+                                    /** @constant */
+                                    code: "not_active";
+                                    label: {
+                                        ar: string | "";
+                                        en: string | "";
+                                    };
+                                } | null | {
+                                    code: string;
+                                    label: {
+                                        ar: string | "";
+                                        en: string | "";
+                                    };
+                                };
+                            } | null;
+                            candidates: unknown[][];
+                            excluded: {
+                                worker: {
+                                    id: number;
+                                    ulid: string;
+                                    employee_no: string;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    home_zone_id: number;
+                                };
+                                reason: {
+                                    code: string;
+                                    label: {
+                                        ar: string | "";
+                                        en: string | "";
+                                    };
+                                };
+                                reasons: unknown[];
+                                overridable: boolean;
+                                rules: unknown[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.scheduling.visits.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit ID */
+                visit: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignWorkersRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            version: number;
+                            booking: {
+                                id: number;
+                                ulid: string;
+                                reference: string;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                service_id: number;
+                                preferred_worker_id: number | null;
+                            };
+                            service_date: string;
+                            slot_template_id: number;
+                            start: string;
+                            end: string;
+                            zone_id: number;
+                            area: unknown;
+                            status: string;
+                            status_label: {
+                                ar: string | "";
+                                en: string | "";
+                            };
+                            workers_count: number;
+                            assigned_count: number;
+                            missing: unknown;
+                            vehicle_id: number | null;
+                            workers: {
+                                id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                assigned_at: string;
+                            }[];
+                            arrived_at: string | null;
+                            started_at: string | null;
+                            completed_at: string | null;
+                            late_minutes: number | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.visits.unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit ID */
+                visit: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnassignWorkerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            version: number;
+                            booking: {
+                                id: number;
+                                ulid: string;
+                                reference: string;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                service_id: number;
+                                preferred_worker_id: number | null;
+                            };
+                            service_date: string;
+                            slot_template_id: number;
+                            start: string;
+                            end: string;
+                            zone_id: number;
+                            area: unknown;
+                            status: string;
+                            status_label: {
+                                ar: string | "";
+                                en: string | "";
+                            };
+                            workers_count: number;
+                            assigned_count: number;
+                            missing: unknown;
+                            vehicle_id: number | null;
+                            workers: {
+                                id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                assigned_at: string;
+                            }[];
+                            arrived_at: string | null;
+                            started_at: string | null;
+                            completed_at: string | null;
+                            late_minutes: number | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.visits.replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit ID */
+                visit: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceWorkerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            version: number;
+                            booking: {
+                                id: number;
+                                ulid: string;
+                                reference: string;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                service_id: number;
+                                preferred_worker_id: number | null;
+                            };
+                            service_date: string;
+                            slot_template_id: number;
+                            start: string;
+                            end: string;
+                            zone_id: number;
+                            area: unknown;
+                            status: string;
+                            status_label: {
+                                ar: string | "";
+                                en: string | "";
+                            };
+                            workers_count: number;
+                            assigned_count: number;
+                            missing: unknown;
+                            vehicle_id: number | null;
+                            workers: {
+                                id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                assigned_at: string;
+                            }[];
+                            arrived_at: string | null;
+                            started_at: string | null;
+                            completed_at: string | null;
+                            late_minutes: number | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.visits.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The visit ID */
+                visit: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitStatusRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            version: number;
+                            booking: {
+                                id: number;
+                                ulid: string;
+                                reference: string;
+                                status: string;
+                                status_label: {
+                                    ar: string | "";
+                                    en: string | "";
+                                };
+                                service_id: number;
+                                preferred_worker_id: number | null;
+                            };
+                            service_date: string;
+                            slot_template_id: number;
+                            start: string;
+                            end: string;
+                            zone_id: number;
+                            area: unknown;
+                            status: string;
+                            status_label: {
+                                ar: string | "";
+                                en: string | "";
+                            };
+                            workers_count: number;
+                            assigned_count: number;
+                            missing: unknown;
+                            vehicle_id: number | null;
+                            workers: {
+                                id: number;
+                                display_name: string;
+                                full_name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                assigned_at: string;
+                            }[];
+                            arrived_at: string | null;
+                            started_at: string | null;
+                            completed_at: string | null;
+                            late_minutes: number | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "customer.scheduling.waitlist.index": {
         parameters: {
             query?: never;
@@ -7141,6 +14708,36 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.zones.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            code: string;
+                            name: {
+                                ar: string;
+                                en: string;
+                            };
+                            is_active: boolean;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "admin.zones.index": {

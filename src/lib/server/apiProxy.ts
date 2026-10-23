@@ -108,13 +108,17 @@ export function clientAddress(headers: Headers): string | null {
   return validIp(chain[chain.length - 1]);
 }
 
-/** Headers the admin client sends that the API needs (cookies, CSRF, language, versioning, Sanctum's origin check). */
+/**
+ * Headers the admin client sends that the API needs (cookies, CSRF, language, versioning, Sanctum's origin check, and
+ * the Idempotency-Key of the routes that move money or capacity, spec §4.5).
+ */
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "accept-language",
   "content-type",
   "content-length",
   "cookie",
+  "idempotency-key",
   "if-match",
   "if-none-match",
   "origin",

@@ -19,16 +19,20 @@ export type NavModule = NavLeaf & {
 };
 
 export const TWO_FACTOR_PATH = "/admin/security/two-factor";
-export const OVERVIEW_PLACEHOLDER_PATH = "/admin/overview";
+export const OVERVIEW_PATH = "/admin/overview";
+/** Users without the overview's permissions see a welcome note there instead of the figures. */
+export const OVERVIEW_PLACEHOLDER_PATH = OVERVIEW_PATH;
 export const CAPACITY_PATH = "/admin/capacity";
+export const OVERVIEW_PERMISSIONS = ["bookings.view", "schedule.view"] as const;
 
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
   // A01 is the sign-in itself; its in-panel page is the account security (two-factor) screen.
   { id: "access", code: "A01", labelKey: "access", href: TWO_FACTOR_PATH, anyOf: [], built: true },
-  { id: "overview", code: "A02", labelKey: "overview", href: "/admin/overview", anyOf: [], built: false },
-  { id: "bookings", code: "A03", labelKey: "bookings", href: "/admin/bookings", anyOf: ["bookings.view"], built: false },
+  // A02 reads bookings or the schedule (Reporting dashboard routes); A03 needs bookings.view.
+  { id: "overview", code: "A02", labelKey: "overview", href: OVERVIEW_PATH, anyOf: OVERVIEW_PERMISSIONS, built: true },
+  { id: "bookings", code: "A03", labelKey: "bookings", href: "/admin/bookings", anyOf: ["bookings.view"], built: true },
   {
     // A04 operations: the schedule board comes later; the capacity view (spec §14.3 "Capacity") is built.
     id: "operations",
@@ -152,14 +156,14 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 }
 
 /**
- * Where /admin sends a user: catalog for catalog.manage, settings, users, then the operations pages a role works in
- * (capacity, workers, vehicles), else the overview placeholder.
+ * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
+ * catalog.manage, settings, users, the workers and vehicles pages, else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
+  if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
   if (permissions.includes("catalog.manage")) return "/admin/catalog/services";
   if (permissions.includes("settings.manage")) return "/admin/settings";
   if (permissions.includes("users.manage")) return "/admin/users";
-  if (permissions.includes("schedule.view")) return CAPACITY_PATH;
   if (permissions.includes("workers.view")) return "/admin/workers";
   if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
   return OVERVIEW_PLACEHOLDER_PATH;

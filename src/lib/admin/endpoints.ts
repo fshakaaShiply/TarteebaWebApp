@@ -6,7 +6,30 @@ import type { LeaveRequestPayload, WorkerPayload } from "./ops/workforce";
 import type {
   Addon,
   AddonPer,
+  AdminAlert,
+  AdminRefund,
+  AlertsPage,
+  AlternativeProposal,
   BlackoutDate,
+  BookingDetail,
+  BookingNote,
+  BookingRow,
+  BookingSource,
+  BookingStatus,
+  CancelPreview,
+  CancelResult,
+  CleaningArea,
+  DashboardAlerts,
+  DashboardSummary,
+  DeliveryLogItem,
+  ManualBookingResult,
+  PaymentLink,
+  PaymentStatus,
+  PropertyType,
+  RescheduleRequest,
+  VisitCandidates,
+  VisitSummary,
+  ZoneCheck,
   CapacityOverrideResult,
   CapacityView,
   CatalogPackage,
@@ -1077,5 +1100,365 @@ export async function fetchCapacity(q: { date: string; zoneId: number; serviceId
 
 export async function overrideCapacity(input: OverridePayload): Promise<CapacityOverrideResult> {
   const body = await unwrap<DataEnvelope<CapacityOverrideResult>>(adminApi.POST("/v1/admin/capacity/override", { body: input as never }));
+  return body.data;
+}
+
+// ---- Phase 3 ------------------------------------------------------------------------------------------------------
+// The generated schema types most Phase 3 responses as unknown[]; they are typed in types.ts from the Laravel
+// resources. Every route that may move money or capacity needs an Idempotency-Key (a UUID per intent, sent again
+// unchanged on a retry: see lib/admin/idempotency.ts); edits send the loaded version as If-Match when it is known.
+
+const idempotency = (key: string) => ({ "Idempotency-Key": key });
+const optionalIfMatch = (version: number | null | undefined) => (version === null || version === undefined ? {} : ifMatch(version));
+
+// A02 overview (bookings.view or schedule.view)
+
+export type DashboardQuery = { date?: string; zoneId?: number | null };
+
+export async function fetchDashboardSummary(q: DashboardQuery): Promise<DashboardSummary> {
+  const body = await unwrap<DataEnvelope<DashboardSummary>>(
+    adminApi.GET("/v1/admin/dashboard/summary", { params: { query: compact({ date: q.date, zone_id: q.zoneId ?? undefined }) as never } }),
+  );
+  return body.data;
+}
+
+export async function fetchDashboardAlerts(q: { zoneId?: number | null }): Promise<DashboardAlerts> {
+  return unwrap<DashboardAlerts>(
+    adminApi.GET("/v1/admin/dashboard/alerts", { params: { query: compact({ zone_id: q.zoneId ?? undefined }) as never } }),
+  );
+}
+
+// Alerts bell (any staff member; D-11 polling every 20 s)
+
+export type AlertsQuery = { since?: string; page?: number; perPage?: number; unread?: boolean };
+
+/** With `since` (the previous answer's meta.server_time) only alerts created at or after it; otherwise a page. */
+export async function fetchAlerts(q: AlertsQuery): Promise<AlertsPage> {
+  return unwrap<AlertsPage>(
+    adminApi.GET("/v1/admin/alerts", {
+      params: {
+        query: compact({ since: q.since, page: q.page, per_page: q.perPage, unread: q.unread === undefined ? undefined : q.unread ? 1 : 0 }) as never,
+      },
+    }),
+  );
+}
+
+export async function markAlertRead(id: string): Promise<{ alert: AdminAlert; unreadCount: number }> {
+  const body = await unwrap<{ data: AdminAlert; meta: { unread_count: number } }>(
+    adminApi.POST("/v1/admin/alerts/{alert}/read", { params: { path: { alert: id } } }),
+  );
+  return { alert: body.data, unreadCount: body.meta.unread_count };
+}
+
+export async function markAllAlertsRead(): Promise<{ updated: number; unreadCount: number }> {
+  const body = await unwrap<{ data: { updated: number }; meta: { unread_count: number } }>(adminApi.POST("/v1/admin/alerts/read-all"));
+  return { updated: body.data.updated, unreadCount: body.meta.unread_count };
+}
+
+// A03 bookings (bookings.view to read; each action its own permission)
+
+export type BookingListQuery = {
+  page?: number;
+  perPage?: number;
+  status?: BookingStatus | "";
+  paymentStatus?: PaymentStatus | "";
+  from?: string;
+  to?: string;
+  zoneId?: number | null;
+  /** Service code or numeric id. */
+  service?: string;
+  source?: BookingSource | "";
+  search?: string;
+  /** Cancellations waiting for staff review. */
+  cancelReview?: boolean;
+};
+
+export async function fetchBookings(q: BookingListQuery): Promise<Paginated<BookingRow>> {
+  return unwrap<Paginated<BookingRow>>(
+    adminApi.GET("/v1/admin/bookings", {
+      params: {
+        query: compact({
+          page: q.page,
+          per_page: q.perPage,
+          status: q.status,
+          payment_status: q.paymentStatus,
+          from: q.from,
+          to: q.to,
+          zone_id: q.zoneId ?? undefined,
+          service: q.service,
+          source: q.source,
+          search: q.search?.trim(),
+          cancel_review: q.cancelReview ? 1 : undefined,
+        }) as never,
+      },
+    }),
+  );
+}
+
+export async function fetchBooking(id: number): Promise<BookingDetail> {
+  const body = await unwrap<DataEnvelope<BookingDetail>>(adminApi.GET("/v1/admin/bookings/{booking}", { params: { path: { booking: id } } }));
+  return body.data;
+}
+
+/** Internal note (never shown to the customer): any of bookings.create_manual|confirm|reschedule|cancel. */
+export async function addBookingNote(id: number, text: string): Promise<BookingNote> {
+  const body = await unwrap<DataEnvelope<BookingNote>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/notes", { params: { path: { booking: id } }, body: { body: text } }),
+  );
+  return body.data;
+}
+
+/** Capture and confirm (bookings.confirm). 502 PAYMENT_RESULT_UNKNOWN: the bank did not answer; confirming again is safe. */
+export async function confirmBooking(id: number, version: number | null, key: string): Promise<BookingDetail> {
+  const body = await unwrap<DataEnvelope<BookingDetail>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/confirm", {
+      params: { path: { booking: id } },
+      headers: { ...idempotency(key), ...optionalIfMatch(version) },
+    }),
+  );
+  return body.data;
+}
+
+export type RejectInput = { reason_code: string; reason_text: string | null };
+
+/** Void and reject (bookings.reject). */
+export async function rejectBooking(id: number, input: RejectInput, version: number | null, key: string): Promise<BookingDetail> {
+  const body = await unwrap<DataEnvelope<BookingDetail>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/reject", {
+      params: { path: { booking: id } },
+      body: input as never,
+      headers: { ...idempotency(key), ...optionalIfMatch(version) },
+    }),
+  );
+  return body.data;
+}
+
+export type AlternativeOptionInput = { service_date: string; slot_template_id: number; note?: string | null };
+export type ProposeInput = { options: AlternativeOptionInput[]; note: string | null };
+
+/** 1–3 other times (bookings.propose_alternative); 201 with the proposal (prices per option) and the booking. */
+export async function proposeAlternatives(
+  id: number,
+  input: ProposeInput,
+  version: number | null,
+): Promise<{ proposal: AlternativeProposal; booking: BookingDetail }> {
+  const body = await unwrap<DataEnvelope<{ proposal: AlternativeProposal; booking: BookingDetail }>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/propose-alternative", {
+      params: { path: { booking: id } },
+      body: input as never,
+      headers: optionalIfMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export type RescheduleInput = { service_date: string; slot_template_id: number; reason: string; override?: boolean };
+
+/** Staff move a confirmed booking (bookings.reschedule; override needs capacity.override and a 10-character reason). */
+export async function rescheduleBooking(
+  id: number,
+  input: RescheduleInput,
+  version: number | null,
+  key: string,
+): Promise<{ reschedule_request: RescheduleRequest; booking: BookingDetail }> {
+  const body = await unwrap<DataEnvelope<{ reschedule_request: RescheduleRequest; booking: BookingDetail }>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/reschedule", {
+      params: { path: { booking: id } },
+      body: input as never,
+      headers: { ...idempotency(key), ...optionalIfMatch(version) },
+    }),
+  );
+  return body.data;
+}
+
+/** The fee and refund the policy gives before anything is cancelled (bookings.cancel). */
+export async function previewCancellation(id: number, party: "customer" | "company"): Promise<CancelPreview> {
+  const body = await unwrap<DataEnvelope<CancelPreview>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/cancel/preview", { params: { path: { booking: id } }, body: { party } as never }),
+  );
+  return body.data;
+}
+
+export type CancelInput = { reason_code: string; reason_text: string | null; party: "customer" | "company"; refund_fils?: number };
+
+/** bookings.cancel; an explicit refund_fils needs refunds.create (403 REFUND_PERMISSION_REQUIRED otherwise). */
+export async function cancelBooking(id: number, input: CancelInput, version: number | null, key: string): Promise<CancelResult> {
+  const body = await unwrap<DataEnvelope<CancelResult>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/cancel", {
+      params: { path: { booking: id } },
+      body: input as never,
+      headers: { ...idempotency(key), ...optionalIfMatch(version) },
+    }),
+  );
+  return body.data;
+}
+
+/** Keep the booking and close the customer's cancellation review (bookings.cancel; no money moves). */
+export async function declineCancelReview(id: number, note: string, version: number | null): Promise<BookingDetail> {
+  const body = await unwrap<DataEnvelope<BookingDetail>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/cancel-review/decline", {
+      params: { path: { booking: id } },
+      body: { note },
+      headers: optionalIfMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export type ApproveRescheduleInput = { note?: string | null; override?: boolean; reason?: string | null };
+
+/** A customer's reschedule request (bookings.reschedule, Idempotency-Key). */
+export async function approveRescheduleRequest(id: number, input: ApproveRescheduleInput, key: string): Promise<RescheduleRequest> {
+  const body = await unwrap<DataEnvelope<RescheduleRequest>>(
+    adminApi.POST("/v1/admin/reschedule-requests/{rescheduleRequest}/approve", {
+      params: { path: { rescheduleRequest: id } },
+      body: input,
+      headers: idempotency(key),
+    }),
+  );
+  return body.data;
+}
+
+export async function rejectRescheduleRequest(id: number, note: string): Promise<RescheduleRequest> {
+  const body = await unwrap<DataEnvelope<RescheduleRequest>>(
+    adminApi.POST("/v1/admin/reschedule-requests/{rescheduleRequest}/reject", {
+      params: { path: { rescheduleRequest: id } },
+      body: { note },
+    }),
+  );
+  return body.data;
+}
+
+export type ManualBookingPayload = {
+  source: "phone" | "whatsapp" | "admin";
+  customer: { phone: string; name: string | null; locale: "ar" | "en" | null };
+  address:
+    | { id: string }
+    | {
+        label: string;
+        property_type: PropertyType;
+        building: string | null;
+        unit_number: string | null;
+        street: string | null;
+        area_text: string | null;
+        lat: number;
+        lng: number;
+        access_instructions: string | null;
+        has_pets: boolean;
+        pets_note: string | null;
+        parking_available: boolean;
+        entry_permit_required: boolean;
+        cleaning_materials_available: boolean;
+      };
+  service: string;
+  service_date: string;
+  slot_template_id: number;
+  workers_count: number;
+  addons: string[];
+  priorities: CleaningArea[];
+  instructions: string | null;
+  materials_by: "customer" | "company" | null;
+  preferred_worker_id: number | null;
+  internal_note: string | null;
+  override?: boolean;
+  reason?: string | null;
+};
+
+/** Manual booking (bookings.create_manual, Idempotency-Key): held until the customer pays the link. */
+export async function createManualBooking(input: ManualBookingPayload, key: string): Promise<ManualBookingResult> {
+  const body = await unwrap<DataEnvelope<ManualBookingResult>>(
+    adminApi.POST("/v1/admin/bookings", { body: input as never, headers: idempotency(key) }),
+  );
+  return body.data;
+}
+
+/** A new checkout link for a manual booking still held (409 INVALID_STATE not_manual_booking for app bookings). */
+export async function createPaymentLink(id: number): Promise<PaymentLink> {
+  const body = await unwrap<DataEnvelope<PaymentLink>>(adminApi.POST("/v1/admin/bookings/{booking}/payment-link", { params: { path: { booking: id } } }));
+  return body.data;
+}
+
+// Assignment (assignments.manage; candidates also with schedule.view). `override` needs capacity.override.
+
+export async function fetchVisitCandidates(visitId: number): Promise<VisitCandidates> {
+  const body = await unwrap<DataEnvelope<VisitCandidates>>(adminApi.GET("/v1/admin/visits/{visit}/candidates", { params: { path: { visit: visitId } } }));
+  return body.data;
+}
+
+export type OverrideFieldsInput = { override?: boolean; reason?: string | null };
+
+/** Names exactly the missing number of workers (422 WORKERS_COUNT_MISMATCH otherwise). */
+export async function assignWorkers(visitId: number, workerIds: number[], version: number | null, extra: OverrideFieldsInput = {}): Promise<VisitSummary> {
+  const body = await unwrap<DataEnvelope<VisitSummary>>(
+    adminApi.POST("/v1/admin/visits/{visit}/assign", {
+      params: { path: { visit: visitId } },
+      body: { worker_ids: workerIds, ...extra },
+      headers: optionalIfMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function unassignWorker(visitId: number, workerId: number, reason: string, version: number | null, override = false): Promise<VisitSummary> {
+  const body = await unwrap<DataEnvelope<VisitSummary>>(
+    adminApi.POST("/v1/admin/visits/{visit}/unassign", {
+      params: { path: { visit: visitId } },
+      body: { worker_id: workerId, reason, ...(override ? { override: true } : {}) } as never,
+      headers: optionalIfMatch(version),
+    }),
+  );
+  return body.data;
+}
+
+export async function replaceWorker(
+  visitId: number,
+  input: { worker_id: number; new_worker_id: number; reason: string; override?: boolean },
+  version: number | null,
+): Promise<VisitSummary> {
+  const body = await unwrap<DataEnvelope<VisitSummary>>(
+    adminApi.POST("/v1/admin/visits/{visit}/replace", { params: { path: { visit: visitId } }, body: input as never, headers: optionalIfMatch(version) }),
+  );
+  return body.data;
+}
+
+export type VisitStatusTarget = "arrived" | "in_progress" | "completed" | "no_show_customer" | "missed_by_company";
+
+/** Operations override of a visit's status (D-01); `at` is an instant with its offset. */
+export async function setVisitStatus(
+  visitId: number,
+  input: { status: VisitStatusTarget; reason: string; at?: string | null },
+  version: number | null,
+): Promise<VisitSummary> {
+  const body = await unwrap<DataEnvelope<VisitSummary>>(
+    adminApi.POST("/v1/admin/visits/{visit}/status", { params: { path: { visit: visitId } }, body: input as never, headers: optionalIfMatch(version) }),
+  );
+  return body.data;
+}
+
+/** The booking's notifications sent log (bookings.view), newest first. */
+export async function fetchBookingNotifications(id: number, page: number): Promise<Paginated<DeliveryLogItem>> {
+  return unwrap<Paginated<DeliveryLogItem>>(
+    adminApi.GET("/v1/admin/bookings/{booking}/notifications", {
+      params: { path: { booking: id }, query: { page, per_page: 10 } as never },
+    }),
+  );
+}
+
+/**
+ * GET /admin/refunds (payments.view or refunds.create) for one customer phone: the booking page keeps the refunds of
+ * its own payments (matched by the payment's ULID or payable id) to show each one's provider status.
+ */
+export async function fetchRefundsByPhone(phone: string): Promise<AdminRefund[]> {
+  const body = await unwrap<Paginated<AdminRefund>>(
+    adminApi.GET("/v1/admin/refunds", { params: { query: compact({ phone, per_page: 50 }) as never } }),
+  );
+  return body.data;
+}
+
+// Public endpoints the wizard uses through the same proxy
+
+/** POST /public/zones/check: which zone covers a point (the API checks it again on save). */
+export async function checkZone(lat: number, lng: number): Promise<ZoneCheck> {
+  const body = await unwrap<DataEnvelope<ZoneCheck>>(adminApi.POST("/v1/public/zones/check", { body: { lat, lng } as never }));
   return body.data;
 }
