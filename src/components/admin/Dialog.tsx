@@ -54,6 +54,11 @@ type DialogProps = {
   size?: "sm" | "md" | "lg";
   /** Prevents closing by Escape or outside click (e.g. while saving). */
   dismissible?: boolean;
+  /**
+   * false: a click outside does not close it (Escape and the close button still do). For a multi-step form whose
+   * height changes between steps: the second click of a double-click can then land on the overlay.
+   */
+  closeOnOutsideClick?: boolean;
   /** Where focus goes on close when the control focused at opening is gone (see useReturnFocus). */
   returnFocusTo?: FocusTarget;
 };
@@ -81,11 +86,15 @@ export function Dialog({
   footer,
   size = "md",
   dismissible = true,
+  closeOnOutsideClick = true,
   returnFocusTo,
 }: DialogProps) {
   const focus = useReturnFocus(returnFocusTo);
   const block = (e: Event) => {
     if (!dismissible) e.preventDefault();
+  };
+  const blockOutside = (e: Event) => {
+    if (!dismissible || !closeOnOutsideClick) e.preventDefault();
   };
   return (
     <RadixDialog.Root open={open} onOpenChange={(next) => (dismissible || next ? onOpenChange(next) : undefined)}>
@@ -94,8 +103,8 @@ export function Dialog({
         <RadixDialog.Content
           {...focus}
           onEscapeKeyDown={block}
-          onPointerDownOutside={block}
-          onInteractOutside={block}
+          onPointerDownOutside={blockOutside}
+          onInteractOutside={blockOutside}
           className={clsx(
             "fixed inset-0 z-50 m-auto flex h-fit max-h-[90dvh] w-[calc(100%-2rem)] flex-col overflow-hidden rounded-lg bg-surface shadow-card",
             widths[size],

@@ -48,13 +48,33 @@ describe("NotificationTemplatesScreen", () => {
     const rows = within(confirmed).getAllByRole("row");
     expect(rows).toHaveLength(3);
     expect(rows[1]).toHaveTextContent("Push notifications");
-    expect(within(rows[1]).getByRole("link", { name: "Edit Booking confirmed, Push notifications, Arabic" })).toHaveAttribute("href", "/admin/settings/notifications/1");
-    expect(within(rows[1]).getByRole("link", { name: "Edit Booking confirmed, Push notifications, English" })).toHaveAttribute("href", "/admin/settings/notifications/2");
+    expect(within(rows[1]).getByRole("link", { name: "Edit Booking confirmed, Customers, Push notifications, Arabic" })).toHaveAttribute(
+      "href",
+      "/admin/settings/notifications/1",
+    );
+    expect(within(rows[1]).getByRole("link", { name: "Edit Booking confirmed, Customers, Push notifications, English" })).toHaveAttribute(
+      "href",
+      "/admin/settings/notifications/2",
+    );
     // The SMS has no English template in this set, and its Arabic one is switched off.
     expect(rows[2]).toHaveTextContent("Off");
     expect(rows[2]).toHaveTextContent("None");
     expect(screen.getByRole("heading", { name: "Payments and refunds" })).toBeInTheDocument();
     expect(screen.getByText("4 templates, 3 switched on.")).toBeInTheDocument();
+  });
+
+  it("names the audience in each Edit link, so a customer and a staff template of one event never share a name", async () => {
+    api.fetchNotificationTemplates.mockResolvedValue([
+      template({ event_key: "booking.requested", event_label: "Booking requested", channel: "in_app", channel_label: "In-app inbox", locale: "ar" }),
+      template({ event_key: "booking.requested", event_label: "Booking requested", channel: "in_app", channel_label: "In-app inbox", locale: "ar", audience: "staff" }),
+    ]);
+    renderWithProviders(<NotificationTemplatesScreen />, { permissions: ["settings.manage"] });
+    await screen.findByRole("table", { name: "Templates for Booking requested" });
+    const customer = screen.getByRole("link", { name: "Edit Booking requested, Customers, In-app inbox, Arabic" });
+    const staff = screen.getByRole("link", { name: "Edit Booking requested, Staff, In-app inbox, Arabic" });
+    expect(customer).not.toHaveAttribute("href", staff.getAttribute("href")!);
+    const names = screen.getAllByRole("link", { name: /^Edit / }).map((link) => link.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("filters by channel and by whether a template is sent", async () => {

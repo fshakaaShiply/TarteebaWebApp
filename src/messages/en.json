@@ -3771,6 +3771,30 @@
           "staff": "Staff",
           "customer": "Customer",
           "system": "System"
+        },
+        "reviewReason": {
+          "verifying_timeout": "The provider's result didn't arrive in time.",
+          "success_reported_for_status": "The provider reported a success after this payment had become “{status}”.",
+          "success_reported_for_another_charge": "The provider reported a second successful charge for this payment. The customer may have paid twice.",
+          "success_on_earlier_checkout_attempt": "An earlier attempt on the payment page was paid too. The customer may have paid twice.",
+          "unknown_result_on_earlier_checkout_attempt": "An earlier attempt on the payment page has no clear result yet.",
+          "amount_mismatch": "The provider reported an amount that differs from the payment.",
+          "currency_mismatch": "The provider reported a currency that differs from the payment.",
+          "booking_listener_failed": "The booking couldn't be updated after this payment.",
+          "booking_void_failed": "Releasing the held amount failed when the booking was closed.",
+          "booking_closed_void_failed": "Releasing the held amount of a closed booking failed.",
+          "invoice_amounts_mismatch": "The tax invoice wasn't issued because the amounts don't match the booking.",
+          "credit_note_not_issued": "A credit note wasn't issued for a refund of this payment.",
+          "other": "Check the event log below for what happened."
+        },
+        "voidReason": {
+          "booking_rejected": "The booking request was rejected.",
+          "booking_cancelled": "The booking was cancelled.",
+          "booking_expired": "The booking expired before it was paid.",
+          "booking_sla_expired": "The booking wasn't confirmed in time.",
+          "booking_late_payment": "The payment arrived after the booking had ended.",
+          "booking_stray_payment": "An extra payment for a booking that was already paid.",
+          "other": "Released automatically."
         }
       },
       "filters": {
@@ -3851,6 +3875,9 @@
         "refundUnavailable": "Only a payment that has been taken, with money left to refund, can be refunded.",
         "reviewTitle": "This payment needs a person to check it",
         "reviewReason": "Reason:",
+        "reviewReasonUnknown": "No reason was recorded. Check the event log below.",
+        "refreshFailed": "This payment couldn't be refreshed. What you see may be out of date.",
+        "refreshRetry": "Try again",
         "verifying": "We're still confirming this payment with the provider (since {since}). Its status updates when the provider answers.",
         "failedTitle": "The provider declined this payment",
         "payer": "Customer and booking",
@@ -3904,7 +3931,9 @@
         "invoices": {
           "title": "Tax invoice",
           "notCaptured": "An invoice is issued once the payment is taken.",
-          "none": "No invoice found for this payment yet."
+          "none": "No invoice found for this payment yet.",
+          "notLocated": "This customer has too many invoices to find this payment's invoice here.",
+          "openList": "Search the tax invoices"
         },
         "events": {
           "title": "Event log",
@@ -3982,6 +4011,8 @@
         "earlierTitle": "The first attempt was received",
         "earlierBody": "The first attempt reached us before the details changed. Show that refund before you start another one.",
         "showEarlier": "Show the refund of {amount}",
+        "declinedTitle": "The provider declined the refund of {amount}",
+        "declinedBody": "No money was refunded. Provider status: {status}.",
         "errors": {
           "amount_required": "Enter the amount to refund.",
           "amount_invalid": "Enter an amount in dirhams, for example 120 or 120.50.",
@@ -4183,7 +4214,7 @@
       },
       "missing": "None",
       "edit": "Edit",
-      "editLabel": "Edit {event}, {channel}, {language}",
+      "editLabel": "Edit {event}, {audience}, {channel}, {language}",
       "enums": {
         "audience": {
           "customer": "Customers",
@@ -4223,6 +4254,7 @@
         "placeholders": "Placeholders",
         "placeholdersHint": "Select one to insert it where the cursor is. Each is replaced with the booking's details when the message is sent.",
         "noPlaceholders": "This event has no placeholders.",
+        "insertInto": "Insert into",
         "insert": "Insert {token}: {description}",
         "active": "Send this message",
         "activeHint": "When off, this message isn't sent on this channel in this language.",
@@ -4241,6 +4273,8 @@
         "sampleEnglish": "English",
         "previewUnknown": "These placeholders don't exist for this event and show as nothing: {names}",
         "previewMissing": "There is no template in this language.",
+        "previewReady": "Preview updated.",
+        "previewRetry": "Try again",
         "errors": {
           "subject_required": "Enter a title.",
           "subject_length": "Keep the title under {max} characters.",

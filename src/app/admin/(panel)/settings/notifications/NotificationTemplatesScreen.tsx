@@ -175,10 +175,16 @@ function TemplateCell({ template, eventLabel }: { template: NotificationTemplate
     <div className="flex max-w-[320px] flex-col items-start gap-1">
       <span className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={template.is_active ? "success" : "neutral"}>{template.is_active ? t("active") : t("inactive")}</StatusBadge>
+        {/* The name has the audience too: an event can have a customer and a staff template on one channel and language. */}
         <Link
           href={`/admin/settings/notifications/${template.id}`}
           className="touch-target inline-flex items-center gap-1 text-sm font-bold"
-          aria-label={t("editLabel", { event: eventLabel, channel: template.channel_label, language: text.language(template.locale) })}
+          aria-label={t("editLabel", {
+            event: eventLabel,
+            audience: text.audience(template.audience),
+            channel: template.channel_label || text.channel(template.channel),
+            language: text.language(template.locale),
+          })}
         >
           <Pencil aria-hidden className="size-3.5" />
           {t("edit")}

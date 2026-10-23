@@ -15,6 +15,15 @@ describe("formatAed", () => {
   it("formats negative amounts", () => {
     expect(formatAed(-12050, "en")).toBe("AED -120.50");
   });
+
+  it("always shows two decimals when fixed (P2-35, as on the printed invoice)", () => {
+    expect(formatAed(12000, "en", { fixed: true })).toBe("AED 120.00");
+    expect(formatAed(12000, "ar", { fixed: true })).toBe("120.00 د.إ");
+    expect(formatAed(11429, "ar", { fixed: true })).toBe("114.29 د.إ");
+    expect(formatAed(0, "en", { fixed: true })).toBe("AED 0.00");
+    expect(formatAed(123450000, "en", { fixed: true })).toBe("AED 1,234,500.00");
+    expect(formatAed(-500, "en", { fixed: true })).toBe("AED -5.00");
+  });
 });
 
 describe("filsToAedInput", () => {

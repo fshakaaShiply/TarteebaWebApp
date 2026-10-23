@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { Button, Dialog, MoneyField, Notice, Select, TextArea, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
@@ -22,8 +22,8 @@ import {
 } from "@/lib/admin/finance/refund";
 import { keepsIdempotencyKey, type IdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import type { AdminPaymentDetail, CreateRefundPayload } from "@/lib/admin/types";
-import { Money } from "../../_components/FinanceParts";
+import type { AdminPaymentDetail, AdminRefund, CreateRefundPayload } from "@/lib/admin/types";
+import { Code, Money } from "../../_components/FinanceParts";
 import { useFinanceText } from "../../_components/financeText";
 
 /**
@@ -32,7 +32,12 @@ import { useFinanceText } from "../../_components/financeText";
  * carries an Idempotency-Key: one per refund intent, kept for a retry after a lost answer or a server error. After an
  * unknown outcome the key stays with that first request even if the form changes (the API then answers 422
  * IDEMPOTENCY_KEY_REUSED instead of refunding twice), and "Try again" resends exactly that request. The result shows
- * the provider's status: a refund is "processing" until the provider says otherwise.
+ * the provider's status: a refund is "processing" until the provider says otherwise, and one the provider declined at
+ * once (201 with status failed) keeps the dialog open with the provider's message.
+ *
+ * The confirmation is a separate step that a repeated activation of "Continue" can never pass: its buttons are new
+ * elements (keyed), focus moves to the summary, and a click that is the second of a double-click (detail > 1) on the
+ * confirm button is ignored, since in a browser it lands on whatever now sits where "Continue" was.
  */
 export function RefundDialog({ payment, keys, onClose }: { payment: AdminPaymentDetail; keys: IdempotencyKeys; onClose: () => void }) {
   const t = useTranslations("admin.finance.refund");
@@ -48,12 +53,26 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   // react-hook-form takes the resolver of the latest render, so the check follows this value.
   const [refundable, setRefundable] = useState(payment.refundable_fils);
   const [confirming, setConfirming] = useState<CreateRefundPayload | null>(null);
+  // A refund the provider refused on the spot: nothing was refunded, the form stays open to correct or try later.
+  const [declined, setDeclined] = useState<AdminRefund | null>(null);
+  const summary = useRef<HTMLDivElement>(null);
 
   const form = useForm<RefundFormValues>({
     resolver: zodResolver(refundFormSchema(refundable)) as Resolver<RefundFormValues>,
     defaultValues: initialRefundValues(payment.refundable_fils),
   });
   const reason = useWatch({ control: form.control, name: "reason_code" });
+
+  // Focus follows the step: the summary when the confirmation opens (never its Refund button, so a second Enter on
+  // "Continue" does nothing), the amount when the form comes back.
+  const step = confirming ? "confirm" : "form";
+  const shownStep = useRef(step);
+  useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
+    if (step === "confirm") summary.current?.focus();
+    else form.setFocus("amount");
+  }, [step, form]);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: adminKeys.finance() });
@@ -64,11 +83,20 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
 
   const send = useMutation({
     mutationFn: (payload: CreateRefundPayload) => createRefund(payment.id, payload, keys.keyFor({ payment: payment.id, ...payload })),
+    onMutate: () => setDeclined(null),
     onSuccess: (refund) => {
       keys.settle();
       refresh();
-      // The provider's status as it is now (spec §16): usually still processing.
-      toast.success(t("done", { amount: text.money(refund.amount_fils), status: text.refund(refund.status, refund.status_label) }));
+      if (refund.status === "failed") {
+        // 201 with the provider's refusal: no success styling, and the dialog stays.
+        setConfirming(null);
+        setDeclined(refund);
+        return;
+      }
+      // The provider's status as it is now (spec §16): usually still processing, which is not a success yet.
+      const message = t("done", { amount: text.money(refund.amount_fils), status: text.refund(refund.status, refund.status_label) });
+      if (refund.status === "succeeded") toast.success(message);
+      else toast.info(message);
       onClose();
     },
     onError: (error) => {
@@ -120,29 +148,41 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   const unhandledError =
     send.error && !outcomeUnknown && !earlierStored && refundableFromError(send.error) === null && errorCode !== "VALIDATION_FAILED" ? send.error : null;
 
+  /*
+   * The second click of a double-click on "Continue" lands on this button, or (the confirm step is shorter, so the
+   * centred dialog shrinks) on the overlay: only a deliberate activation refunds, and an outside click never closes the
+   * dialog (closeOnOutsideClick false; Escape, the close button and Cancel still do).
+   */
+  const confirm = (event: MouseEvent<HTMLButtonElement>, payload: CreateRefundPayload) => {
+    if (event.detail > 1) return;
+    send.mutate(payload);
+  };
+
   return (
     <Dialog
       open
       onOpenChange={(open) => !open && !busy && onClose()}
       dismissible={!busy}
+      closeOnOutsideClick={false}
       title={confirming ? t("confirmTitle") : t("title")}
       description={confirming ? undefined : t("description")}
       footer={
+        // Keyed: the confirm step's buttons are new elements, never the focused "Continue" button relabelled.
         confirming ? (
           <>
-            <Button variant="outline" onClick={() => setConfirming(null)} disabled={busy}>
+            <Button key="back" variant="outline" onClick={() => setConfirming(null)} disabled={busy}>
               {t("back")}
             </Button>
-            <Button variant="danger" onClick={() => send.mutate(confirming)} loading={busy}>
+            <Button key="confirm" variant="danger" onClick={(event) => confirm(event, confirming)} loading={busy}>
               {t("confirm", { amount: text.money(confirming.amount_fils) })}
             </Button>
           </>
         ) : (
           <>
-            <Button variant="outline" onClick={onClose} disabled={busy}>
+            <Button key="cancel" variant="outline" onClick={onClose} disabled={busy}>
               {t("cancel")}
             </Button>
-            <Button type="submit" form={formId} disabled={busy}>
+            <Button key="review" type="submit" form={formId} disabled={busy}>
               {t("review")}
             </Button>
           </>
@@ -150,7 +190,8 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
       }
     >
       {confirming ? (
-        <div className="flex flex-col gap-3">
+        // Focused when the step opens, so a screen reader reads the amount, customer and reason first.
+        <div ref={summary} tabIndex={-1} className="flex flex-col gap-3 outline-none">
           <dl className="flex flex-col gap-2 rounded-md bg-ivory-50 p-4 text-sm">
             <div className="flex justify-between gap-3 text-base font-bold text-ink-900">
               <dt>{t("amountToRefund")}</dt>
@@ -160,7 +201,8 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
             </div>
             <div className="flex justify-between gap-3">
               <dt>{t("customer")}</dt>
-              <dd className="text-end">{payment.customer?.name || payment.customer?.phone || "—"}</dd>
+              {/* A phone without a name is isolated LTR, so its "+" stays in front in Arabic. */}
+              <dd className="text-end">{payment.customer?.name || (payment.customer?.phone ? <Code>{payment.customer.phone}</Code> : "—")}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt>{t("reason")}</dt>
@@ -213,6 +255,20 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
         </div>
       ) : (
         <form id={formId} noValidate onSubmit={review} className="flex flex-col gap-4">
+          {declined && (
+            <Notice tone="danger" title={t("declinedTitle", { amount: text.money(declined.amount_fils) })}>
+              {declined.failure_message && <p>{declined.failure_message}</p>}
+              <p>
+                {t("declinedBody", { status: text.refund(declined.status, declined.status_label) })}
+                {declined.failure_code && (
+                  <>
+                    {" "}
+                    <Code wrap>({declined.failure_code})</Code>
+                  </>
+                )}
+              </p>
+            </Notice>
+          )}
           <MoneyField
             label={t("amount")}
             required

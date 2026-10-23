@@ -41,7 +41,17 @@ export function keepsIdempotencyKey(error: unknown): boolean {
   return error.status === 0 || error.status >= 500 || NOT_STORED.has(error.status);
 }
 
-export type IdempotencyOptions = { holdAfterUnknown?: boolean };
+/**
+ * Where a holdAfterUnknown key outlives the page (a reload, leaving and coming back): the attempt being sent, saved
+ * before it goes out and removed once the API answered with something it keeps. An attempt found there had no answer
+ * the page saw, so it is held.
+ */
+export type HeldKeyStorage = {
+  load(): { key: string; body: string } | null;
+  save(attempt: { key: string; body: string } | null): void;
+};
+
+export type IdempotencyOptions = { holdAfterUnknown?: boolean; persist?: HeldKeyStorage };
 
 export class IdempotencyKeys {
   /** `held`: an attempt with this key ended without a known outcome (holdAfterUnknown only). */
@@ -50,7 +60,10 @@ export class IdempotencyKeys {
   constructor(
     private readonly make: () => string = newIdempotencyKey,
     private readonly options: IdempotencyOptions = {},
-  ) {}
+  ) {
+    const saved = options.holdAfterUnknown ? options.persist?.load() : null;
+    if (saved) this.current = { key: saved.key, body: saved.body, held: true };
+  }
 
   /**
    * The key for this request body: unchanged while the body is the same and no answer settled the intent, and (with
@@ -59,6 +72,8 @@ export class IdempotencyKeys {
   keyFor(body: unknown): string {
     const canonical = JSON.stringify(body ?? null);
     if (!this.current || (this.current.body !== canonical && !this.current.held)) this.current = { key: this.make(), body: canonical, held: false };
+    // keyFor runs as the request goes out: until an answer settles it, a reload must find this attempt.
+    if (this.options.holdAfterUnknown) this.options.persist?.save({ key: this.current.key, body: this.current.body });
     return this.current.key;
   }
 
@@ -71,6 +86,7 @@ export class IdempotencyKeys {
     // The held key already has a stored answer for its first body: keep it, so a changed form never makes a second one.
     if (this.current?.held && error instanceof AdminApiError && error.code === "IDEMPOTENCY_KEY_REUSED") return;
     this.current = null;
+    if (this.options.holdAfterUnknown) this.options.persist?.save(null);
   }
 
   /** The request body the held key belongs to (sending it again replays the API's stored answer), else null. */

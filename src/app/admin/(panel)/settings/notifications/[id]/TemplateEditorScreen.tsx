@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { hashKey, keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import clsx from "clsx";
 import { Eye, Save } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -132,15 +133,19 @@ function TemplateEditor({ template, onReload }: { template: NotificationTemplate
   const dirty = form.formState.isDirty;
   useUnsavedChanges(dirty);
 
-  // Where a placeholder chip inserts: the field that had focus last (the body by default).
+  /*
+   * Where a placeholder chip inserts: the field that had focus last (the body by default), shown and changeable as
+   * "Insert into" above the chips. A keyboard user tabbing from the title to the chips passes the text field, so
+   * without the choice the title could only be reached with a mouse.
+   */
   const subjectRef = useRef<HTMLInputElement | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-  const lastField = useRef<FieldName>("body");
+  const [target, setTarget] = useState<FieldName>("body");
   const subjectField = form.register("subject");
   const bodyField = form.register("body");
 
   const insert = (token: string) => {
-    const field: FieldName = lastField.current === "subject" && subjectShown ? "subject" : "body";
+    const field: FieldName = target === "subject" && subjectShown ? "subject" : "body";
     const element = field === "subject" ? subjectRef.current : bodyRef.current;
     const { value, caret } = insertToken(form.getValues(field), token, element?.selectionStart ?? null, element?.selectionEnd ?? null);
     form.setValue(field, value, { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
@@ -227,9 +232,7 @@ function TemplateEditor({ template, onReload }: { template: NotificationTemplate
                   subjectField.ref(element);
                   subjectRef.current = element;
                 }}
-                onFocus={() => {
-                  lastField.current = "subject";
-                }}
+                onFocus={() => setTarget("subject")}
               />
             ) : (
               <Notice tone="neutral">{t("noSubject")}</Notice>
@@ -247,11 +250,9 @@ function TemplateEditor({ template, onReload }: { template: NotificationTemplate
                 bodyField.ref(element);
                 bodyRef.current = element;
               }}
-              onFocus={() => {
-                lastField.current = "body";
-              }}
+              onFocus={() => setTarget("body")}
             />
-            <PlaceholderChips template={original} onInsert={insert} />
+            <PlaceholderChips template={original} onInsert={insert} target={subjectShown ? target : null} onTargetChange={setTarget} />
             <Switch
               label={t("active")}
               description={t("activeHint")}
@@ -294,14 +295,48 @@ function TemplateEditor({ template, onReload }: { template: NotificationTemplate
   );
 }
 
-/** The event's placeholders as chips: a click inserts the token where the caret was (body by default). */
-function PlaceholderChips({ template, onInsert }: { template: NotificationTemplate; onInsert: (token: string) => void }) {
+/**
+ * The event's placeholders as chips: a click (or Enter) inserts the token where the caret was in the chosen field.
+ * `target` is null when the channel has no title (SMS): the text is then the only field.
+ */
+function PlaceholderChips({
+  template,
+  onInsert,
+  target,
+  onTargetChange,
+}: {
+  template: NotificationTemplate;
+  onInsert: (token: string) => void;
+  target: FieldName | null;
+  onTargetChange: (field: FieldName) => void;
+}) {
   const t = useTranslations("admin.notificationTemplates.editor");
+  const id = useId();
   if (template.placeholders.length === 0) return <p className="text-xs text-ink-600">{t("noPlaceholders")}</p>;
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 text-sm font-medium text-ink-900">{t("placeholders")}</legend>
       <p className="text-xs text-ink-600">{t("placeholdersHint")}</p>
+      {target !== null && (
+        <div role="radiogroup" aria-labelledby={`${id}-into`} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <span id={`${id}-into`} className="text-ink-600">
+            {t("insertInto")}
+          </span>
+          {(["subject", "body"] as const).map((field) => (
+            <label key={field} className="touch-target inline-flex cursor-pointer items-center gap-1.5 text-ink-900">
+              <input
+                type="radio"
+                name={`${id}-target`}
+                value={field}
+                checked={target === field}
+                onChange={() => onTargetChange(field)}
+                className="size-4 accent-petrol-700"
+              />
+              {field === "subject" ? t("subject") : t("body")}
+            </label>
+          ))}
+        </div>
+      )}
       <ul className="flex flex-wrap gap-1.5">
         {template.placeholders.map((p) => (
           <li key={p.name}>
@@ -354,19 +389,31 @@ function PreviewCard({ template, draft }: { template: NotificationTemplate; draf
   const [samples, setSamples] = useState<SampleDraft>({});
   // The preview runs for the saved text when the page opens, then for what the admin asked to preview.
   const [input, setInput] = useState<TemplatePreviewInput>({});
+  // Whether the admin pressed Preview: only then is the outcome announced.
+  const [requested, setRequested] = useState(false);
   const preview = useQuery({
     queryKey: [...adminKeys.notificationTemplate(template.id), "preview", template.version, input] as const,
     queryFn: () => previewNotificationTemplate(template.id, input),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    // The panels update in place while a new draft renders, instead of being swapped for a skeleton.
+    placeholderData: keepPreviousData,
   });
 
-  const run = () =>
-    setInput({
+  const run = () => {
+    const next: TemplatePreviewInput = {
       ...(hasSubject(template.channel) ? { subject: draft.subject } : {}),
       body: draft.body,
       payload: samplePayload(samples),
-    });
+    };
+    setRequested(true);
+    // The same draft has the same query key, so setting it again would not ask again (e.g. after an error).
+    if (hashKey([next]) === hashKey([input])) void preview.refetch();
+    else setInput(next);
+  };
+
+  // One live region that is always on the page: a region inserted already filled is often not read out.
+  const announcement = !requested || preview.isFetching ? "" : preview.isError ? describe(preview.error) : t("previewReady");
 
   const setSample = (name: string, locale: "ar" | "en", value: string) =>
     setSamples((current) => ({ ...current, [name]: { ar: current[name]?.ar ?? "", en: current[name]?.en ?? "", [locale]: value } }));
@@ -415,24 +462,39 @@ function PreviewCard({ template, draft }: { template: NotificationTemplate; draf
           </div>
         </details>
       )}
-      {preview.isPending ? (
-        <LoadingBlock lines={4} />
-      ) : preview.isError ? (
-        <Notice tone="danger">{describe(preview.error)}</Notice>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+      {preview.isError ? (
+        <Notice
+          tone="danger"
+          role="none"
+          action={
+            <Button variant="secondary" size="sm" className="self-start" onClick={() => void preview.refetch()} loading={preview.isFetching}>
+              {t("previewRetry")}
+            </Button>
+          }
+        >
+          {describe(preview.error)}
+        </Notice>
+      ) : preview.data ? (
+        <PreviewResult preview={preview.data} hasSubject={hasSubject(template.channel)} busy={preview.isFetching} />
       ) : (
-        <PreviewResult preview={preview.data} hasSubject={hasSubject(template.channel)} />
+        <LoadingBlock lines={4} />
       )}
     </Card>
   );
 }
 
-function PreviewResult({ preview, hasSubject: subjectShown }: { preview: TemplatePreview; hasSubject: boolean }) {
+function PreviewResult({ preview, hasSubject: subjectShown, busy }: { preview: TemplatePreview; hasSubject: boolean; busy: boolean }) {
   const t = useTranslations("admin.notificationTemplates.editor");
   const text = useTemplateText();
   return (
-    <div role="status" aria-live="polite" className="flex flex-col gap-3">
+    <div aria-busy={busy || undefined} className={clsx("flex flex-col gap-3 transition-opacity", busy && "opacity-60")}>
       {preview.unknown.length > 0 && (
-        <Notice tone="warning">{t("previewUnknown", { names: preview.unknown.map((n) => `{{${n}}}`).join(" ") })}</Notice>
+        <Notice tone="warning" role="none">
+          {t("previewUnknown", { names: preview.unknown.map((n) => `{{${n}}}`).join(" ") })}
+        </Notice>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         {(["ar", "en"] as const).map((locale) => (

@@ -102,7 +102,13 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   "processing" until the provider says otherwise. The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the AED
   amount against `refundable_fils` and the reason against the API's own list (`lib/admin/finance/refund.ts`, typed from
   `CreateRefundRequest`), then confirms the exact amount; its Idempotency-Key uses `holdAfterUnknown` (no If-Match on
-  refunds). PDFs come as 15-minute signed URLs, offered as a link once fetched.
+  refunds). The key store (`lib/admin/finance/refundKeys.ts`) lives above the page's loading/error switch and keeps the
+  attempt being sent in this tab's sessionStorage, so a failed refresh or a reload never starts a second refund. The
+  confirm step can't be passed by a repeated "Continue" (keyed buttons, focus on the summary, a click with detail > 1
+  ignored, no close on an outside click). A refund the provider declines at once (201, failed) keeps the dialog open.
+  A09 money always has two decimals (`formatAed(…, { fixed: true })`, P2-35), like the printed documents; narrow side
+  cards use `<Facts columns={1}>` and long references `<Code wrap>`. PDFs come as 15-minute signed URLs, offered as a
+  link once fetched.
 - **Notification templates (A11):** `src/app/admin/(panel)/settings/notifications` (list grouped by event, Arabic and
   English side by side) and `[id]` (editor: placeholders as chips inserted at the caret, on/off, optional reason, a
   preview of the draft with sample values in both languages; only changed fields are sent, version as If-Match). The

@@ -55,9 +55,12 @@ const consoleError = vi.spyOn(console, "error");
 async function open() {
   const user = userEvent.setup();
   renderWithProviders(<TemplateEditorScreen id="18" />, { permissions: ["settings.manage"] });
-  const body = (await screen.findByLabelText(/^Text/)) as HTMLTextAreaElement;
+  const body = (await screen.findByRole("textbox", { name: /^Text/ })) as HTMLTextAreaElement;
   return { user, body };
 }
+
+const subjectField = () => screen.getByRole("textbox", { name: /^Title/ }) as HTMLInputElement;
+const previewPanel = () => screen.getByRole("heading", { name: "Preview" }).closest("section")!;
 
 describe("TemplateEditorScreen", () => {
   beforeEach(() => {
@@ -78,13 +81,80 @@ describe("TemplateEditorScreen", () => {
     await user.click(screen.getByRole("button", { name: "Insert {{expires_at}}: When the suggested times expire" }));
     expect(body).toHaveValue("Choose one before {{expires_at}} please.");
 
-    const subject = screen.getByLabelText(/^Title/) as HTMLInputElement;
+    const subject = subjectField();
     await user.click(subject);
     subject.setSelectionRange(subject.value.length, subject.value.length);
     await user.click(screen.getByRole("button", { name: "Insert {{reference}}: Booking reference (TRB-…)" }));
     expect(subject).toHaveValue("Other times suggested{{reference}}");
     // The other language's template is one click away.
     expect(screen.getByRole("link", { name: "Edit the Arabic version" })).toHaveAttribute("href", "/admin/settings/notifications/17");
+  });
+
+  it("inserts into the title with the keyboard only, through the Insert into choice", async () => {
+    const { user, body } = await open();
+    const subject = subjectField();
+    const into = screen.getByRole("radiogroup", { name: "Insert into" });
+    // Focus follows the fields: tabbing from the title to the chips passes the text, which becomes the target.
+    subject.focus();
+    await user.tab();
+    expect(body).toHaveFocus();
+    expect(within(into).getByRole("radio", { name: "Text" })).toBeChecked();
+    await user.tab({ shift: true });
+    expect(subject).toHaveFocus();
+    expect(within(into).getByRole("radio", { name: "Title" })).toBeChecked();
+    subject.setSelectionRange(0, 0);
+    await user.tab();
+    expect(within(into).getByRole("radio", { name: "Text" })).toBeChecked();
+
+    // The admin picks the title in the radio group and presses Enter on a chip: no pointer involved.
+    within(into).getByRole("radio", { name: "Title" }).focus();
+    await user.keyboard(" ");
+    expect(within(into).getByRole("radio", { name: "Title" })).toBeChecked();
+    screen.getByRole("button", { name: "Insert {{reference}}: Booking reference (TRB-…)" }).focus();
+    await user.keyboard("{Enter}");
+    expect(subject).toHaveValue("{{reference}}Other times suggested");
+    expect(body).toHaveValue("Choose one before  please.");
+  });
+
+  it("offers no title target for a channel without a title", async () => {
+    api.fetchNotificationTemplate.mockResolvedValue(template({ channel: "sms", channel_label: "Text messages (SMS)", subject: null }));
+    await open();
+    expect(screen.queryByRole("radiogroup", { name: "Insert into" })).not.toBeInTheDocument();
+  });
+
+  it("asks again when Preview is pressed after an error with the same draft, and offers a retry", async () => {
+    const { user } = await open();
+    await within(previewPanel()).findByText("Choose one before Tuesday 3 November, 18:00 please.");
+    api.previewNotificationTemplate.mockRejectedValue(AdminApiError.network());
+    await user.click(within(previewPanel()).getByRole("button", { name: "Preview" }));
+    expect(await within(previewPanel()).findByRole("button", { name: "Try again" })).toBeInTheDocument();
+    const calls = api.previewNotificationTemplate.mock.calls.length;
+
+    // Same draft, same query key: pressing Preview must still ask the API again.
+    await user.click(within(previewPanel()).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(api.previewNotificationTemplate.mock.calls.length).toBe(calls + 1));
+
+    api.previewNotificationTemplate.mockResolvedValue(preview());
+    await user.click(await within(previewPanel()).findByRole("button", { name: "Try again" }));
+    expect(await within(previewPanel()).findByText("Choose one before Tuesday 3 November, 18:00 please.")).toBeInTheDocument();
+    expect(api.previewNotificationTemplate.mock.calls.length).toBe(calls + 2);
+  });
+
+  it("announces each requested preview in a live region that stays on the page", async () => {
+    const { user, body } = await open();
+    await within(previewPanel()).findByText("Choose one before Tuesday 3 November, 18:00 please.");
+    // The preview shown on open was not asked for: nothing is announced.
+    const live = within(previewPanel()).getByRole("status");
+    expect(live).toBeEmptyDOMElement();
+
+    api.previewNotificationTemplate.mockResolvedValue(preview({ en: { subject: "Other times suggested", body: "Pick a time." } }));
+    await user.clear(body);
+    await user.click(body);
+    await user.paste("Pick a time.");
+    await user.click(within(previewPanel()).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(live).toHaveTextContent("Preview updated."));
+    expect(within(previewPanel()).getByRole("status")).toBe(live);
+    expect(within(previewPanel()).getByText("Pick a time.")).toBeInTheDocument();
   });
 
   it("refuses placeholders the event does not offer before saving", async () => {

@@ -12,24 +12,33 @@ import { useNow } from "@/lib/admin/hooks";
 import type { DocumentUrl, SupplierBlock } from "@/lib/admin/types";
 import { useFinanceText } from "./financeText";
 
-/** A label and its value, in a two-column list that wraps on small screens. */
-export function Facts({ children, className }: { children: ReactNode; className?: string }) {
-  return <dl className={clsx("grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2", className)}>{children}</dl>;
+/**
+ * Labels and their values. `columns={2}` (the default) is a two-column list from sm up, for a full-width card;
+ * `columns={1}` is for the narrow side cards of the detail pages (a third of the page from xl up), where two columns
+ * would leave about 120px each. A prop rather than a class override: clsx does not merge Tailwind classes, so
+ * "sm:grid-cols-2 sm:grid-cols-1" kept two columns.
+ */
+export function Facts({ children, columns = 2 }: { children: ReactNode; columns?: 1 | 2 }) {
+  return <dl className={clsx("grid min-w-0 gap-x-6 gap-y-2.5 text-sm", columns === 2 ? "sm:grid-cols-2" : "grid-cols-1")}>{children}</dl>;
 }
 
 export function Fact({ label, children, wide }: { label: ReactNode; children: ReactNode; wide?: boolean }) {
   return (
-    <div className={clsx("flex min-w-0 flex-col gap-0.5", wide && "sm:col-span-2")}>
+    // col-span-full spans both columns of a two-column list and adds no implicit column to a one-column list.
+    <div className={clsx("flex min-w-0 flex-col gap-0.5", wide && "col-span-full")}>
       <dt className="text-xs font-medium text-ink-600">{label}</dt>
       <dd className="min-w-0 break-words text-ink-900">{children}</dd>
     </div>
   );
 }
 
-/** A reference, id or code in Latin characters, isolated so it keeps its order in Arabic text. */
-export function Code({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * A reference, id or code in Latin characters, isolated so it keeps its order in Arabic text. `wrap` lets a long
+ * reference (a provider reference, a ULID) break anywhere when it does not fit, so it never widens its card or the page.
+ */
+export function Code({ children, className, wrap }: { children: ReactNode; className?: string; wrap?: boolean }) {
   return (
-    <bdi dir="ltr" className={clsx("font-latin", className)}>
+    <bdi dir="ltr" className={clsx("font-latin", wrap && "wrap-anywhere", className)}>
       {children}
     </bdi>
   );
@@ -157,13 +166,16 @@ function SupplierValue({ value, placeholder }: { value: string; placeholder: boo
   return <span className={clsx(placeholder && "font-medium text-danger-700 italic")}>{value}</span>;
 }
 
-/** The supplier block of an invoice or credit note, as printed on the PDF (spec §9.3; R-16 placeholders marked). */
+/**
+ * The supplier block of an invoice or credit note, as printed on the PDF (spec §9.3; R-16 placeholders marked). It
+ * sits in the pages' narrow side column, so its facts are one column.
+ */
 export function SupplierCard({ supplier, extra }: { supplier: SupplierBlock; extra?: ReactNode }) {
   const t = useTranslations("admin.finance.document");
   const placeholders = supplier.address_is_placeholder || supplier.trn_is_placeholder;
   return (
     <Card title={t("supplier")}>
-      <Facts>
+      <Facts columns={1}>
         <Fact label={t("supplierName")}>{supplier.name}</Fact>
         <Fact label={t("supplierTrn")}>
           <SupplierValue value={supplier.trn} placeholder={supplier.trn_is_placeholder} />

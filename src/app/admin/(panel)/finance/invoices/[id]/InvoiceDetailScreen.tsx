@@ -80,7 +80,7 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
             <p className="text-sm font-medium text-ink-600">{t("documentTitle")}</p>
             <h1 id="invoice-title" className="text-[26px]/[34px] font-bold text-ink-900">
               <span className="sr-only">{t("titlePrefix")} </span>
-              <Code>{invoice.number}</Code>
+              <Code wrap>{invoice.number}</Code>
             </h1>
             <span className="flex flex-wrap items-center gap-1.5">
               <StatusBadge tone={invoiceTone[invoice.status] ?? "neutral"}>{text.invoice(invoice.status, invoice.status_label)}</StatusBadge>
@@ -103,7 +103,7 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
         </div>
         <div className="flex min-w-0 flex-col gap-5">
           <Card title={t("details")}>
-            <Facts className="sm:grid-cols-1">
+            <Facts columns={1}>
               <Fact label={t("issueDate")}>{text.date(invoice.issue_date)}</Fact>
               <Fact label={t("supplyDate")}>{text.date(invoice.supply_date)}</Fact>
               <Fact label={t("issuedAt")}>{text.dateTime(invoice.issued_at)}</Fact>
@@ -115,30 +115,35 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
               </Fact>
               {invoice.customer_trn && (
                 <Fact label={t("customerTrn")}>
-                  <Code>{invoice.customer_trn}</Code>
+                  <Code wrap>{invoice.customer_trn}</Code>
                 </Fact>
               )}
               <Fact label={t("booking")}>
                 {invoice.booking.reference ? (
                   invoice.booking.id !== null && can("bookings.view") ? (
                     <Link href={`/admin/bookings/${invoice.booking.id}`} className="font-medium">
-                      <Code>{invoice.booking.reference}</Code>
+                      <Code wrap>{invoice.booking.reference}</Code>
                     </Link>
                   ) : (
-                    <Code>{invoice.booking.reference}</Code>
+                    <Code wrap>{invoice.booking.reference}</Code>
                   )
                 ) : (
                   "—"
                 )}
               </Fact>
               <Fact label={t("payment")}>
-                <span className="flex flex-wrap items-center gap-1.5">
+                {/* A provider reference has no break opportunities: min-w-0 and wrap keep it inside the card. */}
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
                   {can("payments.view") ? (
-                    <Link href={`/admin/finance/payments/${invoice.payment.id}`} className="font-medium">
-                      <Code className="text-xs">{invoice.payment.gateway_payment_ref ?? invoice.payment.ulid}</Code>
+                    <Link href={`/admin/finance/payments/${invoice.payment.id}`} className="min-w-0 font-medium">
+                      <Code wrap className="text-xs">
+                        {invoice.payment.gateway_payment_ref ?? invoice.payment.ulid}
+                      </Code>
                     </Link>
                   ) : (
-                    <Code className="text-xs">{invoice.payment.gateway_payment_ref ?? invoice.payment.ulid}</Code>
+                    <Code wrap className="min-w-0 text-xs">
+                      {invoice.payment.gateway_payment_ref ?? invoice.payment.ulid}
+                    </Code>
                   )}
                   <StatusBadge tone={paymentTone[invoice.payment.status] ?? "neutral"}>{text.payment(invoice.payment.status)}</StatusBadge>
                 </span>

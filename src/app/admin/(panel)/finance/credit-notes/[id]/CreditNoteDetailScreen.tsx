@@ -83,7 +83,7 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
             <p className="text-sm font-medium text-ink-600">{t("documentTitle")}</p>
             <h1 id="credit-note-title" className="text-[26px]/[34px] font-bold text-ink-900">
               <span className="sr-only">{t("titlePrefix")} </span>
-              <Code>{note.number}</Code>
+              <Code wrap>{note.number}</Code>
             </h1>
             <p className="text-sm text-ink-600">
               {t("summary", { total: text.money(note.total_fils), invoice: note.invoice.number, date: text.date(note.issue_date) })}
@@ -106,16 +106,16 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
         </div>
         <div className="flex min-w-0 flex-col gap-5">
           <Card title={t("details")}>
-            <Facts className="sm:grid-cols-1">
+            <Facts columns={1}>
               <Fact label={t("invoice")}>
                 <Link href={`/admin/finance/invoices/${note.invoice.id}`} className="font-medium">
-                  <Code>{note.invoice.number}</Code>
+                  <Code wrap>{note.invoice.number}</Code>
                 </Link>
               </Fact>
               <Fact label={t("issueDate")}>{text.date(note.issue_date)}</Fact>
               <Fact label={t("issuedAt")}>{text.dateTime(note.issued_at)}</Fact>
               <Fact label={t("customer")}>{note.customer.name || t("noName")}</Fact>
-              <Fact label={t("booking")}>{note.booking_reference ? <Code>{note.booking_reference}</Code> : "—"}</Fact>
+              <Fact label={t("booking")}>{note.booking_reference ? <Code wrap>{note.booking_reference}</Code> : "—"}</Fact>
               <Fact label={t("reason")}>
                 <span className="flex flex-col">
                   <span>{text.reason(note.reason_code)}</span>

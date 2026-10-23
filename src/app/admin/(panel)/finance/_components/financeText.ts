@@ -60,8 +60,19 @@ export function useFinanceText() {
       problem: (value: string) => label("problem", value),
       source: (value: string) => label("eventSource", value),
       requester: (value: string) => label("requester", value),
-      /** "120.00" style amounts in tables use the full "AED 120" form (D-13 Latin digits). */
-      money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale)),
+      /**
+       * Finance amounts always carry two decimals, "AED 120.00" / "120.00 د.إ" (P2-35, D-13 Latin digits), so a
+       * column never mixes "120" with "114.29" and the page reads like the printed invoice.
+       */
+      money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale, { fixed: true })),
+      /** Why the payment was handed to a person (Payment review_reason codes); the raw code stays as detail. */
+      reviewReason: (code: string) => {
+        const after = /^success_reported_for_([a-z_]+)_payment$/.exec(code);
+        if (after && after[1] !== "another_charge") return t("reviewReason.success_reported_for_status", { status: label("payment", after[1]) });
+        return t.has(`reviewReason.${code}`) ? t(`reviewReason.${code}`) : t("reviewReason.other");
+      },
+      /** Why a held amount was released (VoidPayment reasons from the booking flows). */
+      voidReason: (code: string) => (t.has(`voidReason.${code}`) ? t(`voidReason.${code}`) : t("voidReason.other")),
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
       /** A bilingual text from the API in the page language, else the other one. */

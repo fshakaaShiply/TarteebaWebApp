@@ -94,12 +94,32 @@ describe("InvoiceDetailScreen", () => {
     expect(row).toHaveTextContent("5%");
     expect(row).toHaveTextContent("AED 5.71");
     expect(screen.getByText("VAT (5%)").nextSibling).toHaveTextContent("AED 5.71");
-    expect(screen.getByText("Total (AED)").nextSibling).toHaveTextContent("AED 120");
-    expect(screen.getByText("Credited by credit notes").nextSibling).toHaveTextContent("AED 60");
+    // Two decimals like the API's total_text and the printed PDF (P2-35), never "AED 120" next to "AED 114.29".
+    expect(screen.getByText("Total (AED)").nextSibling).toHaveTextContent(/^AED 120\.00$/);
+    expect(screen.getByText("Total (AED)").nextSibling).toHaveTextContent(invoice().total_text);
+    expect(screen.getByText("Credited by credit notes").nextSibling).toHaveTextContent(/^AED 60\.00$/);
     expect(screen.getByRole("link", { name: "CN-2026-000003" })).toHaveAttribute("href", "/admin/finance/credit-notes/3");
     expect(screen.getByRole("link", { name: "TRB-QHKXMS" })).toHaveAttribute("href", "/admin/bookings/9");
     // Resending needs invoices.manage.
     expect(screen.queryByRole("button", { name: /Resend by email/ })).not.toBeInTheDocument();
+  });
+
+  it("lays the narrow side cards out in one column, and lets long references wrap", async () => {
+    api.fetchInvoice.mockResolvedValue(invoice({ payment: { ...invoice().payment, gateway_payment_ref: "fpay_7772c804095fe589f3ac02b5" } }));
+    renderWithProviders(<InvoiceDetailScreen id="4" />, { permissions: ["payments.view"] });
+    const details = (await screen.findByRole("heading", { name: "Invoice details" })).closest("section")!;
+    const supplier = screen.getByRole("heading", { name: "Supplier" }).closest("section")!;
+    for (const card of [details, supplier]) {
+      const list = card.querySelector("dl")!;
+      // The old class override left "sm:grid-cols-2 sm:grid-cols-1", and two columns won.
+      expect(list.className).not.toMatch(/sm:grid-cols-2/);
+      expect(list).toHaveClass("grid-cols-1");
+    }
+    // The supplier address still spans the whole (single) column without adding an implicit second one.
+    expect(within(supplier).getByText("Address").parentElement).toHaveClass("col-span-full");
+    const reference = within(details).getByText("fpay_7772c804095fe589f3ac02b5");
+    expect(reference).toHaveClass("wrap-anywhere");
+    expect(screen.getByRole("heading", { level: 1 }).querySelector("bdi")).toHaveClass("wrap-anywhere");
   });
 
   it("downloads the PDF through a short-lived signed link", async () => {

@@ -7,10 +7,13 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, StatusBadge } from "@/components/admin";
 import { fetchInvoices, fetchPayment } from "@/lib/admin/endpoints";
+import { useAdminErrorMessage } from "@/lib/admin/errors";
+import { INVOICE_PAGE_SIZE, findPaymentInvoices, invoicesFromDate } from "@/lib/admin/finance/paymentInvoices";
 import { canRefund } from "@/lib/admin/finance/refund";
-import { useIdempotencyKeys } from "@/lib/admin/idempotency";
+import { refundKeysFor } from "@/lib/admin/finance/refundKeys";
+import type { IdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import { DOCUMENTS_READ, PAYMENTS_PATH } from "@/lib/admin/nav";
+import { DOCUMENTS_READ, INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminPaymentDetail, AdminRefund, PaymentEvent } from "@/lib/admin/types";
 import { RequirePermission } from "../../../../_components/RequirePermission";
@@ -27,13 +30,15 @@ import { RefundDialog } from "./RefundDialog";
 export function PaymentDetailScreen({ id }: { id: string }) {
   return (
     <RequirePermission anyOf={["payments.view"]}>
-      <PaymentDetailContent id={id} />
+      {/* Keyed by id: another payment's page never inherits this one's refund key or dialog. */}
+      <PaymentDetailContent key={id} id={id} />
     </RequirePermission>
   );
 }
 
 function PaymentDetailContent({ id }: { id: string }) {
   const t = useTranslations("admin.finance.payment");
+  const describe = useAdminErrorMessage();
   const numericId = /^\d{1,10}$/.test(id) ? Number(id) : null;
   // No timed refresh (StaffIdleTimeout counts admin reads as activity): it refreshes on focus, after a refund and on demand.
   const payment = useQuery({
@@ -42,53 +47,73 @@ function PaymentDetailContent({ id }: { id: string }) {
     enabled: numericId !== null,
     refetchOnWindowFocus: true,
   });
+  /*
+   * The refund key store lives above the loading/error switch, so a failed refresh (the refund's own refresh after a
+   * lost answer, or one on window focus) never drops the key of a refund whose outcome is unknown. The attempt is also
+   * kept for this tab (refundKeys.ts), so a reload offers the same refund again instead of a new one.
+   */
+  const [refundKeys] = useState(() => (numericId === null ? null : refundKeysFor(numericId)));
+  const data = payment.data;
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <BackLink href={PAYMENTS_PATH}>{t("back")}</BackLink>
-        {payment.data && (
+        {data && (
           <Button variant="ghost" size="sm" onClick={() => void payment.refetch()} loading={payment.isFetching} icon={<RefreshCw aria-hidden className="size-4" />}>
             {t("refresh")}
           </Button>
         )}
       </div>
-      {numericId === null ? (
+      {numericId === null || refundKeys === null ? (
         <Card>
           <EmptyState title={t("notFound")} />
         </Card>
-      ) : payment.isPending ? (
-        <LoadingBlock lines={10} className="rounded-lg bg-surface p-5 shadow-card" />
+      ) : data ? (
+        <>
+          {/* A refresh that failed keeps the page (and an open refund dialog) as last loaded. */}
+          {payment.isError && (
+            <Notice
+              tone="danger"
+              title={t("refreshFailed")}
+              action={
+                <Button variant="secondary" size="sm" className="self-start" onClick={() => void payment.refetch()} loading={payment.isFetching}>
+                  {t("refreshRetry")}
+                </Button>
+              }
+            >
+              {describe(payment.error)}
+            </Notice>
+          )}
+          <PaymentView payment={data} refundKeys={refundKeys} />
+        </>
       ) : payment.isError ? (
         <Card>
           <ErrorState error={payment.error} onRetry={() => void payment.refetch()} />
         </Card>
       ) : (
-        // Keyed by payment: another payment's page never inherits this one's refund key or dialog.
-        <PaymentView key={payment.data.id} payment={payment.data} />
+        <LoadingBlock lines={10} className="rounded-lg bg-surface p-5 shadow-card" />
       )}
     </>
   );
 }
 
-function PaymentView({ payment }: { payment: AdminPaymentDetail }) {
+function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; refundKeys: IdempotencyKeys }) {
   const t = useTranslations("admin.finance.payment");
   const text = useFinanceText();
   const { can } = useAdminSession();
   const [refunding, setRefunding] = useState(false);
   const refundable = canRefund(payment);
-  // One key store per payment page: a refund whose outcome is unknown keeps its key when the dialog is closed and opened
-  // again, so a second try can never refund the customer twice (refunds have no If-Match).
-  const refundKeys = useIdempotencyKeys({ holdAfterUnknown: true });
 
   return (
     <>
       <section aria-labelledby="payment-title" className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
+            {/* A provider reference is one long word: it wraps instead of widening the page on a phone. */}
             <h1 id="payment-title" className="text-[26px]/[34px] font-bold text-ink-900">
               <span className="sr-only">{t("titlePrefix")} </span>
-              <Code>{payment.gateway_payment_ref ?? payment.ulid}</Code>
+              <Code wrap>{payment.gateway_payment_ref ?? payment.ulid}</Code>
             </h1>
             <span className="flex flex-wrap items-center gap-1.5">
               <StatusBadge tone={paymentTone[payment.status] ?? "neutral"}>
@@ -112,10 +137,13 @@ function PaymentView({ payment }: { payment: AdminPaymentDetail }) {
         </div>
         {payment.needs_review && (
           <Notice tone="warning" title={t("reviewTitle")}>
+            <p>
+              {t("reviewReason")} {payment.review_reason ? text.reviewReason(payment.review_reason) : t("reviewReasonUnknown")}
+            </p>
             {payment.review_reason && (
-              <p>
-                {t("reviewReason")} <Code className="text-xs">{payment.review_reason}</Code>
-              </p>
+              <Code wrap className="text-xs font-normal opacity-80">
+                {payment.review_reason}
+              </Code>
             )}
           </Notice>
         )}
@@ -125,7 +153,11 @@ function PaymentView({ payment }: { payment: AdminPaymentDetail }) {
         {payment.status === "failed" && (payment.failure_code || payment.failure_message) && (
           <Notice tone="danger" title={t("failedTitle")}>
             {payment.failure_message && <p>{payment.failure_message}</p>}
-            {payment.failure_code && <Code className="text-xs">{payment.failure_code}</Code>}
+            {payment.failure_code && (
+              <Code wrap className="text-xs">
+                {payment.failure_code}
+              </Code>
+            )}
           </Notice>
         )}
       </section>
@@ -176,7 +208,7 @@ function PayerCard({ payment }: { payment: AdminPaymentDetail }) {
   const { can } = useAdminSession();
   return (
     <Card title={t("payer")}>
-      <Facts className="sm:grid-cols-1">
+      <Facts columns={1}>
         <Fact label={t("customer")}>
           {payment.customer ? (
             <span className="flex flex-col">
@@ -208,12 +240,14 @@ function ProviderCard({ payment }: { payment: AdminPaymentDetail }) {
   const text = useFinanceText();
   return (
     <Card title={t("title")}>
-      <Facts className="sm:grid-cols-1">
+      <Facts columns={1}>
         <Fact label={t("gateway")}>
           <Code>{payment.gateway}</Code>
         </Fact>
         <Fact label={t("reference")}>
-          <Code className="text-xs">{payment.gateway_payment_ref ?? "—"}</Code>
+          <Code wrap className="text-xs">
+            {payment.gateway_payment_ref ?? "—"}
+          </Code>
         </Fact>
         <Fact label={t("method")}>
           {payment.card ? (
@@ -234,24 +268,32 @@ function ProviderCard({ payment }: { payment: AdminPaymentDetail }) {
           </Fact>
         )}
         <Fact label={t("ulid")}>
-          <Code className="text-xs">{payment.ulid}</Code>
+          <Code wrap className="text-xs">
+            {payment.ulid}
+          </Code>
         </Fact>
         {payment.gateway_session_ref && (
           <Fact label={t("session")}>
-            <Code className="text-xs">{payment.gateway_session_ref}</Code>
+            <Code wrap className="text-xs">
+              {payment.gateway_session_ref}
+            </Code>
           </Fact>
         )}
         <Fact label={t("authorizedAt")}>{payment.authorized_at ? text.dateTime(payment.authorized_at) : "—"}</Fact>
         <Fact label={t("capturedAt")}>{payment.captured_at ? text.dateTime(payment.captured_at) : "—"}</Fact>
         {payment.voided_at && (
           <Fact label={t("voidedAt")}>
-            {text.dateTime(payment.voided_at)}
-            {payment.void_reason && (
-              <>
-                {" · "}
-                <Code className="text-xs">{payment.void_reason}</Code>
-              </>
-            )}
+            <span className="flex flex-col gap-0.5">
+              <span>{text.dateTime(payment.voided_at)}</span>
+              {payment.void_reason && (
+                <>
+                  <span>{text.voidReason(payment.void_reason)}</span>
+                  <Code wrap className="text-xs text-ink-600">
+                    {payment.void_reason}
+                  </Code>
+                </>
+              )}
+            </span>
           </Fact>
         )}
       </Facts>
@@ -314,8 +356,8 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
           )}
           <span className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
             {r.gateway_refund_ref && (
-              <span className="text-ink-600">
-                {t("providerRef")} <Code>{r.gateway_refund_ref}</Code>
+              <span className="min-w-0 text-ink-600">
+                {t("providerRef")} <Code wrap>{r.gateway_refund_ref}</Code>
               </span>
             )}
             {r.credit_note_id !== null && canAny(DOCUMENTS_READ) && (
@@ -330,17 +372,22 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
   );
 }
 
-/** Tax invoices issued for this payment (the customer's invoices, this payment's only). */
+/**
+ * Tax invoices issued for this payment: the customer's invoices issued since the payment was created, every page of
+ * them, this payment's only (findPaymentInvoices; the API has no payment filter yet).
+ */
 function InvoicesCard({ payment }: { payment: AdminPaymentDetail }) {
   const t = useTranslations("admin.finance.payment.invoices");
   const text = useFinanceText();
   const customerId = payment.customer?.id ?? null;
+  const from = invoicesFromDate(payment.created_at);
   const invoices = useQuery({
-    queryKey: adminKeys.customerInvoices(customerId ?? 0),
-    queryFn: () => fetchInvoices({ customerId: customerId as number, perPage: 100 }),
+    queryKey: [...adminKeys.customerInvoices(customerId ?? 0), "payment", payment.id, from ?? ""] as const,
+    queryFn: () =>
+      findPaymentInvoices(payment.id, (page) => fetchInvoices({ customerId: customerId as number, from, page, perPage: INVOICE_PAGE_SIZE })),
     enabled: customerId !== null && payment.captured_fils > 0,
-    select: (page) => page.data.filter((invoice) => invoice.payment.id === payment.id),
   });
+  const found = invoices.data?.invoices ?? [];
 
   return (
     <Card title={t("title")}>
@@ -350,14 +397,24 @@ function InvoicesCard({ payment }: { payment: AdminPaymentDetail }) {
         <LoadingBlock lines={2} />
       ) : invoices.isError ? (
         <ErrorState error={invoices.error} onRetry={() => void invoices.refetch()} className="py-4" />
-      ) : !invoices.data || invoices.data.length === 0 ? (
-        <p className="text-sm text-ink-600">{t("none")}</p>
+      ) : found.length === 0 ? (
+        invoices.data && !invoices.data.complete ? (
+          // Stopped before the customer's last page: never claim there is no invoice.
+          <p className="text-sm text-ink-600">
+            {t("notLocated")}{" "}
+            <Link href={INVOICES_PATH} className="font-medium">
+              {t("openList")}
+            </Link>
+          </p>
+        ) : (
+          <p className="text-sm text-ink-600">{t("none")}</p>
+        )
       ) : (
         <ul className="flex flex-col gap-2 text-sm">
-          {invoices.data.map((invoice) => (
+          {found.map((invoice) => (
             <li key={invoice.id} className="flex flex-wrap items-center gap-2">
-              <Link href={`/admin/finance/invoices/${invoice.id}`} className="font-bold">
-                <Code>{invoice.number}</Code>
+              <Link href={`/admin/finance/invoices/${invoice.id}`} className="min-w-0 font-bold">
+                <Code wrap>{invoice.number}</Code>
               </Link>
               <StatusBadge tone={invoiceTone[invoice.status] ?? "neutral"}>{text.invoice(invoice.status, invoice.status_label)}</StatusBadge>
               <Money fils={invoice.total_fils} className="text-ink-600" />
@@ -392,7 +449,7 @@ function EventsCard({ events }: { events: PaymentEvent[] }) {
                 {event.provider_event_id && (
                   <>
                     {" · "}
-                    <Code>{event.provider_event_id}</Code>
+                    <Code wrap>{event.provider_event_id}</Code>
                   </>
                 )}
               </span>

@@ -3,13 +3,17 @@
 
 const FILS_PER_AED = 100;
 
-export function formatAed(fils: number, locale: string): string {
+/**
+ * "AED 120" / "120 د.إ" (whole dirhams without decimals), or with `fixed` always two decimals: "AED 120.00" /
+ * "120.00 د.إ", the form of decision P2-35 and of the printed tax documents (A09 finance uses it).
+ */
+export function formatAed(fils: number, locale: string, { fixed = false }: { fixed?: boolean } = {}): string {
   const negative = fils < 0;
   const abs = Math.abs(fils);
   const whole = Math.floor(abs / FILS_PER_AED);
   const rest = abs % FILS_PER_AED;
   const grouped = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(whole);
-  const amount = `${negative ? "-" : ""}${grouped}${rest === 0 ? "" : `.${String(rest).padStart(2, "0")}`}`;
+  const amount = `${negative ? "-" : ""}${grouped}${rest === 0 && !fixed ? "" : `.${String(rest).padStart(2, "0")}`}`;
   return locale === "ar" ? `${amount} د.إ` : `AED ${amount}`;
 }
 
