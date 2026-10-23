@@ -26,7 +26,8 @@ import type { AdminAlert } from "@/lib/admin/types";
 /**
  * The top bar's alerts bell (spec §12 admin alerts, §17; D-11): the signed-in member's alerts, polled every 20 seconds
  * (the API's poll_seconds) while the tab is visible, with the unread count on the bell. The list opens in a popover;
- * each alert can be marked read and opens its booking (or other built page). Urgent alerts are marked.
+ * each alert can be marked read and opens its booking (or other built page). Urgent alerts are marked. New arrivals
+ * are announced to screen readers in a polite live region.
  */
 export function AlertsBell() {
   const t = useTranslations("admin.alerts");
@@ -51,6 +52,15 @@ export function AlertsBell() {
     retry: false,
   });
   const unread = alerts.data?.unreadCount ?? 0;
+  const arrived = alerts.data?.arrived;
+  const announcement =
+    !arrived || arrived.count === 0
+      ? null
+      : arrived.urgent === 0
+        ? t("announceNew", { count: arrived.count })
+        : arrived.urgent === arrived.count
+          ? t("announceUrgent", { count: arrived.count })
+          : t("announceMixed", { count: arrived.count, urgent: arrived.urgent });
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +82,11 @@ export function AlertsBell() {
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
+      {/* Alerts a poll brings are announced politely (the badge and the button's name change silently). A new node per
+          poll that brought some, so the same words are read again. */}
+      <p role="status" className="sr-only">
+        {announcement && arrived && <span key={arrived.seq}>{announcement}</span>}
+      </p>
       <button
         ref={buttonRef}
         type="button"

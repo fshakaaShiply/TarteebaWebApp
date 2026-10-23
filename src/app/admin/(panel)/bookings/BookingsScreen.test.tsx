@@ -98,6 +98,37 @@ describe("A03 bookings list", () => {
     expect(await screen.findByRole("combobox", { name: "Zone" })).toHaveValue("2");
   });
 
+  it("starts another zone on page 1, like every other filter (page 3 of one zone may not exist in the next)", async () => {
+    url.set("/admin/bookings?status=confirmed&page=3");
+    api.fetchBookings.mockImplementation(async (q: { page: number }) => ({
+      data: [bookingRow()],
+      meta: { current_page: q.page, per_page: 25, total: 60, last_page: 3 },
+    }));
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    const user = userEvent.setup();
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+    expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3, zoneId: null }));
+
+    api.fetchBookings.mockClear();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Zone" }), "2");
+    await waitFor(() => expect(url.get().toString()).toBe("status=confirmed"));
+    // The new zone is never asked for the old page.
+    expect(api.fetchBookings).toHaveBeenCalled();
+    for (const [q] of api.fetchBookings.mock.calls) expect(q).toMatchObject({ page: 1, zoneId: 2 });
+  });
+
+  it("goes back to the last page when the asked page is past it, instead of saying there are no bookings", async () => {
+    url.set("/admin/bookings?page=4");
+    api.fetchBookings.mockImplementation(async (q: { page: number }) => ({
+      data: q.page > 2 ? [] : [bookingRow()],
+      meta: { current_page: q.page, per_page: 25, total: 30, last_page: 2 },
+    }));
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    await waitFor(() => expect(url.get().toString()).toBe("page=2"));
+    expect(await screen.findByRole("link", { name: "TRB-R4RYSD" })).toBeInTheDocument();
+    expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+  });
+
   it("shows status and payment as two chips, with the confirmation countdown", async () => {
     renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
     const row = (await screen.findByRole("link", { name: "TRB-R4RYSD" })).closest("tr")!;

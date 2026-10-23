@@ -13,6 +13,12 @@ import { AdminApiError } from "./client";
  *   - one UUID per intent (one request body), reused while the attempt may be retried;
  *   - a changed body (another reason, another slot) is a new intent with a new key;
  *   - after an answer the API kept (success or a 4xx such as STALE_VERSION), the next attempt is a new intent.
+ *
+ * `holdAfterUnknown` (the manual booking, which has no If-Match to catch a repeat): after an attempt whose outcome is
+ * unknown (5xx, lost answer, the /backend proxy's own 502 while PHP may still finish), the key stays with that first
+ * body even when the form changes. A repeat then either goes through (the first attempt stored nothing) or answers
+ * 422 IDEMPOTENCY_KEY_REUSED (the first attempt was stored, e.g. a booking was created): the key stays held, and
+ * sending the held body again replays the stored answer instead of creating a second booking.
  */
 
 /** A random UUID v4 (crypto.randomUUID needs a secure context; getRandomValues does not). */
@@ -35,26 +41,46 @@ export function keepsIdempotencyKey(error: unknown): boolean {
   return error.status === 0 || error.status >= 500 || NOT_STORED.has(error.status);
 }
 
+export type IdempotencyOptions = { holdAfterUnknown?: boolean };
+
 export class IdempotencyKeys {
-  private current: { key: string; body: string } | null = null;
+  /** `held`: an attempt with this key ended without a known outcome (holdAfterUnknown only). */
+  private current: { key: string; body: string; held: boolean } | null = null;
 
-  constructor(private readonly make: () => string = newIdempotencyKey) {}
+  constructor(
+    private readonly make: () => string = newIdempotencyKey,
+    private readonly options: IdempotencyOptions = {},
+  ) {}
 
-  /** The key for this request body: unchanged while the body is the same and no answer settled the intent. */
+  /**
+   * The key for this request body: unchanged while the body is the same and no answer settled the intent, and (with
+   * holdAfterUnknown) unchanged for any body while an earlier attempt's outcome is unknown.
+   */
   keyFor(body: unknown): string {
     const canonical = JSON.stringify(body ?? null);
-    if (!this.current || this.current.body !== canonical) this.current = { key: this.make(), body: canonical };
+    if (!this.current || (this.current.body !== canonical && !this.current.held)) this.current = { key: this.make(), body: canonical, held: false };
     return this.current.key;
   }
 
   /** After an answer: keep the key only when the attempt may be retried as the same intent. */
   settle(error?: unknown): void {
-    if (error === undefined || !keepsIdempotencyKey(error)) this.current = null;
+    if (error !== undefined && keepsIdempotencyKey(error)) {
+      if (this.options.holdAfterUnknown && this.current) this.current.held = true;
+      return;
+    }
+    // The held key already has a stored answer for its first body: keep it, so a changed form never makes a second one.
+    if (this.current?.held && error instanceof AdminApiError && error.code === "IDEMPOTENCY_KEY_REUSED") return;
+    this.current = null;
+  }
+
+  /** The request body the held key belongs to (sending it again replays the API's stored answer), else null. */
+  heldBody<T = unknown>(): T | null {
+    return this.current?.held ? (JSON.parse(this.current.body) as T) : null;
   }
 }
 
 /** One key store per dialog or form (kept across renders). */
-export function useIdempotencyKeys(): IdempotencyKeys {
-  const [keys] = useState(() => new IdempotencyKeys());
+export function useIdempotencyKeys(options: IdempotencyOptions = {}): IdempotencyKeys {
+  const [keys] = useState(() => new IdempotencyKeys(newIdempotencyKey, options));
   return keys;
 }

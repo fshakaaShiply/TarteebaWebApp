@@ -1,11 +1,11 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ChevronLeft, ChevronRight, LayoutDashboard, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutDashboard, Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   Button,
   ButtonLink,
@@ -26,19 +26,22 @@ import { addDaysIso, businessToday, formatDateTime, isIsoDate } from "@/lib/admi
 import { adminKeys } from "@/lib/admin/keys";
 import { OVERVIEW_PERMISSIONS } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import type { BookingRow, DashboardAlert, DashboardSummary } from "@/lib/admin/types";
+import type { BookingRow, DashboardAlert, DashboardAlertType, DashboardSummary } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
 import { useZoneName } from "../_ops/options";
 import { BookingChips, DeadlineCountdown, Ltr, SlotLabel, useDurationText } from "../bookings/_components/BookingBits";
 import { bookingTone, useBookingText } from "../bookings/_components/bookingText";
-
-const REFRESH_MS = 60_000;
 
 /**
  * A02 daily operations overview (spec §14.3, §17; design AdminOverview.dc.html; bookings.view or schedule.view):
  * exactly four KPI cards, each opening its filtered list; the alerts that need action, each linking to its booking;
  * bookings by status, slot and zone; cleaners, vehicles and rounds; quick stats; and the requests waiting for
  * confirmation. Date filter here, zone filter in the top bar. Users without either permission get a welcome note.
+ *
+ * DECISION: no timed refresh. The dashboard routes count as staff activity (StaffIdleTimeout), so a poll would keep an
+ * open tab's session alive past the idle timeout (spec §13.2); only the bell's GET /admin/alerts is passive. The
+ * figures refresh when the tab regains focus, after every booking action and with the Refresh button (backend
+ * request: mount the dashboard GETs with PassiveStaffSession before polling them).
  */
 export function OverviewScreen() {
   const { canAny } = useAdminSession();
@@ -70,16 +73,31 @@ function Overview() {
   const zoneName = useZoneName();
   const { can } = useAdminSession();
   const { zoneId } = useAdminZone();
+  const queryClient = useQueryClient();
   const [date, setDate] = useState(() => businessToday());
   const validDate = isIsoDate(date);
+  /** The alerts list narrowed to one type (the uncovered-visits card across all zones). */
+  const [alertType, setAlertType] = useState<DashboardAlertType | null>(null);
+  const alertsTitle = useRef<HTMLSpanElement>(null);
+  const refreshing = useIsFetching({ queryKey: adminKeys.dashboard() }) > 0;
 
   const summary = useQuery({
     queryKey: adminKeys.dashboardSummary(date, zoneId),
     queryFn: () => fetchDashboardSummary({ date, zoneId }),
     enabled: validDate,
     placeholderData: keepPreviousData,
-    refetchInterval: REFRESH_MS,
+    refetchOnWindowFocus: true,
   });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: adminKeys.dashboard() });
+    void queryClient.invalidateQueries({ queryKey: adminKeys.bookings() });
+  };
+  const showUncoveredAlerts = () => {
+    setAlertType("visit_uncovered");
+    // Focus moves to the list (focusing scrolls it into view).
+    requestAnimationFrame(() => alertsTitle.current?.focus());
+  };
 
   return (
     <>
@@ -127,9 +145,12 @@ function Overview() {
           <Button variant="ghost" onClick={() => setDate(businessToday())}>
             {t("filters.today")}
           </Button>
-          {summary.data && (
-            <p className="ms-auto self-center text-xs text-ink-600">{t("updated", { time: formatDateTime(summary.data.generated_at, text.locale) })}</p>
-          )}
+          <div className="ms-auto flex flex-wrap items-center gap-3 self-center">
+            {summary.data && <p className="text-xs text-ink-600">{t("updated", { time: formatDateTime(summary.data.generated_at, text.locale) })}</p>}
+            <Button variant="outline" size="sm" onClick={refresh} loading={refreshing} disabled={!validDate} icon={<RefreshCw aria-hidden className="size-4" />}>
+              {t("refresh")}
+            </Button>
+          </div>
         </FilterBar>
       </Card>
 
@@ -144,7 +165,14 @@ function Overview() {
           <ErrorState error={summary.error} onRetry={() => void summary.refetch()} />
         </Card>
       ) : (
-        <OverviewBody summary={summary.data} date={date} zoneId={zoneId} />
+        <OverviewBody
+          summary={summary.data}
+          zoneId={zoneId}
+          alertType={alertType}
+          onShowAllAlerts={() => setAlertType(null)}
+          onShowUncoveredAlerts={showUncoveredAlerts}
+          alertsTitle={alertsTitle}
+        />
       )}
     </>
   );
@@ -165,13 +193,27 @@ function OverviewSkeleton() {
   );
 }
 
-function OverviewBody({ summary, date, zoneId }: { summary: DashboardSummary; date: string; zoneId: number | null }) {
+function OverviewBody({
+  summary,
+  zoneId,
+  alertType,
+  onShowAllAlerts,
+  onShowUncoveredAlerts,
+  alertsTitle,
+}: {
+  summary: DashboardSummary;
+  zoneId: number | null;
+  alertType: DashboardAlertType | null;
+  onShowAllAlerts: () => void;
+  onShowUncoveredAlerts: () => void;
+  alertsTitle: RefObject<HTMLSpanElement | null>;
+}) {
   const { can } = useAdminSession();
   return (
     <>
-      <KpiCards summary={summary} date={date} />
+      <KpiCards summary={summary} onShowUncoveredAlerts={onShowUncoveredAlerts} />
       <div className="grid gap-5 xl:grid-cols-3">
-        <AlertsCard zoneId={zoneId} className="xl:col-span-2" />
+        <AlertsCard zoneId={zoneId} type={alertType} onShowAll={onShowAllAlerts} titleRef={alertsTitle} className="xl:col-span-2" />
         <TeamCard summary={summary} />
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
@@ -187,7 +229,25 @@ function OverviewBody({ summary, date, zoneId }: { summary: DashboardSummary; da
 
 // ---- KPI cards ------------------------------------------------------------------------------------------------------
 
-function KpiCard({ label, value, detail, href, tone = "neutral" }: { label: string; value: ReactNode; detail: ReactNode; href: string | null; tone?: "neutral" | "warning" | "danger" }) {
+/**
+ * A KPI card: a link to the list it counts, or (onSelect) a button that shows that list on this page, or plain figures
+ * when no page lists exactly what it counts.
+ */
+function KpiCard({
+  label,
+  value,
+  detail,
+  href,
+  onSelect,
+  tone = "neutral",
+}: {
+  label: string;
+  value: ReactNode;
+  detail: ReactNode;
+  href: string | null;
+  onSelect?: () => void;
+  tone?: "neutral" | "warning" | "danger";
+}) {
   const body = (
     <>
       <span className="text-sm font-medium text-ink-600">{label}</span>
@@ -203,27 +263,42 @@ function KpiCard({ label, value, detail, href, tone = "neutral" }: { label: stri
     </>
   );
   const box = "flex min-w-0 flex-col gap-1.5 rounded-lg bg-surface p-5 shadow-card";
-  return href ? (
-    <Link href={href} className={clsx(box, "text-ink-900 transition-shadow hover:text-ink-900 hover:ring-2 hover:ring-petrol-700/25")}>
-      {body}
-    </Link>
-  ) : (
-    <div className={box}>{body}</div>
-  );
+  const interactive = "text-ink-900 transition-shadow hover:text-ink-900 hover:ring-2 hover:ring-petrol-700/25";
+  if (href) {
+    return (
+      <Link href={href} className={clsx(box, interactive)}>
+        {body}
+      </Link>
+    );
+  }
+  if (onSelect) {
+    return (
+      <button type="button" onClick={onSelect} className={clsx(box, interactive, "text-start")}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={box}>{body}</div>;
 }
 
-function KpiCards({ summary, date }: { summary: DashboardSummary; date: string }) {
+function KpiCards({ summary, onShowUncoveredAlerts }: { summary: DashboardSummary; onShowUncoveredAlerts: () => void }) {
   const t = useTranslations("admin.overview.cards");
   const text = useBookingText();
   const duration = useDurationText();
-  const { can } = useAdminSession();
   const { todays_bookings: today, pending_confirmation: pending, uncovered_visits: uncovered, on_time_rate: onTime } = summary.cards;
-  const zone = summary.zone?.id ?? null;
-  const dayList = can("bookings.view") ? withQuery(BOOKINGS_PATH, { from: date, to: date, zone_id: zone }) : null;
-  // The A04 board is a later phase: without a zone the uncovered card opens the capacity view of the day, whose list
-  // of uncovered visits is per zone; the on-time card opens the day's bookings.
-  const capacityFallback = can("schedule.view") ? withQuery("/admin/capacity", { date, zone_id: zone }) : null;
   const slotsWithBookings = today.by_slot.filter((s) => s.bookings > 0);
+
+  /*
+   * Each card opens exactly what it counts. With a zone the uncovered card opens that zone's capacity view (its
+   * uncovered_visits are the card's visits). Without one the API points at the A04 day board, a later phase: today's
+   * uncovered visits of every zone are this page's own visit_uncovered alerts (the same rule, each linking to its
+   * booking), so the card narrows the alerts list to them; another day has no list across zones, so the card asks for
+   * a zone. The on-time card counts arrived visits, which only the A04 board lists: no link until it exists.
+   */
+  const uncoveredHref = dashboardHref(uncovered.link);
+  const allZones = summary.zone === null;
+  const uncoveredInAlerts = !uncoveredHref && allZones && summary.is_today && uncovered.value > 0;
+  const uncoveredPickZone = !uncoveredHref && allZones && !summary.is_today && uncovered.value > 0;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -269,13 +344,20 @@ function KpiCards({ summary, date }: { summary: DashboardSummary; date: string }
         label={text.name(uncovered.label)}
         value={uncovered.value}
         tone={uncovered.value > 0 ? "danger" : "neutral"}
-        href={dashboardHref(uncovered.link) ?? capacityFallback}
-        detail={<span>{uncovered.value === 0 ? t("uncoveredNone") : t("uncoveredMissing", { count: uncovered.missing_workers })}</span>}
+        href={uncoveredHref}
+        onSelect={uncoveredInAlerts ? onShowUncoveredAlerts : undefined}
+        detail={
+          <>
+            <span>{uncovered.value === 0 ? t("uncoveredNone") : t("uncoveredMissing", { count: uncovered.missing_workers })}</span>
+            {uncoveredInAlerts && <span className="font-medium text-petrol-700">{t("uncoveredInAlerts")}</span>}
+            {uncoveredPickZone && <span>{t("uncoveredPickZone")}</span>}
+          </>
+        }
       />
       <KpiCard
         label={text.name(onTime.label)}
         value={onTime.value === null ? "—" : `${onTime.value}%`}
-        href={dashboardHref(onTime.link) ?? dayList}
+        href={dashboardHref(onTime.link)}
         detail={
           onTime.arrived === 0 ? (
             <span>{t("onTimeNone")}</span>
@@ -295,24 +377,53 @@ function KpiCards({ summary, date }: { summary: DashboardSummary; date: string }
 
 const ALERTS_SHOWN = 8;
 
-function AlertsCard({ zoneId, className }: { zoneId: number | null; className?: string }) {
+function AlertsCard({
+  zoneId,
+  type,
+  onShowAll,
+  titleRef,
+  className,
+}: {
+  zoneId: number | null;
+  /** Only this alert type (the uncovered-visits card), or every alert. */
+  type: DashboardAlertType | null;
+  onShowAll: () => void;
+  titleRef: RefObject<HTMLSpanElement | null>;
+  className?: string;
+}) {
   const t = useTranslations("admin.overview.alerts");
   const [all, setAll] = useState(false);
   const alerts = useQuery({
     queryKey: adminKeys.dashboardAlerts(zoneId),
     queryFn: () => fetchDashboardAlerts({ zoneId }),
-    refetchInterval: REFRESH_MS,
+    refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
-  const items = alerts.data?.data ?? [];
-  const shown = all ? items : items.slice(0, ALERTS_SHOWN);
+  const items = (alerts.data?.data ?? []).filter((a) => type === null || a.type === type);
+  // A narrowed list shows every item of its type; the full list starts with the first few.
+  const shown = all || type !== null ? items : items.slice(0, ALERTS_SHOWN);
+  /** The API lists at most limit_per_type alerts of a type; meta.counts has the full number. */
+  const typeTotal = type !== null ? (alerts.data?.meta.counts[type] ?? items.length) : 0;
 
   return (
     <Card
-      title={t("title")}
+      title={
+        <span ref={titleRef} tabIndex={-1} className="outline-none">
+          {type === "visit_uncovered" ? t("uncoveredTitle") : t("title")}
+        </span>
+      }
       className={className}
-      actions={alerts.data && alerts.data.meta.total > 0 ? <span className="text-sm text-ink-600">{t("total", { count: alerts.data.meta.total, urgent: alerts.data.meta.urgent })}</span> : undefined}
+      actions={
+        type !== null ? (
+          <Button variant="ghost" size="sm" onClick={onShowAll}>
+            {t("showAllTypes")}
+          </Button>
+        ) : alerts.data && alerts.data.meta.total > 0 ? (
+          <span className="text-sm text-ink-600">{t("total", { count: alerts.data.meta.total, urgent: alerts.data.meta.urgent })}</span>
+        ) : undefined
+      }
     >
+      {type !== null && typeTotal > items.length && <p className="text-sm text-ink-600">{t("firstOf", { shown: items.length, total: typeTotal })}</p>}
       {alerts.isPending ? (
         <div className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
@@ -322,7 +433,7 @@ function AlertsCard({ zoneId, className }: { zoneId: number | null; className?: 
       ) : alerts.isError && !alerts.data ? (
         <ErrorState error={alerts.error} onRetry={() => void alerts.refetch()} className="py-6" />
       ) : items.length === 0 ? (
-        <EmptyState title={t("empty")} className="py-6" />
+        <EmptyState title={type === "visit_uncovered" ? t("uncoveredEmpty") : t("empty")} className="py-6" />
       ) : (
         <>
           <ul className="flex flex-col gap-2">
@@ -330,7 +441,7 @@ function AlertsCard({ zoneId, className }: { zoneId: number | null; className?: 
               <AlertRow key={`${alert.type}-${alert.entity?.type ?? ""}-${alert.entity?.id ?? i}-${alert.at}`} alert={alert} />
             ))}
           </ul>
-          {items.length > ALERTS_SHOWN && (
+          {type === null && items.length > ALERTS_SHOWN && (
             <Button variant="ghost" size="sm" className="self-start" onClick={() => setAll((v) => !v)}>
               {all ? t("showFewer") : t("showAll", { count: items.length })}
             </Button>
@@ -567,7 +678,7 @@ function PendingQueue({ zoneId }: { zoneId: number | null }) {
   const list = useQuery({
     queryKey: adminKeys.bookingList({ status: "pending_confirmation", zone: zoneId ?? 0, page: 1, perPage: 5 }),
     queryFn: () => fetchBookings({ status: "pending_confirmation", zoneId, page: 1, perPage: 5 }),
-    refetchInterval: REFRESH_MS,
+    refetchOnWindowFocus: true,
   });
 
   const columns: Column<BookingRow>[] = [

@@ -27,6 +27,9 @@ const alert = (id: string, over: Partial<AdminAlert> = {}): AdminAlert => ({
   ...over,
 });
 
+/** The bell's own live region (the toasts have another one). */
+const announcer = () => within(screen.getByRole("button", { name: /^Alerts/ }).parentElement!).getByRole("status");
+
 describe("alerts bell (D-11: polled every 20 s)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -51,17 +54,23 @@ describe("alerts bell (D-11: polled every 20 s)", () => {
     renderWithProviders(<AlertsBell />, { permissions: [] });
     expect(await screen.findByRole("button", { name: "Alerts, 1 unread" })).toBeInTheDocument();
     expect(api.fetchAlerts).toHaveBeenNthCalledWith(1, { perPage: 20 });
+    // The first load is not announced, only what later polls bring.
+    expect(announcer()).toHaveTextContent("");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
     await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(2, { since: "2026-10-23T10:00:05Z" }));
     expect(await screen.findByRole("button", { name: "Alerts, 2 unread" })).toBeInTheDocument();
+    // Screen readers hear the arrival (the badge is aria-hidden and a changed button name is not read out).
+    expect(announcer()).toHaveTextContent("1 new urgent alert");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
     await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(3, { since: "2026-10-23T10:00:25Z" }));
+    // A poll with nothing new clears the region (nothing is repeated).
+    await waitFor(() => expect(announcer()).toHaveTextContent(""));
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await user.click(screen.getByRole("button", { name: "Alerts, 2 unread" }));

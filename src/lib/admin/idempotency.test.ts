@@ -39,6 +39,33 @@ describe("Idempotency-Key per intent (spec §4.5, §10.5)", () => {
     expect(keys.keyFor({ reason_code: "duplicate" })).toBe("key-2");
   });
 
+  it("holdAfterUnknown: after an unknown outcome the key stays with the first body, even when the form changes", () => {
+    let n = 0;
+    const keys = new IdempotencyKeys(() => `key-${++n}`, { holdAfterUnknown: true });
+    expect(keys.keyFor({ phone: "+971501234567", slot: 1 })).toBe("key-1");
+    expect(keys.heldBody()).toBeNull();
+    // The proxy gave up after 60 s (502) while the API may still have created the booking.
+    keys.settle(apiError(502, "BAD_GATEWAY"));
+    expect(keys.heldBody()).toEqual({ phone: "+971501234567", slot: 1 });
+    // The coordinator edits a field and sends again: same key, so the API refuses a second booking.
+    expect(keys.keyFor({ phone: "+971501234567", slot: 2 })).toBe("key-1");
+    keys.settle(apiError(422, "IDEMPOTENCY_KEY_REUSED"));
+    expect(keys.keyFor({ phone: "+971501234567", slot: 2 })).toBe("key-1");
+    // Sending the held body replays the stored answer; after it the next booking is a new intent.
+    expect(keys.keyFor(keys.heldBody())).toBe("key-1");
+    keys.settle();
+    expect(keys.heldBody()).toBeNull();
+    expect(keys.keyFor({ phone: "+971501234567", slot: 2 })).toBe("key-2");
+  });
+
+  it("without holdAfterUnknown a changed body after an unknown outcome is a new intent (If-Match guards those routes)", () => {
+    let n = 0;
+    const keys = new IdempotencyKeys(() => `key-${++n}`);
+    keys.keyFor({ reschedule: 7, slot: 1 });
+    keys.settle(apiError(503, "SERVICE_UNAVAILABLE"));
+    expect(keys.keyFor({ reschedule: 7, slot: 2 })).toBe("key-2");
+  });
+
   it("keeps the key after answers the API does not store", () => {
     expect(keepsIdempotencyKey(apiError(429, "RATE_LIMITED"))).toBe(true);
     expect(keepsIdempotencyKey(apiError(409, "IDEMPOTENCY_IN_PROGRESS"))).toBe(true);

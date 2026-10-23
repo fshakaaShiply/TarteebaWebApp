@@ -19,6 +19,11 @@ export type AlertsState = {
   /** meta.server_time of the last answer: the next poll's `since`. */
   since: string;
   pollSeconds: number;
+  /**
+   * Unread alerts the last poll brought that the bell did not hold yet (never on the first load), for the screen
+   * reader announcement; `seq` grows with each poll that brought some, so the same text is announced again.
+   */
+  arrived: { count: number; urgent: number; seq: number };
 };
 
 function newestFirst(a: AdminAlert, b: AdminAlert): number {
@@ -43,11 +48,15 @@ function pollSecondsOf(page: AlertsPage): number {
 
 /** The state after an answer: the first page, or a poll merged into what the bell already shows. */
 export function nextAlertsState(previous: AlertsState | undefined, page: AlertsPage): AlertsState {
+  const known = new Set(previous?.items.map((a) => a.id) ?? []);
+  const fresh = previous ? page.data.filter((a) => !a.read && !known.has(a.id)) : [];
+  const seq = previous?.arrived.seq ?? 0;
   return {
     items: mergeAlerts(previous?.items ?? [], page.data),
     unreadCount: Math.max(0, page.meta.unread_count ?? 0),
     since: page.meta.server_time,
     pollSeconds: pollSecondsOf(page),
+    arrived: { count: fresh.length, urgent: fresh.filter((a) => a.urgent).length, seq: fresh.length > 0 ? seq + 1 : seq },
   };
 }
 

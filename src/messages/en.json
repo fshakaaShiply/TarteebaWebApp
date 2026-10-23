@@ -417,7 +417,9 @@
         "uncoveredMissing": "{count, plural, one {# cleaner} other {# cleaners}} still to assign",
         "onTimeNone": "No arrivals yet",
         "onTimeDetail": "{onTime} of {arrived} on time · {late} late",
-        "onTimeOverdue": "{count, plural, one {# visit} other {# visits}} not reached after the grace time"
+        "onTimeOverdue": "{count, plural, one {# visit} other {# visits}} not reached after the grace time",
+        "uncoveredInAlerts": "Show them in the alerts list",
+        "uncoveredPickZone": "Choose a zone in the top bar to open its list"
       },
       "alerts": {
         "title": "Alerts that need action",
@@ -428,7 +430,11 @@
         "open": "Open",
         "openLabel": "Open: {title}",
         "showAll": "Show all {count}",
-        "showFewer": "Show fewer"
+        "showFewer": "Show fewer",
+        "uncoveredTitle": "Uncovered visits today, all zones",
+        "showAllTypes": "Show all alerts",
+        "firstOf": "Showing the first {shown} of {total}.",
+        "uncoveredEmpty": "Every visit today has its team."
       },
       "panels": {
         "ofTotal": "{value} / {total}",
@@ -476,7 +482,8 @@
           "deadline": "Deadline",
           "action": "Action"
         }
-      }
+      },
+      "refresh": "Refresh"
     },
     "twoFactor": {
       "title": "Account security",
@@ -2169,13 +2176,14 @@
         "applied": "Override applied to {slot}{hasStatus, select, yes { — now {status}} other {}}."
       },
       "uncovered": {
-        "title": "Uncovered visits ({count})",
+        "title": "Uncovered visits in {zone} ({count})",
         "none": "Every confirmed visit on this day has its team.",
         "missing": "{missing} of {total} cleaners missing",
-        "unfit": "{count} no longer fit",
+        "unfit": "{count, plural, one {# no longer fits} other {# no longer fit}}",
         "open": "Open",
         "openLabel": "Open booking {reference}"
-      }
+      },
+      "oneZoneNote": "Capacity is shown for one zone at a time: {zone}. Choose another zone above."
     },
     "workers": {
       "title": "Cleaners",
@@ -2491,7 +2499,10 @@
       "unread": "Unread:",
       "empty": "No alerts yet.",
       "loadError": "We couldn't load the alerts. They will refresh shortly.",
-      "listLabel": "Latest alerts"
+      "listLabel": "Latest alerts",
+      "announceNew": "{count, plural, one {# new alert} other {# new alerts}}",
+      "announceUrgent": "{count, plural, one {# new urgent alert} other {# new urgent alerts}}",
+      "announceMixed": "{count, plural, one {# new alert} other {# new alerts}}, {urgent} urgent"
     },
     "time": {
       "minutes": "{minutes, plural, one {# minute} other {# minutes}}",
@@ -2510,8 +2521,8 @@
       "notSent": "WhatsApp opens with the message ready and sends nothing until you press send. Any SMS or app notification the system sends is listed under “Notifications sent” on the booking.",
       "missingTitle": "No payment link yet",
       "missingBody": "The payment page couldn't be opened just now. Create a new link from the booking page.",
-      "whatsappAr": "مرحبًا {name}، هذا رابط الدفع لطلب حجز ترتيبة {reference} بتاريخ {date}: {link}\nبعد الدفع يبقى طلبك بانتظار تأكيد فريقنا، وسنبلغك بالنتيجة.",
-      "whatsappEn": "Hello {name}, here is the payment link for your Tarteeba booking request {reference} on {date}: {link}\nAfter payment, your request waits for our team's confirmation, and we'll let you know the outcome.",
+      "whatsappAr": "{hasName, select, yes {مرحبًا {name}،} other {مرحبًا،}} هذا رابط الدفع لطلب حجز ترتيبة {reference} بتاريخ {date}: {link}\nبعد الدفع يبقى طلبك بانتظار تأكيد فريقنا، وسنبلغك بالنتيجة.",
+      "whatsappEn": "{hasName, select, yes {Hello {name},} other {Hello,}} here is the payment link for your Tarteeba booking request {reference} on {date}: {link}\nAfter payment, your request waits for our team's confirmation, and we'll let you know the outcome.",
       "dialogTitle": "New payment link for {reference}",
       "dialogBody": "A new checkout page for this manual booking. The previous link stops working.",
       "create": "Create link",
@@ -2673,7 +2684,7 @@
       },
       "slots": {
         "placeholder": "Choose a time",
-        "option": "{name} · {start}–{end} · {status} · up to {free} cleaners",
+        "option": "{name} · {start}–{end} · {status} · {free, plural, one {up to # cleaner} other {up to # cleaners}}",
         "optionUnavailable": "{name} · {start}–{end} · {status} · not enough room for this team",
         "noPermission": "Free times come from the capacity view, which your role can't open.",
         "chooseDate": "Choose a date first.",
@@ -2687,7 +2698,9 @@
         "reschedule": "Reschedule",
         "paymentLink": "Payment link",
         "reject": "Reject",
-        "cancel": "Cancel booking"
+        "cancel": "Cancel booking",
+        "changedTitle": "This booking changed",
+        "changedBody": "Someone updated it after you opened this. If you continue, you'll be asked to reload and check the latest details first."
       },
       "formErrors": {
         "required": "Choose a value.",
@@ -2711,7 +2724,6 @@
         "submit": "Confirm and take payment",
         "retry": "Try again",
         "done": "{reference} is confirmed.",
-        "verifying": "The bank is still checking this payment. Confirming will wait until its result is known.",
         "captureUnknown": "The bank didn't answer the last attempt to take this payment. Confirming again is safe.",
         "unknownTitle": "The bank did not answer",
         "unknownBody": "We don't know yet whether the payment was taken. The booking is still pending; try again: it's safe and never takes the payment twice.",
@@ -2780,9 +2792,9 @@
         "providerNote": "Releases and refunds go through the payment provider; the booking shows their status.",
         "retryPreview": "Try again",
         "reviewTaskTitle": "Review required",
-        "reviewTaskBody": "The refund for this cancellation must be decided by an accountant or a system admin. Ask them to cancel it with the refund amount; nothing is cancelled or charged until then.",
+        "reviewTaskBody": "The refund for this cancellation must be decided by someone who may both cancel bookings and decide refunds (a system admin). Ask them to cancel it with the refund amount; nothing is cancelled or charged until then.",
         "startedTitle": "The visit has started",
-        "startedNoPermission": "The policy doesn't cover a cancellation now, so the refund must be decided by an accountant or a system admin.",
+        "startedNoPermission": "The policy doesn't cover a cancellation now, so the refund must be decided by someone who may both cancel bookings and decide refunds (a system admin).",
         "reason": "Reason",
         "chooseReason": "Choose a reason",
         "details": "Details",
@@ -2799,7 +2811,6 @@
         "taskTitle": "Cancellation waiting for review",
         "taskBody": "The customer asked to cancel on {time}. The policy needs a person to decide the refund before anything is cancelled or charged.",
         "reason": "Reason: {reason}",
-        "needsAccountant": "The refund amount is decided by an accountant or a system admin.",
         "cancelWithRefund": "Cancel with a refund decision",
         "keep": "Keep the booking",
         "declineTitle": "Keep the booking?",
@@ -2807,7 +2818,10 @@
         "declineSubmit": "Keep the booking",
         "note": "Message to the customer",
         "noteHint": "The customer is told why the booking stays.",
-        "declined": "The booking is kept and the customer is told."
+        "declined": "The booking is kept and the customer is told.",
+        "needsRefundDecider": "Deciding the refund also needs the refund permission. Ask a system admin (or someone with both permissions) to cancel it with the refund amount.",
+        "needsCancelPermission": "You can decide the refund, but cancelling also needs the permission to cancel bookings. Ask a system admin to cancel it with the refund amount you decide.",
+        "needsBoth": "Resolving this review needs the permissions to cancel bookings and to decide refunds (a system admin)."
       },
       "detail": {
         "back": "All bookings",
@@ -2864,7 +2878,9 @@
         "net": "Before VAT",
         "vat": "VAT {rate}%",
         "total": "Total",
-        "rescheduleFee": "Change fees kept"
+        "rescheduleFee": "Change fees kept",
+        "refresh": "Refresh",
+        "verifyingConfirm": "The payment provider is still checking this payment. Confirming becomes available once it answers."
       },
       "payment": {
         "title": "Payment and refunds",
@@ -3190,7 +3206,18 @@
         "tooManyAddons": "At most 10 add-ons.",
         "reasonMin": "An override needs a reason of at least 10 characters.",
         "reasonMax": "The reason is too long."
-      }
+      },
+      "unknownTitle": "We don't know yet whether the booking was made",
+      "unknownBody": "Press “Try again” to send the same request: the booking is made only once, and if the first try went through you'll see that booking.",
+      "tryAgain": "Try again",
+      "earlierTitle": "A booking may already exist from the first try",
+      "earlierBody": "The first try reached us before the details changed. Show that booking, or check this phone's bookings before making another.",
+      "showEarlier": "Show the booking from the first try",
+      "checkList": "Bookings for this phone"
+    },
+    "globalSearch": {
+      "label": "Search bookings",
+      "placeholder": "Booking reference or phone"
     }
   },
   "driver": {

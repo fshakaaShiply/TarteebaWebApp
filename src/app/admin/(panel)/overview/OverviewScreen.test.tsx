@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardAlerts } from "@/lib/admin/types";
 import { bookingRow, dashboardSummary, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
@@ -69,19 +70,97 @@ describe("A02 daily operations overview", () => {
     expect(pending).toHaveTextContent("Oldest waiting for 2 hours 10 minutes");
     expect(pending).toHaveTextContent("1 request past the deadline");
 
-    // The A04 board is a later phase: uncovered visits open the capacity view of the day, on-time the day's bookings.
-    const uncovered = screen.getByRole("link", { name: /Uncovered visits/ });
-    expect(uncovered.getAttribute("href")).toMatch(/^\/admin\/capacity\?date=\d{4}-\d{2}-\d{2}$/);
+    // All zones, today: the API names the A04 board (a later phase), so the card narrows this page's alerts list to
+    // the same visits instead of opening one zone's capacity view.
+    expect(screen.queryByRole("link", { name: /Uncovered visits/ })).not.toBeInTheDocument();
+    const uncovered = screen.getByRole("button", { name: /Uncovered visits/ });
     expect(uncovered).toHaveTextContent("3 cleaners still to assign");
+    expect(uncovered).toHaveTextContent("Show them in the alerts list");
 
-    const onTime = screen.getByRole("link", { name: /On-time arrival/ });
-    expect(onTime.getAttribute("href")).toMatch(/^\/admin\/bookings\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
+    // On-time counts arrived visits, which only the A04 board lists: plain figures, not the day's full bookings list.
+    expect(screen.queryByRole("link", { name: /On-time arrival/ })).not.toBeInTheDocument();
+    const onTime = screen.getByText("On-time arrival").parentElement!;
     expect(onTime).toHaveTextContent("92%");
     expect(onTime).toHaveTextContent("11 of 12 on time · 1 late");
 
     expect(today.parentElement?.children).toHaveLength(4);
     expect(api.fetchDashboardSummary).toHaveBeenCalledWith({ date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), zoneId: null });
     expect(screen.getByRole("link", { name: "Manual booking" })).toHaveAttribute("href", "/admin/bookings/new");
+  });
+
+  it("uncovered visits across all zones: the card narrows the alerts to today's uncovered visits of every zone", async () => {
+    api.fetchDashboardAlerts.mockResolvedValue({
+      ...alerts,
+      data: [
+        ...alerts.data,
+        {
+          type: "visit_uncovered",
+          severity: "urgent",
+          at: "2026-10-23T06:00:00+00:00",
+          title: { ar: "…", en: "Visit without its team" },
+          message: { ar: "…", en: "TRB-UNCOV1 at 10:00 still needs 2 cleaners." },
+          entity: { type: "visit", id: 31, booking_id: 12, reference: "TRB-UNCOV1" },
+          link: { list: "booking", path: "/api/v1/admin/bookings/12", params: [] },
+          details: { zone_id: 2 },
+        },
+      ],
+      meta: { ...alerts.meta, counts: { visit_uncovered: 1, sla_due: 1, payment_failed: 1 }, total: 3, urgent: 2 },
+    } satisfies DashboardAlerts);
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Uncovered visits/ }));
+
+    const title = await screen.findByText("Uncovered visits today, all zones");
+    await waitFor(() => expect(title).toHaveFocus());
+    const card = title.closest("section")!;
+    expect(within(card).getByRole("link", { name: "Open: Visit without its team" })).toHaveAttribute("href", "/admin/bookings/12");
+    expect(within(card).queryByText("Confirmation due")).not.toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Show all alerts" }));
+    expect(within(card).getByText("Confirmation due")).toBeInTheDocument();
+  });
+
+  it("uncovered visits on another day without a zone: no list covers them, so the card asks for a zone", async () => {
+    api.fetchDashboardSummary.mockResolvedValue({ ...dashboardSummary(), is_today: false });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+    expect(await screen.findByText("Choose a zone in the top bar to open its list")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Uncovered visits/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Uncovered visits/ })).not.toBeInTheDocument();
+  });
+
+  it("uncovered visits in one zone open that zone's capacity view, whose list is exactly the card's visits", async () => {
+    const summary = dashboardSummary({
+      uncovered_visits: {
+        label: { ar: "زيارات غير مغطاة", en: "Uncovered visits" },
+        value: 1,
+        missing_workers: 2,
+        link: { list: "capacity", path: "/api/v1/admin/capacity", params: { date: "2026-10-23", zone_id: 1 } },
+      },
+    });
+    api.fetchDashboardSummary.mockResolvedValue({ ...summary, zone: { id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري", en: "Business Bay & Downtown" } } });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+    expect(await screen.findByRole("link", { name: /Uncovered visits/ })).toHaveAttribute("href", "/admin/capacity?date=2026-10-23&zone_id=1");
+  });
+
+  it("never refreshes on a timer (the dashboard routes count as activity and would keep an idle session alive)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      await screen.findByRole("link", { name: /Today's bookings/ });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
+      });
+      expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(1);
+      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(1);
+      expect(api.fetchBookings).toHaveBeenCalledTimes(1);
+
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(2));
+      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(api.fetchBookings).toHaveBeenCalledTimes(2));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("lists the alerts, urgent ones marked, each linking to its booking when that page exists", async () => {

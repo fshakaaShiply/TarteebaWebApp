@@ -27,7 +27,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import type { CapacitySlot, CapacityView, Vehicle } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
-import { useChoiceOptions, useZoneChoices } from "../_ops/options";
+import { useChoiceLabel, useChoiceOptions, useZoneChoices } from "../_ops/options";
 import { slotTone, useOpsText } from "../_ops/opsText";
 import { useRuleText } from "../_ops/ruleText";
 import { OverrideDialog } from "./OverrideDialog";
@@ -52,6 +52,7 @@ function CapacityContent({ initialDate, initialZoneId }: { initialDate?: string;
   const text = useOpsText();
   const zones = useZoneChoices();
   const choiceOptions = useChoiceOptions();
+  const zoneLabel = useChoiceLabel();
   const shared = useAdminZone();
   // A link from the overview may name the date and zone (?date=&zone_id=).
   const [date, setDate] = useState(() => (initialDate && isIsoDate(initialDate) ? initialDate : businessToday()));
@@ -134,6 +135,10 @@ function CapacityContent({ initialDate, initialZoneId }: { initialDate?: string;
           </Button>
         </FilterBar>
         {validDate && <p className="text-sm text-ink-600">{text.date(date)}</p>}
+        {/* The top bar may say "all zones"; capacity is always one zone's. */}
+        {!zoneChoice && shared.zoneId === null && zoneId !== null && (
+          <Notice tone="info">{t("oneZoneNote", { zone: zoneLabel(zones.data.find((z) => z.id === zoneId) ?? zones.data[0]) })}</Notice>
+        )}
       </Card>
 
       {!validDate ? (
@@ -193,7 +198,7 @@ function UncoveredVisits({ view }: { view: CapacityView }) {
     return slot ? text.name(slot.name) : "";
   };
   return (
-    <Card title={t("title", { count: visits.length })}>
+    <Card title={t("title", { count: visits.length, zone: text.name(view.zone.name) })}>
       {visits.length === 0 ? (
         <p className="text-sm text-ink-600">{t("none")}</p>
       ) : (

@@ -5,7 +5,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ButtonLink,
   Card,
@@ -105,15 +105,33 @@ function BookingsTable() {
   const zoneFromParam = zoneParam !== null && Number.isInteger(Number(zoneParam)) && Number(zoneParam) > 0 ? Number(zoneParam) : null;
   const effectiveZone = zoneParam !== null ? zoneFromParam : zoneId;
 
+  // Like every other filter, another zone (here or in the top bar) starts on page 1: page 3 of one zone may not exist in
+  // the next, and an empty page would read as "no bookings". `pageZone` is the zone the URL's page belongs to; until the
+  // URL says page 1 the list already asks for page 1.
+  const [pageZone, setPageZone] = useState(effectiveZone);
+  if (pageZone !== effectiveZone && filters.page === 1) setPageZone(effectiveZone);
+  useEffect(() => {
+    if (pageZone !== effectiveZone && filters.page > 1) writeParams(filtersToParams({ ...filters, page: 1 }));
+  }, [pageZone, effectiveZone, filters, writeParams]);
+  const page = pageZone === effectiveZone ? filters.page : 1;
+
   const search = useDebouncedValue(filters.search.trim(), 300);
   const rangeValid = dateRangeValid(filters);
-  const query = filtersToQuery({ ...filters, search }, effectiveZone, PER_PAGE);
+  const query = filtersToQuery({ ...filters, search, page }, effectiveZone, PER_PAGE);
   const list = useQuery({
-    queryKey: adminKeys.bookingList({ ...filtersToKey(filters), search, zone: effectiveZone ?? 0 }),
+    queryKey: adminKeys.bookingList({ ...filtersToKey({ ...filters, page }), search, zone: effectiveZone ?? 0 }),
     queryFn: () => fetchBookings(query),
     placeholderData: keepPreviousData,
     enabled: rangeValid,
   });
+
+  // A page past the last one (the list shrank meanwhile) goes back to the last page instead of showing "no bookings".
+  const meta = list.data?.meta;
+  useEffect(() => {
+    if (meta && !list.isPlaceholderData && meta.current_page > Math.max(1, meta.last_page) && filters.page > 1) {
+      writeParams(filtersToParams({ ...filters, page: Math.max(1, meta.last_page) }));
+    }
+  }, [meta, list.isPlaceholderData, filters, writeParams]);
 
   const columns: Column<BookingRow>[] = [
     {
@@ -283,7 +301,17 @@ function BookingsTable() {
         error={list.error}
         onRetry={() => void list.refetch()}
         empty={<EmptyState title={filtered ? t("emptyFiltered") : t("empty")} body={filtered ? t("emptyFilteredBody") : undefined} />}
-        pagination={list.data ? { meta: list.data.meta, onPageChange: (page) => writeParams(filtersToParams({ ...filters, page })) } : undefined}
+        pagination={
+          list.data
+            ? {
+                meta: list.data.meta,
+                onPageChange: (next) => {
+                  setPageZone(effectiveZone);
+                  writeParams(filtersToParams({ ...filters, page: next }));
+                },
+              }
+            : undefined
+        }
         minWidth={1080}
       />
     </Card>

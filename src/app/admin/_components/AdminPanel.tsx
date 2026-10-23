@@ -13,13 +13,15 @@ import { adminKeys } from "@/lib/admin/keys";
 import { AdminSessionProvider, useAdminSessionGate } from "@/lib/admin/session";
 import { AdminZoneProvider } from "@/lib/admin/zone";
 import { AlertsBell } from "./AlertsBell";
+import { GlobalSearch } from "./GlobalSearch";
 import { NavContent } from "./SideNav";
 import { UserMenu } from "./UserMenu";
 import { ZoneFilter } from "./ZoneFilter";
 
 /*
  * Admin shell (design AdminOverview.dc.html; spec §17 layout): navigation column at the start side, top bar with
- * today's date (Asia/Dubai), the shared zone filter, the alerts bell (D-11 polling), language switch and user menu.
+ * today's date (Asia/Dubai), the search (opens the bookings list; from the md breakpoint, the list has its own below
+ * it), the shared zone filter, the alerts bell (D-11 polling), language switch and user menu.
  * Below the lg breakpoint the navigation collapses into a drawer opened from the top bar. Pages render only once
  * GET /admin/me has loaded.
  */
@@ -84,7 +86,8 @@ function TodayLabel() {
     return () => clearInterval(id);
   }, []);
   return (
-    <time dateTime={now.toISOString()} className="hidden truncate text-sm text-ink-600 md:block">
+    // From xl: below it the search takes the room (the overview names the date in its own header).
+    <time dateTime={now.toISOString()} className="hidden shrink-0 text-sm text-ink-600 xl:block">
       {formatLongDate(now, locale)}
     </time>
   );
@@ -102,7 +105,7 @@ function TopBar({ withNav }: { withNav: boolean }) {
       >
         {t("skipToContent")}
       </a>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {withNav && (
           <RadixDialog.Root open={navOpen} onOpenChange={setNavOpen}>
             <RadixDialog.Trigger
@@ -130,8 +133,9 @@ function TopBar({ withNav }: { withNav: boolean }) {
           </RadixDialog.Root>
         )}
         <TodayLabel />
+        {withNav && <GlobalSearch />}
       </div>
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {withNav && <ZoneFilter />}
         {withNav && <AlertsBell />}
         <LocaleSwitcher className="h-9 border border-line text-ink-900" />

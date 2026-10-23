@@ -64,8 +64,9 @@ export function UserMenu() {
         <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-petrol-50 font-bold text-petrol-700">
           {initial}
         </span>
-        <span className="hidden max-w-40 truncate sm:inline">{me.name}</span>
-        <span className="sr-only sm:hidden">{t("userMenu")}</span>
+        {/* The name from xl: below it the top bar's search needs the room (the open menu shows the name). */}
+        <span className="hidden max-w-40 truncate xl:inline">{me.name}</span>
+        <span className="sr-only xl:hidden">{t("userMenu")}</span>
         <ChevronDown aria-hidden className={clsx("size-4 transition-transform", open && "rotate-180")} />
       </button>
 

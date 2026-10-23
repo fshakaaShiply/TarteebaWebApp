@@ -37,6 +37,15 @@ describe("A03 actions by status and permission", () => {
     expect(availableActions(booking({ payment_status: "verifying" }), can(coordinator)).has("propose")).toBe(false);
   });
 
+  it("offers no Confirm while the provider is still verifying the payment (the API answers PAYMENT_VERIFYING at once)", () => {
+    expect(availableActions(booking({ payment_status: "verifying" }), can(coordinator)).has("confirm")).toBe(false);
+    // The payment row may move first: its own status counts too.
+    expect(availableActions(booking({ payment: { status: "verifying" } }), can(coordinator)).has("confirm")).toBe(false);
+    expect(availableActions(booking({ payment: { status: "authorized" } }), can(coordinator)).has("confirm")).toBe(true);
+    // Reject and cancel stay available.
+    expect(sorted(availableActions(booking({ payment_status: "verifying" }), can(coordinator)))).toEqual(["addNote", "cancel", "reject"]);
+  });
+
   it("reschedules a confirmed booking only before its visit starts", () => {
     expect(availableActions(booking({ status: "confirmed" }), can(coordinator)).has("reschedule")).toBe(true);
     const started = booking({ status: "confirmed", visits: [{ status: "in_progress" } as BookingDetail["visits"][number]] });

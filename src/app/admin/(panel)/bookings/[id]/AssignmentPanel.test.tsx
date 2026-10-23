@@ -54,6 +54,34 @@ describe("assignment panel (§8.5–§8.7)", () => {
     expect(await screen.findByText("2 cleaners assigned.")).toBeInTheDocument();
   });
 
+  it("each candidate row is labelled: the name toggles it, and the rank and reasons describe the checkbox", async () => {
+    renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: [...MANAGER, "capacity.override"] });
+    const user = userEvent.setup();
+    const maria = await screen.findByRole("checkbox", { name: "Assign Maria S." });
+    expect(maria).toHaveAccessibleDescription("#1 Based in the visit's zone.");
+    await user.click(screen.getByText("Maria S.", { selector: "label" }));
+    expect(maria).toBeChecked();
+    await user.click(screen.getByText("Maria S.", { selector: "label" }));
+    expect(maria).not.toBeChecked();
+
+    await user.click(screen.getByText("Not suggested (2)"));
+    const joy = screen.getByRole("checkbox", { name: "Assign Joy R. with an override" });
+    expect(joy).toHaveAccessibleDescription("Override possible Based in another zone.");
+    await user.click(screen.getByText("Joy R.", { selector: "label" }));
+    expect(joy).toBeChecked();
+  });
+
+  it("moves focus to the visit's heading when assigning the last cleaners removes the picker", async () => {
+    api.fetchVisitCandidates.mockResolvedValueOnce(visitCandidates(2)).mockResolvedValue(visitCandidates(0));
+    renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("checkbox", { name: "Assign Maria S." }));
+    await user.click(screen.getByRole("checkbox", { name: "Assign Nirmala P." }));
+    await user.click(screen.getByRole("button", { name: "Assign 2 cleaners" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Assign 2 cleaners/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { level: 3 })).toHaveFocus());
+  });
+
   it("relaxes a soft rule (another zone) only with capacity.override and a reason of 10 characters", async () => {
     renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: [...MANAGER, "capacity.override"] });
     const user = userEvent.setup();

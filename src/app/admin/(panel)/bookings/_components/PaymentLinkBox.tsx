@@ -41,9 +41,12 @@ export function PaymentLinkBox({
     );
   }
 
+  // The name is optional (API and wizard): without one the greeting has no name rather than an empty gap.
+  const name = customerName?.trim() ?? "";
+  const greeting = { name, hasName: name ? "yes" : "no" };
   const message = bilingualMessage(customerLocale, {
-    ar: t("whatsappAr", { name: customerName || "", reference, date: formatIsoDate(serviceDate, "ar"), link }),
-    en: t("whatsappEn", { name: customerName || "", reference, date: formatIsoDate(serviceDate, "en"), link }),
+    ar: t("whatsappAr", { ...greeting, reference, date: formatIsoDate(serviceDate, "ar"), link }),
+    en: t("whatsappEn", { ...greeting, reference, date: formatIsoDate(serviceDate, "en"), link }),
   });
   const phoneE164 = normalizeUaePhone(phone) ?? phone;
   const whatsapp = whatsappLink(phoneE164, message);

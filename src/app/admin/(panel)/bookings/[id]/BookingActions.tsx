@@ -60,6 +60,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, CancelPreview } from "@/lib/admin/types";
 import { filsToAedInput } from "@/lib/money";
 import { FormErrorNotice } from "../../catalog/_components/CatalogFields";
+import { useBookingFocusFallback } from "../_components/focus";
 import { PaymentLinkBox } from "../_components/PaymentLinkBox";
 import { errorCode, isStaleVersion, useBookingRefresh } from "../_components/refresh";
 import { SlotSelect, useChosenSlotUnavailable } from "../_components/SlotSelect";
@@ -68,11 +69,27 @@ import { useBookingText } from "../_components/bookingText";
 /*
  * A03 booking actions (spec §7.1, §10, §11.4, §14.3; design AdminSchedule.dc.html "review booking"): each opens a
  * confirmation with what will happen and maps the API's answers to our copy. Money routes carry an Idempotency-Key
- * (one per intent, kept for a retry after a lost answer); edits send the loaded version as If-Match, and 409
- * STALE_VERSION asks to reload (onStale).
+ * (one per intent, kept for a retry after a lost answer); edits send the version the dialog opened with as If-Match,
+ * and 409 STALE_VERSION asks to reload (onStale).
+ *
+ * A dialog works on the booking as it was when it opened (a snapshot): a refetch underneath (window focus, another
+ * action's refresh) never swaps the version or the cancellation preview the user is deciding on, so a change made
+ * meanwhile answers STALE_VERSION instead of being accepted silently; the dialog says the booking changed.
  */
 
-type ActionProps = { booking: BookingDetail; onClose: () => void; onStale: () => void };
+type ActionProps = {
+  /** The booking as it was when the dialog opened. */
+  booking: BookingDetail;
+  onClose: () => void;
+  onStale: () => void;
+  /** The booking changed since the dialog opened (a newer version was loaded). */
+  changed?: boolean;
+  /** Focus target when the button that opened the dialog is gone after it (see _components/focus). */
+  returnFocusTo?: HTMLElement | null;
+};
+
+const BAR_ACTIONS = ["confirm", "propose", "reschedule", "reject", "cancel", "paymentLink"] as const;
+type BarAction = (typeof BAR_ACTIONS)[number];
 
 /** The buttons a booking offers (by status and permission) and the dialog that is open. */
 export function BookingActionBar({
@@ -85,51 +102,57 @@ export function BookingActionBar({
   onStale: () => void;
 }) {
   const t = useTranslations("admin.bookings.actions");
-  const [open, setOpen] = useState<BookingAction | null>(null);
-  const close = () => setOpen(null);
-  const shown = (["confirm", "propose", "reschedule", "reject", "cancel", "paymentLink"] as const).filter((a) => actions.has(a));
-  if (shown.length === 0) return null;
+  const fallback = useBookingFocusFallback();
+  const [open, setOpen] = useState<{ action: BarAction; booking: BookingDetail } | null>(null);
+  const start = (action: BarAction) => setOpen({ action, booking });
+  const shown = BAR_ACTIONS.filter((a) => actions.has(a));
+  const props = open
+    ? { booking: open.booking, onClose: () => setOpen(null), onStale, changed: open.booking.version !== booking.version, returnFocusTo: fallback }
+    : null;
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
-        {actions.has("confirm") && (
-          <Button onClick={() => setOpen("confirm")} icon={<Check aria-hidden className="size-4" />}>
-            {t("confirm")}
-          </Button>
-        )}
-        {actions.has("propose") && (
-          <Button variant="secondary" onClick={() => setOpen("propose")} icon={<CalendarClock aria-hidden className="size-4" />}>
-            {t("propose")}
-          </Button>
-        )}
-        {actions.has("reschedule") && (
-          <Button variant="secondary" onClick={() => setOpen("reschedule")} icon={<CalendarClock aria-hidden className="size-4" />}>
-            {t("reschedule")}
-          </Button>
-        )}
-        {actions.has("paymentLink") && (
-          <Button variant="secondary" onClick={() => setOpen("paymentLink")} icon={<Link2 aria-hidden className="size-4" />}>
-            {t("paymentLink")}
-          </Button>
-        )}
-        {actions.has("reject") && (
-          <Button variant="outline" onClick={() => setOpen("reject")} icon={<X aria-hidden className="size-4" />}>
-            {t("reject")}
-          </Button>
-        )}
-        {actions.has("cancel") && (
-          <Button variant="outline" className="text-danger-700" onClick={() => setOpen("cancel")} icon={<Trash2 aria-hidden className="size-4" />}>
-            {t("cancel")}
-          </Button>
-        )}
-      </div>
-      {open === "confirm" && <ConfirmBookingDialog booking={booking} onClose={close} onStale={onStale} />}
-      {open === "reject" && <RejectBookingDialog booking={booking} onClose={close} onStale={onStale} />}
-      {open === "propose" && <ProposeAlternativesDialog booking={booking} onClose={close} onStale={onStale} />}
-      {open === "reschedule" && <RescheduleBookingDialog booking={booking} onClose={close} onStale={onStale} />}
-      {open === "cancel" && <CancelBookingDialog booking={booking} onClose={close} onStale={onStale} />}
-      {open === "paymentLink" && <PaymentLinkDialog booking={booking} onClose={close} />}
+      {shown.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {actions.has("confirm") && (
+            <Button onClick={() => start("confirm")} icon={<Check aria-hidden className="size-4" />}>
+              {t("confirm")}
+            </Button>
+          )}
+          {actions.has("propose") && (
+            <Button variant="secondary" onClick={() => start("propose")} icon={<CalendarClock aria-hidden className="size-4" />}>
+              {t("propose")}
+            </Button>
+          )}
+          {actions.has("reschedule") && (
+            <Button variant="secondary" onClick={() => start("reschedule")} icon={<CalendarClock aria-hidden className="size-4" />}>
+              {t("reschedule")}
+            </Button>
+          )}
+          {actions.has("paymentLink") && (
+            <Button variant="secondary" onClick={() => start("paymentLink")} icon={<Link2 aria-hidden className="size-4" />}>
+              {t("paymentLink")}
+            </Button>
+          )}
+          {actions.has("reject") && (
+            <Button variant="outline" onClick={() => start("reject")} icon={<X aria-hidden className="size-4" />}>
+              {t("reject")}
+            </Button>
+          )}
+          {actions.has("cancel") && (
+            <Button variant="outline" className="text-danger-700" onClick={() => start("cancel")} icon={<Trash2 aria-hidden className="size-4" />}>
+              {t("cancel")}
+            </Button>
+          )}
+        </div>
+      )}
+      {/* An open dialog stays when a newer booking no longer offers its action: it says the booking changed. */}
+      {props && open?.action === "confirm" && <ConfirmBookingDialog {...props} />}
+      {props && open?.action === "reject" && <RejectBookingDialog {...props} />}
+      {props && open?.action === "propose" && <ProposeAlternativesDialog {...props} />}
+      {props && open?.action === "reschedule" && <RescheduleBookingDialog {...props} />}
+      {props && open?.action === "cancel" && <CancelBookingDialog {...props} />}
+      {props && open?.action === "paymentLink" && <PaymentLinkDialog {...props} />}
     </>
   );
 }
@@ -140,13 +163,24 @@ function ActionError({ error }: { error: unknown }) {
   return <FormErrorNotice error={error} fieldsApplied={false} />;
 }
 
+/** The booking was updated while the dialog was open: what is sent is still checked against the version it opened with. */
+function ChangedNotice({ changed }: { changed?: boolean }) {
+  const t = useTranslations("admin.bookings.actions");
+  if (!changed) return null;
+  return (
+    <Notice tone="warning" title={t("changedTitle")}>
+      {t("changedBody")}
+    </Notice>
+  );
+}
+
 // ---- Confirm --------------------------------------------------------------------------------------------------------
 
 /**
  * Confirm = capture (spec §10.2). 502 PAYMENT_RESULT_UNKNOWN: the bank did not answer; the booking stays pending and
  * confirming again is safe (the same intent, the same Idempotency-Key).
  */
-export function ConfirmBookingDialog({ booking, onClose, onStale }: ActionProps) {
+export function ConfirmBookingDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.confirm");
   const text = useBookingText();
   const toast = useToast();
@@ -181,8 +215,9 @@ export function ConfirmBookingDialog({ booking, onClose, onStale }: ActionProps)
       confirmLabel={unknown ? t("retry") : t("submit")}
       pending={mutation.isPending}
       onConfirm={() => mutation.mutate()}
+      returnFocusTo={returnFocusTo}
     >
-      {booking.payment?.status === "verifying" && <Notice tone="info">{t("verifying")}</Notice>}
+      <ChangedNotice changed={changed} />
       {booking.capture_unknown_at && !mutation.error && <Notice tone="warning">{t("captureUnknown")}</Notice>}
       {unknown ? (
         <Notice tone="warning" title={t("unknownTitle")}>
@@ -198,7 +233,7 @@ export function ConfirmBookingDialog({ booking, onClose, onStale }: ActionProps)
 
 // ---- Reject ---------------------------------------------------------------------------------------------------------
 
-export function RejectBookingDialog({ booking, onClose, onStale }: ActionProps) {
+export function RejectBookingDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.reject");
   const f = useTranslations("admin.bookings.formErrors");
   const text = useBookingText();
@@ -237,7 +272,9 @@ export function RejectBookingDialog({ booking, onClose, onStale }: ActionProps) 
       tone="danger"
       pending={mutation.isPending}
       onConfirm={() => void form.handleSubmit((values) => mutation.mutate(values as never))()}
+      returnFocusTo={returnFocusTo}
     >
+      <ChangedNotice changed={changed} />
       <Select
         label={t("reason")}
         required
@@ -268,7 +305,7 @@ const PROPOSE_FIELDS = [
   ...[0, 1, 2].flatMap((i) => [`options.${i}.service_date`, `options.${i}.slot_template_id`, `options.${i}.note`] as const),
 ] as Path<ProposeValues>[];
 
-export function ProposeAlternativesDialog({ booking, onClose, onStale }: ActionProps) {
+export function ProposeAlternativesDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.propose");
   const f = useTranslations("admin.bookings.formErrors");
   const text = useBookingText();
@@ -315,6 +352,7 @@ export function ProposeAlternativesDialog({ booking, onClose, onStale }: ActionP
       description={t("body")}
       size="lg"
       dismissible={!mutation.isPending}
+      returnFocusTo={returnFocusTo}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
@@ -326,6 +364,7 @@ export function ProposeAlternativesDialog({ booking, onClose, onStale }: ActionP
         </>
       }
     >
+      <ChangedNotice changed={changed} />
       <Notice tone="info">
         <p>{t("priceRule", { amount: text.money(authorized) })}</p>
         <p>{t("deadlineRule")}</p>
@@ -408,7 +447,7 @@ function ActionErrorText({ error }: { error: unknown }) {
 
 // ---- Reschedule (staff) ---------------------------------------------------------------------------------------------
 
-export function RescheduleBookingDialog({ booking, onClose, onStale }: ActionProps) {
+export function RescheduleBookingDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.reschedule");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -452,6 +491,7 @@ export function RescheduleBookingDialog({ booking, onClose, onStale }: ActionPro
       title={t("title", { reference: booking.reference })}
       description={t("body")}
       dismissible={!mutation.isPending}
+      returnFocusTo={returnFocusTo}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
@@ -463,6 +503,7 @@ export function RescheduleBookingDialog({ booking, onClose, onStale }: ActionPro
         </>
       }
     >
+      <ChangedNotice changed={changed} />
       <form id={formId} noValidate onSubmit={form.handleSubmit((v) => mutation.mutate(v as never))} className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
@@ -517,7 +558,7 @@ export function RescheduleBookingDialog({ booking, onClose, onStale }: ActionPro
  * moves. When the policy cannot decide the amount (review required, or the visit has started) the refund must be
  * typed by someone with refunds.create; without it the dialog says so and sends nothing.
  */
-export function CancelBookingDialog({ booking, onClose, onStale }: ActionProps) {
+export function CancelBookingDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.cancel");
   const f = useTranslations("admin.bookings.formErrors");
   const text = useBookingText();
@@ -613,7 +654,9 @@ export function CancelBookingDialog({ booking, onClose, onStale }: ActionProps) 
       size="lg"
       pending={mutation.isPending}
       onConfirm={submit}
+      returnFocusTo={returnFocusTo}
     >
+      <ChangedNotice changed={changed} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium text-ink-900">{t("party")}</legend>
         <div className="flex flex-wrap gap-4">
@@ -738,7 +781,7 @@ function CancelPreviewBox({ preview, pending, error, onRetry }: { preview: Cance
 
 // ---- Cancellation review: keep the booking -------------------------------------------------------------------------
 
-export function DeclineReviewDialog({ booking, onClose, onStale }: ActionProps) {
+export function DeclineReviewDialog({ booking, onClose, onStale, changed, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.bookings.review");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -769,7 +812,9 @@ export function DeclineReviewDialog({ booking, onClose, onStale }: ActionProps) 
       confirmLabel={t("declineSubmit")}
       pending={mutation.isPending}
       onConfirm={() => void form.handleSubmit((note) => mutation.mutate(note as unknown as string))()}
+      returnFocusTo={returnFocusTo}
     >
+      <ChangedNotice changed={changed} />
       <TextArea
         label={t("note")}
         hint={t("noteHint")}
@@ -786,7 +831,7 @@ export function DeclineReviewDialog({ booking, onClose, onStale }: ActionProps) 
 
 // ---- Payment link (manual bookings) ---------------------------------------------------------------------------------
 
-function PaymentLinkDialog({ booking, onClose }: { booking: BookingDetail; onClose: () => void }) {
+function PaymentLinkDialog({ booking, onClose, returnFocusTo }: ActionProps) {
   const t = useTranslations("admin.paymentLink");
   const refresh = useBookingRefresh();
   const mutation = useMutation({ mutationFn: () => createPaymentLink(booking.id), onSuccess: () => refresh() });
@@ -796,6 +841,7 @@ function PaymentLinkDialog({ booking, onClose }: { booking: BookingDetail; onClo
       onOpenChange={(o) => !o && !mutation.isPending && onClose()}
       title={t("dialogTitle", { reference: booking.reference })}
       description={t("dialogBody")}
+      returnFocusTo={returnFocusTo}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>

@@ -38,6 +38,22 @@ describe("alerts bell state (D-11 polling)", () => {
     expect(next.pollSeconds).toBe(20);
   });
 
+  it("counts the unread alerts a poll brings for the screen reader, never the first load or a repeat", () => {
+    const meta = { unread_count: 1, server_time: "2026-10-23T10:00:20Z", poll_seconds: 20 };
+    const first = nextAlertsState(undefined, { data: [alert("01A", "2026-10-23T10:00:00Z")], meta });
+    expect(first.arrived).toEqual({ count: 0, urgent: 0, seq: 0 });
+    const poll = nextAlertsState(first, {
+      // 01A comes back (same second): not new. 01C was read on another tab: not announced.
+      data: [alert("01A", "2026-10-23T10:00:00Z"), alert("01B", "2026-10-23T10:00:30Z", { urgent: true }), alert("01C", "2026-10-23T10:00:31Z", { read: true })],
+      meta,
+    });
+    expect(poll.arrived).toEqual({ count: 1, urgent: 1, seq: 1 });
+    const quiet = nextAlertsState(poll, { data: [], meta });
+    expect(quiet.arrived).toEqual({ count: 0, urgent: 0, seq: 1 });
+    const again = nextAlertsState(quiet, { data: [alert("01D", "2026-10-23T10:01:00Z")], meta });
+    expect(again.arrived).toEqual({ count: 1, urgent: 0, seq: 2 });
+  });
+
   it("marks one or all alerts read", () => {
     const state = nextAlertsState(undefined, {
       data: [alert("01A", "2026-10-23T10:00:00Z"), alert("01B", "2026-10-23T10:00:01Z")],

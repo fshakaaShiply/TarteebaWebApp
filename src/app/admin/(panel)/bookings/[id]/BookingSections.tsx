@@ -26,6 +26,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, BookingHistoryRow, RescheduleRequest } from "@/lib/admin/types";
 import { FormErrorNotice } from "../../catalog/_components/CatalogFields";
 import { DeadlineCountdown, Ltr, SlotLabel } from "../_components/BookingBits";
+import { useBookingFocusFallback } from "../_components/focus";
 import { errorCode, useBookingRefresh } from "../_components/refresh";
 import { paymentTone, proposalTone, requestTone, useBookingText } from "../_components/bookingText";
 import { CancelBookingDialog, DeclineReviewDialog } from "./BookingActions";
@@ -220,10 +221,13 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
   const { canAny } = useAdminSession();
   const p = booking.payment;
   const seesRefunds = canAny(["payments.view", "refunds.create"]);
+  // Any money taken may have refunds, also ones still processing or failed (refunded_fils counts only those the
+  // provider confirmed): a reschedule's price difference, money the booking never accepted, a cancellation.
+  const mayHaveRefunds = !!p && (p.captured_fils > 0 || p.refunded_fils > 0 || (booking.cancellation.refund_fils ?? 0) > 0);
   const refunds = useQuery({
     queryKey: adminKeys.bookingRefunds(booking.id),
     queryFn: () => fetchRefundsByPhone(booking.customer.phone),
-    enabled: seesRefunds && !!p && p.refunded_fils + (booking.cancellation.refund_fils ?? 0) > 0,
+    enabled: seesRefunds && mayHaveRefunds,
     select: (rows) =>
       rows.filter((r) => r.payment && (r.payment.ulid === p?.id || (r.payment.payable_id === booking.id && (r.payment.payable_type ?? "").includes("booking")))),
   });
@@ -293,15 +297,31 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
 
 // ---- Cancellation review task ---------------------------------------------------------------------------------------
 
-/** A customer's cancellation waiting for staff (spec §10.4): cancel with a refund decision, or keep the booking. */
+/**
+ * A customer's cancellation waiting for staff (spec §10.4): cancel with a refund decision, or keep the booking.
+ *
+ * Deciding the refund takes bookings.cancel and refunds.create together; under the seeded roles only a system admin
+ * holds both (coordinators cancel, accountants decide refunds), so the note names who can act (backend request: let
+ * the finance role resolve these reviews).
+ */
 export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail; onStale: () => void }) {
   const t = useTranslations("admin.bookings.review");
   const text = useBookingText();
   const { can } = useAdminSession();
-  const [open, setOpen] = useState<"cancel" | "decline" | null>(null);
+  const fallback = useBookingFocusFallback();
+  // The booking as it was when a dialog opened (its version is the If-Match); the dialog stays while the review closes.
+  const [open, setOpen] = useState<{ action: "cancel" | "decline"; booking: BookingDetail } | null>(null);
   const review = booking.cancellation.review;
-  if (!booking.cancellation.review_requested_at) return null;
+  const changed = open !== null && open.booking.version !== booking.version;
+  const dialogs = (
+    <>
+      {open?.action === "cancel" && <CancelBookingDialog booking={open.booking} changed={changed} returnFocusTo={fallback} onClose={() => setOpen(null)} onStale={onStale} />}
+      {open?.action === "decline" && <DeclineReviewDialog booking={open.booking} changed={changed} returnFocusTo={fallback} onClose={() => setOpen(null)} onStale={onStale} />}
+    </>
+  );
+  if (!booking.cancellation.review_requested_at) return dialogs;
   const canCancel = can("bookings.cancel");
+  const decidesRefund = can("refunds.create");
 
   return (
     <Notice
@@ -310,10 +330,10 @@ export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail;
       action={
         canCancel ? (
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button size="sm" variant="danger" onClick={() => setOpen("cancel")}>
+            <Button size="sm" variant="danger" onClick={() => setOpen({ action: "cancel", booking })}>
               {t("cancelWithRefund")}
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setOpen("decline")}>
+            <Button size="sm" variant="secondary" onClick={() => setOpen({ action: "decline", booking })}>
               {t("keep")}
             </Button>
           </div>
@@ -323,9 +343,10 @@ export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail;
       <p>{t("taskBody", { time: text.dateTime(booking.cancellation.review_requested_at) })}</p>
       {review?.reason_code && <p>{t("reason", { reason: text.cancelReason(review.reason_code) })}</p>}
       {review?.reason_text && <p className="whitespace-pre-line">“{review.reason_text}”</p>}
-      {!can("refunds.create") && <p>{t("needsAccountant")}</p>}
-      {open === "cancel" && <CancelBookingDialog booking={booking} onClose={() => setOpen(null)} onStale={onStale} />}
-      {open === "decline" && <DeclineReviewDialog booking={booking} onClose={() => setOpen(null)} onStale={onStale} />}
+      {canCancel && !decidesRefund && <p>{t("needsRefundDecider")}</p>}
+      {!canCancel && decidesRefund && <p>{t("needsCancelPermission")}</p>}
+      {!canCancel && !decidesRefund && <p>{t("needsBoth")}</p>}
+      {dialogs}
     </Notice>
   );
 }
@@ -381,6 +402,7 @@ export function RescheduleRequestsCard({ booking }: { booking: BookingDetail }) 
   const text = useBookingText();
   const { can } = useAdminSession();
   const [deciding, setDeciding] = useState<{ request: RescheduleRequest; action: "approve" | "reject" } | null>(null);
+  const fallback = useBookingFocusFallback();
   const requests = booking.reschedule_requests;
   if (requests.length === 0) return null;
   const canDecide = can("bookings.reschedule");
@@ -420,13 +442,13 @@ export function RescheduleRequestsCard({ booking }: { booking: BookingDetail }) 
           </li>
         ))}
       </ul>
-      {deciding?.action === "approve" && <ApproveRequestDialog request={deciding.request} onClose={() => setDeciding(null)} />}
-      {deciding?.action === "reject" && <RejectRequestDialog request={deciding.request} onClose={() => setDeciding(null)} />}
+      {deciding?.action === "approve" && <ApproveRequestDialog request={deciding.request} returnFocusTo={fallback} onClose={() => setDeciding(null)} />}
+      {deciding?.action === "reject" && <RejectRequestDialog request={deciding.request} returnFocusTo={fallback} onClose={() => setDeciding(null)} />}
     </Card>
   );
 }
 
-function ApproveRequestDialog({ request, onClose }: { request: RescheduleRequest; onClose: () => void }) {
+function ApproveRequestDialog({ request, onClose, returnFocusTo }: { request: RescheduleRequest; onClose: () => void; returnFocusTo: HTMLElement | null }) {
   const t = useTranslations("admin.bookings.requests");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -462,6 +484,7 @@ function ApproveRequestDialog({ request, onClose }: { request: RescheduleRequest
       description={t("approveBody")}
       confirmLabel={t("approve")}
       pending={mutation.isPending}
+      returnFocusTo={returnFocusTo}
       onConfirm={() => void form.handleSubmit((v) => mutation.mutate(v as never))()}
     >
       <TextArea label={t("note")} hint={t("noteHint")} rows={2} maxLength={1000} error={msg(errors.note)} {...form.register("note")} />
@@ -485,7 +508,7 @@ function ApproveRequestDialog({ request, onClose }: { request: RescheduleRequest
   );
 }
 
-function RejectRequestDialog({ request, onClose }: { request: RescheduleRequest; onClose: () => void }) {
+function RejectRequestDialog({ request, onClose, returnFocusTo }: { request: RescheduleRequest; onClose: () => void; returnFocusTo: HTMLElement | null }) {
   const t = useTranslations("admin.bookings.requests");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -510,6 +533,7 @@ function RejectRequestDialog({ request, onClose }: { request: RescheduleRequest;
       confirmLabel={t("reject")}
       tone="danger"
       pending={mutation.isPending}
+      returnFocusTo={returnFocusTo}
       onConfirm={() => void form.handleSubmit((note) => mutation.mutate(note as unknown as string))()}
     >
       <TextArea

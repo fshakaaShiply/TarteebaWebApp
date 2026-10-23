@@ -44,8 +44,18 @@ const PROPOSABLE_PAYMENT: readonly PaymentStatus[] = ["authorized", "captured"];
 
 export const NOTE_PERMISSIONS = ["bookings.create_manual", "bookings.confirm", "bookings.reschedule", "bookings.cancel"] as const;
 
+type PaymentState = Pick<BookingDetail, "payment_status"> & { payment?: { status: string } | null };
+
+/**
+ * The payment provider is still checking the payment (spec §7.2): the API refuses a capture at once (409
+ * PAYMENT_VERIFYING), so Confirm is not offered until the provider answers.
+ */
+export function paymentVerifying(booking: PaymentState): boolean {
+  return booking.payment_status === "verifying" || booking.payment?.status === "verifying";
+}
+
 export function availableActions(
-  booking: Pick<BookingDetail, "status" | "payment_status" | "visits" | "capture_unknown_at" | "created_by_staff_id" | "cancellation">,
+  booking: Pick<BookingDetail, "status" | "payment_status" | "visits" | "capture_unknown_at" | "created_by_staff_id" | "cancellation"> & PaymentState,
   can: (permission: string) => boolean,
 ): Set<BookingAction> {
   const out = new Set<BookingAction>();
@@ -53,7 +63,7 @@ export function availableActions(
   const visit = booking.visits[0];
 
   if (status === "pending_confirmation") {
-    if (can("bookings.confirm")) out.add("confirm");
+    if (can("bookings.confirm") && !paymentVerifying(booking)) out.add("confirm");
     if (can("bookings.reject")) out.add("reject");
     if (
       can("bookings.propose_alternative") &&

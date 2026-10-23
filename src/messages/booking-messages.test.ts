@@ -63,6 +63,41 @@ describe("durations and counts read naturally", () => {
     expect(time("en")("hoursMinutes", { hours: 2, minutes: 10 })).toBe("2 hours 10 minutes");
   });
 
+  it("in Arabic, the slot picker and the assignment counts agree with their number", () => {
+    const slots = createTranslator({ locale: "ar", messages: ar, namespace: "admin.bookings.slots" });
+    const slot = (free: number) => slots("option", { name: "صباحي", start: "10:00", end: "14:00", status: "متاحة", free });
+    expect(slot(1)).toBe("صباحي · 10:00–14:00 · متاحة · حتى عاملة واحدة");
+    expect(slot(2)).toBe("صباحي · 10:00–14:00 · متاحة · حتى عاملتين");
+    expect(slot(5)).toBe("صباحي · 10:00–14:00 · متاحة · حتى 5 عاملات");
+    expect(slot(12)).toBe("صباحي · 10:00–14:00 · متاحة · حتى 12 عاملة");
+    const assignment = createTranslator({ locale: "ar", messages: ar, namespace: "admin.bookings.assignment" });
+    expect(assignment("chooseMore", { count: 1 })).toBe("اختر عاملة أخرى");
+    expect(assignment("chooseMore", { count: 2 })).toBe("اختر عاملتين أخريين");
+    expect(assignment("chooseMore", { count: 3 })).toBe("اختر 3 عاملات أخرى");
+    const enSlots = createTranslator({ locale: "en", messages: en, namespace: "admin.bookings.slots" });
+    expect(enSlots("option", { name: "Morning", start: "10:00", end: "14:00", status: "Open", free: 1 })).toBe("Morning · 10:00–14:00 · Open · up to 1 cleaner");
+  });
+
+  it("announces new alerts with the right forms", () => {
+    const ar_ = createTranslator({ locale: "ar", messages: ar, namespace: "admin.alerts" });
+    expect(ar_("announceNew", { count: 1 })).toBe("وصل تنبيه جديد");
+    expect(ar_("announceUrgent", { count: 2 })).toBe("وصل تنبيهان عاجلان جديدان");
+    expect(ar_("announceMixed", { count: 4, urgent: 1 })).toBe("وصلت 4 تنبيهات جديدة، منها تنبيه عاجل");
+    const en_ = createTranslator({ locale: "en", messages: en, namespace: "admin.alerts" });
+    expect(en_("announceMixed", { count: 3, urgent: 2 })).toBe("3 new alerts, 2 urgent");
+  });
+
+  it("greets a customer without a name without an empty gap", () => {
+    for (const [locale, messages] of [["ar", ar], ["en", en]] as const) {
+      const t = createTranslator({ locale, messages, namespace: "admin.paymentLink" });
+      const args = { reference: "TRB-1", date: "1", link: "https://x.test/p" };
+      expect(t("whatsappAr", { ...args, name: "", hasName: "no" })).toMatch(/^مرحبًا، هذا رابط الدفع/);
+      expect(t("whatsappAr", { ...args, name: "سارة", hasName: "yes" })).toMatch(/^مرحبًا سارة، هذا رابط الدفع/);
+      expect(t("whatsappEn", { ...args, name: "", hasName: "no" })).toMatch(/^Hello, here is the payment link/);
+      expect(t("whatsappEn", { ...args, name: "Sara", hasName: "yes" })).toMatch(/^Hello Sara, here is the payment link/);
+    }
+  });
+
   it("in Arabic, with dual and plural forms", () => {
     expect(time("ar")("minutes", { minutes: 2 })).toBe("دقيقتان");
     expect(time("ar")("minutes", { minutes: 10 })).toBe("10 دقائق");

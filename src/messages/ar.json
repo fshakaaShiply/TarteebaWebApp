@@ -416,19 +416,25 @@
         "uncoveredNone": "كل الزيارات لها فريقها",
         "uncoveredMissing": "{count, plural, one {عاملة واحدة بانتظار التعيين} two {عاملتان بانتظار التعيين} few {# عاملات بانتظار التعيين} many {# عاملة بانتظار التعيين} other {# عاملة بانتظار التعيين}}",
         "onTimeNone": "لم تصل أي زيارة بعد",
-        "onTimeDetail": "{onTime} من {arrived} في الموعد · {late} متأخرة",
-        "onTimeOverdue": "{count, plural, one {زيارة واحدة لم يُسجَّل وصولها} two {زيارتان لم يُسجَّل وصولهما} few {# زيارات لم يُسجَّل وصولها} many {# زيارة لم يُسجَّل وصولها} other {# زيارة لم يُسجَّل وصولها}} بعد مهلة السماح"
+        "onTimeDetail": "في الموعد: {onTime} من {arrived} · متأخرة: {late}",
+        "onTimeOverdue": "{count, plural, one {زيارة واحدة لم يُسجَّل وصولها} two {زيارتان لم يُسجَّل وصولهما} few {# زيارات لم يُسجَّل وصولها} many {# زيارة لم يُسجَّل وصولها} other {# زيارة لم يُسجَّل وصولها}} بعد مهلة السماح",
+        "uncoveredInAlerts": "عرضها في قائمة التنبيهات",
+        "uncoveredPickZone": "اختر منطقة من الشريط العلوي لفتح قائمتها"
       },
       "alerts": {
         "title": "تنبيهات تحتاج إجراء",
-        "total": "{count, plural, one {تنبيه واحد} two {تنبيهان} few {# تنبيهات} many {# تنبيهًا} other {# تنبيه}} · {urgent} عاجلة",
+        "total": "{count, plural, one {تنبيه واحد} two {تنبيهان} few {# تنبيهات} many {# تنبيهًا} other {# تنبيه}} · عاجلة: {urgent}",
         "empty": "لا شيء يحتاج إجراء الآن.",
         "urgent": "عاجل",
         "warning": "تنبيه",
         "open": "فتح",
         "openLabel": "فتح: {title}",
         "showAll": "عرض الكل ({count})",
-        "showFewer": "عرض أقل"
+        "showFewer": "عرض أقل",
+        "uncoveredTitle": "الزيارات غير المغطاة اليوم في كل المناطق",
+        "showAllTypes": "عرض كل التنبيهات",
+        "firstOf": "يظهر أول {shown} من {total}.",
+        "uncoveredEmpty": "لكل زيارات اليوم فريقها."
       },
       "panels": {
         "ofTotal": "{value} / {total}",
@@ -439,13 +445,13 @@
         "absent": "إجازة أو غياب",
         "offAndLate": "في إجازة أسبوعية اليوم: {off} · وصول متأخر: {late}",
         "fleetTitle": "السيارات والجولات",
-        "vehicles": "{active} من {total} سيارات في الخدمة · {inUse} قيد الاستخدام · {maintenance} في الصيانة",
+        "vehicles": "السيارات في الخدمة: {active} من {total} · قيد الاستخدام: {inUse} · في الصيانة: {maintenance}",
         "roundSeats": "{name} · المقاعد المستخدمة",
         "roundsCount": "{count, plural, zero {لا جولات} one {جولة واحدة} two {جولتان} few {# جولات} many {# جولة} other {# جولة}} · انطلقت {departed} · اكتملت {completed}",
         "statusTitle": "الحجوزات حسب الحالة",
         "slotTitle": "الحجوزات حسب الفترة",
         "slotWorkers": "{workers, plural, zero {لا عاملات} one {عاملة واحدة} two {عاملتان} few {# عاملات} many {# عاملة} other {# عاملة}}",
-        "slotUncovered": "{count} غير مغطاة",
+        "slotUncovered": "{count, plural, one {زيارة غير مغطاة} two {زيارتان غير مغطاتين} few {# زيارات غير مغطاة} many {# زيارة غير مغطاة} other {# زيارة غير مغطاة}}",
         "zoneTitle": "الحجوزات حسب المنطقة",
         "noZones": "لا توجد مناطق لعرضها."
       },
@@ -454,7 +460,7 @@
         "sales": "مبيعات اليوم (الصافي)",
         "salesDetail": "خُصم {captured} · استُرد {refunded}",
         "occupancy": "نسبة الإشغال",
-        "occupancyDetail": "{used} من {available} أماكن عاملات محجوزة",
+        "occupancyDetail": "أماكن العاملات المحجوزة: {used} من {available}",
         "cancellations": "إلغاءات اليوم",
         "cancellationsDetail": "العميل {customer} · الشركة {company} · النظام {system}",
         "rating": "متوسط التقييم",
@@ -476,7 +482,8 @@
           "deadline": "المهلة",
           "action": "إجراء"
         }
-      }
+      },
+      "refresh": "تحديث"
     },
     "twoFactor": {
       "title": "أمان الحساب",
@@ -2169,13 +2176,14 @@
         "applied": "طُبّق التجاوز على {slot}{hasStatus, select, yes {، وأصبحت الآن {status}} other {}}."
       },
       "uncovered": {
-        "title": "زيارات غير مغطاة ({count})",
+        "title": "الزيارات غير المغطاة في {zone} ({count})",
         "none": "كل الزيارات المؤكدة في هذا اليوم لها فريقها.",
-        "missing": "ينقصها {missing} من {total} عاملات",
-        "unfit": "{count} لم تعد مناسبة",
+        "missing": "العاملات الناقصات: {missing} من {total}",
+        "unfit": "لم تعد مناسبة: {count}",
         "open": "فتح",
         "openLabel": "فتح الحجز {reference}"
-      }
+      },
+      "oneZoneNote": "تُعرض السعة لمنطقة واحدة في كل مرة: {zone}. اختر منطقة أخرى من الأعلى."
     },
     "workers": {
       "title": "العاملات",
@@ -2491,7 +2499,10 @@
       "unread": "غير مقروء:",
       "empty": "لا توجد تنبيهات بعد.",
       "loadError": "تعذر تحميل التنبيهات، وستُحدَّث بعد قليل.",
-      "listLabel": "أحدث التنبيهات"
+      "listLabel": "أحدث التنبيهات",
+      "announceNew": "{count, plural, one {وصل تنبيه جديد} two {وصل تنبيهان جديدان} few {وصلت # تنبيهات جديدة} many {وصل # تنبيهًا جديدًا} other {وصل # تنبيه جديد}}",
+      "announceUrgent": "{count, plural, one {وصل تنبيه عاجل جديد} two {وصل تنبيهان عاجلان جديدان} few {وصلت # تنبيهات عاجلة جديدة} many {وصل # تنبيهًا عاجلًا جديدًا} other {وصل # تنبيه عاجل جديد}}",
+      "announceMixed": "{count, plural, one {وصل تنبيه جديد} two {وصل تنبيهان جديدان} few {وصلت # تنبيهات جديدة} many {وصل # تنبيهًا جديدًا} other {وصل # تنبيه جديد}}، {urgent, plural, one {منها تنبيه عاجل} two {منها تنبيهان عاجلان} few {منها # تنبيهات عاجلة} many {منها # تنبيهًا عاجلًا} other {منها # تنبيه عاجل}}"
     },
     "time": {
       "minutes": "{minutes, plural, zero {أقل من دقيقة} one {دقيقة واحدة} two {دقيقتان} few {# دقائق} many {# دقيقة} other {# دقيقة}}",
@@ -2510,8 +2521,8 @@
       "notSent": "يفتح واتساب والرسالة جاهزة، ولا يُرسل شيء حتى تضغط إرسال. تظهر أي رسالة نصية أو إشعار في التطبيق يرسله النظام ضمن «الإشعارات المرسلة» في صفحة الحجز.",
       "missingTitle": "لا يوجد رابط دفع بعد",
       "missingBody": "تعذر فتح صفحة الدفع الآن. أنشئ رابطًا جديدًا من صفحة الحجز.",
-      "whatsappAr": "مرحبًا {name}، هذا رابط الدفع لطلب حجز ترتيبة {reference} بتاريخ {date}: {link}\nبعد الدفع يبقى طلبك بانتظار تأكيد فريقنا، وسنبلغك بالنتيجة.",
-      "whatsappEn": "Hello {name}, here is the payment link for your Tarteeba booking request {reference} on {date}: {link}\nAfter payment, your request waits for our team's confirmation, and we'll let you know the outcome.",
+      "whatsappAr": "{hasName, select, yes {مرحبًا {name}،} other {مرحبًا،}} هذا رابط الدفع لطلب حجز ترتيبة {reference} بتاريخ {date}: {link}\nبعد الدفع يبقى طلبك بانتظار تأكيد فريقنا، وسنبلغك بالنتيجة.",
+      "whatsappEn": "{hasName, select, yes {Hello {name},} other {Hello,}} here is the payment link for your Tarteeba booking request {reference} on {date}: {link}\nAfter payment, your request waits for our team's confirmation, and we'll let you know the outcome.",
       "dialogTitle": "رابط دفع جديد للحجز {reference}",
       "dialogBody": "صفحة دفع جديدة لهذا الحجز اليدوي، ويتوقف الرابط السابق عن العمل.",
       "create": "إنشاء الرابط",
@@ -2673,7 +2684,7 @@
       },
       "slots": {
         "placeholder": "اختر موعدًا",
-        "option": "{name} · {start}–{end} · {status} · حتى {free} عاملات",
+        "option": "{name} · {start}–{end} · {status} · حتى {free, plural, one {عاملة واحدة} two {عاملتين} few {# عاملات} many {# عاملة} other {# عاملة}}",
         "optionUnavailable": "{name} · {start}–{end} · {status} · لا يتسع لهذا الفريق",
         "noPermission": "المواعيد المتاحة تأتي من عرض السعة، ودورك لا يتيح فتحه.",
         "chooseDate": "اختر التاريخ أولًا.",
@@ -2687,7 +2698,9 @@
         "reschedule": "إعادة الجدولة",
         "paymentLink": "رابط الدفع",
         "reject": "رفض",
-        "cancel": "إلغاء الحجز"
+        "cancel": "إلغاء الحجز",
+        "changedTitle": "تغيّر هذا الحجز",
+        "changedBody": "حدّثه شخص آخر بعد أن فتحت هذه النافذة. إذا تابعت فسيُطلب منك إعادة التحميل ومراجعة أحدث التفاصيل أولًا."
       },
       "formErrors": {
         "required": "اختر قيمة.",
@@ -2711,7 +2724,6 @@
         "submit": "التأكيد وخصم المبلغ",
         "retry": "إعادة المحاولة",
         "done": "تم تأكيد الحجز {reference}.",
-        "verifying": "ما زال البنك يتحقق من هذه الدفعة، ولن يتم التأكيد حتى تُعرف نتيجتها.",
         "captureUnknown": "لم يرد البنك على آخر محاولة لخصم هذه الدفعة. إعادة التأكيد آمنة.",
         "unknownTitle": "لم يصلنا رد البنك",
         "unknownBody": "لا نعرف بعد إن كان المبلغ قد خُصم، والحجز ما زال بانتظار التأكيد. أعد المحاولة، فهي آمنة ولا تخصم المبلغ مرتين.",
@@ -2780,9 +2792,9 @@
         "providerNote": "يتم التحرير والاسترداد عبر مزود الدفع، ويعرض الحجز حالتهما.",
         "retryPreview": "إعادة المحاولة",
         "reviewTaskTitle": "تلزم مراجعة",
-        "reviewTaskBody": "يحدد المحاسب أو مسؤول النظام المبلغ المسترد لهذا الإلغاء. اطلب منهم إلغاء الحجز مع تحديد المبلغ، ولن يُلغى أو يُخصم أي شيء قبل ذلك.",
+        "reviewTaskBody": "يحدد المبلغ المسترد لهذا الإلغاء من يملك صلاحيتي إلغاء الحجوزات وتحديد الاسترداد (مسؤول النظام). اطلب منه إلغاء الحجز مع تحديد المبلغ، ولن يُلغى أو يُخصم أي شيء قبل ذلك.",
         "startedTitle": "بدأت الزيارة",
-        "startedNoPermission": "لا تغطي السياسة الإلغاء الآن، لذا يحدد المحاسب أو مسؤول النظام المبلغ المسترد.",
+        "startedNoPermission": "لا تغطي السياسة الإلغاء الآن، لذا يحدد المبلغ المسترد من يملك صلاحيتي إلغاء الحجوزات وتحديد الاسترداد (مسؤول النظام).",
         "reason": "السبب",
         "chooseReason": "اختر السبب",
         "details": "التفاصيل",
@@ -2799,7 +2811,6 @@
         "taskTitle": "طلب إلغاء بانتظار المراجعة",
         "taskBody": "طلب العميل الإلغاء في {time}، وتتطلب السياسة أن يحدد شخص مخوّل المبلغ المسترد قبل أي إلغاء أو خصم.",
         "reason": "السبب: {reason}",
-        "needsAccountant": "يحدد المحاسب أو مسؤول النظام المبلغ المسترد.",
         "cancelWithRefund": "الإلغاء مع تحديد الاسترداد",
         "keep": "الإبقاء على الحجز",
         "declineTitle": "الإبقاء على الحجز؟",
@@ -2807,7 +2818,10 @@
         "declineSubmit": "الإبقاء على الحجز",
         "note": "رسالة إلى العميل",
         "noteHint": "يُبلَّغ العميل بسبب الإبقاء على الحجز.",
-        "declined": "بقي الحجز كما هو، وأُبلغ العميل."
+        "declined": "بقي الحجز كما هو، وأُبلغ العميل.",
+        "needsRefundDecider": "يتطلب تحديد المبلغ المسترد صلاحية الاسترداد أيضًا. اطلب من مسؤول النظام (أو ممن يملك الصلاحيتين) إلغاء الحجز مع تحديد المبلغ.",
+        "needsCancelPermission": "يمكنك تحديد المبلغ المسترد، لكن الإلغاء يتطلب أيضًا صلاحية إلغاء الحجوزات. اطلب من مسؤول النظام إلغاء الحجز بالمبلغ الذي تحدده.",
+        "needsBoth": "يتطلب حسم هذه المراجعة صلاحيتي إلغاء الحجوزات وتحديد الاسترداد (مسؤول النظام)."
       },
       "detail": {
         "back": "كل الحجوزات",
@@ -2864,7 +2878,9 @@
         "net": "قبل الضريبة",
         "vat": "ضريبة القيمة المضافة {rate}%",
         "total": "الإجمالي",
-        "rescheduleFee": "رسوم تغيير محتسبة"
+        "rescheduleFee": "رسوم تغيير محتسبة",
+        "refresh": "تحديث",
+        "verifyingConfirm": "ما زال مزود الدفع يتحقق من هذه الدفعة، ويصبح التأكيد متاحًا بعد وصول رده."
       },
       "payment": {
         "title": "الدفع والاسترداد",
@@ -2981,7 +2997,7 @@
         "unassignLabel": "إزالة {name} من الزيارة",
         "candidates": "العاملات المقترحات",
         "choose": "اختر {count, plural, one {عاملة واحدة} two {عاملتين} few {# عاملات} many {# عاملة} other {# عاملة}}",
-        "chooseMore": "اختر {count} أخرى",
+        "chooseMore": "{count, plural, one {اختر عاملة أخرى} two {اختر عاملتين أخريين} few {اختر # عاملات أخرى} many {اختر # عاملة أخرى} other {اختر # عاملة أخرى}}",
         "noCandidates": "لا توجد عاملة متاحة في منطقة الزيارة لهذا الموعد.",
         "pick": "تعيين {name}",
         "pickOverride": "تعيين {name} بتجاوز يدوي",
@@ -3190,7 +3206,18 @@
         "tooManyAddons": "عشر إضافات على الأكثر.",
         "reasonMin": "يحتاج التجاوز إلى سبب من عشرة أحرف على الأقل.",
         "reasonMax": "السبب طويل جدًا."
-      }
+      },
+      "unknownTitle": "لا نعرف بعد إن كان الحجز قد أُنشئ",
+      "unknownBody": "اضغط «حاول مرة أخرى» لإرسال الطلب نفسه: يُنشأ الحجز مرة واحدة فقط، وإذا نجحت المحاولة الأولى يظهر لك ذلك الحجز.",
+      "tryAgain": "حاول مرة أخرى",
+      "earlierTitle": "قد يكون الحجز قد أُنشئ في المحاولة الأولى",
+      "earlierBody": "وصلتنا المحاولة الأولى قبل تغيير التفاصيل. اعرض ذلك الحجز، أو راجع حجوزات هذا الرقم قبل إنشاء حجز آخر.",
+      "showEarlier": "عرض حجز المحاولة الأولى",
+      "checkList": "حجوزات هذا الرقم"
+    },
+    "globalSearch": {
+      "label": "البحث في الحجوزات",
+      "placeholder": "رقم الحجز أو رقم الهاتف"
     }
   },
   "driver": {

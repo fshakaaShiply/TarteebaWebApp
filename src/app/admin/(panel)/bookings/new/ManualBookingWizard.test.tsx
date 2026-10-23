@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AdminApiError } from "@/lib/admin/client";
 import type { CapacityView, ManualBookingResult } from "@/lib/admin/types";
 import { bookingDetail, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
@@ -81,6 +82,27 @@ const result: ManualBookingResult = {
 };
 
 const consoleError = vi.spyOn(console, "error");
+
+const apiError = (status: number, code: string, details: Record<string, unknown> = {}) => new AdminApiError(status, { code, message: "", details });
+
+/** Source, phone, a new address in the zone, the service and slot: the wizard then shows its last step. */
+async function fillToDetails(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("radio", { name: "WhatsApp" }));
+  await user.type(screen.getByRole("textbox", { name: /Customer mobile number/ }), "+971 50 123 4567");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(await screen.findByRole("textbox", { name: /Address label/ }), "Home");
+  await user.selectOptions(screen.getByRole("combobox", { name: /Property type/ }), "apartment");
+  await user.type(screen.getByRole("textbox", { name: /Location/ }), "25.1865, 55.2730");
+  await user.tab();
+  await screen.findByText("Inside the service area: Business Bay & Downtown.");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.selectOptions(await screen.findByRole("combobox", { name: /Service/ }), "STANDARD_VISIT");
+  const slot = screen.getByRole("combobox", { name: /Time/ });
+  await waitFor(() => expect(within(slot).getAllByRole("option")).toHaveLength(2));
+  await user.selectOptions(slot, "2");
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByText(/Evening 15:00–19:00/);
+}
 
 describe("A03 manual booking wizard", () => {
   beforeEach(() => {
@@ -184,6 +206,79 @@ describe("A03 manual booking wizard", () => {
     expect(writeText).toHaveBeenCalledWith("https://pay.example.test/checkout/abc?x=1&y=2");
     expect(await screen.findByText("Link copied.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the booking" })).toHaveAttribute("href", "/admin/bookings/9");
+  });
+
+  it("moves focus to the first invalid field when it refuses to go on", async () => {
+    renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("radio", { name: "Phone" })).toHaveFocus();
+  });
+
+  it("goes back to the step of a field the API refused and focuses it", async () => {
+    api.createManualBooking.mockRejectedValue(apiError(422, "VALIDATION_FAILED", { fields: { "customer.phone": ["This number can't receive messages."] } }));
+    renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS });
+    const user = userEvent.setup();
+    await fillToDetails(user);
+    await user.click(screen.getByRole("button", { name: "Create booking" }));
+    const phone = await screen.findByRole("textbox", { name: /Customer mobile number/ });
+    expect(screen.getByText("This number can't receive messages.")).toBeInTheDocument();
+    await waitFor(() => expect(phone).toHaveFocus());
+  });
+
+  it("after an unknown outcome keeps the same Idempotency-Key even when details change, and can show the booking already made", async () => {
+    api.createManualBooking
+      // The /backend proxy gave up after 60 s while the API may have finished.
+      .mockRejectedValueOnce(apiError(502, "BAD_GATEWAY"))
+      // The edited form: the key already holds the first attempt's booking.
+      .mockRejectedValueOnce(apiError(422, "IDEMPOTENCY_KEY_REUSED"))
+      // The first body again: the API replays the booking it made.
+      .mockResolvedValueOnce(result);
+    renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS });
+    const user = userEvent.setup();
+    await fillToDetails(user);
+    await user.click(screen.getByRole("button", { name: "Create booking" }));
+    expect(await screen.findByText("We don't know yet whether the booking was made")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    const [firstPayload, firstKey] = api.createManualBooking.mock.calls[0];
+
+    await user.type(screen.getByRole("textbox", { name: /Instructions/ }), "Ring twice");
+    await user.click(screen.getByRole("button", { name: "Create booking" }));
+    await waitFor(() => expect(api.createManualBooking).toHaveBeenCalledTimes(2));
+    const [secondPayload, secondKey] = api.createManualBooking.mock.calls[1];
+    expect(secondPayload.instructions).toBe("Ring twice");
+    expect(secondKey).toBe(firstKey);
+
+    expect(await screen.findByText("A booking may already exist from the first try")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bookings for this phone" })).toHaveAttribute("href", "/admin/bookings?search=%2B971501234567");
+    await user.click(screen.getByRole("button", { name: "Show the booking from the first try" }));
+    await waitFor(() => expect(api.createManualBooking).toHaveBeenCalledTimes(3));
+    expect(api.createManualBooking.mock.calls[2]).toEqual([firstPayload, firstKey]);
+    expect(await screen.findByText("Booking TRB-NEW001 created")).toBeInTheDocument();
+  });
+
+  it("forgets a customer lookup once the phone is corrected (never another customer's name or address)", async () => {
+    api.fetchBookings.mockResolvedValue({
+      data: [{ ...bookingDetail(), customer: { id: "01C", name: "Omar Khalid", phone: "+971500000002" } }],
+      meta: { current_page: 1, per_page: 20, total: 1, last_page: 1 },
+    });
+    api.fetchBooking.mockResolvedValue(bookingDetail());
+    renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Phone" }));
+    const phone = screen.getByRole("textbox", { name: /Customer mobile number/ });
+    await user.type(phone, "0500000002");
+    await user.click(screen.getByRole("button", { name: "Find customer" }));
+    expect(await screen.findByText("Existing customer: Omar Khalid · 1 saved address")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Use this name" }));
+
+    await user.clear(phone);
+    await user.type(phone, "0500000003");
+    expect(screen.queryByText(/Existing customer/)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Customer name/ })).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("textbox", { name: /Address label/ })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Saved address/ })).not.toBeInTheDocument();
   });
 
   it("finds an existing customer by phone and offers their saved addresses", async () => {

@@ -2,9 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import clsx from "clsx";
 import { Activity, Repeat, ShieldAlert, UserMinus, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import {
   Button,
@@ -32,6 +33,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, BookingVisit, CandidateWorker, VisitCandidates } from "@/lib/admin/types";
 import { ResourceConflictNotice, ShortfallTable } from "../../_ops/Shortfall";
 import { SlotLabel } from "../_components/BookingBits";
+import { useFocusRescue } from "../_components/focus";
 import { useBookingRefresh } from "../_components/refresh";
 import { useBookingText, visitTone } from "../_components/bookingText";
 
@@ -88,12 +90,15 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
   const [unassigning, setUnassigning] = useState<{ id: number; name: string } | null>(null);
   const [replacing, setReplacing] = useState<{ id: number; name: string } | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
+  // Assigning the last cleaners removes the picker, removing one removes its row: focus goes to the visit's heading.
+  const [heading, setHeading] = useState<HTMLHeadingElement | null>(null);
+  useFocusRescue(heading, `${assigned.map((w) => w.id).join(",")}:${missing}:${visit.status}`);
 
   return (
     <section aria-labelledby={`visit-${visit.id}`} className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col">
-          <h3 id={`visit-${visit.id}`} className="font-bold text-ink-900">
+          <h3 ref={setHeading} id={`visit-${visit.id}`} tabIndex={-1} className="font-bold text-ink-900 outline-none">
             {t("visit", { date: text.dateShort(visit.service_date) })} · <SlotLabel start={visit.start} end={visit.end} />
           </h3>
           <span className="text-sm text-ink-600">{t("count", { assigned: assigned.length, required })}</span>
@@ -141,19 +146,19 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
           ) : candidates.isError ? (
             <ErrorState error={candidates.error} onRetry={() => void candidates.refetch()} className="py-4" />
           ) : (
-            <CandidatePicker booking={booking} visitId={visit.id} data={candidates.data} missing={missing} canAssign={canManage} />
+            <CandidatePicker booking={booking} visitId={visit.id} data={candidates.data} missing={missing} canAssign={canManage} focusFallback={heading} />
           )}
         </>
       )}
       {!assignable && visit.status !== "cancelled" && missing > 0 && <p className="text-sm text-ink-600">{t("notAssignable")}</p>}
 
       {unassigning && (
-        <UnassignDialog visitId={visit.id} version={summary?.version ?? null} worker={unassigning} onClose={() => setUnassigning(null)} />
+        <UnassignDialog visitId={visit.id} version={summary?.version ?? null} worker={unassigning} returnFocusTo={heading} onClose={() => setUnassigning(null)} />
       )}
       {replacing && candidates.data && (
-        <ReplaceDialog visitId={visit.id} data={candidates.data} worker={replacing} onClose={() => setReplacing(null)} />
+        <ReplaceDialog visitId={visit.id} data={candidates.data} worker={replacing} returnFocusTo={heading} onClose={() => setReplacing(null)} />
       )}
-      {statusOpen && <VisitStatusDialog visitId={visit.id} version={summary?.version ?? null} onClose={() => setStatusOpen(false)} />}
+      {statusOpen && <VisitStatusDialog visitId={visit.id} version={summary?.version ?? null} returnFocusTo={heading} onClose={() => setStatusOpen(false)} />}
     </section>
   );
 }
@@ -173,22 +178,28 @@ function useRuleLabel() {
   return (rule: string) => (t.has(rule) ? t(rule) : rule);
 }
 
+/** Ids that tie a candidate row's checkbox to its name, rank, badge and reasons. */
+const rowIds = (base: string) => ({ input: `${base}-pick`, rank: `${base}-rank`, badge: `${base}-badge`, reasons: `${base}-reasons` });
+
 function CandidatePicker({
   booking,
   visitId,
   data,
   missing,
   canAssign,
+  focusFallback,
 }: {
   booking: BookingDetail;
   visitId: number;
   data: VisitCandidates;
   missing: number;
   canAssign: boolean;
+  focusFallback: HTMLElement | null;
 }) {
   const t = useTranslations("admin.bookings.assignment");
   const text = useBookingText();
   const toast = useToast();
+  const pickerId = useId();
   const { can } = useAdminSession();
   const canOverride = can(CAPACITY_OVERRIDE_PERMISSION);
   const after = useAfterTeamChange(visitId);
@@ -241,32 +252,51 @@ function CandidatePicker({
         <p className="text-sm text-ink-600">{t("noCandidates")}</p>
       ) : (
         <ol className="flex flex-col gap-2">
-          {data.candidates.map((c) => (
-            <li key={c.worker.id} className="flex items-start gap-3 rounded-md border border-line p-3">
-              {canAssign && (
-                <input
-                  type="checkbox"
-                  aria-label={t("pick", { name: c.worker.display_name })}
-                  checked={isSelected(c.worker.id)}
-                  disabled={!isSelected(c.worker.id) && selected.length >= missing}
-                  onChange={() => toggle({ id: c.worker.id, name: c.worker.display_name, needsOverride: false, rules: [] })}
-                  className="mt-1 size-4.5 shrink-0 accent-petrol-700"
-                />
-              )}
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-latin text-xs text-ink-600">{t("rank", { rank: c.rank })}</span>
-                  <span className="font-bold text-ink-900">{c.worker.display_name}</span>
-                  {(c.preferred || c.worker.id === preferredId) && <StatusBadge tone="confirmed">{t("preferredBadge")}</StatusBadge>}
+          {data.candidates.map((c) => {
+            const ids = rowIds(`${pickerId}-c${c.worker.id}`);
+            const preferred = c.preferred || c.worker.id === preferredId;
+            return (
+              // The whole row is the hit area: the name's label stretches over it (after:inset-0).
+              <li key={c.worker.id} className="relative flex items-start gap-3 rounded-md border border-line p-3 has-[:checked]:border-petrol-700 has-[:checked]:bg-petrol-50/50">
+                {canAssign && (
+                  <input
+                    id={ids.input}
+                    type="checkbox"
+                    aria-label={t("pick", { name: c.worker.display_name })}
+                    aria-describedby={[ids.rank, preferred ? ids.badge : null, ids.reasons].filter(Boolean).join(" ")}
+                    checked={isSelected(c.worker.id)}
+                    disabled={!isSelected(c.worker.id) && selected.length >= missing}
+                    onChange={() => toggle({ id: c.worker.id, name: c.worker.display_name, needsOverride: false, rules: [] })}
+                    className="mt-1 size-4.5 shrink-0 accent-petrol-700"
+                  />
+                )}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span id={ids.rank} className="font-latin text-xs text-ink-600">
+                      {t("rank", { rank: c.rank })}
+                    </span>
+                    {canAssign ? (
+                      <label htmlFor={ids.input} className="cursor-pointer font-bold text-ink-900 after:absolute after:inset-0 after:rounded-md">
+                        {c.worker.display_name}
+                      </label>
+                    ) : (
+                      <span className="font-bold text-ink-900">{c.worker.display_name}</span>
+                    )}
+                    {preferred && (
+                      <StatusBadge tone="confirmed">
+                        <span id={ids.badge}>{t("preferredBadge")}</span>
+                      </StatusBadge>
+                    )}
+                  </div>
+                  <ul id={ids.reasons} className="flex flex-col gap-0.5 text-sm text-ink-600">
+                    {c.reasons.map((r) => (
+                      <li key={r.code}>{text.name(r.label)}</li>
+                    ))}
+                  </ul>
                 </div>
-                <ul className="flex flex-col gap-0.5 text-sm text-ink-600">
-                  {c.reasons.map((r) => (
-                    <li key={r.code}>{text.name(r.label)}</li>
-                  ))}
-                </ul>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       )}
 
@@ -276,12 +306,15 @@ function CandidatePicker({
           <ul className="mt-2 flex flex-col gap-2">
             {data.excluded.map((e) => {
               const selectable = canAssign && canOverride && e.overridable;
+              const ids = rowIds(`${pickerId}-x${e.worker.id}`);
               return (
-                <li key={e.worker.id} className="flex items-start gap-3">
+                <li key={e.worker.id} className={clsx("relative flex items-start gap-3 rounded-md", selectable && "p-2 has-[:checked]:bg-petrol-50/50")}>
                   {selectable && (
                     <input
+                      id={ids.input}
                       type="checkbox"
                       aria-label={t("pickOverride", { name: e.worker.display_name })}
+                      aria-describedby={`${ids.badge} ${ids.reasons}`}
                       checked={isSelected(e.worker.id)}
                       disabled={!isSelected(e.worker.id) && selected.length >= missing}
                       onChange={() => toggle({ id: e.worker.id, name: e.worker.display_name, needsOverride: true, rules: e.rules })}
@@ -290,10 +323,20 @@ function CandidatePicker({
                   )}
                   <div className="flex flex-col">
                     <span className="flex flex-wrap items-center gap-2 font-medium text-ink-900">
-                      {e.worker.display_name}
-                      <StatusBadge tone={e.overridable ? "pending" : "neutral"}>{e.overridable ? t("softRule") : t("hardRule")}</StatusBadge>
+                      {selectable ? (
+                        <label htmlFor={ids.input} className="cursor-pointer after:absolute after:inset-0 after:rounded-md">
+                          {e.worker.display_name}
+                        </label>
+                      ) : (
+                        e.worker.display_name
+                      )}
+                      <StatusBadge tone={e.overridable ? "pending" : "neutral"}>
+                        <span id={ids.badge}>{e.overridable ? t("softRule") : t("hardRule")}</span>
+                      </StatusBadge>
                     </span>
-                    <span className="text-sm text-ink-600">{e.reasons.map((r) => text.name(r.label)).join(" · ")}</span>
+                    <span id={ids.reasons} className="text-sm text-ink-600">
+                      {e.reasons.map((r) => text.name(r.label)).join(" · ")}
+                    </span>
                   </div>
                 </li>
               );
@@ -318,6 +361,7 @@ function CandidatePicker({
         <OverrideDialog
           rules={override.rules}
           canOverride={canOverride}
+          returnFocusTo={focusFallback}
           pending={mutation.isPending}
           error={mutation.error && !overrideRequiredOf(mutation.error) ? mutation.error : null}
           onClose={() => {
@@ -363,6 +407,7 @@ function TeamError({ error, shortfalls }: { error: unknown; shortfalls: ReturnTy
 function OverrideDialog({
   rules,
   canOverride,
+  returnFocusTo,
   pending,
   error,
   onClose,
@@ -370,6 +415,7 @@ function OverrideDialog({
 }: {
   rules: { name: string; rules: string[] }[];
   canOverride: boolean;
+  returnFocusTo: HTMLElement | null;
   pending: boolean;
   error: unknown;
   onClose: () => void;
@@ -401,6 +447,7 @@ function OverrideDialog({
       tone={canOverride ? "danger" : "primary"}
       pending={pending}
       onConfirm={canOverride ? submit : onClose}
+      returnFocusTo={returnFocusTo}
     >
       <ul className="flex flex-col gap-1 text-sm">
         {rules.map((r) => (
@@ -430,7 +477,19 @@ function OverrideDialog({
   );
 }
 
-function UnassignDialog({ visitId, version, worker, onClose }: { visitId: number; version: number | null; worker: { id: number; name: string }; onClose: () => void }) {
+function UnassignDialog({
+  visitId,
+  version,
+  worker,
+  returnFocusTo,
+  onClose,
+}: {
+  visitId: number;
+  version: number | null;
+  worker: { id: number; name: string };
+  returnFocusTo: HTMLElement | null;
+  onClose: () => void;
+}) {
   const t = useTranslations("admin.bookings.assignment");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -470,6 +529,7 @@ function UnassignDialog({ visitId, version, worker, onClose }: { visitId: number
       tone="danger"
       pending={mutation.isPending}
       onConfirm={submit}
+      returnFocusTo={returnFocusTo}
     >
       <TextArea
         ref={setField}
@@ -499,7 +559,19 @@ function UnassignDialog({ visitId, version, worker, onClose }: { visitId: number
   );
 }
 
-function ReplaceDialog({ visitId, data, worker, onClose }: { visitId: number; data: VisitCandidates; worker: { id: number; name: string }; onClose: () => void }) {
+function ReplaceDialog({
+  visitId,
+  data,
+  worker,
+  returnFocusTo,
+  onClose,
+}: {
+  visitId: number;
+  data: VisitCandidates;
+  worker: { id: number; name: string };
+  returnFocusTo: HTMLElement | null;
+  onClose: () => void;
+}) {
   const t = useTranslations("admin.bookings.assignment");
   const f = useTranslations("admin.bookings.formErrors");
   const toast = useToast();
@@ -553,6 +625,7 @@ function ReplaceDialog({ visitId, data, worker, onClose }: { visitId: number; da
       confirmLabel={t("replaceSubmit")}
       pending={mutation.isPending}
       onConfirm={submit}
+      returnFocusTo={returnFocusTo}
     >
       <Select
         label={t("newWorker")}
@@ -601,7 +674,17 @@ function ReplaceDialog({ visitId, data, worker, onClose }: { visitId: number; da
 }
 
 /** Operations override of a visit's status (D-01): the driver usually records these; the reason is audited. */
-function VisitStatusDialog({ visitId, version, onClose }: { visitId: number; version: number | null; onClose: () => void }) {
+function VisitStatusDialog({
+  visitId,
+  version,
+  returnFocusTo,
+  onClose,
+}: {
+  visitId: number;
+  version: number | null;
+  returnFocusTo: HTMLElement | null;
+  onClose: () => void;
+}) {
   const t = useTranslations("admin.bookings.visitStatus");
   const f = useTranslations("admin.bookings.formErrors");
   const text = useBookingText();
@@ -631,6 +714,7 @@ function VisitStatusDialog({ visitId, version, onClose }: { visitId: number; ver
       confirmLabel={t("submit")}
       pending={mutation.isPending}
       onConfirm={() => void form.handleSubmit((v) => mutation.mutate(v as never))()}
+      returnFocusTo={returnFocusTo}
     >
       <Select
         label={t("status")}

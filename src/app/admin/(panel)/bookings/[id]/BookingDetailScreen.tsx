@@ -1,12 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Card, EmptyState, ErrorState, LoadingBlock, Notice } from "@/components/admin";
-import { availableActions } from "@/lib/admin/bookings/actions";
+import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice } from "@/components/admin";
+import { availableActions, paymentVerifying } from "@/lib/admin/bookings/actions";
 import { fetchBooking } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
@@ -15,6 +15,7 @@ import { RequirePermission } from "../../../_components/RequirePermission";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { BookingChips, DeadlineCountdown, Ltr, SlotLabel } from "../_components/BookingBits";
 import { useBookingText } from "../_components/bookingText";
+import { BookingFocusProvider, useFocusRescue } from "../_components/focus";
 import { AssignmentPanel } from "./AssignmentPanel";
 import { BookingActionBar } from "./BookingActions";
 import {
@@ -48,20 +49,35 @@ export function BookingDetailScreen({ id }: { id: string }) {
 function BookingDetailContent({ id }: { id: string }) {
   const t = useTranslations("admin.bookings.detail");
   const numericId = /^\d{1,10}$/.test(id) ? Number(id) : null;
+  // No timed refresh: GET /admin/bookings/{id} counts as staff activity (StaffIdleTimeout), so a poll would keep an
+  // open tab's session alive past the idle timeout (spec §13.2). It refreshes on focus, after actions and on demand.
   const booking = useQuery({
     queryKey: adminKeys.booking(numericId ?? 0),
     queryFn: () => fetchBooking(numericId as number),
     enabled: numericId !== null,
-    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
   const [stale, setStale] = useState(false);
 
   return (
     <>
-      <Link href="/admin/bookings" className="inline-flex w-fit items-center gap-1 text-sm font-medium">
-        <ChevronRight aria-hidden className="size-4 ltr:rotate-180" />
-        {t("back")}
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/admin/bookings" className="inline-flex w-fit items-center gap-1 text-sm font-medium">
+          <ChevronRight aria-hidden className="size-4 ltr:rotate-180" />
+          {t("back")}
+        </Link>
+        {booking.data && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void booking.refetch()}
+            loading={booking.isFetching}
+            icon={<RefreshCw aria-hidden className="size-4" />}
+          >
+            {t("refresh")}
+          </Button>
+        )}
+      </div>
       {numericId === null ? (
         <Card>
           <EmptyState title={t("notFound")} />
@@ -92,13 +108,16 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
   const text = useBookingText();
   const { can } = useAdminSession();
   const actions = availableActions(booking, can);
+  // Where focus goes when an action removes its own button (see _components/focus).
+  const [heading, setHeading] = useState<HTMLHeadingElement | null>(null);
+  useFocusRescue(heading, `${booking.status}:${booking.version}:${booking.payment_status}`);
 
   return (
-    <>
+    <BookingFocusProvider value={heading}>
       <section aria-labelledby="booking-title" className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h1 id="booking-title" className="text-[26px]/[34px] font-bold text-ink-900">
+            <h1 ref={setHeading} id="booking-title" tabIndex={-1} className="text-[26px]/[34px] font-bold text-ink-900 outline-none">
               <span className="sr-only">{t("titlePrefix")} </span>
               <Ltr>{booking.reference}</Ltr>
             </h1>
@@ -120,7 +139,9 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
           <BookingActionBar booking={booking} actions={actions} onStale={onStale} />
         </div>
         {booking.capture_unknown_at && <Notice tone="warning">{t("captureUnknown")}</Notice>}
-        {booking.payment?.status === "verifying" && <Notice tone="info">{t("verifying")}</Notice>}
+        {paymentVerifying(booking) && (
+          <Notice tone="info">{booking.status === "pending_confirmation" && can("bookings.confirm") ? t("verifyingConfirm") : t("verifying")}</Notice>
+        )}
         {booking.status === "alternative_proposed" && <Notice tone="info">{t("waitingCustomer")}</Notice>}
         {(booking.status === "cancelled" || booking.status === "rejected") && booking.cancel_reason_code && (
           <Notice tone="neutral">
@@ -151,6 +172,6 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
           <NotesCard booking={booking} />
         </div>
       </div>
-    </>
+    </BookingFocusProvider>
   );
 }

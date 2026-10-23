@@ -62,9 +62,15 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
 - **Money routes (Phase 3):** confirm, reject, reschedule, cancel, reschedule-request approval and the manual booking
   send an `Idempotency-Key` from `useIdempotencyKeys()` (`src/lib/admin/idempotency.ts`: one UUID per request body,
   kept for a retry after a 5xx or lost answer, new after any stored 2xx/4xx answer). The proxy forwards that header.
+  The manual booking (no If-Match) uses `holdAfterUnknown`: after an unknown outcome the key stays even if the form
+  changes. Booking-page dialogs work on a snapshot of the booking taken when they open (its version is the If-Match).
+- **No timed polling** of ordinary admin routes: they count as staff activity (StaffIdleTimeout) and would keep an idle
+  tab signed in past spec §13.2. Only the bell's `GET /admin/alerts` is passive; other data refreshes on window focus,
+  after actions and with a Refresh button.
 - **Shared zone filter:** the top bar's zone (`useAdminZone()`, `src/lib/admin/zone.tsx`) is the zone of the overview,
   the bookings list and the capacity view; a `zone_id` in a link is adopted into it. The alerts bell polls
-  `GET /admin/alerts` every 20 s (D-11, `src/lib/admin/alerts.ts`).
+  `GET /admin/alerts` every 20 s (D-11, `src/lib/admin/alerts.ts`) and announces new alerts in a live region. The top
+  bar's search (from md) opens `/admin/bookings?search=`.
 - **Bookings (A02/A03):** `src/app/admin/(panel)/overview`, `bookings` (list, `[id]` page with actions and the
   assignment panel, `new` manual wizard); shared bits in `bookings/_components`. List filters live in the URL
   (`src/lib/admin/bookings/filters.ts`, the API's own parameter names), changed with `history.replaceState`.

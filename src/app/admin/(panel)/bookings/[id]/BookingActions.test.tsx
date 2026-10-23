@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import type { QueryClient } from "@tanstack/react-query";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
@@ -81,9 +82,13 @@ const capacity = (date: string): CapacityView => ({
 
 const consoleError = vi.spyOn(console, "error");
 
+let lastClient: QueryClient | null = null;
+/** The query cache of the last screen openAction rendered (to load a newer booking underneath a dialog). */
+const queryClient = () => lastClient!;
+
 async function openAction(name: string) {
   const user = userEvent.setup();
-  renderWithProviders(<BookingDetailScreen id="4" />, { permissions: COORDINATOR });
+  lastClient = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: COORDINATOR }).queryClient;
   await user.click(await screen.findByRole("button", { name }));
   return user;
 }
@@ -133,6 +138,78 @@ describe("A03 booking actions", () => {
     expect(api.confirmBooking.mock.calls[1][2]).toBe(key);
     expect(await screen.findByText("TRB-R4RYSD is confirmed.")).toBeInTheDocument();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("confirm: not offered while the provider is still verifying the payment (the API refuses at once)", async () => {
+    const base = bookingDetail();
+    api.fetchBooking.mockResolvedValue(bookingDetail({ payment_status: "verifying", payment: { ...base.payment!, status: "verifying" } }));
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: COORDINATOR });
+    expect(await screen.findByText("The payment provider is still checking this payment. Confirming becomes available once it answers.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+  });
+
+  it("confirm: focus goes to the booking heading once the Confirm button is gone", async () => {
+    const confirmed = bookingDetail({ status: "confirmed", payment_status: "captured", version: 4 });
+    api.confirmBooking.mockResolvedValue(confirmed);
+    // The refresh after the action reads the confirmed booking too.
+    api.fetchBooking.mockResolvedValueOnce(bookingDetail()).mockResolvedValue(confirmed);
+    const user = await openAction("Confirm");
+    await user.click(screen.getByRole("button", { name: "Confirm and take payment" }));
+    expect(await screen.findByText("TRB-R4RYSD is confirmed.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: /TRB-R4RYSD/ })).toHaveFocus());
+  });
+
+  it("an open dialog keeps the version it opened with: a change made meanwhile is refused (STALE_VERSION), never accepted", async () => {
+    api.fetchBooking.mockResolvedValue(bookingDetail({ status: "confirmed", payment_status: "captured" }));
+    api.previewCancellation.mockResolvedValue({
+      allowed: true,
+      mode: "refund",
+      fee_fils: 0,
+      kept_fees_fils: 0,
+      refund_fils: 24000,
+      paid_fils: 24000,
+      held_fils: 0,
+      requires_review: false,
+      rule_applied: "full_refund",
+      explanation: { ar: "…", en: "Full refund." },
+    } satisfies CancelPreview);
+    api.cancelBooking.mockRejectedValue(apiError(409, "STALE_VERSION"));
+    const user = userEvent.setup();
+    const { queryClient } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: [...COORDINATOR, "refunds.create"] });
+    await user.click(await screen.findByRole("button", { name: "Cancel booking" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Cancel TRB-R4RYSD?" });
+    expect(await within(dialog).findByRole("textbox", { name: /Refund amount/ })).toHaveValue("240.00");
+
+    // Another coordinator moves the booking; a refetch (focus, another action) loads version 4 underneath.
+    await act(async () => {
+      queryClient.setQueryData(["admin", "bookings", "detail", 4], bookingDetail({ status: "confirmed", payment_status: "captured", version: 4, reschedule_fee_fils: 5000 }));
+    });
+    expect(await within(dialog).findByText("This booking changed")).toBeInTheDocument();
+    // The preview the refund was based on is not swapped underneath.
+    expect(api.previewCancellation).toHaveBeenCalledTimes(1);
+
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Reason" }), "no_capacity");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel booking" }));
+    await waitFor(() => expect(api.cancelBooking).toHaveBeenCalledTimes(1));
+    expect(api.cancelBooking.mock.calls[0][2]).toBe(3);
+    expect(await screen.findByRole("dialog", { name: /changed|Someone/i })).toBeInTheDocument();
+  });
+
+  it("an open dialog stays (with what was typed) when the refreshed booking no longer offers its action", async () => {
+    const user = await openAction("Reject");
+    const dialog = screen.getByRole("alertdialog", { name: "Reject TRB-R4RYSD?" });
+    await user.type(within(dialog).getByRole("textbox", { name: /Details/ }), "Called twice");
+    // Another coordinator confirmed it meanwhile: no pending actions are offered any more.
+    await act(async () => {
+      queryClient().setQueryData(["admin", "bookings", "detail", 4], bookingDetail({ status: "confirmed", payment_status: "captured", version: 4 }));
+    });
+    expect(await within(dialog).findByText("This booking changed")).toBeInTheDocument();
+    // (The page behind the modal is aria-hidden, hence `hidden`.)
+    expect(screen.queryByRole("button", { name: "Reject", hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "Reject TRB-R4RYSD?" })).toBe(dialog);
+    expect(within(dialog).getByRole("textbox", { name: /Details/ })).toHaveValue("Called twice");
   });
 
   it("confirm: STALE_VERSION asks to reload", async () => {

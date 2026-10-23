@@ -109,9 +109,12 @@ describe("capacity view and manual override", () => {
     const zone = await screen.findByRole("combobox", { name: "Zone" });
     expect(within(zone).getAllByRole("option").map((o) => o.textContent)).toEqual(["Old Town (inactive)", "Business Bay & Downtown"]);
     expect(zone).toHaveValue("1");
+    // The top bar says "all zones": the page says it shows one zone.
+    expect(screen.getByText("Capacity is shown for one zone at a time: Business Bay & Downtown. Choose another zone above.")).toBeInTheDocument();
 
     await user.selectOptions(zone, "3");
     await waitFor(() => expect(api.fetchCapacity).toHaveBeenLastCalledWith({ date: expect.any(String), zoneId: 3 }));
+    expect(screen.queryByText(/Capacity is shown for one zone at a time/)).not.toBeInTheDocument();
   });
 
   it("overrides a blackout with a reason of at least 10 characters and an explicit confirmation", async () => {

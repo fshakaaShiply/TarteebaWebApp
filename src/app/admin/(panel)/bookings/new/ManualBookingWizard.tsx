@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, MapPin, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch, type FieldPath } from "react-hook-form";
 import {
   Button,
@@ -36,10 +36,20 @@ import {
   stepOfField,
   type ManualFormValues,
 } from "@/lib/admin/bookings/manual";
-import { checkZone, createManualBooking, fetchAddons, fetchBooking, fetchBookings, fetchPublicServices, fetchWorkers } from "@/lib/admin/endpoints";
+import { BOOKINGS_PATH, withQuery } from "@/lib/admin/dashboard";
+import {
+  checkZone,
+  createManualBooking,
+  fetchAddons,
+  fetchBooking,
+  fetchBookings,
+  fetchPublicServices,
+  fetchWorkers,
+  type ManualBookingPayload,
+} from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { addDaysIso, businessToday } from "@/lib/admin/format";
-import { useIdempotencyKeys } from "@/lib/admin/idempotency";
+import { keepsIdempotencyKey, useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
@@ -94,17 +104,34 @@ function Wizard() {
   const text = useBookingText();
   const { can } = useAdminSession();
   const describe = useAdminErrorMessage();
-  const keys = useIdempotencyKeys();
+  // POST /admin/bookings has no If-Match: after an unknown outcome the key stays with the first attempt even when the
+  // form changes, so a booking the API did create is never made twice (see lib/admin/idempotency.ts).
+  const keys = useIdempotencyKeys({ holdAfterUnknown: true });
   const refresh = useBookingRefresh();
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<ManualBookingResult | null>(null);
   const [lookupPhone, setLookupPhone] = useState<string | null>(null);
+  const [nameFromLookup, setNameFromLookup] = useState<string | null>(null);
   const [zoneCheck, setZoneCheck] = useState<{ coordinates: string; result: ZoneCheck | null; error: unknown } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  /**
+   * What to focus once a step is on screen: its heading (Next / Back) or the field validation or the API sent the
+   * wizard back to. Done right after the step renders, so it never lands while the user is already typing.
+   */
+  const pendingFocus = useRef<keyof ManualFormValues | "heading" | null>(null);
 
   const form = useForm<ManualFormValues>({ defaultValues: { ...MANUAL_DEFAULTS, serviceDate: addDaysIso(businessToday(), 1) } });
   const v = useWatch({ control: form.control }) as ManualFormValues;
   useUnsavedChanges(form.formState.isDirty && result === null);
+
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null) return;
+    pendingFocus.current = null;
+    if (target !== "heading") form.setFocus(target);
+    // The heading, or a field without a focusable input: the user is left on the step's heading.
+    if (target === "heading" || document.activeElement === document.body) headingRef.current?.focus();
+  });
 
   const zones = useZoneChoices();
   const zoneLabel = useChoiceLabel();
@@ -115,6 +142,9 @@ function Wizard() {
     queryFn: () => lookupCustomer(lookupPhone as string),
     enabled: lookupPhone !== null && can("bookings.view"),
   });
+  // The lookup belongs to the phone it was made for: once the phone is corrected, another customer's name and saved
+  // addresses are never offered (the API would refuse the address with 404 at the last step).
+  const lookupData = lookupPhone !== null && normalizeUaePhone(v.phone ?? "") === lookupPhone ? lookup.data : undefined;
   const addons = useQuery({
     queryKey: adminKeys.addonOptions(),
     queryFn: () => fetchAddons({ isActive: true, perPage: 100 }),
@@ -128,7 +158,7 @@ function Wizard() {
   const bounds = { minWorkers: publicService?.min_workers ?? 1, maxWorkers: publicService?.max_workers ?? 20 };
 
   // The zone of the address: an existing address carries it; a new one comes from the zone check of its position.
-  const existing = lookup.data?.addresses.find((a) => a.id === v.addressId) ?? null;
+  const existing = lookupData?.addresses.find((a) => a.id === v.addressId) ?? null;
   const checkedZone = zoneCheck && zoneCheck.coordinates === v.coordinates ? zoneCheck.result : null;
   const zoneId =
     v.addressMode === "existing"
@@ -160,10 +190,7 @@ function Wizard() {
   const [addonText, setAddonText] = useState("");
 
   const create = useMutation({
-    mutationFn: (values: ManualFormValues) => {
-      const payload = manualPayload(values);
-      return createManualBooking(payload, keys.keyFor(payload));
-    },
+    mutationFn: (payload: ManualBookingPayload) => createManualBooking(payload, keys.keyFor(payload)),
     onSuccess: (res) => {
       keys.settle();
       refresh(res.booking);
@@ -174,40 +201,69 @@ function Wizard() {
       keys.settle(error);
       if (applyFieldErrors(error, form.setError, Object.values(MANUAL_FIELD_MAP) as FieldPath<ManualFormValues>[], MANUAL_FIELD_MAP)) {
         const first = Object.keys(form.formState.errors)[0] as keyof ManualFormValues | undefined;
-        if (first) setStep(stepOfField(first));
+        if (first) {
+          pendingFocus.current = first;
+          setStep(stepOfField(first));
+        }
       }
     },
   });
+  /** The first attempt's body while its outcome is unknown: "Try again" sends exactly that. */
+  const heldPayload = create.isError ? keys.heldBody<ManualBookingPayload>() : null;
+  const createErrorCode = create.error instanceof AdminApiError ? create.error.code : null;
+  const outcomeUnknown = create.isError && keepsIdempotencyKey(create.error);
+  const earlierStored = createErrorCode === "IDEMPOTENCY_KEY_REUSED" && heldPayload !== null;
 
-  /** Checks the fields of `steps` (zod, with the chosen service's team size range); true when they are valid. */
+  /**
+   * Checks the fields of `steps` (zod, with the chosen service's team size range); true when they are valid. Otherwise
+   * the wizard shows the first step with an error and focuses its first invalid field.
+   */
   const validate = (steps: number[]) => {
     const parsed = manualFormSchema(bounds).safeParse(form.getValues());
     const fields = new Set<string>(steps.flatMap((s) => [...MANUAL_STEPS[s]]));
     for (const f of fields) form.clearErrors(f as keyof ManualFormValues);
-    let firstStep: number | null = null;
+    let first: { step: number; field: keyof ManualFormValues } | null = null;
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
         const field = String(issue.path[0]) as keyof ManualFormValues;
         if (!fields.has(field)) continue;
         form.setError(field, { type: "manual", message: issue.message });
         const s = stepOfField(field);
-        firstStep = firstStep === null ? s : Math.min(firstStep, s);
+        if (first === null || s < first.step) first = { step: s, field };
       }
     }
-    if (firstStep !== null) {
-      setStep(firstStep);
+    if (first !== null) {
+      pendingFocus.current = first.field;
+      setStep(first.step);
+      // Same step: no re-render from setStep, so focus now.
+      if (first.step === step) {
+        pendingFocus.current = null;
+        form.setFocus(first.field);
+      }
       return false;
     }
     return true;
   };
 
+  /** A corrected phone drops the earlier lookup and what came from it. */
+  const onPhoneChange = (value: string) => {
+    if (lookupPhone === null || normalizeUaePhone(value) === lookupPhone) return;
+    setLookupPhone(null);
+    if (form.getValues("addressMode") === "existing" || form.getValues("addressId")) {
+      form.setValue("addressId", "");
+      form.setValue("addressMode", "new");
+    }
+    if (nameFromLookup !== null && form.getValues("name") === nameFromLookup) form.setValue("name", "");
+    setNameFromLookup(null);
+  };
+
   const go = (next: number) => {
     // A customer found with saved addresses starts on them (the coordinator can still pick a new one).
-    if (next === 1 && (lookup.data?.addresses.length ?? 0) > 0 && !form.getFieldState("addressMode").isDirty && !form.getValues("addressId")) {
+    if (next === 1 && (lookupData?.addresses.length ?? 0) > 0 && !form.getFieldState("addressMode").isDirty && !form.getValues("addressId")) {
       form.setValue("addressMode", "existing");
     }
+    pendingFocus.current = "heading";
     setStep(next);
-    requestAnimationFrame(() => headingRef.current?.focus());
   };
 
   const fieldError = (name: keyof ManualFormValues) => {
@@ -227,6 +283,7 @@ function Wizard() {
           create.reset();
           setResult(null);
           setLookupPhone(null);
+          setNameFromLookup(null);
           setZoneCheck(null);
           setAddonText("");
           setStep(0);
@@ -266,7 +323,7 @@ function Wizard() {
             if (validate([step])) go(step + 1);
             return;
           }
-          if (validate([0, 1, 2, 3])) create.mutate(form.getValues());
+          if (validate([0, 1, 2, 3])) create.mutate(manualPayload(form.getValues()));
         }}
         className="flex flex-col gap-4"
       >
@@ -301,7 +358,7 @@ function Wizard() {
                 className="font-latin text-start"
                 containerClassName="min-w-[240px] flex-1"
                 error={fieldError("phone")}
-                {...form.register("phone")}
+                {...form.register("phone", { onChange: (ev) => onPhoneChange(String(ev.target.value ?? "")) })}
               />
               {can("bookings.view") && (
                 <Button
@@ -322,19 +379,26 @@ function Wizard() {
               )}
             </div>
             {lookupPhone && lookup.isFetching && <p className="text-sm text-ink-600">{t("finding")}</p>}
-            {lookupPhone && lookup.data && (
-              <Notice tone={lookup.data.found ? "success" : "info"}>
-                {lookup.data.found
-                  ? t("found", { name: lookup.data.name || t("noName"), count: lookup.data.addresses.length })
-                  : t("notFound")}
-                {lookup.data.found && lookup.data.name && !v.name && (
-                  <Button variant="ghost" size="sm" className="mt-1 self-start" onClick={() => form.setValue("name", lookup.data?.name ?? "", { shouldDirty: true })}>
+            {lookupData && (
+              <Notice tone={lookupData.found ? "success" : "info"}>
+                {lookupData.found ? t("found", { name: lookupData.name || t("noName"), count: lookupData.addresses.length }) : t("notFound")}
+                {lookupData.found && lookupData.name && !v.name && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 self-start"
+                    onClick={() => {
+                      const name = lookupData.name ?? "";
+                      form.setValue("name", name, { shouldDirty: true });
+                      setNameFromLookup(name);
+                    }}
+                  >
                     {t("useName")}
                   </Button>
                 )}
               </Notice>
             )}
-            {lookup.isError && <Notice tone="danger">{describe(lookup.error)}</Notice>}
+            {lookupPhone && lookup.isError && <Notice tone="danger">{describe(lookup.error)}</Notice>}
             <div className="grid gap-3 sm:grid-cols-2">
               <TextField label={t("name")} hint={t("nameHint")} maxLength={MANUAL_LIMITS.name} error={fieldError("name")} {...form.register("name")} />
               <Select
@@ -352,7 +416,7 @@ function Wizard() {
 
         {step === 1 && (
           <>
-            {lookup.data && lookup.data.addresses.length > 0 && (
+            {lookupData && lookupData.addresses.length > 0 && (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 text-sm font-medium text-ink-900">{t("addressChoice")}</legend>
                 <label className="flex items-center gap-2 text-sm">
@@ -365,12 +429,12 @@ function Wizard() {
                 </label>
               </fieldset>
             )}
-            {v.addressMode === "existing" && lookup.data && lookup.data.addresses.length > 0 ? (
+            {v.addressMode === "existing" && lookupData && lookupData.addresses.length > 0 ? (
               <Select
                 label={t("savedAddress")}
                 required
                 placeholder={t("chooseAddress")}
-                options={lookup.data.addresses.map((a) => ({
+                options={lookupData.addresses.map((a) => ({
                   value: a.id ?? "",
                   label: [a.label, a.building, a.unit_number, a.area].filter(Boolean).join(t("separator")),
                 }))}
@@ -569,7 +633,42 @@ function Wizard() {
               serviceName={chosenService ? text.name(chosenService.name) : v.service}
               slot={chosenSlot ? `${text.name(chosenSlot.slot.name)} ${chosenSlot.slot.start}–${chosenSlot.slot.end}` : null}
             />
-            {create.error && !(create.error instanceof AdminApiError && create.error.code === "VALIDATION_FAILED" && Object.keys(form.formState.errors).length > 0) ? (
+            {outcomeUnknown ? (
+              // No answer (or the server failed): the booking may exist. "Try again" sends the same request with the
+              // same key, so the API either makes it now or answers with the one it already made.
+              <Notice
+                tone="warning"
+                title={t("unknownTitle")}
+                action={
+                  heldPayload ? (
+                    <Button variant="secondary" size="sm" className="self-start" onClick={() => create.mutate(heldPayload)}>
+                      {t("tryAgain")}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <p>{describe(create.error)}</p>
+                <p>{t("unknownBody")}</p>
+              </Notice>
+            ) : earlierStored && heldPayload ? (
+              // The details changed after an unknown outcome and the API already holds an answer for the first try.
+              <Notice
+                tone="warning"
+                title={t("earlierTitle")}
+                action={
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="sm" onClick={() => create.mutate(heldPayload)}>
+                      {t("showEarlier")}
+                    </Button>
+                    <Link href={withQuery(BOOKINGS_PATH, { search: heldPayload.customer.phone })} className="text-sm font-bold">
+                      {t("checkList")}
+                    </Link>
+                  </div>
+                }
+              >
+                {t("earlierBody")}
+              </Notice>
+            ) : create.error && !(createErrorCode === "VALIDATION_FAILED" && Object.keys(form.formState.errors).length > 0) ? (
               <FormErrorNotice error={create.error} fieldsApplied={false} />
             ) : null}
           </>
