@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  INVOICE_FILTERS,
   PAYMENT_FILTERS,
   REFUND_FILTERS,
   dateRangeValid,
@@ -29,6 +30,17 @@ describe("A09 list filters in the URL", () => {
       payment_id: "",
       status: "",
     });
+    expect(filtersFromParams(INVOICE_FILTERS, new URLSearchParams("payment_id=9")).payment_id).toBe("9");
+  });
+
+  it("takes any refund reason shaped like an API code, since the API lists the reasons", () => {
+    const reason = (raw: string) => filtersFromParams(REFUND_FILTERS, new URLSearchParams({ reason_code: raw })).reason_code;
+    // A reason added on the API side is filterable without a web release.
+    expect(reason("loyalty_credit")).toBe("loyalty_credit");
+    expect(reason("Goodwill")).toBe("");
+    expect(reason("a")).toBe("");
+    expect(reason("x".repeat(41))).toBe("");
+    expect(reason("goodwill;drop")).toBe("");
   });
 
   it("writes only what is set, page 1 implied", () => {

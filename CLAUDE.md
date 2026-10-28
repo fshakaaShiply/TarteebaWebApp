@@ -64,9 +64,17 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   kept for a retry after a 5xx or lost answer, new after any stored 2xx/4xx answer). The proxy forwards that header.
   The manual booking (no If-Match) uses `holdAfterUnknown`: after an unknown outcome the key stays even if the form
   changes. Booking-page dialogs work on a snapshot of the booking taken when they open (its version is the If-Match).
-- **No timed polling** of ordinary admin routes: they count as staff activity (StaffIdleTimeout) and would keep an idle
-  tab signed in past spec §13.2. Only the bell's `GET /admin/alerts` is passive; other data refreshes on window focus,
-  after actions and with a Refresh button.
+- **Timed refresh only as background polls:** every timer-driven read sends `X-Background-Poll: 1` (`backgroundPoll()`
+  in `src/lib/admin/client.ts`, forwarded by the proxy), so the API checks the idle timeout but does not count it as
+  staff activity and an idle tab still signs out after spec §13.2's time; a 401 SESSION_EXPIRED from a poll goes to
+  sign-in like any other. Loads the user starts (opening a page, a filter, Refresh, window focus, after actions) never
+  carry it. `useBackgroundRefresh()` (`src/lib/admin/backgroundRefresh.ts`) re-reads one loaded query on a timer, stops
+  while the tab is hidden, never runs under a user's load, keeps the page on a failed poll and only replaces the
+  cached data (dialogs keep their snapshot). A poll that changes the data also makes the reads that change sets off
+  passive until the user next acts (pointer, key, click, coming back to the tab): such a query passes
+  `{ background: isPollDriven(queryClient) }` (the booking page's visit candidates and refunds). Polled today: the bell (`GET /admin/alerts`, 20 s, D-11), the overview's
+  summary and alerts (`OVERVIEW_REFRESH_MS`, 60 s) and the booking page (`BOOKING_REFRESH_MS`, 30 s); the spec names no
+  interval for the last two. Any new timer uses the same header, never a plain `refetchInterval`.
 - **Shared zone filter:** the top bar's zone (`useAdminZone()`, `src/lib/admin/zone.tsx`) is the zone of the overview,
   the bookings list, the capacity view, the schedule and the trip planner; a `zone_id` in a link is adopted into it. The
   schedule and the trip planner also keep it in their URL (`_ops/zoneParam.ts` `useZoneInUrl`: a change of the shared
@@ -75,7 +83,18 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   bar's search (from md) opens `/admin/bookings?search=`.
 - **Bookings (A02/A03):** `src/app/admin/(panel)/overview`, `bookings` (list, `[id]` page with actions and the
   assignment panel, `new` manual wizard); shared bits in `bookings/_components`. List filters live in the URL
-  (`src/lib/admin/bookings/filters.ts`, the API's own parameter names), changed with `history.replaceState`.
+  (`src/lib/admin/bookings/filters.ts`, the API's own parameter names, slot/worker/driver included), changed with
+  `history.replaceState`. Slot pickers use the slot pick-list by service kind (`_components/SlotSelect.tsx`); whether
+  a time fits is the dry runs' answer: the wizard's summary (`POST /admin/bookings/preview`, debounced, the customer
+  found by `GET /admin/customers?phone=` once the number is complete, a non-UAE one once the field is left; Next waits
+  while 429s keep it from answering), the alternatives check (Send only on `can_send`) and the reschedule preview. The
+  dry runs' keys sit outside `["admin", "bookings"]`, so an action's refresh never sends them again (the customer
+  lookups are only marked stale). Cancel and reschedule send the amounts their preview showed (`expected_*`);
+  409 TERMS_CHANGED shows the new terms with the changes marked and needs a fresh confirm (new body, new key). Finance
+  (refunds.create without bookings.cancel) resolves a cancellation review with a refund; A09's nav and the overview
+  link the review queue (`?cancel_review=1`; the nav marks one entry as the page, by path and the query an entry
+  names: `activeNavHref`). The wizard offers "company brings the materials" only with materials included or the
+  MATERIALS add-on offered (D-02b), and marks the preview's 422 field errors on their fields.
 - **Schedule (A04):** `src/app/admin/(panel)/schedule` (view, date, filters and zone in the URL,
   `src/lib/admin/schedule/board.ts`). A card dropped on another cleaner's cell at its own time, or moved with its Move
   dialog (the keyboard way), runs `POST /admin/schedule/validate-move` first and `POST /admin/schedule/move` (visit
@@ -90,18 +109,28 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   show only on the date, slot and zone they ran for) and `trips/reports` (driver reports).
   Round dialogs work on a snapshot of the round (its version is the If-Match); a changed round answers the recomputed
   round, which replaces the cached one (`useRoundSaved()`). Seat limits are never overridable; team rules need an
-  override. No maps key yet: stops show as an ordered list with an SVG sketch of the order. Slot pickers outside A11 read
-  the slots from the day board (`_ops/daySlots.ts`), since the slot templates list needs catalog.manage; a trips.manage
-  role without schedule.view is told that drafting needs it. Departure times become instants through the zone
+  override. No maps key yet: stops show as an ordered list with an SVG sketch of the order. Slot and driver pickers
+  outside A11 and fleet read the pick-lists (`_ops/options.ts` `useSlotPickList`, `useDriverPickList`: GET
+  /admin/slot-templates/options and /admin/drivers/options, active ones offered, a chosen inactive one kept and
+  marked), so trips.manage alone can draft and pick a driver; adding a stop still lists the day board's visits
+  (`_ops/daySlots.ts` `useDayVisits`, schedule.view) and the van list needs fleet.manage or schedule.view. The draft
+  result names each extra round the API added because a van's round had already left (`follows_round_id`: on the same
+  van or another free one, R-19; still a draft to check and publish). Departure times become instants through the zone
   (`zonedDateTimeIso` in `src/lib/admin/format.ts`, spec §4.1), never a fixed offset.
-- **Finance (A09):** `src/app/admin/(panel)/finance` — payments (`payments/[id]` with amounts, provider details, refunds,
-  invoice and the scrubbed event log), refunds, tax invoices (`invoices/[id]`: supplier block with the R-16 placeholders
-  marked, lines, VAT, totals, credit notes, Download PDF, Resend), credit notes and the documents Billing refused to
-  issue (`billing-refusals`, retry with invoices.manage). List filters live in the URL (`src/lib/admin/finance/filters.ts`
-  specs, `_components/useUrlFilters.ts`). Payment and refund states are always the provider's (API labels); a refund is
-  "processing" until the provider says otherwise. The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the AED
-  amount against `refundable_fils` and the reason against the API's own list (`lib/admin/finance/refund.ts`, typed from
-  `CreateRefundRequest`), then confirms the exact amount; its Idempotency-Key uses `holdAfterUnknown` (no If-Match on
+- **Finance (A09):** `src/app/admin/(panel)/finance` — the landing page (`FinanceSummaryScreen`: the design's KPI
+  cards from `GET /admin/finance/summary`, period in the URL, month to date by default, the API's 422 messages on the
+  date fields, the shared zone for users who see the zone picker), payments (`payments/[id]` with the booking's
+  reference, amounts, provider details, refunds with their credit note numbers, `payment.invoice` and the scrubbed event
+  log; review/release reasons are the API's labels), refunds, tax invoices (`invoices/[id]`: supplier block with the R-16
+  placeholders marked, lines, VAT, totals, credit notes, Download PDF, Resend; the list takes `payment_id`), credit notes
+  and the documents Billing refused to issue (`billing-refusals`, retry with invoices.manage). List filters live in the
+  URL (`src/lib/admin/finance/filters.ts` specs, `_components/useUrlFilters.ts`). Payment and refund states are always
+  the provider's (API labels); a refund is "processing" until the provider says otherwise. Refund reasons come from
+  `GET /admin/refund-reasons` (`_components/useRefundReasons.ts`): the dialog offers the `selectable` ones and needs a
+  note when `requires_text`; the refunds list filters by all of them. Only the credit note pages still use our own
+  reason labels (their resources carry the code alone). The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the
+  AED amount against `refundable_fils` and the reason against that list (`lib/admin/finance/refund.ts`), then confirms
+  the exact amount; its Idempotency-Key uses `holdAfterUnknown` (no If-Match on
   refunds). The key store (`lib/admin/finance/refundKeys.ts`) lives above the page's loading/error switch and keeps the
   attempt being sent in this tab's sessionStorage, so a failed refresh or a reload never starts a second refund. The
   confirm step can't be passed by a repeated "Continue" (keyed buttons, focus on the summary, a click with detail > 1

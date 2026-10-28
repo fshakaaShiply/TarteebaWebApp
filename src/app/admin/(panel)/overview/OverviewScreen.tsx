@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ChevronLeft, ChevronRight, LayoutDashboard, Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   Button,
   ButtonLink,
@@ -20,6 +20,7 @@ import {
   TextField,
   type Column,
 } from "@/components/admin";
+import { OVERVIEW_REFRESH_MS, useBackgroundRefresh } from "@/lib/admin/backgroundRefresh";
 import { BOOKINGS_PATH, dashboardAlertHref, dashboardHref, withQuery } from "@/lib/admin/dashboard";
 import { fetchBookings, fetchDashboardAlerts, fetchDashboardSummary } from "@/lib/admin/endpoints";
 import { addDaysIso, businessToday, formatDateTime, isIsoDate } from "@/lib/admin/format";
@@ -31,6 +32,8 @@ import { useAdminZone } from "@/lib/admin/zone";
 import { useZoneName } from "../_ops/options";
 import { BookingChips, DeadlineCountdown, Ltr, SlotLabel, useDurationText } from "../bookings/_components/BookingBits";
 import { bookingTone, useBookingText } from "../bookings/_components/bookingText";
+import { CancelReviewQueue } from "../bookings/_components/CancelReviewQueue";
+import { useFocusRescue } from "../bookings/_components/focus";
 
 /**
  * A02 daily operations overview (spec §14.3, §17; design AdminOverview.dc.html; bookings.view or schedule.view):
@@ -38,10 +41,11 @@ import { bookingTone, useBookingText } from "../bookings/_components/bookingText
  * bookings by status, slot and zone; cleaners, vehicles and rounds; quick stats; and the requests waiting for
  * confirmation. Date filter here, zone filter in the top bar. Users without either permission get a welcome note.
  *
- * DECISION: no timed refresh. The dashboard routes count as staff activity (StaffIdleTimeout), so a poll would keep an
- * open tab's session alive past the idle timeout (spec §13.2); only the bell's GET /admin/alerts is passive. The
- * figures refresh when the tab regains focus, after every booking action and with the Refresh button (backend
- * request: mount the dashboard GETs with PassiveStaffSession before polling them).
+ * The summary and the alerts refresh every OVERVIEW_REFRESH_MS (60 s) while the tab is visible, as background polls
+ * (X-Background-Poll: 1): the API checks the idle timeout but does not count them as staff activity, so an open tab
+ * still signs out after spec §13.2's idle time. Opening the page, a date or zone change, Refresh, window focus and
+ * booking actions load them as ordinary (active) reads. The list of requests waiting for confirmation is not on the
+ * timer: it reloads with those loads only.
  */
 export function OverviewScreen() {
   const { canAny } = useAdminSession();
@@ -87,6 +91,10 @@ function Overview() {
     enabled: validDate,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true,
+  });
+  useBackgroundRefresh(adminKeys.dashboardSummary(date, zoneId), () => fetchDashboardSummary({ date, zoneId }, { background: true }), {
+    everyMs: OVERVIEW_REFRESH_MS,
+    enabled: validDate,
   });
 
   const refresh = () => {
@@ -222,6 +230,8 @@ function OverviewBody({
         <ZonePanel summary={summary} />
       </div>
       <QuickStats summary={summary} />
+      {/* Customer cancellations waiting for review: finance resolves them, coordinators keep or cancel them. */}
+      <CancelReviewQueue zoneId={zoneId} />
       {can("bookings.view") && <PendingQueue zoneId={zoneId} />}
     </>
   );
@@ -399,6 +409,17 @@ function AlertsCard({
     refetchOnWindowFocus: true,
     placeholderData: keepPreviousData,
   });
+  useBackgroundRefresh(adminKeys.dashboardAlerts(zoneId), () => fetchDashboardAlerts({ zoneId }, { background: true }), { everyMs: OVERVIEW_REFRESH_MS });
+  // A refresh can take away the alert link (or the Show all button) that has focus: focus goes to the alert now at its
+  // place in the list, else the last one before it, else the card's title, never to <body>.
+  const listId = useId();
+  useFocusRescue((removed) => {
+    const links = Array.from(document.getElementById(listId)?.querySelectorAll<HTMLElement>("[data-alert-open]") ?? []);
+    const position = removed.getAttribute("data-alert-open");
+    if (position === null || links.length === 0) return titleRef.current;
+    const at = Number(position);
+    return links.find((l) => Number(l.dataset.alertOpen) >= at) ?? links[links.length - 1];
+  }, alerts.data);
   const items = (alerts.data?.data ?? []).filter((a) => type === null || a.type === type);
   // A narrowed list shows every item of its type; the full list starts with the first few.
   const shown = all || type !== null ? items : items.slice(0, ALERTS_SHOWN);
@@ -436,9 +457,9 @@ function AlertsCard({
         <EmptyState title={type === "visit_uncovered" ? t("uncoveredEmpty") : t("empty")} className="py-6" />
       ) : (
         <>
-          <ul className="flex flex-col gap-2">
+          <ul id={listId} className="flex flex-col gap-2">
             {shown.map((alert, i) => (
-              <AlertRow key={`${alert.type}-${alert.entity?.type ?? ""}-${alert.entity?.id ?? i}-${alert.at}`} alert={alert} />
+              <AlertRow key={`${alert.type}-${alert.entity?.type ?? ""}-${alert.entity?.id ?? i}-${alert.at}`} alert={alert} position={i} />
             ))}
           </ul>
           {type === null && items.length > ALERTS_SHOWN && (
@@ -452,7 +473,7 @@ function AlertsCard({
   );
 }
 
-function AlertRow({ alert }: { alert: DashboardAlert }) {
+function AlertRow({ alert, position }: { alert: DashboardAlert; position: number }) {
   const t = useTranslations("admin.overview.alerts");
   const text = useBookingText();
   const href = dashboardAlertHref(alert);
@@ -468,7 +489,7 @@ function AlertRow({ alert }: { alert: DashboardAlert }) {
         <p className="text-sm/6 text-ink-600">{text.name(alert.message)}</p>
       </div>
       {href && (
-        <Link href={href} aria-label={t("openLabel", { title })} className="touch-target shrink-0 self-center rounded-sm px-2 py-1 text-sm font-bold text-petrol-700 hover:bg-petrol-50">
+        <Link href={href} aria-label={t("openLabel", { title })} data-alert-open={position} className="touch-target shrink-0 self-center rounded-sm px-2 py-1 text-sm font-bold text-petrol-700 hover:bg-petrol-50">
           {t("open")}
         </Link>
       )}

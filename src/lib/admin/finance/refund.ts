@@ -1,44 +1,28 @@
 import { z } from "zod";
 import { filsToAedInput, parseAedToFils } from "@/lib/money";
 import { AdminApiError } from "../client";
-import type { AdminPaymentDetail, CreateRefundPayload, RefundStatus, StaffRefundReason } from "../types";
+import type { AdminPaymentDetail, CreateRefundPayload, RefundReason, RefundStatus } from "../types";
 
 /*
  * A09 refunds (spec §10.4): the amount is typed in AED and sent as integer fils, never more than what is still
  * refundable (captured − refunded − refunds still open, the payment page's `refundable_fils`), with a reason from the
- * API's own list and a note for "other". The admin confirms the exact amount in a second step. The API checks it all
- * again (422 REFUND_AMOUNT_INVALID with details.refundable_fils, 409 INVALID_STATE).
+ * API's own list (GET /admin/refund-reasons: only `selectable` ones, a note when the reason `requires_text`). The admin
+ * confirms the exact amount in a second step. The API checks it all again (422 REFUND_AMOUNT_INVALID with
+ * details.refundable_fils, 409 INVALID_STATE, 422 VALIDATION_FAILED on reason_code / reason_text).
  */
-
-/** The reasons staff may pick, in the order A09 offers them: the API's list (CreateRefundRequest `reason_code`). */
-export const STAFF_REFUND_REASONS = [
-  "customer_cancellation",
-  "company_cancellation",
-  "booking_rejected",
-  "complaint_compensation",
-  "duplicate_payment",
-  "service_not_delivered",
-  "goodwill",
-  "other",
-] as const satisfies readonly StaffRefundReason[];
-
-// Every reason the API accepts is offered: a reason added to the API's list fails this check after `pnpm gen:api` until
-// it is listed (and labelled) here.
-type UnlistedReason = Exclude<StaffRefundReason, (typeof STAFF_REFUND_REASONS)[number]>;
-const everyReasonListed: [UnlistedReason] extends [never] ? true : never = true;
-void everyReasonListed;
-
-/** Reasons other modules record (Payment config system_refund_reason_codes): shown and filterable, never offered. */
-export const SYSTEM_REFUND_REASONS = ["price_difference"] as const;
-
-export const REFUND_REASONS = [...STAFF_REFUND_REASONS, ...SYSTEM_REFUND_REASONS] as const;
 
 export const REFUND_STATUSES = ["requested", "processing", "succeeded", "failed"] as const satisfies readonly RefundStatus[];
 
 export const REFUND_NOTE_MAX = 500;
 
-export function isStaffRefundReason(value: string): value is StaffRefundReason {
-  return (STAFF_REFUND_REASONS as readonly string[]).includes(value);
+/** The reasons staff may pick, in the API's order (the system-only ones are for filters, never offered). */
+export function selectableReasons(reasons: readonly RefundReason[] | undefined): RefundReason[] {
+  return (reasons ?? []).filter((r) => r.selectable);
+}
+
+/** The selectable reason with this code, or null (empty, unknown or system-only). */
+export function pickableReason(reasons: readonly RefundReason[], code: string): RefundReason | null {
+  return reasons.find((r) => r.selectable && r.code === code) ?? null;
 }
 
 /**
@@ -80,8 +64,11 @@ export type RefundCheck =
   | { ok: true; payload: CreateRefundPayload }
   | { ok: false; errors: Partial<Record<keyof RefundFormValues, RefundFormError>> };
 
-/** Checks the form against what may still be refunded and builds the request body (amount in fils). */
-export function checkRefund(values: RefundFormValues, refundableFils: number): RefundCheck {
+/**
+ * Checks the form against what may still be refunded and the API's reasons, and builds the request body (amount in
+ * fils).
+ */
+export function checkRefund(values: RefundFormValues, refundableFils: number, reasons: readonly RefundReason[]): RefundCheck {
   const errors: Partial<Record<keyof RefundFormValues, RefundFormError>> = {};
 
   const parsed = parseAedToFils(values.amount);
@@ -96,23 +83,23 @@ export function checkRefund(values: RefundFormValues, refundableFils: number): R
     amountFils = parsed.fils;
   }
 
-  const reason = isStaffRefundReason(values.reason_code) ? values.reason_code : null;
+  const reason = pickableReason(reasons, values.reason_code);
   if (reason === null) errors.reason_code = "reason_required";
 
   const note = values.reason_text.trim();
   if (note.length > REFUND_NOTE_MAX) errors.reason_text = "note_length";
-  else if (reason === "other" && note === "") errors.reason_text = "note_required";
+  else if (reason?.requires_text && note === "") errors.reason_text = "note_required";
 
   if (reason === null || Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, payload: { amount_fils: amountFils, reason_code: reason, reason_text: note === "" ? null : note } };
+  return { ok: true, payload: { amount_fils: amountFils, reason_code: reason.code, reason_text: note === "" ? null : note } };
 }
 
 /** The form schema (react-hook-form + zod): each problem is reported on its field as a RefundFormError code. */
-export function refundFormSchema(refundableFils: number) {
+export function refundFormSchema(refundableFils: number, reasons: readonly RefundReason[]) {
   return z
     .object({ amount: z.string(), reason_code: z.string(), reason_text: z.string() })
     .superRefine((values, ctx) => {
-      const check = checkRefund(values, refundableFils);
+      const check = checkRefund(values, refundableFils, reasons);
       if (check.ok) return;
       for (const [field, code] of Object.entries(check.errors)) ctx.addIssue({ code: "custom", path: [field], message: code });
     });

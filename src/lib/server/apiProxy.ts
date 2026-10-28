@@ -110,7 +110,9 @@ export function clientAddress(headers: Headers): string | null {
 
 /**
  * Headers the admin client sends that the API needs (cookies, CSRF, language, versioning, Sanctum's origin check, and
- * the Idempotency-Key of the routes that move money or capacity, spec §4.5).
+ * the Idempotency-Key of the routes that move money or capacity, spec §4.5). X-Background-Poll marks a timer-driven read
+ * that must not count as staff activity (StaffIdleTimeout, spec §13.2); without it the API would see every refresh as
+ * the admin working and keep an idle tab signed in.
  */
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
@@ -124,6 +126,7 @@ const FORWARDED_REQUEST_HEADERS = [
   "origin",
   "referer",
   "user-agent",
+  "x-background-poll",
   "x-request-id",
   "x-requested-with",
   "x-xsrf-token",

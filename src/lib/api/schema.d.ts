@@ -36,6 +36,22 @@ export interface paths {
         patch: operations["admin.catalog.addons.update"];
         trace?: never;
     };
+    "/v1/admin/addons/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.catalog.addons.options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/addresses": {
         parameters: {
             query?: never;
@@ -431,6 +447,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bookings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/bookings/preview (bookings.create_manual; the body of POST /admin/bookings): the price, the slot's
+         *     availability and the payment hold before the booking is made. Writes nothing (no customer, address, hold, booking
+         *     or payment), so it needs no Idempotency-Key; refusals are the creation's. At most config
+         *     booking.manual_preview_per_staff_minute (60) a minute per staff member (429 RATE_LIMITED)
+         */
+        post: operations["admin.booking.bookings.store.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/bookings/{booking}/payment-link": {
         parameters: {
             query?: never;
@@ -482,6 +520,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bookings/{booking}/propose-alternative/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/bookings/{id}/propose-alternative/preview (bookings.propose_alternative; the body of the proposal):
+         *     each option's new total and difference against the booking's current total, its availability and the error the
+         *     proposal would answer for it, the customer's answer window and the deadline if sent now. Writes nothing
+         */
+        post: operations["admin.booking.bookings.propose-alternative.preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/bookings/{booking}/propose-alternative": {
         parameters: {
             query?: never;
@@ -493,6 +552,28 @@ export interface paths {
         put?: never;
         /** POST /admin/bookings/{id}/propose-alternative (bookings.propose_alternative): 201 with the proposal and the booking */
         post: operations["admin.booking.bookings.propose-alternative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/reschedule/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/bookings/{id}/reschedule/preview {service_date, slot_template_id} (bookings.reschedule): the new total,
+         *     the refund of a cheaper time, the slot's availability (a staff move: no fee, no approval, no limit). Refuses as
+         *     the reschedule does: 409 RESCHEDULE_PENDING while a customer request waits for approval, 409 INVALID_STATE, 422
+         *     SAME_SLOT
+         */
+        post: operations["admin.booking.bookings.reschedule.preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -542,7 +623,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/bookings/{id}/cancel {reason_code, reason_text, party, refund_fils?} (bookings.cancel, Idempotency-Key) */
+        /**
+         * POST /admin/bookings/{id}/cancel {reason_code, reason_text, party, refund_fils?, expected_fee_fils?,
+         *     expected_refund_fils?} (bookings.cancel, Idempotency-Key)
+         */
         post: operations["admin.booking.bookings.cancel"];
         delete?: never;
         options?: never;
@@ -564,6 +648,27 @@ export interface paths {
          *     review is turned down and the booking kept as it is (no money moves)
          */
         post: operations["admin.booking.bookings.cancel-review.decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bookings/{booking}/cancel-review/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/bookings/{id}/cancel-review/resolve {refund_fils, note} (refunds.create, Idempotency-Key): the
+         *     customer's cancellation waiting for review is carried out with this refund (the rest is kept); same answer as
+         *     the cancel
+         */
+        post: operations["admin.booking.bookings.cancel-review.resolve"];
         delete?: never;
         options?: never;
         head?: never;
@@ -597,8 +702,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /customer/bookings/{ulid}/cancel {reason_code, reason_text}: 200 with the cancelled booking, or 202
-         *     {code: REVIEW_REQUIRED} when the policy asks for a review (nothing was cancelled or charged; spec §10.4)
+         * POST /customer/bookings/{ulid}/cancel {reason_code, reason_text, expected_fee_fils?, expected_refund_fils?}: 200
+         *     with the cancelled booking, or 202 {code: REVIEW_REQUIRED} when the policy asks for a review (nothing was
+         *     cancelled or charged; spec §10.4)
          */
         post: operations["customer.booking.bookings.cancel"];
         delete?: never;
@@ -634,8 +740,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /customer/bookings/{ulid}/reschedule {service_date, slot_template_id}: 201 with the request (pending for
-         *     staff approval, or auto_approved and applied) and the booking
+         * POST /customer/bookings/{ulid}/reschedule {service_date, slot_template_id, expected_fee_fils?,
+         *     expected_new_total_fils?}: 201 with the request (pending for staff approval, or auto_approved and applied) and
+         *     the booking
          */
         post: operations["customer.booking.bookings.reschedule"];
         delete?: never;
@@ -967,6 +1074,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 200 {data: [customer] or [], meta: {phone}}: meta.phone is the number as normalized and searched (E.164) */
+        get: operations["admin.identity.customers.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/dashboard/summary": {
         parameters: {
             query?: never;
@@ -1042,6 +1166,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["admin.fleet.drivers.candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/drivers/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.drivers.options"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1295,6 +1435,23 @@ export interface paths {
         get: operations["public.payment.fake-checkout.show"];
         put?: never;
         post: operations["public.payment.fake-checkout.submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/finance/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/finance/summary?from=&to=&zone_id= → {data: {period, zone, currency, generated_at, cards}} */
+        get: operations["admin.reporting.finance.summary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2122,6 +2279,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/refund-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.refund-reasons.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/refunds": {
         parameters: {
             query?: never;
@@ -2636,6 +2809,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["admin.scheduling.slot-rules.update"];
+        trace?: never;
+    };
+    "/v1/admin/slot-templates/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.scheduling.slot-templates.options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/slot-templates": {
@@ -3220,6 +3409,25 @@ export interface components {
             } | null;
             version: number;
         };
+        /** AdminBillingRefusalResource */
+        AdminBillingRefusalResource: {
+            id: number;
+            /** @enum {string} */
+            document: "invoice" | "credit_note";
+            payment_id: number;
+            refund_id: number | null;
+            problems: string[];
+            /** @description The amounts compared (an object; empty when none were recorded). */
+            details: {
+                [key: string]: unknown;
+            };
+            attempts: number;
+            reported: boolean;
+            first_refused_at: string;
+            last_refused_at: string;
+            retry_after: string;
+            flagged_at: string | null;
+        };
         /** AdminBookingDetailResource */
         AdminBookingDetailResource: {
             id: number;
@@ -3279,13 +3487,15 @@ export interface components {
             hold_expires_at: string | null;
             confirmation_deadline_at: string | null;
             created_at: string | null;
-            version: string;
-            address: string;
-            priorities: string | string[];
-            instructions: string;
+            version: number;
+            address: {
+                [key: string]: unknown;
+            };
+            priorities: string[];
+            instructions: string | null;
             materials_by: string;
             preferred_worker: {
-                id: string;
+                id: number;
                 display_name: string;
             } | null;
             amounts: {
@@ -3298,22 +3508,46 @@ export interface components {
                 total_fils: number;
                 currency: string;
             };
-            lines: string;
-            applied_rules: string | string[];
+            lines: {
+                [key: string]: unknown;
+            }[];
+            applied_rules: {
+                [key: string]: unknown;
+            }[];
             coupon: {
-                id: string;
-                code: string;
-                discount_fils: string;
+                id: number | null;
+                code: string | null;
+                discount_fils: number;
             } | null;
-            policy_snapshot: string | string[];
+            policy_snapshot: {
+                [key: string]: unknown;
+            }[];
             confirmed_at: string | null;
             cancelled_at: string | null;
-            cancel_reason_code: string;
-            cancel_reason_text: string;
-            cancelled_by_type: string;
-            rejected_reason: string;
+            cancel_reason_code: string | null;
+            cancel_reason_text: string | null;
+            cancelled_by_type: string | null;
+            rejected_reason: string | null;
             expired_at: string | null;
-            visits: string;
+            visits: {
+                id: number;
+                ulid: string;
+                service_date: string;
+                start: string;
+                end: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                sub_zone_id: number | null;
+                assignments: {
+                    worker_id: number;
+                    display_name: string;
+                    role: string;
+                    assigned_at: string;
+                }[];
+            }[];
             hold: {
                 id: string;
                 status: string;
@@ -3350,6 +3584,15 @@ export interface components {
                 void_reason: string | null;
                 created_at: string | null;
             } | null;
+            invoice: {
+                id: number;
+                number: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+            } | null;
             history: {
                 id: number;
                 scope: string;
@@ -3370,27 +3613,322 @@ export interface components {
                 reached_at: string | null;
                 current: boolean;
             }[];
-            photos: string;
+            photos: {
+                id: string;
+                url: string | null;
+                mime: string;
+                size_bytes: number;
+                created_at: string | null;
+            }[];
             /** @description Phase 3 operations (A03). */
-            created_by_staff_id: string;
-            confirmed_by: string;
-            rejected_reason_code: string;
+            created_by_staff_id: number | null;
+            confirmed_by: number | null;
+            rejected_reason_code: string | null;
             cancellation: {
-                party: string;
-                cancelled_by_id: string;
-                fee_fils: string;
-                refund_fils: string;
+                party: string | null;
+                cancelled_by_id: number | null;
+                fee_fils: number | null;
+                refund_fils: number | null;
                 review_requested_at: string | null;
-                review: string;
+                review: {
+                    [key: string]: unknown;
+                } | null;
             };
-            reschedule_fee_fils: string;
-            reschedules_count: string;
-            customer_reschedules_count: string;
+            reschedule_fee_fils: number;
+            reschedules_count: number;
+            customer_reschedules_count: number;
             /** @description A capture whose provider answer was lost: confirm again (safe) or reject; nothing voids it unsettled. */
             capture_unknown_at: string | null;
-            alternative_proposals: string;
-            reschedule_requests: string;
-            notes: unknown[];
+            alternative_proposals: components["schemas"]["AlternativeProposalResource"][];
+            reschedule_requests: components["schemas"]["RescheduleRequestResource"][];
+            notes: components["schemas"]["BookingNoteResource"][];
+        };
+        /** AdminBookingResource */
+        AdminBookingResource: {
+            id: number;
+            ulid: string;
+            reference: string;
+            kind: string;
+            customer: {
+                id: string;
+                name: string | null;
+                phone: string;
+            };
+            service: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            service_date: string;
+            slot: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+                start: string;
+                end: string;
+            };
+            zone: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            workers_count: number;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            payment_status: string;
+            payment_status_label: {
+                ar: string;
+                en: string;
+            };
+            source: string;
+            source_label: {
+                ar: string;
+                en: string;
+            };
+            total_fils: number;
+            currency: string;
+            hold_expires_at: string | null;
+            confirmation_deadline_at: string | null;
+            created_at: string | null;
+        };
+        /**
+         * AdminCancelBookingRequest
+         * @description Staff cancel a booking (POST /admin/bookings/{id}/cancel, A03, bookings.cancel): a reason from config
+         *     booking.staff_cancel_reasons (text required for "other"), who the cancellation is attributed to (party
+         *     customer|company), and — holding refunds.create only (403 before the booking is looked up) — an explicit refund
+         *     amount (refund_fils, required when the policy asks for a review). expected_fee_fils / expected_refund_fils, when sent,
+         *     are the amounts the dialog's preview (POST …/cancel/preview) showed, as they were (null for a review), also when
+         *     refund_fils is given: 409 TERMS_CHANGED when the preview no longer shows them.
+         */
+        AdminCancelBookingRequest: {
+            /** @enum {string} */
+            reason_code: "customer_request" | "no_capacity" | "worker_unavailable" | "vehicle_issue" | "weather" | "duplicate" | "payment_issue" | "other";
+            reason_text?: string | null;
+            /** @enum {string} */
+            party: "customer" | "company";
+            refund_fils?: number | null;
+            expected_fee_fils?: number | null;
+            expected_refund_fils?: number | null;
+        };
+        /**
+         * AdminCancelPreviewRequest
+         * @description POST /admin/bookings/{id}/cancel/preview {party} (A03, bookings.cancel): the money plan for a cancellation attributed
+         *     to the customer or the company, before staff confirm it.
+         */
+        AdminCancelPreviewRequest: {
+            /** @enum {string} */
+            party: "customer" | "company";
+        };
+        /** AdminCreditNoteDetailResource */
+        AdminCreditNoteDetailResource: {
+            id: number;
+            ulid: string;
+            number: string;
+            title: string;
+            issue_date: string;
+            issued_at: string;
+            invoice: {
+                id: number;
+                number: string;
+                status: components["schemas"]["InvoiceStatus"];
+            };
+            refund_id: number;
+            payment_id: number;
+            customer: {
+                id: number;
+                name: string | null;
+            };
+            booking_reference: string | null;
+            reason_code: string | null;
+            reason: string | null;
+            net_fils: number;
+            vat_rate_bp: number;
+            vat_rate: string;
+            vat_fils: number;
+            total_fils: number;
+            currency: string;
+            total_text: string;
+            pdf_ready: boolean;
+            supplier: {
+                name: string;
+                address: string;
+                trn: string;
+                address_is_placeholder: boolean;
+                trn_is_placeholder: boolean;
+            };
+            lines: {
+                line: number;
+                type: string;
+                code: string;
+                description: string;
+                net_fils: number;
+                vat_rate_bp: number;
+                vat_rate: string;
+                vat_fils: number;
+                total_fils: number;
+            }[];
+        };
+        /** AdminCreditNoteResource */
+        AdminCreditNoteResource: {
+            id: number;
+            ulid: string;
+            number: string;
+            title: string;
+            issue_date: string;
+            issued_at: string;
+            invoice: {
+                id: number;
+                number: string;
+                status: components["schemas"]["InvoiceStatus"];
+            };
+            refund_id: number;
+            payment_id: number;
+            customer: {
+                id: number;
+                name: string | null;
+            };
+            booking_reference: string | null;
+            reason_code: string | null;
+            reason: string | null;
+            net_fils: number;
+            vat_rate_bp: number;
+            vat_rate: string;
+            vat_fils: number;
+            total_fils: number;
+            currency: string;
+            total_text: string;
+            pdf_ready: boolean;
+        };
+        /** AdminInvoiceDetailResource */
+        AdminInvoiceDetailResource: {
+            id: number;
+            ulid: string;
+            number: string;
+            status: components["schemas"]["InvoiceStatus"];
+            status_label: string;
+            issue_reason: components["schemas"]["InvoiceIssueReason"];
+            issue_date: string;
+            supply_date: string;
+            issued_at: string;
+            customer: {
+                id: number;
+                name: string | null;
+                phone: string | null;
+            };
+            booking: {
+                id: number | null;
+                reference: string | null;
+            };
+            payment: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["PaymentStatus"];
+                gateway_payment_ref: string | null;
+                captured_fils: number;
+                refunded_fils: number;
+            };
+            subtotal_fils: number;
+            discount_fils: number;
+            net_fils: number;
+            vat_rate_bp: number;
+            vat_rate: string;
+            vat_fils: number;
+            total_fils: number;
+            credited_fils: number;
+            currency: string;
+            total_text: string;
+            pdf_ready: boolean;
+            emailed_at: string | null;
+            supplier: {
+                name: string;
+                address: string;
+                trn: string;
+                address_is_placeholder: boolean;
+                trn_is_placeholder: boolean;
+            };
+            supplier_trn: string | null;
+            customer_trn: string | null;
+            lines: {
+                type: string;
+                code: string;
+                description: string;
+                unit: string;
+                quantity: number;
+                unit_price_excl_vat_fils: number;
+                unit_price_incl_vat_fils: number;
+                net_before_discount_fils: number;
+                discount_fils: number;
+                net_fils: number;
+                vat_rate_bp: number;
+                vat_rate: string;
+                vat_fils: number;
+                total_fils: number;
+            }[];
+            credit_notes: {
+                id: number;
+                number: string;
+                issue_date: string;
+                refund_id: number;
+                reason_code: string | null;
+                reason: string | null;
+                net_fils: number;
+                vat_fils: number;
+                total_fils: number;
+            }[];
+            version: number;
+        };
+        /** AdminInvoiceResource */
+        AdminInvoiceResource: {
+            id: number;
+            ulid: string;
+            number: string;
+            status: components["schemas"]["InvoiceStatus"];
+            status_label: string;
+            issue_reason: components["schemas"]["InvoiceIssueReason"];
+            issue_date: string;
+            supply_date: string;
+            issued_at: string;
+            customer: {
+                id: number;
+                name: string | null;
+                phone: string | null;
+            };
+            booking: {
+                id: number | null;
+                reference: string | null;
+            };
+            payment: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["PaymentStatus"];
+                gateway_payment_ref: string | null;
+                captured_fils: number;
+                refunded_fils: number;
+            };
+            subtotal_fils: number;
+            discount_fils: number;
+            net_fils: number;
+            vat_rate_bp: number;
+            vat_rate: string;
+            vat_fils: number;
+            total_fils: number;
+            credited_fils: number;
+            currency: string;
+            total_text: string;
+            pdf_ready: boolean;
+            emailed_at: string | null;
         };
         /** AdminPaymentDetailResource */
         AdminPaymentDetailResource: {
@@ -3406,10 +3944,12 @@ export interface components {
                 type: string;
                 id: number;
                 public_id: string | null;
+                /** @description The human reference (a booking's TRB-XXXXXX); null when the payable has none or no longer resolves. */
+                reference: string | null;
             };
             gateway: string;
             gateway_payment_ref: string | null;
-            method: string | null;
+            method: components["schemas"]["PaymentMethod"] | null;
             card: {
                 brand: string | null;
                 brand_label: string;
@@ -3417,8 +3957,8 @@ export interface components {
                 label: string;
                 payment_method_id: string | null;
             } | null;
-            intent: string;
-            status: string;
+            intent: components["schemas"]["PaymentIntent"];
+            status: components["schemas"]["PaymentStatus"];
             status_label: {
                 ar: string;
                 en: string;
@@ -3432,6 +3972,20 @@ export interface components {
             refunded_fils: number;
             fee_fils: number | null;
             net_settled_fils: number | null;
+            /** @description The tax invoice (number, status, total) once issued; null before the capture and while Billing refuses it. */
+            invoice: {
+                id: number;
+                number: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                issue_date: string;
+                total_fils: number;
+                credited_fils: number;
+                currency: string;
+            } | null;
             needs_review: boolean;
             attempts: number;
             failure_code: string | null;
@@ -3439,23 +3993,212 @@ export interface components {
             authorized_at: string | null;
             captured_at: string | null;
             voided_at: string | null;
-            version: string;
-            refundable_fils: string;
-            three_ds_status: string;
-            failure_message: string;
-            gateway_session_ref: string;
+            version: number;
+            refundable_fils: number;
+            three_ds_status: string | null;
+            failure_message: string | null;
+            gateway_session_ref: string | null;
             verifying_since: string | null;
             review_reason: string | null;
-            void_reason: string;
+            review_reason_label: {
+                ar: string;
+                en: string;
+            } | null;
+            void_reason: string | null;
+            void_reason_label: {
+                ar: string;
+                en: string;
+            } | null;
             updated_at: string | null;
-            events: string;
-            refunds: string;
+            events: {
+                id: number;
+                source: string;
+                type: string;
+                outcome: string | null;
+                provider_event_id: string | null;
+                signature_valid: boolean | null;
+                received_at: string;
+                processed_at: string | null;
+                payload: {
+                    [key: string]: unknown;
+                } | null;
+            }[];
+            refunds: {
+                id: number;
+                ulid: string;
+                amount_fils: number;
+                currency: string;
+                status: components["schemas"]["RefundStatus"];
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                reason_code: string;
+                reason_label: {
+                    ar: string;
+                    en: string;
+                };
+                reason_text: string | null;
+                requested_by: {
+                    /** @enum {string} */
+                    type: "customer" | "staff" | "system";
+                    id: number | null;
+                    name: string | null;
+                };
+                gateway: string;
+                gateway_refund_ref: string | null;
+                failure_code: string | null;
+                failure_message: string | null;
+                credit_note_id: number | null;
+                /** @description The tax credit note once Billing issued it (succeeded refunds of invoiced payments only). */
+                credit_note: {
+                    id: number;
+                    number: string;
+                    issue_date: string;
+                    total_fils: number;
+                } | null;
+                estimated_arrival_text: {
+                    ar: string | null;
+                    en: string | null;
+                };
+                needs_review: boolean;
+                created_at: string | null;
+                submitted_at: string | null;
+                succeeded_at: string | null;
+                failed_at: string | null;
+                last_checked_at: string | null;
+            }[];
+        };
+        /** AdminPaymentResource */
+        AdminPaymentResource: {
+            id: number;
+            ulid: string;
+            customer: {
+                id: number;
+                ulid: string;
+                name: string | null;
+                phone: string;
+            } | null;
+            payable: {
+                type: string;
+                id: number;
+                public_id: string | null;
+                /** @description The human reference (a booking's TRB-XXXXXX); null when the payable has none or no longer resolves. */
+                reference: string | null;
+            };
+            gateway: string;
+            gateway_payment_ref: string | null;
+            method: components["schemas"]["PaymentMethod"] | null;
+            card: {
+                brand: string | null;
+                brand_label: string;
+                last4: string | null;
+                label: string;
+                payment_method_id: string | null;
+            } | null;
+            intent: components["schemas"]["PaymentIntent"];
+            status: components["schemas"]["PaymentStatus"];
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            currency: string;
+            amount_fils: number;
+            vat_fils: number;
+            discount_fils: number;
+            net_fils: number;
+            captured_fils: number;
+            refunded_fils: number;
+            fee_fils: number | null;
+            net_settled_fils: number | null;
+            /** @description The tax invoice (number, status, total) once issued; null before the capture and while Billing refuses it. */
+            invoice: {
+                id: number;
+                number: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                issue_date: string;
+                total_fils: number;
+                credited_fils: number;
+                currency: string;
+            } | null;
+            needs_review: boolean;
+            attempts: number;
+            failure_code: string | null;
+            created_at: string | null;
+            authorized_at: string | null;
+            captured_at: string | null;
+            voided_at: string | null;
+        };
+        /** AdminRefundResource */
+        AdminRefundResource: {
+            id: number;
+            ulid: string;
+            amount_fils: number;
+            currency: string;
+            status: components["schemas"]["RefundStatus"];
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            reason_code: string;
+            reason_label: {
+                ar: string;
+                en: string;
+            };
+            reason_text: string | null;
+            requested_by: {
+                /** @enum {string} */
+                type: "customer" | "staff" | "system";
+                id: number | null;
+                name: string | null;
+            };
+            gateway: string;
+            gateway_refund_ref: string | null;
+            failure_code: string | null;
+            failure_message: string | null;
+            credit_note_id: number | null;
+            /** @description The tax credit note once Billing issued it (succeeded refunds of invoiced payments only). */
+            credit_note: {
+                id: number;
+                number: string;
+                issue_date: string;
+                total_fils: number;
+            } | null;
+            estimated_arrival_text: {
+                ar: string | null;
+                en: string | null;
+            };
+            needs_review: boolean;
+            created_at: string | null;
+            submitted_at: string | null;
+            succeeded_at: string | null;
+            failed_at: string | null;
+            last_checked_at: string | null;
+            payment: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["PaymentStatus"];
+                gateway_payment_ref: string | null;
+                payable_type: string;
+                payable_id: number;
+            };
+            customer: {
+                id: number;
+                ulid: string;
+                name: string | null;
+                phone: string;
+            } | null;
         };
         /**
          * AdminRescheduleRequest
          * @description POST /admin/bookings/{id}/reschedule (A03): the new date and slot, the reason (audited), and `override` to go past
          *     the soft capacity caps, which needs capacity.override (403 otherwise) and a reason of at least
-         *     CapacityForce::MIN_REASON characters (spec §8.6, P2-16).
+         *     CapacityForce::MIN_REASON characters (spec §8.6, P2-16). expected_fee_fils (0 for staff) and
+         *     expected_new_total_fils, when sent, are the terms the dialog showed (409 TERMS_CHANGED when they no longer apply).
          */
         AdminRescheduleRequest: {
             /** Format: date */
@@ -3463,18 +4206,61 @@ export interface components {
             slot_template_id: number;
             reason: string;
             override?: boolean;
+            expected_fee_fils?: number;
+            expected_new_total_fils?: number;
         };
-        /** ApiException */
-        ApiException: {
-            errorCode: string;
-            status: number;
-            messageKey: string | null;
-            details: {
-                [key: string]: unknown;
-            };
-            replace: {
-                [key: string]: unknown;
-            };
+        /** AlertResource */
+        AlertResource: {
+            id: string;
+            event: string;
+            /** @enum {string} */
+            priority: "normal" | "urgent";
+            urgent: boolean;
+            title: string;
+            body: string;
+            link: string | null;
+            entity: {
+                type: string;
+                id: number;
+                ulid?: string;
+                reference?: string;
+            } | null;
+            read: boolean;
+            read_at: string | null;
+            created_at: string | null;
+        };
+        /** AlternativeProposalResource */
+        AlternativeProposalResource: {
+            id: string;
+            /** @description Staff only: who proposed (the staff id). */
+            proposed_by?: number | null;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            } | string;
+            note: string | null;
+            options: {
+                index: number;
+                service_date: string | null;
+                slot: {
+                    id: number;
+                    name: string | {
+                        ar: string;
+                        en: string;
+                    } | null;
+                    start: string | null;
+                    end: string | null;
+                };
+                note: string | null;
+                total_fils: number;
+                price_diff_fils: number;
+            }[];
+            expires_at: string;
+            is_open: boolean;
+            accepted_option: number | null;
+            decided_at: string | null;
+            created_at: string | null;
         };
         /** App.Modules.Identity.Http.Resources.DriverResource */
         "App.Modules.Identity.Http.Resources.DriverResource": {
@@ -3528,6 +4314,16 @@ export interface components {
         BookingNoteRequest: {
             body: string;
         };
+        /** BookingNoteResource */
+        BookingNoteResource: {
+            id: number;
+            body: string;
+            author: {
+                id: number;
+                name: string;
+            };
+            created_at: string;
+        };
         /** BookingResource */
         BookingResource: {
             id: string;
@@ -3549,10 +4345,15 @@ export interface components {
             };
             workers_count: number;
             address: {
-                label: unknown;
-                area: unknown;
-                building: unknown;
-                unit: unknown;
+                /**
+                 * @description The saved address's ULID as booked (screen 26 reads availability for it); the customer may have
+                 *     edited or deleted that address since, while the fields below stay as booked.
+                 */
+                id: string | null;
+                label: string | null;
+                area: string | null;
+                building: string | null;
+                unit: string | null;
             };
             assigned_workers: {
                 display_name: string;
@@ -3565,7 +4366,10 @@ export interface components {
                 status_label: string;
             } | null;
             created_at: string | null;
-            priorities: unknown[];
+            priorities: {
+                key: string;
+                label: string;
+            }[];
             instructions: string | null;
             materials_by: string;
             preferred_worker: {
@@ -3582,14 +4386,25 @@ export interface components {
                 total_fils: number;
                 currency: string;
             };
-            lines: unknown[];
+            lines: {
+                type: string | null;
+                code: string | null;
+                description: string | null;
+                unit: string | null;
+                quantity: number | null;
+                unit_gross_fils: number | null;
+                discount_fils: number;
+                net_fils: number | null;
+                vat_fils: number | null;
+                gross_fils: number | null;
+            }[];
             coupon: {
                 code: string | null;
                 discount_fils: number;
             } | null;
             hold_expires_at: string | null;
             /** @description Screen 20: checkout closes at this time (shortly before the hold expires; Booking::paymentDeadline()). */
-            payment_deadline_at: null;
+            payment_deadline_at: string | null;
             confirmation_deadline_at: string | null;
             expected_confirmation: string | null;
             timeline: {
@@ -3607,7 +4422,7 @@ export interface components {
             } | null;
             photos: {
                 id: string;
-                url: null;
+                url: string | null;
                 mime: string;
                 size_bytes: number;
                 created_at: string | null;
@@ -3620,13 +4435,13 @@ export interface components {
                 can_add_photos: boolean;
             };
             policy: {
-                cancel_free_until: null;
-                reschedule_free_until: null;
+                cancel_free_until: string | null;
+                reschedule_free_until: string | null;
                 reschedules_used: number;
                 reschedules_max: number | null;
             };
-            alternative_proposal: unknown[] | null;
-            reschedule_request: unknown[] | null;
+            alternative_proposal: components["schemas"]["AlternativeProposalResource"] | null;
+            reschedule_request: components["schemas"]["RescheduleRequestResource"] | null;
             cancellation: {
                 review_requested: boolean;
                 party: string | null;
@@ -3656,21 +4471,27 @@ export interface components {
                     label: string;
                     payment_method_id: string | null;
                 } | null;
-                items: unknown[];
+                items: components["schemas"]["RefundResource"][];
+            } | null;
+            invoice: {
+                number: string;
+                status: string;
+                status_label: string;
             } | null;
         };
         /**
          * CancelBookingRequest
-         * @description Cancel a booking (screen 17; A03). The customer picks a reason from config booking.customer_cancel_reasons; staff
-         *     from booking.staff_cancel_reasons and say who the cancellation is attributed to (party customer|company). Staff
-         *     holding refunds.create may give the refund amount explicitly (refund_fils, required when the policy asks for a
-         *     review); anyone else sending it gets 403 before the booking is looked up. Text is required for "other". The preview
-         *     endpoints use the same request without the reason (preview()).
+         * @description The customer cancels a booking (POST /customer/bookings/{ulid}/cancel, screen 17): a reason from config
+         *     booking.customer_cancel_reasons (text required for "other"), and optionally the fee and refund the preview showed
+         *     (expected_fee_fils / expected_refund_fils, null included when the preview showed none): when they no longer apply
+         *     the answer is 409 TERMS_CHANGED and nothing happens. The preview takes no body; staff use AdminCancelBookingRequest.
          */
         CancelBookingRequest: {
             /** @enum {string} */
             reason_code: "plans_changed" | "booked_by_mistake" | "time_not_suitable" | "other";
             reason_text?: string | null;
+            expected_fee_fils?: number | null;
+            expected_refund_fils?: number | null;
         };
         /**
          * CancelRoundRequest
@@ -3840,7 +4661,8 @@ export interface components {
         /**
          * CreateRefundRequest
          * @description POST /admin/payments/{id}/refunds (A09, spec §10.4): amount in fils, a reason from config
-         *     payment.refund_reason_codes, a note (required for "other"). The amount confirmation dialog is the client's.
+         *     payment.refund_reason_codes (GET /admin/refund-reasons lists them with labels), a note (required for "other"). The
+         *     amount confirmation dialog is the client's.
          */
         CreateRefundRequest: {
             amount_fils: number;
@@ -3855,6 +4677,40 @@ export interface components {
             app_version: string | null;
             locale: string;
             last_seen_at: string | null;
+        };
+        /** CustomerLookupResource */
+        CustomerLookupResource: {
+            id: string;
+            /** @description Null for an account that is deleted or waiting for deletion. */
+            name: string | null;
+            phone: string;
+            locale: string;
+            /** @description active | blocked | pending_deletion | deleted */
+            status: string;
+            /** @description false when POST /admin/bookings would answer 403 ACCOUNT_BLOCKED */
+            bookable: boolean;
+            /** @description default first, then newest */
+            addresses: {
+                id: string;
+                label: string;
+                property_type: string;
+                building: string | null;
+                unit_number: string | null;
+                street: string | null;
+                area_text: string | null;
+                is_default: boolean;
+                is_blocked: boolean;
+                zone: {
+                    id: number;
+                    code: string;
+                    name: {
+                        ar: string;
+                        en: string;
+                    };
+                    is_active: boolean;
+                } | null;
+                bookable: boolean;
+            }[];
         };
         /** CustomerResource */
         CustomerResource: {
@@ -4021,12 +4877,18 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /**
+         * InvoiceIssueReason
+         * @description Why an invoice was issued; invoices are unique per (payment, reason). Spec §9.3: a booking payment is invoiced when it is captured. Later reasons (subscription periods, Phase 4) get their own case.
+         * @enum {string}
+         */
+        InvoiceIssueReason: "capture";
         /** InvoiceResource */
         InvoiceResource: {
             id: string;
             number: string;
             title: string;
-            status: string;
+            status: components["schemas"]["InvoiceStatus"];
             status_label: string;
             issue_date: string;
             supply_date: string;
@@ -4047,7 +4909,22 @@ export interface components {
                 id: string | null;
                 reference: string | null;
             };
-            lines: unknown[];
+            lines: {
+                type: string;
+                code: string;
+                description: string;
+                unit: string;
+                quantity: number;
+                unit_price_excl_vat_fils: number;
+                unit_price_incl_vat_fils: number;
+                net_before_discount_fils: number;
+                discount_fils: number;
+                net_fils: number;
+                vat_rate_bp: number;
+                vat_rate: string;
+                vat_fils: number;
+                total_fils: number;
+            }[];
             subtotal_fils: number;
             discount_fils: number;
             net_fils: number;
@@ -4062,8 +4939,8 @@ export interface components {
                 id: string;
                 method: string | null;
                 method_label: string | null;
-                card_brand: unknown;
-                card_last4: unknown;
+                card_brand: string | null;
+                card_last4: string | null;
                 reference: string | null;
             } | null;
             credit_notes: {
@@ -4075,6 +4952,26 @@ export interface components {
             }[];
             pdf_ready: boolean;
             emailed_at: string | null;
+        };
+        /**
+         * InvoiceStatus
+         * @description invoices.status (spec §6.9): issued, then credited_partial once a credit note covers part of it, credited_full once credit notes cover the whole total.
+         * @enum {string}
+         */
+        InvoiceStatus: "issued" | "credited_partial" | "credited_full";
+        /** InvoiceSummaryResource */
+        InvoiceSummaryResource: {
+            id: string;
+            number: string;
+            status: components["schemas"]["InvoiceStatus"];
+            status_label: string;
+            issue_date: string;
+            supply_date: string;
+            booking_reference: string | null;
+            total_fils: number;
+            credited_fils: number;
+            currency: string;
+            total_text: string;
         };
         /**
          * JoinWaitlistRequest
@@ -4242,16 +5139,24 @@ export interface components {
             id: number;
             event_key: string;
             event_label: string;
-            group: string | null;
-            audience: string;
-            channel: string;
+            /** @enum {string|null} */
+            group: "bookings" | "payments" | "reminders" | "visit_progress" | "waitlist" | null;
+            /** @enum {string} */
+            audience: "customer" | "staff";
+            /** @enum {string} */
+            channel: "push" | "sms" | "email" | "in_app" | "whatsapp_future";
             channel_label: string;
-            locale: string;
+            /** @enum {string} */
+            locale: "ar" | "en";
             subject: string | null;
             body: string;
             is_active: boolean;
             version: number;
-            placeholders: unknown[];
+            placeholders: {
+                name: string;
+                token: string;
+                description: string;
+            }[];
             updated_by: number | null;
             updated_at: string | null;
         };
@@ -4325,6 +5230,18 @@ export interface components {
             payment_method_id: string;
             return_url?: string | null;
         };
+        /**
+         * PaymentIntent
+         * @description What a payment asks the gateway for (spec §6.9): hold now and capture at confirmation, take the money at once, or a merchant-initiated recurring charge on a saved token.
+         * @enum {string}
+         */
+        PaymentIntent: "authorize" | "sale" | "mit_recurring";
+        /**
+         * PaymentMethod
+         * @description How the customer paid (spec §6.9). Known only once the gateway reports it.
+         * @enum {string}
+         */
+        PaymentMethod: "card" | "apple_pay" | "google_pay" | "wallet" | "cash_future";
         /** PaymentMethodSetupResource */
         PaymentMethodSetupResource: {
             id: string;
@@ -4353,12 +5270,12 @@ export interface components {
             three_ds_status: string | null;
             needs_review: boolean;
             /** @description Screen 20: retry is blocked while verifying, and once the booking (payable) no longer takes payment. */
-            retry_allowed: string;
+            retry_allowed: boolean;
             attempts: number;
             checkout_url: string | null;
             checkout_expires_at: string | null;
             /** @description A saved card waiting for its 3-D Secure check: the app opens checkout_url to complete it. */
-            requires_action: string;
+            requires_action: boolean;
             failure_code: string | null;
             failure_message: string | null;
             card: {
@@ -4372,14 +5289,20 @@ export interface components {
                 type: string;
                 id: string | null;
             };
-            /** @description Screen 18: every refund of this payment, oldest first. */
-            refunds: unknown[];
+            /** @description Screen 18: every refund of this payment, oldest first, with its credit note. */
+            refunds: components["schemas"]["RefundResource"][];
             authorized_at: string | null;
             captured_at: string | null;
             voided_at: string | null;
             created_at: string | null;
             updated_at: string | null;
         };
+        /**
+         * PaymentStatus
+         * @description Payment status (spec §7.2), shared by `payments.status` and `bookings.payment_status`: unpaid → pending (3DS/processing) → authorized → captured → partially_refunded | refunded   failure branches: failed, voided, verifying (result unknown: timeout/network)  Gateway reports (webhooks, polls, call results) may arrive late, twice or out of order. They only move a payment forward: along an allowed transition AND to a higher precedence rank (acceptsGatewayStatus()). So a late "pending" after "authorized" is ignored, "captured" beats "authorized", and "authorized" never undoes "captured". failed → pending is an allowed transition but has a lower rank, so it happens only through an explicit retry.
+         * @enum {string}
+         */
+        PaymentStatus: "unpaid" | "pending" | "verifying" | "authorized" | "captured" | "partially_refunded" | "refunded" | "failed" | "voided";
         /**
          * PhoneChangeRequest
          * @description POST /customer/me/phone-change (REQ C21).
@@ -4460,7 +5383,13 @@ export interface components {
          *     preview before publish): subject and body are an unsaved draft of this template's language.
          */
         PreviewNotificationTemplateRequest: {
-            payload?: (string | null)[];
+            /** @description Sample values by placeholder name: one text for both languages, or {ar, en}. */
+            payload?: {
+                [key: string]: string | number | {
+                    ar?: string;
+                    en?: string;
+                } | null;
+            };
             subject?: string | null;
             body?: string | null;
         };
@@ -4507,6 +5436,33 @@ export interface components {
             addons?: string[] | null;
             coupon_code?: string | null;
         };
+        /** RefundResource */
+        RefundResource: {
+            id: string;
+            amount_fils: number;
+            currency: string;
+            status: components["schemas"]["RefundStatus"];
+            status_label: string;
+            message: string;
+            reference: string | null;
+            /** @description No arrival promise for a refund the provider refused. */
+            estimated_arrival: string | null;
+            requested_at: string | null;
+            submitted_at: string | null;
+            settled_at: string | null;
+            created_at: string | null;
+            /** @description Null until Billing issued it (a succeeded refund of an invoiced payment). */
+            credit_note: {
+                number: string;
+                issue_date: string;
+            } | null;
+        };
+        /**
+         * RefundStatus
+         * @description Refund status (spec §6.9, §7.2 "refund substates live on refunds"): requested → processing → succeeded | failed  `requested`: recorded, not yet sent to the provider. `processing`: sent; the provider's answer is pending or was lost (the job ResolveProcessingRefunds asks again until it is known). Succeeded and failed are final: a later, contradicting report never changes them (it is flagged for a person instead). Only requested and processing refunds reserve part of the payment's refundable amount.
+         * @enum {string}
+         */
+        RefundStatus: "requested" | "processing" | "succeeded" | "failed";
         /**
          * RegisterDeviceRequest
          * @description POST /customer/devices.
@@ -4547,6 +5503,67 @@ export interface components {
             reason: string;
         };
         /**
+         * RescheduleBookingRequest
+         * @description The customer asks to move a booking (POST /customer/bookings/{ulid}/reschedule, C26 / screen 26): the new date and
+         *     slot, and optionally the change fee and new total the preview showed (expected_fee_fils / expected_new_total_fils):
+         *     when they no longer apply the answer is 409 TERMS_CHANGED and nothing happens. The preview uses NewSlotRequest.
+         */
+        RescheduleBookingRequest: {
+            /** Format: date */
+            service_date: string;
+            slot_template_id: number;
+            expected_fee_fils?: number;
+            expected_new_total_fils?: number;
+        };
+        /** RescheduleRequestResource */
+        RescheduleRequestResource: {
+            id: string | number;
+            ulid?: string;
+            status: string;
+            status_label: string | {
+                ar: string;
+                en: string;
+            };
+            from: {
+                service_date: string;
+                slot: {
+                    id: number;
+                    name: string | {
+                        ar: string;
+                        en: string;
+                    } | null;
+                    start: string | null;
+                    end: string | null;
+                };
+            };
+            to: {
+                service_date: string;
+                slot: {
+                    id: number;
+                    name: string | {
+                        ar: string;
+                        en: string;
+                    } | null;
+                    start: string | null;
+                    end: string | null;
+                };
+            };
+            fee_fils: number;
+            price_diff_fils: number;
+            new_total_fils: number;
+            decision_note: string | null;
+            decided_at: string | null;
+            created_at: string | null;
+            booking_id?: number;
+            booking_reference?: string;
+            requested_by_type?: string;
+            requested_by_id?: number | null;
+            reason?: string | null;
+            rule_applied?: string | null;
+            override?: boolean;
+            decided_by?: number | null;
+        };
+        /**
          * ResetPasswordRequest
          * @description POST /admin/auth/reset: at least 12 characters with upper and lower case letters and a number.
          */
@@ -4556,6 +5573,16 @@ export interface components {
             token: string;
             password: string;
             password_confirmation: string;
+        };
+        /**
+         * ResolveCancelReviewRequest
+         * @description POST /admin/bookings/{id}/cancel-review/resolve {refund_fils, note} (A03 review queue, refunds.create): the amount to
+         *     refund for the customer's cancellation that waits for review (0 … what can still be refunded; the rest is kept) and
+         *     the decision note (audited, and the refund's note).
+         */
+        ResolveCancelReviewRequest: {
+            refund_fils: number;
+            note: string;
         };
         /** RoleResource */
         RoleResource: {
@@ -5522,8 +6549,8 @@ export interface components {
         };
     };
     responses: {
-        /** @description Unauthenticated */
-        AuthenticationException: {
+        /** @description Not found */
+        NotFoundHttpException: {
             headers: {
                 [name: string]: unknown;
             };
@@ -5550,8 +6577,8 @@ export interface components {
                 };
             };
         };
-        /** @description Not found */
-        NotFoundHttpException: {
+        /** @description Unauthenticated */
+        AuthenticationException: {
             headers: {
                 [name: string]: unknown;
             };
@@ -5719,6 +6746,41 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.catalog.addons.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            code: string;
+                            name: {
+                                ar: string;
+                                en: string;
+                            };
+                            amount_fils: number;
+                            vat_inclusive: boolean;
+                            /** @enum {string} */
+                            per: "visit" | "worker" | "month";
+                            is_active: boolean;
+                            service_codes: string[];
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "customer.addresses.index": {
         parameters: {
             query?: never;
@@ -5866,7 +6928,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AlertResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -5877,7 +6939,7 @@ export interface operations {
                             poll_seconds: number;
                         };
                     } | {
-                        data: unknown[];
+                        data: components["schemas"]["AlertResource"][];
                         meta: {
                             unread_count: number;
                             server_time: string;
@@ -5934,7 +6996,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AlertResource"];
                         meta: {
                             unread_count: number;
                         };
@@ -6246,7 +7308,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminBillingRefusalResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -6546,8 +7608,13 @@ export interface operations {
                 from?: string;
                 to?: string;
                 zone_id?: number;
+                slot_template_id?: number;
                 service?: string;
                 source?: "app" | "web" | "phone" | "whatsapp" | "admin";
+                /** @description A worker named on one of the booking's visits now (released assignments do not count). */
+                worker_id?: number;
+                /** @description The driver of a round (drop-off or pickup) still serving one of the booking's visits. */
+                driver_id?: number;
                 search?: string;
                 /** @description Phase 3: cancellations waiting for staff review (spec §10.4). */
                 cancel_review?: boolean;
@@ -6564,7 +7631,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminBookingResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -6598,11 +7665,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            booking: unknown[];
+                            booking: components["schemas"]["AdminBookingDetailResource"];
                             payment: {
                                 id: string;
                                 status: string;
                                 amount_fils: number;
+                                /** @description the hosted checkout page the coordinator sends (null when the gateway refused) */
                                 payment_link: string | null;
                                 expires_at: string | null;
                             };
@@ -6613,6 +7681,96 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             403: components["responses"]["AuthorizationException"];
             422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.store.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManualBookingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            customer_exists: boolean;
+                            address_is_new: boolean;
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            };
+                            amounts: {
+                                /** @description Cast so the OpenAPI export reads an integer (it infers the sums' literal 0 start value otherwise). */
+                                subtotal_fils: number;
+                                addons_fils: number;
+                                discount_fils: number;
+                                net_fils: number;
+                                vat_rate_bp: number;
+                                vat_fils: number;
+                                total_fils: number;
+                                currency: string;
+                            };
+                            lines: {
+                                type: string;
+                                code: string;
+                                description: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                unit: string;
+                                quantity: number;
+                                unit_gross_fils: number;
+                                discount_fils: number;
+                                net_fils: number;
+                                vat_fils: number;
+                                gross_fils: number;
+                            }[];
+                            availability: {
+                                status: string;
+                                reason: string | null;
+                                bookable: boolean;
+                                /** @description Units the team could still take there (workers capped by free seats; staff information). */
+                                remaining: number;
+                            };
+                            payment_hold_minutes: number;
+                            /** @description The cancellation terms the booking would carry, one sentence per line. */
+                            policy_summary: {
+                                ar: string[];
+                                en: string[];
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
+            422: components["responses"]["ValidationException"];
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Error overview. */
+                        message: string;
+                    };
+                };
+            };
         };
     };
     "admin.booking.bookings.payment-link": {
@@ -6653,13 +7811,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description `AdminBookingDetailResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminBookingDetailResource"];
                     };
                 };
             };
@@ -6681,13 +7840,81 @@ export interface operations {
             };
         };
         responses: {
+            /** @description `AdminBookingDetailResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminBookingDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.propose-alternative.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposeAlternativesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            current_total_fils: number;
+                            /** @description The most an option may cost: what the customer authorized (or paid under sale_then_refund). */
+                            authorized_fils: number;
+                            currency: string;
+                            /** @description Settings booking.alternative_proposal_hours. */
+                            answer_window_hours: number;
+                            /** @description The customer's deadline if the proposal is sent now (UTC, ISO 8601). */
+                            expires_at: string;
+                            /** @description Every option may be offered (POST …/propose-alternative would accept them). */
+                            can_send: boolean;
+                            options: {
+                                index: number;
+                                service_date: string;
+                                slot: {
+                                    id: number;
+                                    name: {
+                                        ar: string;
+                                        en: string;
+                                    } | null;
+                                    start: string | null;
+                                    end: string | null;
+                                };
+                                allowed: boolean;
+                                availability: {
+                                    status: string;
+                                    reason: string | null;
+                                } | null;
+                                total_fils: number | null;
+                                price_diff_fils: number | null;
+                                problem: {
+                                    code: string;
+                                    message: string;
+                                    details: {
+                                        [key: string]: unknown;
+                                    };
+                                } | null;
+                            }[];
+                        };
                     };
                 };
             };
@@ -6717,8 +7944,55 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            proposal: unknown[];
-                            booking: unknown[];
+                            proposal: components["schemas"]["AlternativeProposalResource"];
+                            booking: components["schemas"]["AdminBookingDetailResource"];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.reschedule.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSlotRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            allowed: boolean;
+                            /** @description policy | slot | price, in check order */
+                            blockers: string[];
+                            requires_approval: boolean;
+                            fee_fils: number;
+                            price_diff_fils: number;
+                            new_total_fils: number;
+                            refund_fils: number;
+                            paid_fils: number;
+                            kept_fees_fils: number;
+                            currency: string;
+                            availability: {
+                                status: string;
+                                reason: string | null;
+                            };
+                            rule_applied: string;
+                            explanation: string;
                         };
                     };
                 };
@@ -6749,8 +8023,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            reschedule_request: unknown[];
-                            booking: unknown[];
+                            reschedule_request: components["schemas"]["RescheduleRequestResource"];
+                            booking: components["schemas"]["AdminBookingDetailResource"];
                         };
                     };
                 };
@@ -6771,7 +8045,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CancelBookingRequest"];
+                "application/json": components["schemas"]["AdminCancelPreviewRequest"];
             };
         };
         responses: {
@@ -6794,13 +8068,13 @@ export interface operations {
                             explanation: {
                                 ar: string;
                                 en: string;
-                            } | string;
+                            };
+                            currency: string;
                         };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
-            403: components["responses"]["AuthorizationException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -6815,7 +8089,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CancelBookingRequest"];
+                "application/json": components["schemas"]["AdminCancelBookingRequest"];
             };
         };
         responses: {
@@ -6826,10 +8100,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            payment: string | "none";
-                            fee_fils: string | 0;
-                            refund_fils: string | 0;
-                            booking: unknown[];
+                            /** @description What happened to the money: voided | refunded | kept | deferred | none | void_failed. */
+                            payment: string;
+                            fee_fils: number;
+                            refund_fils: number;
+                            booking: components["schemas"]["AdminBookingDetailResource"];
                         };
                     };
                 };
@@ -6854,13 +8129,49 @@ export interface operations {
             };
         };
         responses: {
+            /** @description `AdminBookingDetailResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminBookingDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.booking.bookings.cancel-review.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveCancelReviewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @description What happened to the money: voided | refunded | kept | deferred | none | void_failed. */
+                            payment: string;
+                            fee_fils: number;
+                            refund_fils: number;
+                            booking: components["schemas"]["AdminBookingDetailResource"];
+                        };
                     };
                 };
             };
@@ -6877,11 +8188,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CancelBookingRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -6899,19 +8206,17 @@ export interface operations {
                             held_fils: number;
                             requires_review: boolean;
                             rule_applied: string;
-                            explanation: {
-                                ar: string;
-                                en: string;
-                            } | string;
+                            explanation: string;
                             currency: string;
-                            reasons: unknown[];
+                            reasons: {
+                                code: string;
+                                label: string;
+                            }[];
                         };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
-            403: components["responses"]["AuthorizationException"];
-            422: components["responses"]["ValidationException"];
         };
     };
     "customer.booking.bookings.cancel": {
@@ -6936,10 +8241,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            payment: string | "none";
-                            fee_fils: string | 0;
-                            refund_fils: string | 0;
-                            booking: unknown[];
+                            /** @description voided | refunded | kept | deferred | none | void_failed */
+                            payment: string;
+                            fee_fils: number;
+                            refund_fils: number;
+                            booking: components["schemas"]["BookingResource"];
                         };
                     };
                 };
@@ -6954,13 +8260,12 @@ export interface operations {
                             /** @constant */
                             code: "REVIEW_REQUIRED";
                             message: string;
-                            booking: unknown[];
+                            booking: components["schemas"]["BookingResource"];
                         };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
-            403: components["responses"]["AuthorizationException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -6987,13 +8292,15 @@ export interface operations {
                     "application/json": {
                         data: {
                             allowed: boolean;
-                            blockers: unknown[];
-                            requires_approval: string;
+                            /** @description policy | slot | price, in check order */
+                            blockers: string[];
+                            requires_approval: boolean;
                             fee_fils: number;
                             price_diff_fils: number;
                             new_total_fils: number;
                             refund_fils: number;
                             paid_fils: number;
+                            kept_fees_fils: number;
                             currency: string;
                             availability: {
                                 status: string;
@@ -7022,7 +8329,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NewSlotRequest"];
+                "application/json": components["schemas"]["RescheduleBookingRequest"];
             };
         };
         responses: {
@@ -7033,8 +8340,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            reschedule_request: unknown[];
-                            booking: unknown[];
+                            reschedule_request: components["schemas"]["RescheduleRequestResource"];
+                            booking: components["schemas"]["BookingResource"];
                         };
                     };
                 };
@@ -7059,13 +8366,14 @@ export interface operations {
             };
         };
         responses: {
+            /** @description `BookingResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["BookingResource"];
                     };
                 };
             };
@@ -7085,13 +8393,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description `BookingResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["BookingResource"];
                     };
                 };
             };
@@ -7245,7 +8554,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            booking: unknown[];
+                            booking: components["schemas"]["BookingResource"];
                             payment: {
                                 id: string;
                                 status: string;
@@ -7875,7 +9184,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminCreditNoteResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -7900,13 +9209,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description `AdminCreditNoteDetailResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminCreditNoteDetailResource"];
                     };
                 };
             };
@@ -7939,6 +9249,46 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.identity.customers.index": {
+        parameters: {
+            query: {
+                phone: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerLookupResource"][];
+                        meta: {
+                            phone: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Error overview. */
+                        message: string;
+                    };
+                };
+            };
         };
     };
     "admin.reporting.dashboard.summary": {
@@ -7980,12 +9330,24 @@ export interface operations {
                                     };
                                     value: number;
                                     workers: number;
-                                    by_slot: unknown[];
+                                    by_slot: {
+                                        slot_template_id: number;
+                                        code: string;
+                                        name: {
+                                            ar: string;
+                                            en: string;
+                                        };
+                                        start: string;
+                                        end: string;
+                                        bookings: number;
+                                    }[];
                                     link: {
                                         /** @constant */
                                         list: "bookings";
                                         path: string;
-                                        params: unknown[];
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
                                     } | null;
                                 };
                                 pending_confirmation: {
@@ -8000,32 +9362,37 @@ export interface operations {
                                         booking_id: number;
                                         reference: string;
                                         deadline_at: string;
-                                        /** @description Negative once the deadline has passed. */
                                         minutes_left: number;
                                         link: {
                                             /** @constant */
                                             list: "booking";
                                             path: string;
-                                            params: unknown[];
+                                            params: {
+                                                [key: string]: string | number;
+                                            };
                                         } | null;
                                     } | null;
                                     oldest_request: {
                                         booking_id: number;
                                         reference: string;
                                         pending_since: string;
-                                        waiting_minutes: unknown;
+                                        waiting_minutes: number;
                                         link: {
                                             /** @constant */
                                             list: "booking";
                                             path: string;
-                                            params: unknown[];
+                                            params: {
+                                                [key: string]: string | number;
+                                            };
                                         } | null;
                                     } | null;
                                     link: {
                                         /** @constant */
                                         list: "bookings";
                                         path: string;
-                                        params: unknown[];
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
                                     } | null;
                                 };
                                 uncovered_visits: {
@@ -8036,16 +9403,13 @@ export interface operations {
                                     value: number;
                                     missing_workers: number;
                                     link: {
-                                        /** @constant */
-                                        list: "schedule";
+                                        /** @enum {string} */
+                                        list: "schedule" | "capacity";
                                         path: string;
-                                        params: unknown[];
-                                    } | null | {
-                                        /** @constant */
-                                        list: "capacity";
-                                        path: string;
-                                        params: unknown[];
-                                    };
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
+                                    } | null;
                                 };
                                 on_time_rate: {
                                     label: {
@@ -8059,47 +9423,87 @@ export interface operations {
                                     overdue: number;
                                     grace_minutes: number;
                                     link: {
-                                        /** @constant */
-                                        list: "schedule";
+                                        /** @enum {string} */
+                                        list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment";
                                         path: string;
-                                        params: unknown[];
+                                        params: {
+                                            [key: string]: string | number | boolean;
+                                        };
                                     } | null;
                                 };
                             };
                             panels: {
                                 bookings_by_status: {
-                                    status: string;
+                                    /** @enum {string} */
+                                    status: "held" | "pending_confirmation" | "confirmed" | "alternative_proposed" | "rejected" | "rescheduled" | "completed" | "cancelled" | "expired";
                                     label: {
                                         ar: string;
                                         en: string;
                                     };
-                                    bookings: string | 0;
+                                    bookings: number;
                                     link: {
                                         /** @constant */
                                         list: "bookings";
                                         path: string;
-                                        params: unknown[];
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
                                     } | null;
                                 }[];
-                                bookings_by_slot: unknown[];
-                                bookings_by_zone: unknown[];
+                                bookings_by_slot: {
+                                    slot_template_id: number;
+                                    code: string;
+                                    name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    start: string;
+                                    end: string;
+                                    bookings: number;
+                                    workers: number;
+                                    uncovered_visits: number;
+                                    link: {
+                                        /** @constant */
+                                        list: "schedule";
+                                        path: string;
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
+                                    } | null;
+                                }[];
+                                bookings_by_zone: {
+                                    zone_id: number;
+                                    code: string;
+                                    name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    bookings: number;
+                                    workers: number;
+                                    link: {
+                                        /** @constant */
+                                        list: "bookings";
+                                        path: string;
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
+                                    } | null;
+                                }[];
                                 workers: {
                                     total: number;
-                                    /** @constant */
-                                    available: 0;
-                                    /** @constant */
-                                    absent: 0;
-                                    /** @constant */
-                                    live_out: 0;
-                                    /** @constant */
-                                    off: 0;
+                                    available: number;
+                                    absent: number;
+                                    live_out: number;
+                                    off: number;
                                     assigned: number;
                                     late: number;
                                     link: {
                                         /** @constant */
                                         list: "schedule";
                                         path: string;
-                                        params: unknown[];
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
                                     } | null;
                                 };
                                 fleet: {
@@ -8110,7 +9514,31 @@ export interface operations {
                                         inactive: number;
                                         in_use: number;
                                     };
-                                    rounds: unknown[][];
+                                    rounds: {
+                                        slot_template_id: number;
+                                        code: string;
+                                        name: {
+                                            ar: string;
+                                            en: string;
+                                        };
+                                        start: string;
+                                        end: string;
+                                        rounds: number;
+                                        planned: number;
+                                        departed: number;
+                                        completed: number;
+                                        cancelled: number;
+                                        seats_used: number;
+                                        seats_total: number;
+                                        link: {
+                                            /** @constant */
+                                            list: "rounds";
+                                            path: string;
+                                            params: {
+                                                [key: string]: string | number;
+                                            };
+                                        } | null;
+                                    }[];
                                 };
                             };
                             quick_stats: {
@@ -8124,22 +9552,14 @@ export interface operations {
                                 } | null;
                                 occupancy: {
                                     percent: number | null;
-                                    /** @constant */
-                                    used_units: 0;
-                                    /** @constant */
-                                    available_units: 0;
-                                } | {
-                                    percent: null;
-                                    /** @constant */
-                                    used_units: 0;
-                                    /** @constant */
-                                    available_units: 0;
+                                    used_units: number;
+                                    available_units: number;
                                 };
                                 cancellations: {
-                                    /** @constant */
-                                    total: 0;
-                                } & {
-                                    [key: string]: 0;
+                                    total: number;
+                                    customer: number;
+                                    company: number;
+                                    system: number;
                                 };
                                 /** @description Ratings arrive with Phase 5 (Quality); the A02 design shows no separate rating card. */
                                 rating: null;
@@ -8169,9 +9589,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: [
-                            string
-                        ];
+                        data: {
+                            /** @enum {string} */
+                            type: "visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review";
+                            /** @enum {string} */
+                            severity: "urgent" | "warning";
+                            at: string;
+                            title: {
+                                ar: string;
+                                en: string;
+                            };
+                            message: {
+                                ar: string;
+                                en: string;
+                            };
+                            entity: {
+                                /** @enum {string} */
+                                type: "booking" | "visit" | "driver_report" | "payment" | "refund";
+                                id: number;
+                                reference?: string | null;
+                                booking_id?: number;
+                                round_id?: number | null;
+                                ulid?: string;
+                                payment_id?: number;
+                            };
+                            link: {
+                                /** @enum {string} */
+                                list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment";
+                                path: string;
+                                params: {
+                                    [key: string]: string | number;
+                                };
+                            } | null;
+                            details: {
+                                [key: string]: unknown;
+                            };
+                        }[];
                         meta: {
                             generated_at: string;
                             date: string;
@@ -8184,12 +9637,13 @@ export interface operations {
                                     en: string;
                                 };
                             } | null;
-                            types: unknown[];
-                            counts: string;
+                            types: ("visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review")[];
+                            counts: {
+                                [key: string]: number;
+                            };
                             total: number;
-                            /** @constant */
-                            urgent: 0;
-                            limit_per_type: unknown;
+                            urgent: number;
+                            limit_per_type: number;
                         };
                     };
                 };
@@ -8264,6 +9718,38 @@ export interface operations {
                             name: string;
                             email: string;
                             phone: string | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.fleet.drivers.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            name: string;
+                            /** @enum {string} */
+                            status: "active" | "inactive";
+                            is_active: boolean;
+                            vehicle: {
+                                id: number;
+                                plate_no: string;
+                            } | null;
                         }[];
                     };
                 };
@@ -8352,14 +9838,6 @@ export interface operations {
             };
         };
         responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiException"] | Record<string, never>;
-                };
-            };
             /** @description `DriverReportResource` */
             201: {
                 headers: {
@@ -8395,7 +9873,37 @@ export interface operations {
                     "application/json": {
                         data: {
                             date: string;
-                            slots: unknown[];
+                            slots: {
+                                slot: {
+                                    id: number;
+                                    code: string;
+                                    name: string;
+                                    start: string;
+                                    end: string;
+                                };
+                                rounds: {
+                                    id: number;
+                                    ulid: string;
+                                    date: string;
+                                    /** @enum {string} */
+                                    kind: "dropoff" | "pickup";
+                                    kind_label: string;
+                                    /** @enum {string} */
+                                    status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                                    status_label: string;
+                                    vehicle: {
+                                        plate_no: string;
+                                        model: string | null;
+                                        seats: number;
+                                    };
+                                    depart_at: string;
+                                    depart_local: string;
+                                    stop_count: number;
+                                    seats_used: number;
+                                    passengers_names: string[];
+                                    version: number;
+                                }[];
+                            }[];
                         };
                     };
                 };
@@ -8423,7 +9931,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
                     };
                 };
             };
@@ -8453,8 +10048,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
-                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
+                    };
                 };
             };
             401: components["responses"]["AuthenticationException"];
@@ -8483,8 +10165,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
-                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
+                    };
                 };
             };
             401: components["responses"]["AuthenticationException"];
@@ -8509,7 +10278,13 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            stop_id: number;
+                            lat: number | null;
+                            lng: number | null;
+                            google_maps: string | null;
+                            waze: string | null;
+                        };
                     };
                 };
             };
@@ -8538,11 +10313,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -8567,11 +10430,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -8596,11 +10547,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -8625,8 +10664,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
-                    } | (components["schemas"]["ApiException"] | Record<string, never>);
+                        data: {
+                            id: number;
+                            ulid: string;
+                            date: string;
+                            /** @enum {string} */
+                            kind: "dropoff" | "pickup";
+                            kind_label: string;
+                            /** @enum {string} */
+                            status: "planned" | "departed" | "in_progress" | "completed" | "cancelled";
+                            status_label: string;
+                            vehicle: {
+                                plate_no: string;
+                                model: string | null;
+                                seats: number;
+                            };
+                            depart_at: string;
+                            depart_local: string;
+                            stop_count: number;
+                            seats_used: number;
+                            passengers_names: string[];
+                            version: number;
+                            slot: {
+                                id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                            };
+                            departed_at: string | null;
+                            completed_at: string | null;
+                            contact: {
+                                /** @constant */
+                                type: "office";
+                                phone: string | null;
+                            };
+                            can_depart: boolean;
+                            undo: {
+                                available: boolean;
+                                /** @enum {string|null} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup" | null;
+                                stop_id: number | null;
+                                until: string | null;
+                                seconds_left: number | null;
+                            };
+                            passengers: {
+                                seat_no: number;
+                                display_name: string;
+                                stop_id: number | null;
+                            }[];
+                            stops: {
+                                id: number;
+                                sequence: number;
+                                /** @enum {string} */
+                                status: "pending" | "arrived" | "dropped_off" | "picked_up" | "failed";
+                                status_label: string;
+                                area: string | null;
+                                building: string | null;
+                                unit_number: string | null;
+                                street: string | null;
+                                property_type: string | null;
+                                access_instructions: string | null;
+                                parking_available: boolean;
+                                entry_permit_required: boolean;
+                                has_pets: boolean;
+                                lat: number | null;
+                                lng: number | null;
+                                slot_start: string;
+                                slot_end: string;
+                                planned_eta: string | null;
+                                eta_local: string | null;
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                failure_reason: string | null;
+                                passengers_names: string[];
+                                navigation: {
+                                    lat: number | null;
+                                    lng: number | null;
+                                    google_maps: string | null;
+                                    waze: string | null;
+                                };
+                                can: {
+                                    arrive: boolean;
+                                    dropoff: boolean;
+                                    pickup: boolean;
+                                    undo: boolean;
+                                };
+                            }[];
+                        };
+                    };
                 };
             };
             401: components["responses"]["AuthenticationException"];
@@ -8811,6 +10937,88 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.reporting.finance.summary": {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                zone_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            period: {
+                                from: string;
+                                to: string;
+                                days: number;
+                                timezone: string;
+                            };
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            currency: string;
+                            generated_at: string;
+                            cards: {
+                                collected: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    amount_fils: number;
+                                    payments: number;
+                                };
+                                vat: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    amount_fils: number;
+                                    invoices: number;
+                                    invoiced_fils: number;
+                                    credited_fils: number;
+                                    credit_notes: number;
+                                    net_fils: number;
+                                };
+                                refunds: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    amount_fils: number;
+                                    refunds: number;
+                                };
+                                reconciliation_differences: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    count: number | null;
+                                    available: boolean;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "public.health": {
         parameters: {
             query?: never;
@@ -8848,7 +11056,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["InvoiceSummaryResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -8953,6 +11161,7 @@ export interface operations {
                 from?: string;
                 to?: string;
                 customer_id?: number;
+                payment_id?: number;
                 search?: string;
             };
             header?: never;
@@ -8967,7 +11176,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminInvoiceResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -8992,13 +11201,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description `AdminInvoiceDetailResource` */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminInvoiceDetailResource"];
                     };
                 };
             };
@@ -9543,7 +11753,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["NotificationTemplateResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -9636,10 +11846,16 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            ar: string;
-                            en: string;
-                            placeholders: unknown[];
-                            unknown: unknown[];
+                            ar: {
+                                subject: string | null;
+                                body: string;
+                            } | null;
+                            en: {
+                                subject: string | null;
+                                body: string;
+                            } | null;
+                            placeholders: string[];
+                            unknown: string[];
                         };
                     };
                 };
@@ -10190,7 +12406,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminPaymentResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -10255,7 +12471,7 @@ export interface operations {
                             ulid: string;
                             amount_fils: number;
                             currency: string;
-                            status: string;
+                            status: components["schemas"]["RefundStatus"];
                             status_label: {
                                 ar: string;
                                 en: string;
@@ -10267,7 +12483,8 @@ export interface operations {
                             };
                             reason_text: string | null;
                             requested_by: {
-                                type: string;
+                                /** @enum {string} */
+                                type: "customer" | "staff" | "system";
                                 id: number | null;
                                 name: string | null;
                             };
@@ -10276,6 +12493,13 @@ export interface operations {
                             failure_code: string | null;
                             failure_message: string | null;
                             credit_note_id: number | null;
+                            /** @description The tax credit note once Billing issued it (succeeded refunds of invoiced payments only). */
+                            credit_note: {
+                                id: number;
+                                number: string;
+                                issue_date: string;
+                                total_fils: number;
+                            } | null;
                             estimated_arrival_text: {
                                 ar: string | null;
                                 en: string | null;
@@ -10289,7 +12513,7 @@ export interface operations {
                             payment: {
                                 id: number;
                                 ulid: string;
-                                status: string;
+                                status: components["schemas"]["PaymentStatus"];
                                 gateway_payment_ref: string | null;
                                 payable_type: string;
                                 payable_id: number;
@@ -10698,6 +12922,36 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.payment.refund-reasons.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            code: string;
+                            label: {
+                                ar: string;
+                                en: string;
+                            };
+                            selectable: boolean;
+                            requires_text: boolean;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "admin.payment.refunds.index": {
         parameters: {
             query?: {
@@ -10723,7 +12977,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["AdminRefundResource"][];
                         meta: {
                             current_page: number;
                             per_page: number;
@@ -10960,7 +13214,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -10979,9 +13233,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11010,18 +13274,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11115,7 +13425,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11134,9 +13444,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11165,18 +13485,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11267,7 +13633,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11286,9 +13652,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11317,18 +13693,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11422,7 +13844,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11441,9 +13863,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11472,18 +13904,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11577,7 +14055,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11596,9 +14074,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11627,18 +14115,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11727,7 +14261,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11746,9 +14280,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11777,18 +14321,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11881,7 +14471,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -11900,9 +14490,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -11931,18 +14531,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -11978,9 +14624,212 @@ export interface operations {
                         data: {
                             date: string;
                             slot_template_id: number;
-                            rounds: unknown[];
-                            unplanned: unknown[];
-                            already_planned: string[];
+                            rounds: {
+                                id: number;
+                                ulid: string;
+                                date: string;
+                                kind: string;
+                                kind_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                slot: {
+                                    id: number;
+                                    code: string;
+                                    name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    start: string;
+                                    end: string;
+                                };
+                                zone: {
+                                    id: number;
+                                    code: string;
+                                    name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                } | null;
+                                vehicle: {
+                                    id: number;
+                                    plate_no: string;
+                                    model: string | null;
+                                    seats: number;
+                                    status: string;
+                                };
+                                driver: {
+                                    id: number;
+                                    name: string;
+                                    phone: string | null;
+                                    status: string;
+                                } | null;
+                                planned_depart_at: string;
+                                depart_local: string;
+                                planned_end_at: string;
+                                end_local: string;
+                                published: boolean;
+                                published_at: string | null;
+                                departed_at: string | null;
+                                completed_at: string | null;
+                                cancelled_at: string | null;
+                                cancel_reason: string | null;
+                                seats: {
+                                    total: number;
+                                    used: number;
+                                    free: number;
+                                };
+                                stops: {
+                                    id: number;
+                                    sequence: number;
+                                    status: string;
+                                    status_label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    visit_id: number;
+                                    visit_status: string;
+                                    booking: {
+                                        id: number;
+                                        reference: string;
+                                        status: string;
+                                        workers_count: number;
+                                    };
+                                    address: {
+                                        area: string | null;
+                                        label?: string | null;
+                                        property_type?: string | null;
+                                        building?: string | null;
+                                        unit_number?: string | null;
+                                        street?: string | null;
+                                        lat?: number | null;
+                                        lng?: number | null;
+                                        access_instructions?: string | null;
+                                        parking_available?: boolean | null;
+                                        entry_permit_required?: boolean | null;
+                                        has_pets?: boolean | null;
+                                        pets_note?: string | null;
+                                    };
+                                    slot_start: string;
+                                    slot_end: string;
+                                    planned_eta: string | null;
+                                    eta_local: string | null;
+                                    late_by_minutes: number | null;
+                                    wait_minutes: number | null;
+                                    arrived_at: string | null;
+                                    completed_at: string | null;
+                                    failure_reason: string | null;
+                                    done: boolean;
+                                    workers: {
+                                        id: number;
+                                        display_name: string;
+                                    }[];
+                                }[];
+                                passengers: {
+                                    seat_no: number;
+                                    worker_id: number;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    visit_id: number | null;
+                                }[];
+                                last_action: {
+                                    id: number;
+                                    /** @enum {string} */
+                                    action: "depart" | "arrive" | "dropoff" | "pickup";
+                                    stop_id: number | null;
+                                    /** @enum {string} */
+                                    status: "pending" | "applied" | "failed" | "undone";
+                                    occurred_at: string;
+                                    recorded_at: string;
+                                    undo_until: string | null;
+                                    result: {
+                                        [key: string]: unknown;
+                                    } | null;
+                                } | null;
+                                warnings: {
+                                    /** @enum {string} */
+                                    type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                    message: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    driver_id?: number;
+                                    vehicle_id?: number;
+                                    vehicle_status?: string;
+                                    seats?: number;
+                                    passengers?: number;
+                                    stop_id?: number | null;
+                                    sequence?: number;
+                                    visit_id?: number;
+                                    visit_status?: string;
+                                    booking_status?: string;
+                                    service_date?: string;
+                                    slot_template_id?: number;
+                                    workers_count?: number;
+                                    assigned?: number;
+                                    worker_ids?: number[];
+                                    eta?: string;
+                                    eta_local?: string;
+                                    slot_start?: string;
+                                    slot_end?: string;
+                                    late_by_minutes?: number;
+                                    wait_minutes?: number;
+                                    allowed_late_minutes?: number;
+                                    dropoff_round_id?: number;
+                                    pickup_round_id?: number;
+                                    other_round_id?: number;
+                                    departs_at?: string;
+                                    departs_local?: string;
+                                    pickup_ends_at?: string;
+                                    pickup_ends_local?: string;
+                                    action_id?: number;
+                                    /** @enum {string} */
+                                    action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                    errors?: {
+                                        visit_id: number | null;
+                                        code: string | null;
+                                    }[];
+                                    occurred_at?: string;
+                                    recorded_at?: string;
+                                    minutes?: number;
+                                }[];
+                                version: number;
+                                created_at: string | null;
+                                updated_at: string | null;
+                                /** @enum {string|null} */
+                                plan: "created" | "extended" | null;
+                                follows_round_id: number | null;
+                            }[];
+                            unplanned: {
+                                visit_id: number;
+                                booking_id: number;
+                                booking_reference: string;
+                                /** @enum {string|null} */
+                                kind: "dropoff" | "pickup" | null;
+                                /** @enum {string} */
+                                reason: "booking_not_confirmed" | "workers_not_assigned" | "no_vehicle" | "vehicle_unavailable" | "round_underway" | "seats_full" | "resource_conflict" | "visit_already_on_round" | "passenger_conflict" | "visit_underway" | "visit_moved" | "visit_closed" | "visit_completed";
+                                details: {
+                                    [key: string]: unknown;
+                                };
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            }[];
+                            already_planned: {
+                                visit_id: number;
+                                /** @enum {string} */
+                                kind: "dropoff" | "pickup";
+                                round_id: number;
+                            }[];
                         };
                     };
                 };
@@ -12069,7 +14918,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -12088,9 +14937,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -12119,18 +14978,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -12221,7 +15126,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -12240,9 +15145,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -12271,18 +15186,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -12375,7 +15336,7 @@ export interface operations {
                             seats: {
                                 total: number;
                                 used: number;
-                                free: unknown;
+                                free: number;
                             };
                             stops: {
                                 id: number;
@@ -12394,9 +15355,19 @@ export interface operations {
                                     workers_count: number;
                                 };
                                 address: {
-                                    [key: string]: unknown;
-                                } | {
                                     area: string | null;
+                                    label?: string | null;
+                                    property_type?: string | null;
+                                    building?: string | null;
+                                    unit_number?: string | null;
+                                    street?: string | null;
+                                    lat?: number | null;
+                                    lng?: number | null;
+                                    access_instructions?: string | null;
+                                    parking_available?: boolean | null;
+                                    entry_permit_required?: boolean | null;
+                                    has_pets?: boolean | null;
+                                    pets_note?: string | null;
                                 };
                                 slot_start: string;
                                 slot_end: string;
@@ -12425,18 +15396,64 @@ export interface operations {
                             }[];
                             last_action: {
                                 id: number;
-                                action: string;
+                                /** @enum {string} */
+                                action: "depart" | "arrive" | "dropoff" | "pickup";
                                 stop_id: number | null;
-                                status: string;
+                                /** @enum {string} */
+                                status: "pending" | "applied" | "failed" | "undone";
                                 occurred_at: string;
                                 recorded_at: string;
-                                undo_until: null;
+                                undo_until: string | null;
                                 result: {
                                     [key: string]: unknown;
                                 } | null;
                             } | null;
                             warnings: {
-                                [key: string]: unknown;
+                                /** @enum {string} */
+                                type: "no_driver" | "driver_inactive" | "vehicle_unavailable" | "seats_exceeded" | "late_stop" | "visit_not_ready" | "visit_closed" | "visit_moved" | "team_not_aboard" | "passenger_not_on_team" | "seats_on_other_vehicle" | "driver_action_failed" | "pickup_late" | "ride_clash" | "action_backdated";
+                                message: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                driver_id?: number;
+                                vehicle_id?: number;
+                                vehicle_status?: string;
+                                seats?: number;
+                                passengers?: number;
+                                stop_id?: number | null;
+                                sequence?: number;
+                                visit_id?: number;
+                                visit_status?: string;
+                                booking_status?: string;
+                                service_date?: string;
+                                slot_template_id?: number;
+                                workers_count?: number;
+                                assigned?: number;
+                                worker_ids?: number[];
+                                eta?: string;
+                                eta_local?: string;
+                                slot_start?: string;
+                                slot_end?: string;
+                                late_by_minutes?: number;
+                                wait_minutes?: number;
+                                allowed_late_minutes?: number;
+                                dropoff_round_id?: number;
+                                pickup_round_id?: number;
+                                other_round_id?: number;
+                                departs_at?: string;
+                                departs_local?: string;
+                                pickup_ends_at?: string;
+                                pickup_ends_local?: string;
+                                action_id?: number;
+                                /** @enum {string} */
+                                action?: "depart" | "arrive" | "dropoff" | "pickup";
+                                errors?: {
+                                    visit_id: number | null;
+                                    code: string | null;
+                                }[];
+                                occurred_at?: string;
+                                recorded_at?: string;
+                                minutes?: number;
                             }[];
                             version: number;
                             created_at: string | null;
@@ -12473,7 +15490,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: {
+                            /** @enum {string} */
+                            view: "day" | "week";
+                            date: string;
+                            from: string;
+                            to: string;
+                            timezone: string;
+                            filters: {
+                                zone_id: number | null;
+                                service_id: number | null;
+                                slot_template_id: number | null;
+                                worker_id: number | null;
+                                status: string[];
+                            };
+                            dates: string[];
+                            slots: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                start: string;
+                                end: string;
+                                /** @enum {string} */
+                                service_kind: "standard_visit" | "live_out" | "future_specialized";
+                            }[];
+                            rows: {
+                                worker: {
+                                    id: number;
+                                    ulid: string;
+                                    employee_no: string;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    home_zone_id: number;
+                                    /** @enum {string} */
+                                    employment_status: "active" | "on_leave" | "suspended" | "terminated";
+                                };
+                                days: {
+                                    date: string;
+                                    markers: {
+                                        /** @enum {string} */
+                                        code: "not_active" | "rest_day" | "not_on_shift" | "leave" | "live_out";
+                                        label: {
+                                            ar: string;
+                                            en: string;
+                                        };
+                                        /** @enum {string} */
+                                        leave_type?: "annual" | "sick" | "unpaid" | "emergency" | "public_holiday";
+                                    }[];
+                                    cards: {
+                                        id: number;
+                                        ulid: string;
+                                        version: number;
+                                        booking: {
+                                            id: number;
+                                            ulid: string;
+                                            reference: string;
+                                            /** @enum {string} */
+                                            status: "pending_confirmation" | "confirmed" | "alternative_proposed" | "rescheduled" | "completed";
+                                            status_label: {
+                                                ar: string;
+                                                en: string;
+                                            };
+                                            service_id: number;
+                                            preferred_worker_id: number | null;
+                                        };
+                                        service_date: string;
+                                        slot_template_id: number;
+                                        start: string;
+                                        end: string;
+                                        zone_id: number;
+                                        area: string | null;
+                                        /** @enum {string} */
+                                        status: "scheduled" | "worker_assigned" | "en_route" | "arrived" | "in_progress" | "completed" | "no_show_customer" | "missed_by_company" | "cancelled";
+                                        status_label: {
+                                            ar: string;
+                                            en: string;
+                                        };
+                                        workers_count: number;
+                                        assigned_count: number;
+                                        missing: number;
+                                        vehicle_id: number | null;
+                                        workers: {
+                                            id: number;
+                                            display_name: string;
+                                            full_name: {
+                                                ar: string;
+                                                en: string;
+                                            };
+                                            assigned_at: string;
+                                        }[];
+                                        arrived_at: string | null;
+                                        started_at: string | null;
+                                        completed_at: string | null;
+                                        late_minutes: number | null;
+                                    }[];
+                                }[];
+                            }[];
+                            unassigned: {
+                                id: number;
+                                ulid: string;
+                                version: number;
+                                booking: {
+                                    id: number;
+                                    ulid: string;
+                                    reference: string;
+                                    /** @enum {string} */
+                                    status: "pending_confirmation" | "confirmed" | "alternative_proposed" | "rescheduled" | "completed";
+                                    status_label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    service_id: number;
+                                    preferred_worker_id: number | null;
+                                };
+                                service_date: string;
+                                slot_template_id: number;
+                                start: string;
+                                end: string;
+                                zone_id: number;
+                                area: string | null;
+                                /** @enum {string} */
+                                status: "scheduled" | "worker_assigned" | "en_route" | "arrived" | "in_progress" | "completed" | "no_show_customer" | "missed_by_company" | "cancelled";
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                workers_count: number;
+                                assigned_count: number;
+                                missing: number;
+                                vehicle_id: number | null;
+                                workers: {
+                                    id: number;
+                                    display_name: string;
+                                    full_name: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    assigned_at: string;
+                                }[];
+                                arrived_at: string | null;
+                                started_at: string | null;
+                                completed_at: string | null;
+                                late_minutes: number | null;
+                            }[];
+                        } | {
+                            /** @constant */
+                            view: "month";
+                            date: string;
+                            from: string;
+                            to: string;
+                            timezone: string;
+                            filters: {
+                                zone_id: number | null;
+                                service_id: number | null;
+                                slot_template_id: number | null;
+                                worker_id: number | null;
+                                status: string[];
+                            };
+                            days: {
+                                date: string;
+                                bookings: number;
+                                visits: number;
+                                unassigned: number;
+                                capacity: {
+                                    slot_template_id: number;
+                                    code: string;
+                                    booked_units: number;
+                                    assigned_units: number;
+                                    pool_units: number;
+                                    remaining_units: number;
+                                    used_percent: number | null;
+                                }[];
+                            }[];
+                        };
                     };
                 };
             };
@@ -12501,21 +15696,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: {
-                            /** @constant */
-                            result: "conflicts";
-                            conflicts: [
-                                {
-                                    code: string;
-                                    message: string;
-                                }
-                            ] | [
-                                {
-                                    /** @enum {string} */
-                                    code: "leave" | "live_out" | "busy";
-                                    /** @enum {string} */
-                                    message: "scheduling::messages.fit.leave" | "scheduling::messages.fit.live_out" | "scheduling::messages.fit.busy" | "leave" | "live_out" | "busy";
-                                }
-                            ] | {
+                            /** @enum {string} */
+                            result: "ok" | "override_possible" | "conflicts";
+                            conflicts: {
                                 code: string;
                                 message: string;
                             }[];
@@ -12524,31 +15707,6 @@ export interface operations {
                             details: {
                                 [key: string]: unknown;
                             };
-                        } | {
-                            /** @constant */
-                            result: "override_possible";
-                            conflicts: string[];
-                            rules: unknown[];
-                            can_override: boolean;
-                            details: {
-                                [key: string]: unknown;
-                            };
-                        } | {
-                            /** @constant */
-                            result: "conflicts";
-                            conflicts: unknown[];
-                            rules: string[];
-                            can_override: boolean;
-                            details: {
-                                [key: string]: unknown;
-                            };
-                        } | {
-                            /** @constant */
-                            result: "ok";
-                            conflicts: string[];
-                            rules: string[];
-                            can_override: boolean;
-                            details: string[];
                         };
                     };
                 };
@@ -13292,6 +16450,40 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
             404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.slot-templates.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            code: string;
+                            name: {
+                                ar: string;
+                                en: string;
+                            };
+                            start_time: string;
+                            end_time: string;
+                            /** @enum {string} */
+                            service_kind: "standard_visit" | "live_out" | "future_specialized";
+                            is_active: boolean;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "admin.scheduling.slot-templates.index": {

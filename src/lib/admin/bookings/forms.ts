@@ -93,20 +93,36 @@ export const MAX_ALTERNATIVES = 3;
 
 export type ProposeValues = { options: { service_date: string; slot_template_id: string; note: string }[]; note: string };
 
+type OptionTime = { service_date?: string; slot_template_id?: string };
+
+/**
+ * The options that repeat an earlier option's date and time (the later one of each pair). The API refuses such a
+ * proposal, and its preview too, with 422 VALIDATION_FAILED on `options.N`.
+ */
+export function duplicateOptionIndexes(options: readonly (OptionTime | undefined)[] | undefined): Set<number> {
+  const seen = new Set<string>();
+  const out = new Set<number>();
+  (options ?? []).forEach((o, i) => {
+    if (!o?.service_date || !o.slot_template_id) return;
+    const key = `${o.service_date}#${o.slot_template_id}`;
+    if (seen.has(key)) out.add(i);
+    seen.add(key);
+  });
+  return out;
+}
+
 export const proposeSchema = z
   .object({
     options: z.array(z.object({ service_date: z.string(), slot_template_id: z.string(), note: z.string() })),
     note: z.string(),
   })
   .superRefine((v, ctx) => {
-    const seen = new Set<string>();
+    const duplicates = duplicateOptionIndexes(v.options);
     v.options.forEach((o, i) => {
       if (!isIsoDate(o.service_date)) issue(ctx, ["options", i, "service_date"], "dateRequired");
       if (!o.slot_template_id) issue(ctx, ["options", i, "slot_template_id"], "slotRequired");
       if (o.note.trim().length > 200) issue(ctx, ["options", i, "note"], "tooLong");
-      const key = `${o.service_date}#${o.slot_template_id}`;
-      if (o.service_date && o.slot_template_id && seen.has(key)) issue(ctx, ["options", i, "slot_template_id"], "duplicateOption");
-      seen.add(key);
+      if (duplicates.has(i)) issue(ctx, ["options", i, "slot_template_id"], "duplicateOption");
     });
     if (v.note.trim().length > 500) issue(ctx, ["note"], "tooLong");
   })
@@ -120,6 +136,22 @@ export const proposeSchema = z
       note: v.note.trim() || null,
     }),
   );
+
+/**
+ * The options as the alternatives preview checks them (dates and times; the notes change nothing there), once every
+ * option has a date and a time and no two are the same; "" until then (the dialog marks a repeated option itself). One
+ * string, so the check runs again only when a date or time changed.
+ */
+export function proposalCheckBody(options: readonly OptionTime[] | undefined): string {
+  if (!options || options.length === 0) return "";
+  if (options.some((o) => !isIsoDate(o?.service_date) || !o?.slot_template_id)) return "";
+  if (duplicateOptionIndexes(options).size > 0) return "";
+  const body: ProposeInput = {
+    options: options.map((o) => ({ service_date: o.service_date as string, slot_template_id: Number(o.slot_template_id) })),
+    note: null,
+  };
+  return JSON.stringify(body);
+}
 
 // Reschedule (staff) -------------------------------------------------------------------------------------------------
 
@@ -153,6 +185,28 @@ export const approveRequestSchema = z
     if (v.override) checkReason(ctx, "reason", v.reason, FORCE_REASON_MIN, 1000, "overrideReasonMin");
   })
   .transform((v) => ({ note: v.note.trim() || null, ...(v.override ? { override: true, reason: v.reason.trim() } : {}) }));
+
+/** The accountant's resolution of a cancellation review (ResolveCancelReviewRequest: refund_fils ≥ 0, note 3–1000). */
+export type ResolveValues = { refund: string; note: string };
+
+/** `refundableFils` caps the amount (what may still be refunded on the payment). */
+export function resolveReviewSchema(refundableFils: number | null) {
+  return z
+    .object({ refund: z.string(), note: z.string() })
+    .superRefine((v, ctx) => {
+      if (v.refund.trim() === "") issue(ctx, ["refund"], "refundRequired");
+      else {
+        const parsed = parseAedToFils(v.refund);
+        if (!parsed.ok) issue(ctx, ["refund"], "refundInvalid");
+        else if (refundableFils !== null && parsed.fils > refundableFils) issue(ctx, ["refund"], "refundTooHigh");
+      }
+      checkReason(ctx, "note", v.note, 3, 1000);
+    })
+    .transform((v) => {
+      const parsed = parseAedToFils(v.refund);
+      return { refund_fils: parsed.ok ? parsed.fils : 0, note: v.note.trim() };
+    });
+}
 
 /** A note the customer is told (rejecting a reschedule request, keeping the booking after a cancellation request). */
 export const customerNoteSchema = z

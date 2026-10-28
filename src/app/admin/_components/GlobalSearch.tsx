@@ -12,8 +12,8 @@ const MAX_LENGTH = 100;
 
 /**
  * The top bar's search (spec §17 "global search"; design AdminOverview.dc.html): opens the A03 bookings list searched
- * by the term. The list searches by booking reference or phone today; names and addresses join when the A07 customer
- * search exists. Shown to users who read bookings.
+ * by the term. The list searches the booking reference, the phone, the customer's name and the booked address (GET
+ * /admin/bookings?search=). Shown to users who read bookings.
  */
 export function GlobalSearch() {
   const { can } = useAdminSession();

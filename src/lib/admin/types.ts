@@ -374,6 +374,42 @@ export type ServiceOption = GetJson<"/v1/admin/services/options">["data"][number
  */
 export type DriverCandidate = GetJson<"/v1/admin/drivers/candidates">["data"][number];
 
+/**
+ * GET /admin/slot-templates/options (Scheduling): every slot template by sort order, inactive ones marked, with its
+ * service kind. Readable with catalog.manage, schedule.view, trips.manage, bookings.view or bookings.create_manual.
+ */
+export type SlotTemplateOption = GetJson<"/v1/admin/slot-templates/options">["data"][number];
+
+/**
+ * GET /admin/drivers/options (Fleet): every driver by name, never contact or licence data. `is_active`: the driver can
+ * be given a round. Readable with fleet.manage, trips.manage, schedule.view or bookings.view.
+ */
+export type DriverOption = GetJson<"/v1/admin/drivers/options">["data"][number];
+
+/**
+ * GET /admin/addons/options (Catalog): every add-on by sort order, inactive ones marked, with the services (by code)
+ * it can be priced with. Readable with catalog.manage, bookings.create_manual or bookings.view.
+ */
+export type AddonOption = GetJson<"/v1/admin/addons/options">["data"][number];
+
+/** GET /admin/customers?phone= (Identity, bookings.create_manual): the customer with exactly that number. */
+export type CustomerLookup = GetJson<"/v1/admin/customers">;
+export type CustomerLookupRow = CustomerLookup["data"][number];
+export type CustomerLookupAddress = CustomerLookupRow["addresses"][number];
+
+/** The JSON body of a POST's 200 answer in the generated schema. */
+type PostJson<P extends keyof paths> = paths[P] extends { post: { responses: { 200: { content: { "application/json": infer B } } } } } ? B : never;
+
+/** POST /admin/bookings/preview: what the manual booking would cost and whether its slot can take it (nothing saved). */
+export type ManualBookingPreview = PostJson<"/v1/admin/bookings/preview">["data"];
+
+/** POST /admin/bookings/{id}/propose-alternative/preview: each option as the proposal would check it. */
+export type AlternativesPreview = PostJson<"/v1/admin/bookings/{booking}/propose-alternative/preview">["data"];
+export type AlternativeOptionPreview = AlternativesPreview["options"][number];
+
+/** POST /admin/bookings/{id}/reschedule/preview: the staff move's terms (no fee for staff). */
+export type ReschedulePreview = PostJson<"/v1/admin/bookings/{booking}/reschedule/preview">["data"];
+
 export type EmploymentStatus = "active" | "on_leave" | "suspended" | "terminated";
 export type LeaveType = "annual" | "sick" | "unpaid" | "emergency" | "public_holiday";
 export type LeaveStatus = "requested" | "approved" | "rejected" | "cancelled";
@@ -625,7 +661,7 @@ export type WeeklyHoursValue = Record<"0" | "1" | "2" | "3" | "4" | "5" | "6", W
 // The generated schema types these responses as unknown[]; shapes from DashboardSummary, BookingFigures, WorkerFigures,
 // FleetFigures, QuickStats, DashboardAlerts and Support\Links.
 
-/** Query filters of a dashboard link (nulls dropped). PHP sends an empty object as [] when there are none. */
+/** Query filters of a dashboard link (nulls dropped): always an object, {} for an entity link (booking, payment). */
 export type LinkParams = Record<string, string | number | boolean>;
 
 /**
@@ -635,7 +671,7 @@ export type LinkParams = Record<string, string | number | boolean>;
 export type DashboardLink = {
   list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | (string & {});
   path: string;
-  params: LinkParams | unknown[];
+  params: LinkParams;
 };
 
 /** A slot as the dashboard panels name it (Support\Text::slot). */
@@ -1029,7 +1065,18 @@ export type CancelReview = {
   rule_applied?: string | null;
   decision?: "cancelled" | "declined" | "closed" | null;
   resolved_at?: string | null;
+  /** Staff id of who resolved it (also the accountant's POST …/cancel-review/resolve). */
+  resolved_by?: number | null;
   decision_note?: string | null;
+  refund_fils?: number | null;
+};
+
+/** AdminBookingDetailResource `invoice`: the booking's tax invoice (its payment's capture invoice). */
+export type BookingInvoice = {
+  id: number;
+  number: string;
+  status: "issued" | "credited_partial" | "credited_full" | (string & {});
+  status_label: Translatable;
 };
 
 /** AdminBookingDetailResource: the A03 booking page. */
@@ -1055,6 +1102,8 @@ export type BookingDetail = BookingRow & {
   visits: BookingVisit[];
   hold: BookingHold | null;
   payment: BookingPayment | null;
+  /** Null until Billing issued it after the capture. */
+  invoice: BookingInvoice | null;
   history: BookingHistoryRow[];
   timeline: BookingTimelineStep[];
   photos: BookingPhoto[];
@@ -1224,6 +1273,11 @@ export type AdminRefund = {
   failure_code: string | null;
   failure_message: string | null;
   credit_note_id: number | null;
+  /**
+   * The credit note Billing issued for it (succeeded refunds of invoiced payments), null until then. The API sends it on
+   * every staff refund row; optional here only so refund fixtures written before it keep building.
+   */
+  credit_note?: RefundCreditNote | null;
   /** The setting's text when the refund was made, until the provider gives its own estimate. */
   estimated_arrival_text: { ar: string | null; en: string | null } | null;
   needs_review: boolean;
@@ -1242,6 +1296,9 @@ export type AdminRefund = {
   };
   customer?: FinanceCustomer | null;
 };
+
+/** AdminRefundResource `credit_note`: the tax credit note of a refund (opens /admin/finance/credit-notes/{id}). */
+export type RefundCreditNote = { id: number; number: string; issue_date: string; total_fils: number };
 
 // ---- Phase 3: A04 operations schedule (app/Modules/Scheduling/Schedule/Support/ScheduleBoard.php) ----------------
 
@@ -1309,15 +1366,11 @@ export type ScheduleMonth = ScheduleHead & { view: "month"; days: ScheduleMonthD
 
 export type ScheduleBoard = ScheduleGrid | ScheduleMonth;
 
-/** POST /admin/schedule/validate-move (a dry run of the move). `details` is [] when the move is fine. */
-export type MoveCheckResult = {
-  result: "ok" | "override_possible" | "conflicts";
-  conflicts: { code: string; message: string }[];
-  /** Soft rules an override relaxes (override_possible): other_zone, travel_buffer. */
-  rules: string[];
-  can_override: boolean;
-  details: Record<string, unknown> | unknown[];
-};
+/**
+ * POST /admin/schedule/validate-move (a dry run of the move): `rules` are the soft rules an override relaxes
+ * (override_possible: other_zone, travel_buffer); `details` is always an object, {} when the move is fine.
+ */
+export type MoveCheckResult = PostJson<"/v1/admin/schedule/validate-move">["data"];
 
 // ---- Phase 3: A06 trip planner (app/Modules/Fleet/Http/Resources) --------------------------------------------------
 
@@ -1451,15 +1504,18 @@ export type UnplannedVisit = {
   booking_reference: string;
   kind: RoundKind | null;
   reason: UnplannedReason | (string & {});
-  details: Record<string, unknown> | unknown[];
+  details: Record<string, unknown>;
   message: Translatable;
 };
 
-/** POST /admin/rounds/plan: the rounds it created or extended, the visits it could not place and why. */
+/**
+ * POST /admin/rounds/plan: the rounds it created or extended, the visits it could not place and why. `follows_round_id`:
+ * an extra round drafted because that round of a van (same slot and kind) had already left; null otherwise.
+ */
 export type PlanResult = {
   date: string;
   slot_template_id: number;
-  rounds: (Round & { plan: "created" | "extended" | null })[];
+  rounds: (Round & { plan: "created" | "extended" | null; follows_round_id: number | null })[];
   unplanned: UnplannedVisit[];
   already_planned: { visit_id: number; kind: RoundKind; round_id: number }[];
 };
@@ -1511,8 +1567,11 @@ export type AdminPayment = {
   id: number;
   ulid: string;
   customer: FinanceCustomer | null;
-  /** `public_id` is the booking's ULID (A03 links use the numeric `id`). */
-  payable: { type: PayableType | (string & {}); id: number; public_id: string | null };
+  /**
+   * `public_id` is the booking's ULID (A03 links use the numeric `id`); `reference` its human reference (TRB-XXXXXX),
+   * null when the payable has none or no longer resolves.
+   */
+  payable: { type: PayableType | (string & {}); id: number; public_id: string | null; reference: string | null };
   gateway: string;
   gateway_payment_ref: string | null;
   method: string | null;
@@ -1530,6 +1589,8 @@ export type AdminPayment = {
   /** From the settlement report (reconciliation, later phase). */
   fee_fils: number | null;
   net_settled_fils: number | null;
+  /** Its tax invoice (the capture invoice); null before the capture and while Billing has not issued it. */
+  invoice: PaymentInvoice | null;
   needs_review: boolean;
   attempts: number;
   failure_code: string | null;
@@ -1537,6 +1598,18 @@ export type AdminPayment = {
   authorized_at: string | null;
   captured_at: string | null;
   voided_at: string | null;
+};
+
+/** AdminPaymentResource `invoice`: the payment's tax invoice with Billing's status label in both languages. */
+export type PaymentInvoice = {
+  id: number;
+  number: string;
+  status: InvoiceStatus | (string & {});
+  status_label: Translatable;
+  issue_date: string;
+  total_fils: number;
+  credited_fils: number;
+  currency: string;
 };
 
 /** One gateway call or webhook of the payment (payment_events), its payload scrubbed of card data and tokens. */
@@ -1561,17 +1634,27 @@ export type AdminPaymentDetail = AdminPayment & {
   failure_message: string | null;
   gateway_session_ref: string | null;
   verifying_since: string | null;
+  /** The code while needs_review, else null; its label (null exactly when the code is) says it in words. */
   review_reason: string | null;
+  review_reason_label: Translatable | null;
   void_reason: string | null;
+  void_reason_label: Translatable | null;
   updated_at: string | null;
   events: PaymentEvent[];
   refunds: AdminRefund[];
 };
 
-/** The reasons staff may pick for a refund: the API's own list (CreateRefundRequest `reason_code`). */
-export type StaffRefundReason = components["schemas"]["CreateRefundRequest"]["reason_code"];
+/**
+ * GET /admin/refund-reasons: staff reasons first in their configured order, then the ones only the system records.
+ * `selectable` reasons may be sent with a refund; `requires_text` ones need a note.
+ */
+export type RefundReason = GetJson<"/v1/admin/refund-reasons">["data"][number];
 
-export type CreateRefundPayload = { amount_fils: number; reason_code: StaffRefundReason; reason_text: string | null };
+/** POST /admin/payments/{id}/refunds. `reason_code` is a selectable code of GET /admin/refund-reasons. */
+export type CreateRefundPayload = { amount_fils: number; reason_code: string; reason_text: string | null };
+
+/** GET /admin/finance/summary: the A09 KPI cards for a period (local dates) and optionally one zone. */
+export type FinanceSummary = GetJson<"/v1/admin/finance/summary">["data"];
 
 export type InvoiceStatus = "issued" | "credited_partial" | "credited_full";
 
@@ -1726,40 +1809,26 @@ export type BillingRefusal = {
 export type BillingRetryResult = { status: "issued"; document: BillingDocument; id: number; number: string };
 
 // ---- Phase 3: A11 notification templates (app/Modules/Notification NotificationTemplateResource) --------------------
-
-export type NotificationChannel = "push" | "sms" | "email" | "in_app" | "whatsapp_future";
-export type NotificationAudience = "customer" | "staff";
-
-/** A placeholder the template's event offers: `token` is what goes in the text ("{{reference}}"). */
-export type TemplatePlaceholder = { name: string; token: string; description: string };
+// Typed exactly by the generated schema (list, show, update and preview answers, the preview request).
 
 /**
  * One template: an event, audience, channel and language (the seeder fixes the set; admins edit subject, body and
  * is_active). Labels and placeholder descriptions are in the request language. `version` goes back as If-Match.
+ * `group`: the preference group (bookings, payments, reminders, visit_progress, waitlist); null for an event the API no
+ * longer lists.
  */
-export type NotificationTemplate = {
-  id: number;
-  event_key: string;
-  event_label: string;
-  /** Preference group (bookings, payments, reminders, visit_progress, waitlist); null for an event the API no longer lists. */
-  group: string | null;
-  audience: NotificationAudience;
-  channel: NotificationChannel;
-  channel_label: string;
-  locale: "ar" | "en";
-  subject: string | null;
-  body: string;
-  is_active: boolean;
-  version: number;
-  placeholders: TemplatePlaceholder[];
-  updated_by: number | null;
-  updated_at: string | null;
-};
+export type NotificationTemplate = components["schemas"]["NotificationTemplateResource"];
 
-export type RenderedTemplate = { subject: string | null; body: string };
+export type NotificationChannel = NotificationTemplate["channel"];
+export type NotificationAudience = NotificationTemplate["audience"];
+
+/** A placeholder the template's event offers: `token` is what goes in the text ("{{reference}}"). */
+export type TemplatePlaceholder = NotificationTemplate["placeholders"][number];
 
 /** POST …/preview: the template and its other-language twin rendered with sample values; nothing is saved. */
-export type TemplatePreview = { ar: RenderedTemplate | null; en: RenderedTemplate | null; placeholders: string[]; unknown: string[] };
+export type TemplatePreview = PostJson<"/v1/admin/notification-templates/{template}/preview">["data"];
+
+export type RenderedTemplate = NonNullable<TemplatePreview["ar"]>;
 
 // ---- Phase 3: public pages -----------------------------------------------------------------------------------------
 

@@ -1,9 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import { serviceOptions, zoneOptions } from "@/test/bookingFixtures";
-import { dayBoard, planResult, round } from "@/test/opsBoardFixtures";
+import { dayBoard, driverPickList, planResult, round, slotPickList } from "@/test/opsBoardFixtures";
 import { renderWithProviders } from "@/test/render";
 import { TripPlannerScreen } from "./TripPlannerScreen";
 
@@ -42,6 +42,9 @@ const api = {
   setPassengers: vi.fn(),
   publishRound: vi.fn(),
   cancelRound: vi.fn(),
+  fetchSchedule: vi.fn(),
+  fetchSlotTemplateOptions: vi.fn(),
+  fetchDriverOptions: vi.fn(),
 };
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchRounds: (...a: unknown[]) => api.fetchRounds(...a),
@@ -53,17 +56,16 @@ vi.mock("@/lib/admin/endpoints", () => ({
   setPassengers: (...a: unknown[]) => api.setPassengers(...a),
   publishRound: (...a: unknown[]) => api.publishRound(...a),
   cancelRound: (...a: unknown[]) => api.cancelRound(...a),
-  fetchSchedule: async () => dayBoard(),
+  // The day board only lists the visits a stop can be added from; slots and drivers come from their pick-lists.
+  fetchSchedule: (...a: unknown[]) => api.fetchSchedule(...a),
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
+  fetchSlotTemplateOptions: (...a: unknown[]) => api.fetchSlotTemplateOptions(...a),
+  fetchDriverOptions: (...a: unknown[]) => api.fetchDriverOptions(...a),
   fetchAllVehicles: async () => [
     { id: 1, plate_no: "DEMO-VAN-1", seats: 7, status: "active" },
     { id: 2, plate_no: "DEMO-VAN-2", seats: 7, status: "active" },
     { id: 3, plate_no: "DEMO-VAN-3", seats: 10, status: "maintenance" },
-  ],
-  fetchAllDrivers: async () => [
-    { id: 1, staff_user: { id: 6, name: "Test Driver" }, status: "active" },
-    { id: 2, staff_user: { id: 7, name: "Test Driver 2" }, status: "active" },
   ],
 }));
 
@@ -79,6 +81,9 @@ describe("A06 trip planner", () => {
     Object.values(api).forEach((fn) => fn.mockReset());
     consoleError.mockClear();
     api.fetchRounds.mockResolvedValue([round()]);
+    api.fetchSchedule.mockImplementation(async () => dayBoard());
+    api.fetchSlotTemplateOptions.mockImplementation(async () => slotPickList());
+    api.fetchDriverOptions.mockImplementation(async () => driverPickList());
     for (const fn of [api.updateRound, api.reorderStops, api.addStop, api.removeStop, api.setPassengers, api.publishRound, api.cancelRound]) {
       fn.mockResolvedValue(round({ version: 6 }));
     }
@@ -129,6 +134,34 @@ describe("A06 trip planner", () => {
     expect(result).toHaveTextContent("Both rides");
   });
 
+  it("counts each visit once, though the API lists its drop-off and its pickup apart", async () => {
+    const unplanned = planResult().unplanned[0];
+    api.planRounds.mockResolvedValue({
+      ...planResult(),
+      rounds: [],
+      // TRB-41NQR4: one visit, already on a drop-off draft and a pickup draft.
+      already_planned: [
+        { visit_id: 7, kind: "dropoff", round_id: 11 },
+        { visit_id: 7, kind: "pickup", round_id: 12 },
+      ],
+      // Another visit whose two rides could not be placed, each for its own reason.
+      unplanned: [
+        { ...unplanned, visit_id: 9, kind: "dropoff", reason: "seats_full" },
+        { ...unplanned, visit_id: 9, kind: "pickup", reason: "resource_conflict" },
+      ],
+    });
+    renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
+    const user = userEvent.setup();
+    await panel();
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    const result = (await screen.findByRole("heading", { name: /^Draft result/ })).closest("section")!;
+    expect(result).toHaveTextContent("New rounds: 0 · rounds extended: 0 · visits already planned: 1.");
+    expect(within(result).getByRole("heading", { name: "1 visit not planned" })).toBeInTheDocument();
+    // Each ride keeps its own line and reason.
+    expect(result).toHaveTextContent("The team doesn't fit the van's free seats.");
+    expect(result).toHaveTextContent("The van or the driver is busy: no free departure is left that day.");
+  });
+
   it("keeps a draft's result and refusal with the date and slot it ran for", async () => {
     api.planRounds.mockRejectedValueOnce(new AdminApiError(422, { code: "NOTHING_TO_PLAN", message: "No visit of this slot can be planned.", details: {} }));
     renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
@@ -176,12 +209,82 @@ describe("A06 trip planner", () => {
     await waitFor(() => expect(url.get().toString()).toBe("date=2026-10-25&slot_template_id=1"));
   });
 
-  it("tells a trips manager without schedule.view why rounds can't be drafted", async () => {
+  it("lets a trips manager without schedule.view pick a slot and draft: the slots come from their pick-list", async () => {
+    api.planRounds.mockResolvedValue(planResult());
+    url.set("/admin/trips?date=2026-10-24");
     renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
     await panel();
-    expect(screen.getByText("Drafting needs the schedule view permission too")).toBeInTheDocument();
-    expect(screen.getByText(/Without the schedule view permission, rounds can't be drafted/)).toBeInTheDocument();
-    expect(screen.queryByText("Choose a slot to draft its rounds.")).not.toBeInTheDocument();
+    const slot = screen.getByRole("combobox", { name: "Slot" });
+    await within(slot).findByRole("option", { name: "Morning · 10:00–14:00" });
+    // Active slots only: the retired one is not offered.
+    expect(within(slot).getAllByRole("option").map((o) => o.textContent)).toEqual(["All slots", "Morning · 10:00–14:00", "Evening · 15:00–19:00"]);
+    expect(screen.queryByText(/schedule view permission/)).not.toBeInTheDocument();
+
+    await user.selectOptions(slot, "2");
+    expect(url.get().get("slot_template_id")).toBe("2");
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    await waitFor(() => expect(api.planRounds).toHaveBeenCalledWith({ date: "2026-10-24", slot_template_id: 2, zone_id: null }));
+    // No day board is loaded just to list the slots.
+    expect(api.fetchSchedule).not.toHaveBeenCalled();
+  });
+
+  it("keeps a retired slot from a link selectable, marked inactive", async () => {
+    url.set("/admin/trips?date=2026-10-24&slot_template_id=3");
+    renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
+    await panel();
+    const slot = screen.getByRole("combobox", { name: "Slot" });
+    expect(await within(slot).findByRole("option", { name: "Night (inactive) · 20:00–23:00" })).toBeInTheDocument();
+    expect(slot).toHaveValue("3");
+  });
+
+  it("names the extra rounds a draft added because a van's round had already left", async () => {
+    const onRoad = round({ status: "departed", status_label: { ar: "انطلقت", en: "Departed" } });
+    api.fetchRounds.mockResolvedValue([onRoad]);
+    api.planRounds.mockResolvedValue({
+      ...planResult(),
+      rounds: [
+        // R-19: on another free van, after round #11 (shown on this page) left.
+        { ...round({ id: 12, vehicle: { ...onRoad.vehicle, id: 2, plate_no: "DEMO-VAN-2" }, depart_local: "12:00" }), plan: "created", follows_round_id: 11 },
+        // A second trip of a van whose round on the road is not on this page (another zone).
+        { ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15" }), plan: "extended", follows_round_id: 9 },
+        { ...round({ id: 15 }), plan: "created", follows_round_id: null },
+      ],
+      unplanned: [],
+    });
+    renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
+    const user = userEvent.setup();
+    await panel();
+    await user.click(screen.getByRole("button", { name: "Draft rounds" }));
+    const result = (await screen.findByRole("heading", { name: /^Draft result/ })).closest("section")!;
+    expect(result).toHaveTextContent("New rounds: 2 · rounds extended: 1");
+    // Named by why each exists: round 14 was extended by this run (counted above as extended), not added.
+    const extra = within(result).getByRole("heading", { name: "2 extra rounds after a round that had already left" });
+    const items = within(extra.parentElement!).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "Drop-off · DEMO-VAN-2, departs 12:00: added because round #11 (DEMO-VAN-1) had already left.",
+      "Pickup · DEMO-VAN-1, departs 14:15: extended; it runs after round #9, which had already left.",
+    ]);
+    expect(result).not.toHaveTextContent(/rounds? added because/);
+    expect(result).toHaveTextContent("Each is a draft on the same van or on another free van: check its warnings and publish it like any other round.");
+  });
+
+  it("names the extra rounds in Arabic", async () => {
+    api.planRounds.mockResolvedValue({
+      ...planResult(),
+      rounds: [
+        { ...round({ id: 12, depart_local: "12:00" }), plan: "created", follows_round_id: 9 },
+        { ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15" }), plan: "extended", follows_round_id: 9 },
+      ],
+      unplanned: [],
+    });
+    renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER, locale: "ar" });
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { level: 3, name: "توصيل · DEMO-VAN-1" });
+    await user.click(screen.getByRole("button", { name: "تجهيز الجولات" }));
+    expect(await screen.findByText("جولتان إضافيتان بعد جولة كانت قد انطلقت")).toBeInTheDocument();
+    expect(screen.getByText(/أُضيفت لأن الجولة/).textContent).toBe("توصيل · DEMO-VAN-1، تنطلق 12:00: أُضيفت لأن الجولة #9 كانت قد انطلقت.");
+    expect(screen.getByText(/مُدّدت، وهي تلي/).textContent).toBe("استلام · DEMO-VAN-1، تنطلق 14:15: مُدّدت، وهي تلي الجولة #9 التي كانت قد انطلقت.");
   });
 
   it("links stops and unplanned visits to their booking only with bookings.view", async () => {
@@ -203,6 +306,40 @@ describe("A06 trip planner", () => {
     await panel();
     expect(screen.getByRole("button", { name: "Draft rounds" })).toBeDisabled();
     expect(screen.getByText("Choose a slot to draft its rounds.")).toBeInTheDocument();
+  });
+
+  it("says when the slots could not be loaded, instead of offering no slot, and loads them again", async () => {
+    api.fetchSlotTemplateOptions.mockRejectedValueOnce(apiError(500, "SERVER_ERROR"));
+    url.set("/admin/trips?date=2026-10-24");
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    await panel();
+    expect(await screen.findByText("We couldn't load the slots, so none can be chosen.")).toBeInTheDocument();
+    expect(screen.queryByText("Choose a slot to draft its rounds.")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Load the slots again" }));
+    const slot = screen.getByRole("combobox", { name: "Slot" });
+    expect(await within(slot).findByRole("option", { name: "Morning · 10:00–14:00" })).toBeInTheDocument();
+    expect(api.fetchSlotTemplateOptions).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("We couldn't load the slots, so none can be chosen.")).not.toBeInTheDocument();
+    expect(screen.getByText("Choose a slot to draft its rounds.")).toBeInTheDocument();
+  });
+
+  it("keeps the applied zone in the zone picker when the zone list can't be read (trips.manage only)", async () => {
+    url.set("/admin/trips?date=2026-10-24&slot_template_id=1&zone_id=1");
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    await panel();
+    const zone = screen.getByRole("combobox", { name: "Zone" });
+    // Named from the rounds shown (no zone pick-list for this role): never "All zones" while one zone is applied.
+    expect(await within(zone).findByRole("option", { name: "Business Bay & Downtown" })).toBeInTheDocument();
+    expect(zone).toHaveValue("1");
+    expect(api.fetchRounds).toHaveBeenLastCalledWith({ date: "2026-10-24", slotTemplateId: 1, zoneId: 1 });
+
+    const user = userEvent.setup();
+    await user.selectOptions(zone, "");
+    await waitFor(() => expect(url.get().toString()).toBe("date=2026-10-24&slot_template_id=1"));
+    await waitFor(() => expect(api.fetchRounds).toHaveBeenLastCalledWith({ date: "2026-10-24", slotTemplateId: 1, zoneId: null }));
+    expect(zone).toHaveValue("");
   });
 
   it("edits the van, driver and departure: only what changed, with the version as If-Match", async () => {
@@ -237,6 +374,68 @@ describe("A06 trip planner", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(await screen.findByText(/The round of DEMO-VAN-1 changed meanwhile/)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("offers the drivers who can take a round to a trips manager without fleet.manage (driver pick-list)", async () => {
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage", "schedule.view"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
+    const driver = within(dialog).getByRole("combobox", { name: "Driver" });
+    await within(driver).findByRole("option", { name: "Test Driver 2" });
+    expect(driver).toBeEnabled();
+    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", "Test Driver", "Test Driver 2"]);
+    expect(driver).toHaveValue("1");
+    expect(dialog).not.toHaveTextContent(/fleet permission/);
+
+    await user.selectOptions(driver, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateRound).toHaveBeenCalledWith(11, { driver_id: 2 }, 5));
+  });
+
+  it("keeps a round's driver who can no longer take rounds, marked inactive", async () => {
+    api.fetchRounds.mockResolvedValue([round({ driver: { id: 3, name: "Retired Driver", phone: null, status: "inactive" } })]);
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
+    const driver = within(dialog).getByRole("combobox", { name: "Driver" });
+    expect(await within(driver).findByRole("option", { name: "Retired Driver (inactive)" })).toBeInTheDocument();
+    expect(driver).toHaveValue("3");
+    // No van list without fleet.manage or schedule.view: the van stays, and the dialog says why.
+    expect(dialog).toHaveTextContent("Changing the van needs the fleet or schedule view permission.");
+    expect(within(dialog).getByRole("combobox", { name: /Van/ })).toHaveValue("1");
+  });
+
+  it("says when the drivers are loading or could not be loaded, and loads them again", async () => {
+    let fail = true;
+    let answer!: () => void;
+    api.fetchDriverOptions.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          answer = () => (fail ? reject(apiError(500, "SERVER_ERROR")) : resolve(driverPickList()));
+        }),
+    );
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
+    const driver = within(dialog).getByRole("combobox", { name: "Driver" });
+    expect(driver).toHaveAccessibleDescription("Loading the drivers…");
+
+    act(() => answer());
+    await waitFor(() => expect(driver).toHaveAccessibleDescription("We couldn't load the drivers, so only the round's own driver is listed."));
+    expect(dialog).not.toHaveTextContent("Only active drivers can take a round.");
+    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", "Test Driver"]);
+
+    fail = false;
+    await user.click(within(dialog).getByRole("button", { name: "Load the drivers again" }));
+    await waitFor(() => expect(api.fetchDriverOptions).toHaveBeenCalledTimes(2));
+    act(() => answer());
+    expect(await within(driver).findByRole("option", { name: "Test Driver 2" })).toBeInTheDocument();
+    expect(driver).toHaveAccessibleDescription("Only active drivers can take a round.");
+    expect(within(dialog).queryByRole("button", { name: "Load the drivers again" })).not.toBeInTheDocument();
+    expect(driver).toHaveValue("1");
   });
 
   it("reorders the stops with the keyboard, keeping focus on the moved stop", async () => {

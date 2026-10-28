@@ -1,7 +1,10 @@
-import { redirect } from "next/navigation";
+import { navMetadata } from "../../_components/metadata";
+import { FinanceSummaryScreen } from "./FinanceSummaryScreen";
 
-// A09 has no page of its own: the transactions table is its first page (refunds, invoices, credit notes and refused
-// documents have their own pages under /admin/finance).
+export const generateMetadata = () => navMetadata("finance");
+
+// A09 landing page: the KPI cards of the design's header (GET /admin/finance/summary). Transactions, refunds, invoices,
+// credit notes and refused documents have their own pages under /admin/finance.
 export default function FinancePage() {
-  redirect("/admin/finance/payments");
+  return <FinanceSummaryScreen />;
 }

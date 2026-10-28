@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Setting } from "@/lib/admin/types";
@@ -104,6 +104,27 @@ describe("Phase 3 settings editors", () => {
     await user.type(screen.getByLabelText(/Reason for the change/), "Cost");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateSetting).toHaveBeenCalledWith("notifications.sms_on_confirm", false, "Cost", 1));
+  });
+
+  it.each([
+    ["round.plan_extra_rounds", "Draft an extra round when a van has already left", /listed as not planned/, "تجهيز جولة إضافية إذا كانت السيارة قد انطلقت"],
+    ["round.extra_round_prefer_other_van", "Put the extra round on another free van first", /another van that is free and has the seats/, "وضع الجولة الإضافية على سيارة أخرى متاحة أولًا"],
+  ])("labels the trip planner switch %s in both languages and switches it", async (key, english, describes, arabic) => {
+    updateSetting.mockResolvedValue({ key, value: false, type: "bool", version: 2 });
+    // Our label and description replace the API's own description.
+    const row = setting({ key, type: "bool", value: true, group: "operations", description: "API description" });
+    const { user } = open(row);
+    const dialog = screen.getByRole("dialog", { name: `Edit: ${english}` });
+    expect(dialog).toHaveTextContent(describes);
+    expect(dialog).not.toHaveTextContent("API description");
+    await user.click(screen.getByRole("switch", { name: "Value" }));
+    await user.type(screen.getByLabelText(/Reason for the change/), "Ops trial");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateSetting).toHaveBeenCalledWith(key, false, "Ops trial", 1));
+
+    cleanup();
+    renderWithProviders(<SettingEditDialog setting={row} onClose={vi.fn()} onStale={vi.fn()} />, { locale: "ar" });
+    expect(screen.getByRole("dialog", { name: new RegExp(arabic) })).toBeInTheDocument();
   });
 
   it("shows the time and both texts in the settings list", () => {

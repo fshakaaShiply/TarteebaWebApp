@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AdminApiError } from "@/lib/admin/client";
 import type { DashboardAlerts } from "@/lib/admin/types";
 import { bookingRow, dashboardSummary, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
@@ -24,7 +25,7 @@ const alerts: DashboardAlerts = {
       title: { ar: "تأكيد مستحق", en: "Confirmation due" },
       message: { ar: "…", en: "The confirmation deadline of request TRB-R4RYSD passed at 12:00." },
       entity: { type: "booking", id: 4, reference: "TRB-R4RYSD" },
-      link: { list: "booking", path: "/api/v1/admin/bookings/4", params: [] },
+      link: { list: "booking", path: "/api/v1/admin/bookings/4", params: {} },
       details: {},
     },
     {
@@ -34,7 +35,7 @@ const alerts: DashboardAlerts = {
       title: { ar: "فشل الدفع", en: "Payment failed" },
       message: { ar: "…", en: "A payment failed." },
       entity: { type: "payment", id: 9 },
-      link: { list: "payment", path: "/api/v1/admin/payments/9", params: [] },
+      link: { list: "payment", path: "/api/v1/admin/payments/9", params: {} },
       details: {},
     },
   ],
@@ -100,7 +101,7 @@ describe("A02 daily operations overview", () => {
           title: { ar: "…", en: "Visit without its team" },
           message: { ar: "…", en: "TRB-UNCOV1 at 10:00 still needs 2 cleaners." },
           entity: { type: "visit", id: 31, booking_id: 12, reference: "TRB-UNCOV1" },
-          link: { list: "booking", path: "/api/v1/admin/bookings/12", params: [] },
+          link: { list: "booking", path: "/api/v1/admin/bookings/12", params: {} },
           details: { zone_id: 2 },
         },
       ],
@@ -141,26 +142,117 @@ describe("A02 daily operations overview", () => {
     expect(await screen.findByRole("link", { name: /Uncovered visits/ })).toHaveAttribute("href", "/admin/capacity?date=2026-10-23&zone_id=1");
   });
 
-  it("never refreshes on a timer (the dashboard routes count as activity and would keep an idle session alive)", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
-      await screen.findByRole("link", { name: /Today's bookings/ });
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(5 * 60_000);
+  describe("timed refresh", () => {
+    const query = { date: "2026-10-23", zoneId: null };
+    const setVisibility = (state: DocumentVisibilityState) => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+      document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+    };
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+      vi.useRealTimers();
+    });
+    const minutes = (n: number) =>
+      act(async () => {
+        await vi.advanceTimersByTimeAsync(n * 60_000);
       });
-      expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(1);
-      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(1);
-      expect(api.fetchBookings).toHaveBeenCalledTimes(1);
+
+    it("re-reads the summary and the alerts every minute as background polls; opening the page and Refresh are ordinary loads", async () => {
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      expect(await screen.findByRole("link", { name: /Today's bookings/ })).toHaveTextContent("18");
+      // Opening the page counts as activity: no background flag.
+      expect(api.fetchDashboardSummary.mock.calls).toEqual([[query]]);
+      expect(api.fetchDashboardAlerts.mock.calls).toEqual([[{ zoneId: null }]]);
+      await waitFor(() => expect(api.fetchBookings).toHaveBeenCalled());
+      const listLoads = api.fetchBookings.mock.calls.length;
+
+      api.fetchDashboardSummary.mockResolvedValue(dashboardSummary({ todays_bookings: { ...dashboardSummary().cards.todays_bookings, value: 19 } }));
+      await minutes(1);
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(2));
+      expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith(query, { background: true });
+      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(2);
+      expect(api.fetchDashboardAlerts).toHaveBeenLastCalledWith({ zoneId: null }, { background: true });
+      expect(await screen.findByRole("link", { name: /Today's bookings/ })).toHaveTextContent("19");
+      // The requests waiting for confirmation are not on the timer.
+      expect(api.fetchBookings).toHaveBeenCalledTimes(listLoads);
 
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       await user.click(screen.getByRole("button", { name: "Refresh" }));
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(3));
+      expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith(query);
+      await waitFor(() => expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(3));
+      expect(api.fetchDashboardAlerts).toHaveBeenLastCalledWith({ zoneId: null });
+      await waitFor(() => expect(api.fetchBookings.mock.calls.length).toBeGreaterThan(listLoads));
+    });
+
+    it("a date change is an ordinary load; the timer then polls the new date", async () => {
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      await screen.findByRole("link", { name: /Today's bookings/ });
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(screen.getByRole("button", { name: "Next day" }));
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith({ date: "2026-10-24", zoneId: null }));
+
+      await minutes(1);
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith({ date: "2026-10-24", zoneId: null }, { background: true }));
+      expect(api.fetchDashboardSummary.mock.calls.filter(([q, opts]) => q.date === "2026-10-23" && opts)).toEqual([]);
+    });
+
+    it("pauses while the tab is hidden", async () => {
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      await screen.findByRole("link", { name: /Today's bookings/ });
+      setVisibility("hidden");
+      await minutes(5);
+      expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(1);
+      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(1);
+
+      // Shown again: the focus refetch (an ordinary load: the member came back), then polls every minute.
+      setVisibility("visible");
       await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(2));
-      expect(api.fetchDashboardAlerts).toHaveBeenCalledTimes(2);
-      await waitFor(() => expect(api.fetchBookings).toHaveBeenCalledTimes(2));
-    } finally {
-      vi.useRealTimers();
-    }
+      expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith(query);
+      await minutes(1);
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(3));
+      expect(api.fetchDashboardSummary).toHaveBeenLastCalledWith(query, { background: true });
+    });
+
+    it("keeps keyboard focus in the alerts when a poll removes the focused one", async () => {
+      const [due, failed] = alerts.data;
+      const uncovered = {
+        ...due,
+        at: "2026-10-23T08:30:00+00:00",
+        title: { ar: "زيارة بلا فريق", en: "Visit without a team" },
+        entity: { ...due.entity!, id: 5, reference: "TRB-K2M9QX" },
+        link: { ...due.link!, path: "/api/v1/admin/bookings/5" },
+      };
+      api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [due, uncovered, failed] });
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      const open = await screen.findByRole("link", { name: "Open: Confirmation due" });
+      act(() => open.focus());
+
+      // A colleague confirmed the request: the next alert takes the focused one's place, and keeps the focus.
+      api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [uncovered, failed] });
+      await minutes(1);
+      await waitFor(() => expect(screen.queryByRole("link", { name: "Open: Confirmation due" })).not.toBeInTheDocument());
+      expect(screen.getByRole("link", { name: "Open: Visit without a team" })).toHaveFocus();
+
+      // No alert link left: the card's title takes it.
+      api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [failed] });
+      await minutes(1);
+      await waitFor(() => expect(screen.queryByRole("link", { name: "Open: Visit without a team" })).not.toBeInTheDocument());
+      expect(screen.getByText("Alerts that need action")).toHaveFocus();
+    });
+
+    it("a failed poll keeps the figures on screen", async () => {
+      renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
+      await screen.findByRole("link", { name: /Today's bookings/ });
+      api.fetchDashboardSummary.mockRejectedValue(new AdminApiError(0, { code: "NETWORK_ERROR", message: "", details: {} }));
+      await minutes(1);
+      await waitFor(() => expect(api.fetchDashboardSummary).toHaveBeenCalledTimes(2));
+      expect(screen.getByRole("link", { name: /Today's bookings/ })).toHaveTextContent("18");
+      expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    });
   });
 
   it("lists the alerts, urgent ones marked, each linking to its booking when that page exists", async () => {

@@ -3,35 +3,24 @@
 import clsx from "clsx";
 import { ChevronDown, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
-import { ADMIN_NAV, activeChildHref, filterNav, isActivePath, type NavLeaf, type NavModule } from "@/lib/admin/nav";
+import { Suspense, useId, useState } from "react";
+import { ADMIN_NAV, activeNavHref, filterNav, type NavLeaf, type NavModule } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 
 /*
  * Admin navigation (design AdminOverview.dc.html): petrol column at the start side (right in Arabic, left in
- * English), modules A02–A13 in spec order, then the account (A01 security) and sign-out at the bottom.
+ * English), modules A02–A13 in spec order, then the account (A01 security) and sign-out at the bottom. One entry is
+ * the current page (activeNavHref): the path and, for an entry that names them, the query parameters
+ * (A09's cancellation reviews are /admin/bookings?cancel_review=1).
  */
 
 const itemBase = "flex min-h-10 items-center gap-2 rounded-sm px-3 py-2 text-[15px] transition-colors";
 
-function LeafLink({
-  item,
-  pathname,
-  nested,
-  activeHref,
-  onNavigate,
-}: {
-  item: NavLeaf;
-  pathname: string;
-  nested?: boolean;
-  /** In a group: the one child the page belongs to (activeChildHref). */
-  activeHref?: string | null;
-  onNavigate?: () => void;
-}) {
+function LeafLink({ item, nested, activeHref, onNavigate }: { item: NavLeaf; nested?: boolean; activeHref: string | null; onNavigate?: () => void }) {
   const t = useTranslations("admin.nav");
-  const active = activeHref !== undefined ? activeHref === item.href : isActivePath(item.href, pathname);
+  const active = activeHref === item.href;
 
   if (!item.built) {
     return (
@@ -65,11 +54,10 @@ function LeafLink({
   );
 }
 
-function Group({ item, pathname, onNavigate }: { item: NavModule; pathname: string; onNavigate?: () => void }) {
+function Group({ item, activeHref, onNavigate }: { item: NavModule; activeHref: string | null; onNavigate?: () => void }) {
   const t = useTranslations("admin.nav");
   const id = useId();
-  const activeHref = activeChildHref(item.children!, pathname);
-  const containsActive = activeHref !== null;
+  const containsActive = item.children!.some((child) => child.href === activeHref);
   // null = follow the route (open while one of its pages is shown) until the user toggles it.
   const [open, setOpen] = useState<boolean | null>(null);
   const expanded = open ?? containsActive;
@@ -92,7 +80,7 @@ function Group({ item, pathname, onNavigate }: { item: NavModule; pathname: stri
       </button>
       <div id={id} hidden={!expanded} className="flex flex-col gap-0.5">
         {item.children!.map((child) => (
-          <LeafLink key={child.id} item={child} pathname={pathname} nested activeHref={activeHref} onNavigate={onNavigate} />
+          <LeafLink key={child.id} item={child} nested activeHref={activeHref} onNavigate={onNavigate} />
         ))}
       </div>
     </div>
@@ -100,13 +88,29 @@ function Group({ item, pathname, onNavigate }: { item: NavModule; pathname: stri
 }
 
 export function NavContent({ onNavigate }: { onNavigate?: () => void }) {
+  // The query string only refines which entry is current: while it can't be read (a prerender), the path decides.
+  return (
+    <Suspense fallback={<NavBody search="" onNavigate={onNavigate} />}>
+      <NavWithSearch onNavigate={onNavigate} />
+    </Suspense>
+  );
+}
+
+function NavWithSearch({ onNavigate }: { onNavigate?: () => void }) {
+  const search = useSearchParams().toString();
+  return <NavBody search={search} onNavigate={onNavigate} />;
+}
+
+function NavBody({ search, onNavigate }: { search: string; onNavigate?: () => void }) {
   const t = useTranslations("admin.nav");
   const common = useTranslations("common");
   const pathname = usePathname();
   const { me, logout } = useAdminSession();
   const modules = filterNav(ADMIN_NAV, me.permissions);
+  const activeHref = activeNavHref(modules, pathname, search);
   const access = modules.find((m) => m.code === "A01");
   const main = modules.filter((m) => m.code !== "A01");
+  const accessActive = access !== undefined && activeHref === access.href;
 
   return (
     <div className="flex h-full flex-col gap-1 px-3 py-5">
@@ -116,9 +120,9 @@ export function NavContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label={t("label")} className="flex flex-col gap-0.5">
         {main.map((item) =>
           item.children ? (
-            <Group key={item.id} item={item} pathname={pathname} onNavigate={onNavigate} />
+            <Group key={item.id} item={item} activeHref={activeHref} onNavigate={onNavigate} />
           ) : (
-            <LeafLink key={item.id} item={item} pathname={pathname} onNavigate={onNavigate} />
+            <LeafLink key={item.id} item={item} activeHref={activeHref} onNavigate={onNavigate} />
           ),
         )}
       </nav>
@@ -127,13 +131,11 @@ export function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href={access.href}
             onClick={onNavigate}
-            aria-current={isActivePath(access.href, pathname) ? "page" : undefined}
+            aria-current={accessActive ? "page" : undefined}
             className={clsx(
               itemBase,
               "text-sm",
-              isActivePath(access.href, pathname)
-                ? "bg-surface font-bold text-petrol-700 hover:text-petrol-700"
-                : "font-medium text-sage-300 hover:bg-petrol-800 hover:text-white",
+              accessActive ? "bg-surface font-bold text-petrol-700 hover:text-petrol-700" : "font-medium text-sage-300 hover:bg-petrol-800 hover:text-white",
             )}
           >
             <ShieldCheck aria-hidden className="size-4" strokeWidth={1.75} />

@@ -9,11 +9,9 @@ import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
 export const BOOKINGS_PATH = "/admin/bookings";
 export const CAPACITY_PATH = "/admin/capacity";
 
-/** The link's filters (PHP sends an empty object as []). */
+/** The link's filters ({} for an entity link such as a booking, or without a link). */
 export function linkParams(link: DashboardLink | null | undefined): LinkParams {
-  const params = link?.params;
-  if (!params || Array.isArray(params) || typeof params !== "object") return {};
-  return params as LinkParams;
+  return link?.params ?? {};
 }
 
 /** "/admin/bookings?status=pending_confirmation&zone_id=2": empty values are left out, keys in a stable order. */
@@ -28,7 +26,20 @@ export function withQuery(path: string, params: Record<string, string | number |
 }
 
 /** Filters the A03 list understands (lib/admin/bookings/filters.ts): the link's own names. */
-const BOOKING_LINK_FILTERS = ["status", "payment_status", "from", "to", "zone_id", "service", "source", "search", "cancel_review"] as const;
+const BOOKING_LINK_FILTERS = [
+  "status",
+  "payment_status",
+  "from",
+  "to",
+  "zone_id",
+  "service",
+  "source",
+  "search",
+  "cancel_review",
+  "slot_template_id",
+  "worker_id",
+  "driver_id",
+] as const;
 
 /** The numeric id at the end of an API path such as /api/v1/admin/bookings/12. */
 export function trailingId(path: string | null | undefined): number | null {

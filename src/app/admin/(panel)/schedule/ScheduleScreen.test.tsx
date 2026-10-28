@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import type { ScheduleQuery } from "@/lib/admin/endpoints";
-import type { ScheduleGrid, VisitSummary } from "@/lib/admin/types";
+import type { MoveCheckResult, ScheduleGrid, VisitSummary } from "@/lib/admin/types";
 import { bookingDetail, serviceOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
-import { capacityView, confirmedCard, dayBoard, monthBoard, weekBoard } from "@/test/opsBoardFixtures";
+import { capacityView, confirmedCard, dayBoard, monthBoard, slotPickList, weekBoard } from "@/test/opsBoardFixtures";
 import { renderWithProviders } from "@/test/render";
 import { ScheduleScreen } from "./ScheduleScreen";
 
@@ -42,6 +42,7 @@ const api = {
   fetchBooking: vi.fn(),
   fetchCapacity: vi.fn(),
   rescheduleBooking: vi.fn(),
+  previewReschedule: vi.fn(),
   fetchVisitCandidates: vi.fn(),
   confirmBooking: vi.fn(),
 };
@@ -52,16 +53,34 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchBooking: (...a: unknown[]) => api.fetchBooking(...a),
   fetchCapacity: (...a: unknown[]) => api.fetchCapacity(...a),
   rescheduleBooking: (...a: unknown[]) => api.rescheduleBooking(...a),
+  previewReschedule: (...a: unknown[]) => api.previewReschedule(...a),
   fetchVisitCandidates: (...a: unknown[]) => api.fetchVisitCandidates(...a),
   confirmBooking: (...a: unknown[]) => api.confirmBooking(...a),
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
+  fetchSlotTemplateOptions: async () => slotPickList(),
   fetchAllWorkers: async () => [],
   fetchAllVehicles: async () => [{ id: 1, plate_no: "DEMO-VAN-1", seats: 7, status: "active" }],
 }));
 
 const apiError = (status: number, code: string, details: Record<string, unknown> = {}) => new AdminApiError(status, { code, message: "", details });
 const MANAGER = ["schedule.view", "assignments.manage", "bookings.view", "bookings.reschedule", "workers.view"];
+/** POST /admin/bookings/{id}/reschedule/preview: a staff move at the same price. */
+const reschedulePreview = {
+  allowed: true,
+  blockers: [],
+  requires_approval: false,
+  fee_fils: 0,
+  price_diff_fils: 0,
+  new_total_fils: 24000,
+  refund_fils: 0,
+  paid_fils: 24000,
+  kept_fees_fils: 0,
+  currency: "AED",
+  availability: { status: "available", reason: null },
+  rule_applied: "staff",
+  explanation: "",
+};
 const consoleError = vi.spyOn(console, "error");
 const dataTransfer = () => ({ setData: vi.fn(), getData: vi.fn(), dropEffect: "none", effectAllowed: "all" });
 
@@ -69,7 +88,8 @@ const rowOf = (name: string) => screen.getByRole("rowheader", { name: new RegExp
 const cardIn = (row: HTMLElement, reference: string) => within(row).getByText(reference).closest<HTMLElement>("[data-visit-card]")!;
 const cell = (workerId: number | "lane", date: string, slot: number | "any") =>
   document.querySelector<HTMLElement>(`[data-drop-target="${workerId}:${date}:${slot}"]`)!;
-const OK = { result: "ok", conflicts: [], rules: [], can_override: false, details: [] };
+/** validate-move's "fine" answer: `details` is always an object, {} here. */
+const OK: MoveCheckResult = { result: "ok", conflicts: [], rules: [], can_override: false, details: {} };
 
 /** TRB-K2M9QX after Tigist replaced Maria: shown in Tigist's and Nirmala's rows, no longer in Maria's (version 4). */
 function boardAfterMove(): ScheduleGrid {
@@ -104,6 +124,7 @@ describe("A04 operations schedule", () => {
     consoleError.mockClear();
     api.fetchSchedule.mockImplementation(async (q: ScheduleQuery) => (q.view === "month" ? monthBoard() : q.view === "week" ? weekBoard() : dayBoard()));
     api.moveVisit.mockResolvedValue(confirmedCard());
+    api.previewReschedule.mockResolvedValue(reschedulePreview);
     api.fetchCapacity.mockImplementation(async ({ date }: { date: string }) => capacityView(date));
     replaceState = vi.spyOn(window.history, "replaceState").mockImplementation((_data, _unused, next) => url.set(String(next)));
     url.set("/admin/schedule?date=2026-10-24");
@@ -178,8 +199,29 @@ describe("A04 operations schedule", () => {
     expect(url.get().get("date")).toBe("2026-10-25");
   });
 
+  it("filters by slot from the slot pick-list: active slots only, without loading a day board for them", async () => {
+    url.set("/admin/schedule?date=2026-10-24&view=week");
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const user = userEvent.setup();
+    const slot = screen.getByRole("combobox", { name: "Slot" });
+    await within(slot).findByRole("option", { name: "Evening · 15:00–19:00" });
+    expect(within(slot).getAllByRole("option").map((o) => o.textContent)).toEqual(["All slots", "Morning · 10:00–14:00", "Evening · 15:00–19:00"]);
+    await user.selectOptions(slot, "2");
+    expect(url.get().get("slot_template_id")).toBe("2");
+    await waitFor(() => expect(api.fetchSchedule).toHaveBeenLastCalledWith(expect.objectContaining({ view: "week", slotTemplateId: 2 })));
+    expect(api.fetchSchedule.mock.calls.every(([q]) => q.view === "week")).toBe(true);
+  });
+
+  it("names the month's slots from the slot pick-list", async () => {
+    url.set("/admin/schedule?date=2026-10-24&view=month");
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    const day = await screen.findByRole("button", { name: "Open Saturday, 24 October 2026 in the day view" });
+    await waitFor(() => expect(day.closest("td")).toHaveTextContent("Morning: 40% booked"));
+    expect(api.fetchSchedule.mock.calls.every(([q]) => q.view === "month")).toBe(true);
+  });
+
   it("checks a drop first, then saves the move with the visit's version", async () => {
-    api.validateMove.mockResolvedValue({ result: "ok", conflicts: [], rules: [], can_override: false, details: [] });
+    api.validateMove.mockResolvedValue(OK);
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
 
@@ -236,11 +278,14 @@ describe("A04 operations schedule", () => {
     expect(dialog).not.toHaveTextContent("isn't added to the team");
 
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Customer asked for the morning");
+    // The booking's reschedule dialog checks the dropped time first and sends its terms back (expected_*).
+    expect(await within(dialog).findByText("What changes")).toBeInTheDocument();
+    expect(api.previewReschedule).toHaveBeenCalledWith(9, { service_date: "2026-10-24", slot_template_id: 1 });
     await user.click(within(dialog).getByRole("button", { name: "Reschedule" }));
     await waitFor(() =>
       expect(api.rescheduleBooking).toHaveBeenCalledWith(
         9,
-        { service_date: "2026-10-24", slot_template_id: 1, reason: "Customer asked for the morning" },
+        { service_date: "2026-10-24", slot_template_id: 1, reason: "Customer asked for the morning", expected_fee_fils: 0, expected_new_total_fils: 24000 },
         3,
         expect.any(String),
       ),
@@ -302,7 +347,7 @@ describe("A04 operations schedule", () => {
   });
 
   it("moves a card without a mouse: Move, choose a cleaner, check and move", async () => {
-    api.validateMove.mockResolvedValue({ result: "ok", conflicts: [], rules: [], can_override: false, details: [] });
+    api.validateMove.mockResolvedValue(OK);
     api.moveVisit.mockResolvedValue({ ...dayBoard().unassigned[0], assigned_count: 1, missing: 1 });
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
     const user = userEvent.setup();

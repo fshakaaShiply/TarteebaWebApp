@@ -45,9 +45,13 @@ export function useFinanceText() {
       name: (value: Translatable | null | undefined) => (value ? pickText(value, locale) : ""),
       payment: (value: string, apiLabel?: Translatable | null) => label("payment", value, apiLabel),
       refund: (value: string, apiLabel?: Translatable | null) => label("refund", value, apiLabel),
-      invoice: (value: string, apiLabel?: string | null) => label("invoice", value, apiLabel),
+      /** Billing's label: one language on the document resources, both on a payment's `invoice`. */
+      invoice: (value: string, apiLabel?: Translatable | string | null) => label("invoice", value, apiLabel),
       payable: (value: string) => label("payable", value),
-      /** A refund reason: the API's bilingual label when the record has one, else ours; an unknown code reads "Other". */
+      /**
+       * A refund reason: the API's bilingual label (refund rows, GET /admin/refund-reasons), else ours, which only the
+       * credit notes need (their resources carry the code alone); an unknown code reads "Other".
+       */
       reason: (code: string | null | undefined, apiLabel?: Translatable | null) => {
         if (apiLabel) {
           const text = pickText(apiLabel, locale);
@@ -65,14 +69,6 @@ export function useFinanceText() {
        * column never mixes "120" with "114.29" and the page reads like the printed invoice.
        */
       money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale, { fixed: true })),
-      /** Why the payment was handed to a person (Payment review_reason codes); the raw code stays as detail. */
-      reviewReason: (code: string) => {
-        const after = /^success_reported_for_([a-z_]+)_payment$/.exec(code);
-        if (after && after[1] !== "another_charge") return t("reviewReason.success_reported_for_status", { status: label("payment", after[1]) });
-        return t.has(`reviewReason.${code}`) ? t(`reviewReason.${code}`) : t("reviewReason.other");
-      },
-      /** Why a held amount was released (VoidPayment reasons from the booking flows). */
-      voidReason: (code: string) => (t.has(`voidReason.${code}`) ? t(`voidReason.${code}`) : t("voidReason.other")),
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
       /** A bilingual text from the API in the page language, else the other one. */

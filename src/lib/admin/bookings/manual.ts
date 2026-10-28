@@ -3,13 +3,14 @@ import { normalizeDigits } from "@/lib/money";
 import type { ManualBookingPayload } from "../endpoints";
 import { isIsoDate } from "../format";
 import { FORCE_REASON_MAX, checkForceReason } from "../ops/capacity";
-import type { CleaningArea, PropertyType } from "../types";
+import type { CleaningArea, MaterialsMode, PropertyType } from "../types";
 
 /*
  * A03 manual booking wizard (spec §6.2, §14.3, §17; POST /admin/bookings, bookings.create_manual). A coordinator books
- * for a customer who called or wrote: the source is required, the customer is found or created by phone, the address
- * is one the customer already has or a new one, and the booking then waits for the customer to pay the link. The web
- * sends nothing itself: the coordinator copies the link or opens WhatsApp with the message ready.
+ * for a customer who called or wrote: the source is required, the customer is found by phone (GET /admin/customers,
+ * exact number) or created, the address is one of the customer's bookable saved addresses or a new one, the summary
+ * shows the server's price (POST /admin/bookings/preview), and the booking then waits for the customer to pay the link.
+ * The web sends nothing itself: the coordinator copies the link or opens WhatsApp with the message ready.
  *
  * DECISION: no map key yet, so a new address's position is typed as "lat, lng" or pasted from a Google Maps link and
  * checked against the service zones (POST /public/zones/check) before the booking is sent.
@@ -39,6 +40,8 @@ export const MANUAL_LIMITS = {
 /**
  * A UAE mobile number written any usual way ("050 123 4567", "+971 50 123 4567", "00971501234567", Arabic digits) as
  * E.164, or null when it does not look like one. The API normalizes again (libphonenumber) and has the last word.
+ * A UAE number is complete only at its exact length; another country's is any 8–15 digits, which a number still being
+ * typed may already be (the wizard looks those up once the field is left, see ManualBookingWizard).
  */
 export function normalizeUaePhone(input: string): string | null {
   const raw = normalizeDigits(input).trim().replace(/[\s\-().]/g, "");
@@ -195,6 +198,8 @@ export type ManualErrorKey =
   | "required"
   | "sourceRequired"
   | "phoneInvalid"
+  | "accountBlocked"
+  | "lookupRateLimited"
   | "tooLong"
   | "addressRequired"
   | "propertyTypeRequired"
@@ -223,8 +228,21 @@ export const MANUAL_STEPS = [
   ["source", "phone", "name", "locale"],
   ["addressId", "label", "propertyType", "building", "unitNumber", "street", "areaText", "coordinates", "accessInstructions", "petsNote"],
   ["service", "workersCount", "serviceDate", "slotTemplateId"],
-  ["addons", "priorities", "instructions", "preferredWorkerId", "internalNote", "reason"],
+  ["addons", "priorities", "instructions", "materialsBy", "preferredWorkerId", "internalNote", "reason"],
 ] as const satisfies readonly (readonly (keyof ManualFormValues)[])[];
+
+/** The add-on that has the company bring the cleaning materials (D-02b; PricingService::MATERIALS_ADDON). */
+export const MATERIALS_ADDON = "MATERIALS";
+
+/**
+ * Whether "the company brings the materials" can be booked for the service (D-02b, CreateBooking::materialsBy): its
+ * materials are included, or it offers the MATERIALS add-on to order with it (GET /admin/addons/options lists that
+ * add-on for company_addon services only, and only while it is active). `offeredAddons`: the active add-on codes the
+ * service offers, null while unknown.
+ */
+export function companyMaterialsOffered(materialsMode: MaterialsMode | null | undefined, offeredAddons: ReadonlySet<string> | null): boolean {
+  return materialsMode === "company_included" || (offeredAddons?.has(MATERIALS_ADDON) ?? false);
+}
 
 type Bounds = { minWorkers: number; maxWorkers: number };
 
@@ -279,8 +297,12 @@ export function manualFormSchema(bounds: Bounds = { minWorkers: 1, maxWorkers: 2
 
 const text = (value: string): string | null => (value.trim() === "" ? null : value.trim());
 
-/** The POST /admin/bookings body from valid form values. */
-export function manualPayload(v: ManualFormValues): ManualBookingPayload {
+/**
+ * The POST /admin/bookings body from valid form values. `phone`: the number as the customer lookup normalized it
+ * (meta.phone), sent instead of our own reading of the field; `addons`: the add-on codes the chosen service offers
+ * (others are left out), when known.
+ */
+export function manualPayload(v: ManualFormValues, known: { phone?: string | null; addons?: ReadonlySet<string> | null } = {}): ManualBookingPayload {
   const coordinates = parseCoordinates(v.coordinates);
   const address: ManualBookingPayload["address"] =
     v.addressMode === "existing"
@@ -303,13 +325,13 @@ export function manualPayload(v: ManualFormValues): ManualBookingPayload {
         };
   return {
     source: v.source as ManualBookingPayload["source"],
-    customer: { phone: normalizeUaePhone(v.phone) ?? v.phone.trim(), name: text(v.name), locale: v.locale },
+    customer: { phone: known.phone || normalizeUaePhone(v.phone) || v.phone.trim(), name: text(v.name), locale: v.locale },
     address,
     service: v.service,
     service_date: v.serviceDate,
     slot_template_id: Number(v.slotTemplateId),
     workers_count: Number(v.workersCount),
-    addons: v.addons,
+    addons: known.addons ? v.addons.filter((code) => known.addons!.has(code)) : v.addons,
     priorities: v.priorities.filter((p): p is CleaningArea => (CLEANING_AREAS as readonly string[]).includes(p)),
     instructions: text(v.instructions),
     materials_by: v.materialsBy === "" ? null : v.materialsBy,
@@ -348,6 +370,19 @@ export const MANUAL_FIELD_MAP: Record<string, keyof ManualFormValues> = {
   internal_note: "internalNote",
   reason: "reason",
 };
+
+/**
+ * The body of the summary's price preview (POST /admin/bookings/preview): the booking's own body without what does not
+ * change the price or the slot check (notes, instructions, priorities) and without the override, whose reason is
+ * still being typed (the preview then reports a full slot as needing one). One string, so the preview runs again only
+ * when something that matters changed.
+ */
+export function manualPreviewBody(payload: ManualBookingPayload): string {
+  const { override: _override, reason: _reason, ...rest } = payload;
+  void _override;
+  void _reason;
+  return JSON.stringify({ ...rest, instructions: null, internal_note: null, priorities: [] });
+}
 
 /** The wizard step that holds a field (to go back to the first step with an error). */
 export function stepOfField(field: keyof ManualFormValues): number {

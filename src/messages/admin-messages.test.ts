@@ -111,6 +111,9 @@ const SETTING_KEYS = [
   "booking.manual_payment_hold_minutes",
   "round.allowed_late_minutes",
   "round.dropoff_dwell_minutes",
+  // Phase 3 polish: the A06 extra round (platform contract item 5, R-19)
+  "round.plan_extra_rounds",
+  "round.extra_round_prefer_other_van",
   "visit.auto_start_after_min",
   "visit.auto_complete_grace_minutes",
   "reminder.day_before_time",

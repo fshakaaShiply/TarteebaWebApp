@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { AdminApiError } from "../client";
 import type { BookingDetail } from "../types";
-import { availableActions, minutesUntil, optionIndexOf, overrideRequiredOf, priceHigherDetails, refundableOf } from "./actions";
+import {
+  availableActions,
+  cancelTermsOf,
+  minutesUntil,
+  openRefundsFils,
+  optionFieldErrors,
+  optionIndexOf,
+  overrideRequiredOf,
+  priceHigherDetails,
+  refundableOf,
+  refundableOfBooking,
+  refundsOfBooking,
+  rescheduleTermsOf,
+  slotUnavailable,
+  visitStatusOf,
+} from "./actions";
 
 type ActionFields = Parameters<typeof availableActions>[0];
 
@@ -67,6 +82,19 @@ describe("A03 actions by status and permission", () => {
       cancellation: { party: null, cancelled_by_id: null, fee_fils: null, refund_fils: null, review_requested_at: "2026-10-23T08:00:00Z", review: null },
     });
     expect(availableActions(review, can(coordinator)).has("declineReview")).toBe(true);
+    expect(availableActions(review, can(coordinator)).has("resolveReview")).toBe(false);
+  });
+
+  it("lets finance (refunds.create without bookings.cancel) resolve a waiting review, and nothing else", () => {
+    const review = booking({
+      status: "confirmed",
+      cancellation: { party: null, cancelled_by_id: null, fee_fils: null, refund_fils: null, review_requested_at: "2026-10-23T08:00:00Z", review: null },
+    });
+    const accountant = can(["bookings.view", "payments.view", "refunds.create", "invoices.manage"]);
+    expect(sorted(availableActions(review, accountant))).toEqual(["resolveReview"]);
+    expect(availableActions(booking({ status: "confirmed" }), accountant).has("resolveReview")).toBe(false);
+    // A system admin (both permissions) keeps the coordinator's way.
+    expect(availableActions(review, can([...coordinator, "refunds.create"])).has("resolveReview")).toBe(false);
   });
 
   it("offers nothing but notes on an ended booking", () => {
@@ -94,6 +122,85 @@ describe("A03 error details", () => {
       details: { workers: [{ worker_id: 7, rules: ["other_zone"] }, { bad: true }], can_override: false },
     });
     expect(overrideRequiredOf(override)).toEqual({ workers: [{ workerId: 7, rules: ["other_zone"] }], canOverride: false });
+  });
+
+  it("reads the new terms of a 409 TERMS_CHANGED (cancel and reschedule) and what changed", () => {
+    const cancel = new AdminApiError(409, {
+      code: "TERMS_CHANGED",
+      message: "",
+      details: {
+        allowed: true,
+        mode: "refund",
+        fee_fils: null,
+        kept_fees_fils: 0,
+        refund_fils: null,
+        paid_fils: 24000,
+        held_fils: 0,
+        requires_review: true,
+        rule_applied: "exception_review",
+        explanation: { ar: "مراجعة", en: "Review required." },
+        currency: "AED",
+        changed: ["fee_fils", "refund_fils"],
+      },
+    });
+    expect(cancelTermsOf(cancel)).toMatchObject({ mode: "refund", fee_fils: null, refund_fils: null, requires_review: true, changed: ["fee_fils", "refund_fils"] });
+    expect(rescheduleTermsOf(cancel)).toBeNull();
+    expect(cancelTermsOf(new AdminApiError(409, { code: "STALE_VERSION", message: "", details: {} }))).toBeNull();
+
+    const move = new AdminApiError(409, {
+      code: "TERMS_CHANGED",
+      message: "",
+      details: {
+        allowed: true,
+        blockers: [],
+        fee_fils: 0,
+        price_diff_fils: 2000,
+        new_total_fils: 26000,
+        refund_fils: 0,
+        paid_fils: 24000,
+        availability: { status: "limited", reason: null },
+        changed: ["new_total_fils"],
+      },
+    });
+    expect(rescheduleTermsOf(move)).toMatchObject({ new_total_fils: 26000, fee_fils: 0, availability: { status: "limited" }, changed: ["new_total_fils"] });
+  });
+
+  it("reads the crew's visit status, a full slot and what may be refunded on the booking", () => {
+    expect(visitStatusOf(new AdminApiError(409, { code: "INVALID_STATE", message: "", details: { visit_status: "en_route" } }))).toBe("en_route");
+    expect(visitStatusOf(new AdminApiError(409, { code: "INVALID_STATE", message: "", details: {} }))).toBeNull();
+    expect(slotUnavailable({ status: "closed" })).toBe(true);
+    expect(slotUnavailable({ status: "limited" })).toBe(false);
+    const payment = { captured_fils: 24000, refunded_fils: 4000 } as BookingDetail["payment"];
+    expect(refundableOfBooking({ payment })).toBe(20000);
+    expect(refundableOfBooking({ payment: null })).toBe(0);
+    // Refunds still open are held back like the API's cap (Payment::refundableFils), never below 0.
+    expect(refundableOfBooking({ payment }, 3000)).toBe(17000);
+    expect(refundableOfBooking({ payment }, 30000)).toBe(0);
+  });
+
+  it("counts the booking's own refunds still open (requested or processing)", () => {
+    const row = (status: "requested" | "processing" | "succeeded" | "failed", amount: number, payment: { ulid: string; payable_id: number; payable_type: string }) => ({
+      status,
+      amount_fils: amount,
+      payment,
+    });
+    const own = { ulid: "01PAY", payable_id: 4, payable_type: "booking" };
+    const other = { ulid: "01OTHER", payable_id: 9, payable_type: "booking" };
+    const rows = [row("processing", 4000, own), row("requested", 500, own), row("succeeded", 2000, own), row("failed", 1000, own), row("processing", 7000, other)];
+    const mine = refundsOfBooking(rows, { id: 4, payment: { id: "01PAY" } as BookingDetail["payment"] });
+    expect(mine).toHaveLength(4);
+    expect(openRefundsFils(mine)).toBe(4500);
+  });
+
+  it("reads one alternative's field errors from a VALIDATION_FAILED (a whole option lands on its time)", () => {
+    const error = new AdminApiError(422, {
+      code: "VALIDATION_FAILED",
+      message: "",
+      details: { fields: { "options.1": ["Offered twice."], "options.0.service_date": ["Too far ahead."] } },
+    });
+    expect(optionFieldErrors(error, 1)).toEqual({ date: null, slot: "Offered twice." });
+    expect(optionFieldErrors(error, 0)).toEqual({ date: "Too far ahead.", slot: null });
+    expect(optionFieldErrors(new AdminApiError(409, { code: "PAYMENT_VERIFYING", message: "", details: {} }), 0)).toEqual({ date: null, slot: null });
   });
 
   it("counts whole minutes to a deadline", () => {

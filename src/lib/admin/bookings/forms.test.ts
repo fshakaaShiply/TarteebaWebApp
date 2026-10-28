@@ -4,9 +4,12 @@ import {
   assignmentReasonSchema,
   cancelSchema,
   dubaiInstant,
+  duplicateOptionIndexes,
+  proposalCheckBody,
   proposeSchema,
   rejectSchema,
   rescheduleSchema,
+  resolveReviewSchema,
   visitStatusSchema,
 } from "./forms";
 
@@ -56,6 +59,36 @@ describe("A03 action dialogs", () => {
     expect(
       proposeSchema.parse({ options: [{ service_date: "2026-10-26", slot_template_id: "2", note: " Evening " }], note: " Sorry " }),
     ).toEqual({ options: [{ service_date: "2026-10-26", slot_template_id: 2, note: "Evening" }], note: "Sorry" });
+  });
+
+  it("alternatives preview: the options' dates and times once every option has both (notes left out)", () => {
+    expect(proposalCheckBody([{ service_date: "2026-10-26", slot_template_id: "" }])).toBe("");
+    expect(proposalCheckBody([{ service_date: "2026-02-30", slot_template_id: "1" }])).toBe("");
+    expect(proposalCheckBody([])).toBe("");
+    // The same date and time twice is never sent (the API refuses it with 422 on options.N): the dialog marks it.
+    const twice = [
+      { service_date: "2026-10-26", slot_template_id: "2" },
+      { service_date: "2026-10-27", slot_template_id: "1" },
+      { service_date: "2026-10-26", slot_template_id: "2" },
+    ];
+    expect(proposalCheckBody(twice)).toBe("");
+    expect([...duplicateOptionIndexes(twice)]).toEqual([2]);
+    expect([...duplicateOptionIndexes([{ service_date: "2026-10-26", slot_template_id: "" }, { service_date: "2026-10-26", slot_template_id: "" }])]).toEqual([]);
+    expect(JSON.parse(proposalCheckBody([{ service_date: "2026-10-26", slot_template_id: "2" }, { service_date: "2026-10-27", slot_template_id: "1" }]))).toEqual({
+      options: [
+        { service_date: "2026-10-26", slot_template_id: 2 },
+        { service_date: "2026-10-27", slot_template_id: 1 },
+      ],
+      note: null,
+    });
+  });
+
+  it("cancellation review resolved by finance: an amount up to what is refundable and a note of 3–1000 characters", () => {
+    expect(messages(resolveReviewSchema(20000).safeParse({ refund: "", note: "" }))).toEqual({ refund: "refundRequired", note: "reasonRequired" });
+    expect(messages(resolveReviewSchema(20000).safeParse({ refund: "200.01", note: "ok" }))).toEqual({ refund: "refundTooHigh", note: "reasonMin" });
+    expect(messages(resolveReviewSchema(20000).safeParse({ refund: "-1", note: "x".repeat(1001) }))).toEqual({ refund: "refundInvalid", note: "tooLong" });
+    expect(resolveReviewSchema(20000).parse({ refund: "0", note: "  Fee kept per policy  " })).toEqual({ refund_fils: 0, note: "Fee kept per policy" });
+    expect(resolveReviewSchema(20000).parse({ refund: "200", note: "Refunded in full" })).toEqual({ refund_fils: 20000, note: "Refunded in full" });
   });
 
   it("reschedule: a reason of 3 characters, 10 with an override", () => {

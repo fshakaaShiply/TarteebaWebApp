@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Activity, Repeat, ShieldAlert, UserMinus, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import {
   Button,
@@ -22,6 +22,7 @@ import {
   showFieldError,
   useToast,
 } from "@/components/admin";
+import { isPollDriven } from "@/lib/admin/backgroundRefresh";
 import { AdminApiError } from "@/lib/admin/client";
 import { overrideRequiredOf } from "@/lib/admin/bookings/actions";
 import { VISIT_STATUS_TARGETS, assignmentReasonSchema, visitStatusSchema, type VisitStatusValues } from "@/lib/admin/bookings/forms";
@@ -77,15 +78,36 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
   const canManage = can("assignments.manage");
   const canSeeCandidates = canAny(["assignments.manage", "schedule.view"]);
   const assignable = OPEN_BOOKING.includes(booking.status) && OPEN_VISIT.includes(visit.status);
+  const queryClient = useQueryClient();
   const candidates = useQuery({
     queryKey: adminKeys.visitCandidates(visit.id),
-    queryFn: () => fetchVisitCandidates(visit.id),
+    // A read the booking page's timed refresh set off (no one acted since) is a background poll too.
+    queryFn: () => fetchVisitCandidates(visit.id, { background: isPollDriven(queryClient) }),
     enabled: canSeeCandidates && assignable,
   });
   const summary = candidates.data?.visit;
   const required = booking.workers_count;
-  const assigned = summary?.workers.map((w) => ({ id: w.id, name: w.display_name })) ?? visit.assignments.map((a) => ({ id: a.worker_id, name: a.display_name }));
-  const missing = summary?.missing ?? Math.max(0, required - assigned.length);
+
+  // The team as the booking and as the candidates tell it. When a re-read of the booking (the timed refresh, Refresh,
+  // focus) brings another team or visit status, the candidates are behind: the booking's team is shown, without the
+  // picker, until they are read again. After this tab's own change the candidates are re-read first and stay shown.
+  const bookingTeam = teamKey(visit.status, visit.assignments.map((a) => a.worker_id));
+  const summaryTeam = summary ? teamKey(summary.status, summary.workers.map((w) => w.id)) : null;
+  const [seen, setSeen] = useState({ booking: bookingTeam, summary: summaryTeam, bookingAhead: false });
+  let bookingAhead = seen.bookingAhead;
+  if (seen.booking !== bookingTeam || seen.summary !== summaryTeam) {
+    bookingAhead = seen.summary === summaryTeam;
+    setSeen({ booking: bookingTeam, summary: summaryTeam, bookingAhead });
+  }
+  const behind = summaryTeam !== null && bookingAhead && summaryTeam !== bookingTeam;
+  useEffect(() => {
+    // Joins a read already under way (the one after this tab's own change); a disabled query is not read.
+    if (behind) void queryClient.refetchQueries({ queryKey: adminKeys.visitCandidates(visit.id), exact: true, type: "active" }, { cancelRefetch: false });
+  }, [behind, queryClient, visit.id]);
+
+  const fromSummary = summary && !behind ? summary : null;
+  const assigned = fromSummary?.workers.map((w) => ({ id: w.id, name: w.display_name })) ?? visit.assignments.map((a) => ({ id: a.worker_id, name: a.display_name }));
+  const missing = fromSummary?.missing ?? Math.max(0, required - assigned.length);
 
   const [unassigning, setUnassigning] = useState<{ id: number; name: string } | null>(null);
   const [replacing, setReplacing] = useState<{ id: number; name: string } | null>(null);
@@ -141,7 +163,7 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
 
       {assignable && missing > 0 && canSeeCandidates && (
         <>
-          {candidates.isPending ? (
+          {candidates.isPending || (behind && candidates.isFetching) ? (
             <LoadingBlock lines={3} />
           ) : candidates.isError ? (
             <ErrorState error={candidates.error} onRetry={() => void candidates.refetch()} className="py-4" />
@@ -161,6 +183,11 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
       {statusOpen && <VisitStatusDialog visitId={visit.id} version={summary?.version ?? null} returnFocusTo={heading} onClose={() => setStatusOpen(false)} />}
     </section>
   );
+}
+
+/** A visit's status and team (worker ids, sorted), to compare the booking's view with the candidates'. */
+function teamKey(status: string, workerIds: readonly number[]): string {
+  return `${status}:${[...workerIds].sort((a, b) => a - b).join(",")}`;
 }
 
 function useAfterTeamChange(visitId: number) {

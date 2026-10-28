@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { ButtonLink, Card, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
 import { fetchInvoices } from "@/lib/admin/endpoints";
-import { INVOICE_FILTERS, INVOICE_STATUSES, dateRangeValid, filterKey } from "@/lib/admin/finance/filters";
+import { INVOICE_FILTERS, INVOICE_STATUSES, dateRangeValid, filterKey, idOrUndefined } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import { BILLING_REFUSALS_PATH, DOCUMENTS_READ } from "@/lib/admin/nav";
@@ -23,7 +23,7 @@ const PER_PAGE = 25;
 /**
  * A09 tax invoices (spec §9.3, §14.3, §17 "invoices & credit notes (view/download/resend)"; invoices.manage or
  * payments.view): number, issue date, customer, booking, status and totals; search by number, booking reference or
- * customer phone; filters in the URL.
+ * customer phone; filters in the URL (`payment_id` narrows it to one payment's invoices, as the payment page links).
  */
 export function InvoicesScreen() {
   const t = useTranslations("admin.finance.invoices");
@@ -61,6 +61,7 @@ function InvoicesTable() {
         status: filters.status as InvoiceStatus | "",
         from: filters.from || undefined,
         to: filters.to || undefined,
+        paymentId: idOrUndefined(filters.payment_id),
         search: search || undefined,
       }),
     placeholderData: keepPreviousData,
@@ -159,6 +160,18 @@ function InvoicesTable() {
         />
         <DateRangeFields from={filters.from} to={filters.to} onChange={set} valid={rangeValid} fromLabel={f("issuedFrom")} toLabel={f("issuedTo")} />
       </FilterBar>
+      {filters.payment_id !== "" && (
+        <Notice
+          tone="neutral"
+          action={
+            <button type="button" className="touch-target w-fit text-start text-sm font-bold text-petrol-700" onClick={() => set({ payment_id: "" })}>
+              {f("showAllInvoices")}
+            </button>
+          }
+        >
+          {f("onePaymentInvoices", { id: filters.payment_id })}
+        </Notice>
+      )}
       {!rangeValid && <Notice tone="warning">{f("rangeInvalid")}</Notice>}
       <DataTable
         caption={t("caption")}

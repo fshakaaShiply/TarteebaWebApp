@@ -1,6 +1,6 @@
 import { PAYMENT_STATUSES } from "../bookings/filters";
 import { isIsoDate } from "../format";
-import { REFUND_REASONS, REFUND_STATUSES } from "./refund";
+import { REFUND_STATUSES } from "./refund";
 
 /*
  * A09 list filters kept in the page URL (like A03), so a filtered list can be bookmarked and a link from another page
@@ -16,7 +16,14 @@ export type FilterField =
   /** A checkbox: "1" or "". */
   | { kind: "flag" }
   /** A positive record id. */
-  | { kind: "id" };
+  | { kind: "id" }
+  /**
+   * A code from a list the API serves at run time (e.g. refund reasons): any value shaped like one of its codes
+   * (AdminRefundsRequest `reason_code`: a-z, digits and "_", 2 to 40 characters).
+   */
+  | { kind: "code" };
+
+const CODE = /^[a-z][a-z0-9_]{1,39}$/;
 
 export type FilterSpec = Readonly<Record<string, FilterField>>;
 
@@ -37,6 +44,8 @@ function readField(field: FilterField, raw: string | null): string {
       return raw === "1" || raw === "true" ? "1" : "";
     case "id":
       return /^[1-9]\d{0,9}$/.test(raw) ? raw : "";
+    case "code":
+      return CODE.test(raw) ? raw : "";
   }
 }
 
@@ -106,7 +115,8 @@ export const REFUND_FILTERS = {
   status: { kind: "enum", values: REFUND_STATUSES },
   from: { kind: "date" },
   to: { kind: "date" },
-  reason_code: { kind: "enum", values: REFUND_REASONS },
+  // The reasons come from GET /admin/refund-reasons.
+  reason_code: { kind: "code" },
   needs_review: { kind: "flag" },
   phone: { kind: "text", max: 30 },
   payment_id: { kind: "id" },
@@ -117,6 +127,14 @@ export const INVOICE_FILTERS = {
   from: { kind: "date" },
   to: { kind: "date" },
   search: { kind: "text", max: 100 },
+  /** One payment's invoices (the payment page links here). */
+  payment_id: { kind: "id" },
+} as const satisfies FilterSpec;
+
+/** The A09 summary's period; empty ends take the API's default (month to date). */
+export const SUMMARY_FILTERS = {
+  from: { kind: "date" },
+  to: { kind: "date" },
 } as const satisfies FilterSpec;
 
 export const CREDIT_NOTE_FILTERS = {

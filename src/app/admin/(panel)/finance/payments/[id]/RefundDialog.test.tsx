@@ -3,19 +3,27 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import { IdempotencyKeys, newIdempotencyKey } from "@/lib/admin/idempotency";
-import type { AdminInvoice, AdminPaymentDetail, AdminRefund } from "@/lib/admin/types";
+import type { AdminPaymentDetail, AdminRefund, RefundReason } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
 import { PaymentDetailScreen } from "./PaymentDetailScreen";
 import { RefundDialog } from "./RefundDialog";
 
-const api = { createRefund: vi.fn(), fetchPayment: vi.fn(), fetchInvoices: vi.fn() };
+const api = { createRefund: vi.fn(), fetchPayment: vi.fn(), fetchRefundReasons: vi.fn() };
 vi.mock("@/lib/admin/endpoints", () => ({
   createRefund: (...a: unknown[]) => api.createRefund(...a),
   fetchPayment: (...a: unknown[]) => api.fetchPayment(...a),
-  fetchInvoices: (...a: unknown[]) => api.fetchInvoices(...a),
+  fetchRefundReasons: (...a: unknown[]) => api.fetchRefundReasons(...a),
 }));
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+// GET /admin/refund-reasons (shape and labels from the API contract): staff reasons, then the system-only one.
+const REASONS: RefundReason[] = [
+  { code: "customer_cancellation", label: { ar: "إلغاء من العميل حسب السياسة", en: "Customer cancellation per policy" }, selectable: true, requires_text: false },
+  { code: "complaint_compensation", label: { ar: "تعويض شكوى", en: "Complaint compensation" }, selectable: true, requires_text: false },
+  { code: "other", label: { ar: "سبب آخر", en: "Other" }, selectable: true, requires_text: true },
+  { code: "price_difference", label: { ar: "فرق السعر بعد تعديل الحجز", en: "Price difference after a booking change" }, selectable: false, requires_text: false },
+];
 
 const refund = (over: Partial<AdminRefund> = {}): AdminRefund => ({
   id: 3,
@@ -47,7 +55,7 @@ const payment = (over: Partial<AdminPaymentDetail> = {}): AdminPaymentDetail => 
   id: 9,
   ulid: "01m5mxexxwvwpdgwypmp1b0f25",
   customer: { id: 2, ulid: "01C2", name: "Omar Khalid", phone: "+971500000002" },
-  payable: { type: "booking", id: 9, public_id: "01B9" },
+  payable: { type: "booking", id: 9, public_id: "01B9", reference: "TRB-7K2Q9M" },
   gateway: "fake",
   gateway_payment_ref: "fpay_0dc4e2ad",
   method: "card",
@@ -64,6 +72,16 @@ const payment = (over: Partial<AdminPaymentDetail> = {}): AdminPaymentDetail => 
   refunded_fils: 0,
   fee_fils: null,
   net_settled_fils: null,
+  invoice: {
+    id: 318,
+    number: "INV-2026-000318",
+    status: "issued",
+    status_label: { ar: "مدفوعة", en: "Paid" },
+    issue_date: "2026-10-23",
+    total_fils: 24000,
+    credited_fils: 0,
+    currency: "AED",
+  },
   needs_review: false,
   attempts: 1,
   failure_code: null,
@@ -78,7 +96,9 @@ const payment = (over: Partial<AdminPaymentDetail> = {}): AdminPaymentDetail => 
   gateway_session_ref: "fses_2d07",
   verifying_since: null,
   review_reason: null,
+  review_reason_label: null,
   void_reason: null,
+  void_reason_label: null,
   updated_at: "2026-10-23T17:38:19+00:00",
   events: [
     {
@@ -109,6 +129,8 @@ async function fill(user: ReturnType<typeof userEvent.setup>, amount: string, re
   const field = screen.getByLabelText(/Amount to refund/);
   await user.clear(field);
   await user.type(field, amount);
+  // The reasons arrive from GET /admin/refund-reasons.
+  await waitFor(() => expect(screen.getByLabelText(/^Reason/)).toBeEnabled());
   await user.selectOptions(screen.getByLabelText(/^Reason/), reason);
 }
 
@@ -122,6 +144,7 @@ const consoleError = vi.spyOn(console, "error");
 describe("RefundDialog", () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset());
+    api.fetchRefundReasons.mockResolvedValue(REASONS);
     consoleError.mockClear();
   });
   afterEach(() => {
@@ -260,6 +283,42 @@ describe("RefundDialog", () => {
     expect(await screen.findByRole("dialog", { name: "Confirm the refund" })).toHaveTextContent("“Agreed by phone”");
   });
 
+  it("offers only the API's selectable reasons, by the API's labels, and asks for a note when the reason requires one", async () => {
+    // The API decides which reasons need a note: here a customer cancellation does.
+    api.fetchRefundReasons.mockResolvedValue(REASONS.map((r) => (r.code === "customer_cancellation" ? { ...r, requires_text: true } : r)));
+    api.createRefund.mockResolvedValue(refund());
+    const { user } = openDialog();
+    const select = screen.getByLabelText(/^Reason/);
+    await waitFor(() => expect(select).toBeEnabled());
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Choose a reason",
+      "Customer cancellation per policy",
+      "Complaint compensation",
+      "Other",
+    ]);
+    expect(screen.getByLabelText(/^Note/)).not.toBeRequired();
+
+    await fillAndReview(user, "50", "customer_cancellation");
+    expect(await screen.findByText("Explain the reason in a note.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Note/)).toBeRequired();
+    await user.type(screen.getByLabelText(/^Note/), "Cancelled two days ahead");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm the refund" });
+    expect(dialog).toHaveTextContent("ReasonCustomer cancellation per policy");
+    await user.click(within(dialog).getByRole("button", { name: "Refund AED 50.00" }));
+    await waitFor(() => expect(api.createRefund).toHaveBeenCalledTimes(1));
+    expect(api.createRefund.mock.calls[0][1]).toEqual({ amount_fils: 5000, reason_code: "customer_cancellation", reason_text: "Cancelled two days ahead" });
+  });
+
+  it("says when the reasons couldn't be loaded and loads them again", async () => {
+    api.fetchRefundReasons.mockReset().mockRejectedValueOnce(AdminApiError.network()).mockResolvedValue(REASONS);
+    const { user } = openDialog();
+    expect(await screen.findByText("The refund reasons couldn't be loaded")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("option", { name: "Complaint compensation" })).toBeInTheDocument();
+    expect(screen.queryByText("The refund reasons couldn't be loaded")).not.toBeInTheDocument();
+  });
+
   it("retries a lost answer with the same Idempotency-Key and the same request", async () => {
     api.createRefund.mockRejectedValueOnce(new AdminApiError(502, { code: "BAD_GATEWAY", message: "", details: {} })).mockResolvedValueOnce(refund());
     const { user, onClose } = openDialog();
@@ -311,21 +370,11 @@ describe("RefundDialog", () => {
   });
 });
 
-const invoice = (id: number, paymentId: number): AdminInvoice =>
-  ({
-    id,
-    number: `INV-2026-${String(id).padStart(6, "0")}`,
-    status: "issued",
-    status_label: "Paid",
-    total_fils: 24000,
-    payment: { id: paymentId },
-  }) as unknown as AdminInvoice;
-
 describe("PaymentDetailScreen", () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset());
+    api.fetchRefundReasons.mockResolvedValue(REASONS);
     window.sessionStorage.clear();
-    api.fetchInvoices.mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 100, total: 0, last_page: 1 } });
   });
 
   it("shows the amounts, the provider's refund status and the event log; Refund needs refunds.create", async () => {
@@ -340,28 +389,115 @@ describe("PaymentDetailScreen", () => {
     expect(screen.getByText("Expected within 5 to 10 business days")).toBeInTheDocument();
     expect(screen.getByText("call.capture")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refund" })).not.toBeInTheDocument();
-    // The customer's invoices since the payment was created (a day earlier for the time zone), page by page.
-    expect(api.fetchInvoices).toHaveBeenCalledWith({ customerId: 2, from: "2026-10-22", page: 1, perPage: 100 });
   });
 
-  it("finds the payment's invoice past the customer's first 100 invoices", async () => {
+  it("names the booking by its reference in the header and the payer card, linked for bookings.view", async () => {
     api.fetchPayment.mockResolvedValue(payment());
-    api.fetchInvoices.mockImplementation(async ({ page }: { page: number }) =>
-      page === 1
-        ? { data: Array.from({ length: 100 }, (_, i) => invoice(200 + i, 50 + i)), meta: { current_page: 1, per_page: 100, total: 101, last_page: 2 } }
-        : { data: [invoice(5, 9)], meta: { current_page: 2, per_page: 100, total: 101, last_page: 2 } },
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view", "bookings.view"] });
+    const header = (await screen.findByRole("heading", { level: 1 })).closest("section")!;
+    expect(within(header).getByRole("link", { name: "Booking TRB-7K2Q9M" })).toHaveAttribute("href", "/admin/bookings/9");
+    expect(screen.getAllByRole("link", { name: "Booking TRB-7K2Q9M" })).toHaveLength(2);
+  });
+
+  it("falls back to the booking's id without a reference, and links nothing without bookings.view", async () => {
+    api.fetchPayment.mockResolvedValue(payment({ payable: { type: "booking", id: 9, public_id: null, reference: null } }));
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    const header = (await screen.findByRole("heading", { level: 1 })).closest("section")!;
+    expect(header).toHaveTextContent("Booking #9");
+    expect(within(header).queryByRole("link", { name: /Booking/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the payment's own tax invoice and links to it and to the invoices list filtered to this payment", async () => {
+    api.fetchPayment.mockResolvedValue(
+      payment({
+        invoice: {
+          id: 318,
+          number: "INV-2026-000318",
+          status: "credited_partial",
+          status_label: { ar: "مستردة جزئيًا", en: "Partially refunded" },
+          issue_date: "2026-10-23",
+          total_fils: 24000,
+          credited_fils: 6000,
+          currency: "AED",
+        },
+      }),
     );
     renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
-    expect(await screen.findByRole("link", { name: "INV-2026-000005" })).toHaveAttribute("href", "/admin/finance/invoices/5");
-    expect(screen.queryByText("No invoice found for this payment yet.")).not.toBeInTheDocument();
+    const card = (await screen.findByRole("heading", { name: "Tax invoice" })).closest("section")!;
+    expect(within(card).getByRole("link", { name: "INV-2026-000318" })).toHaveAttribute("href", "/admin/finance/invoices/318");
+    expect(card).toHaveTextContent("Partially refunded");
+    expect(card).toHaveTextContent("Total (VAT included)AED 240.00");
+    expect(card).toHaveTextContent("Credited by credit notesAED 60.00");
+    expect(within(card).getByRole("link", { name: "Show in the tax invoices list" })).toHaveAttribute("href", "/admin/finance/invoices?payment_id=9");
   });
 
-  it("says why the payment needs review in words, keeping the code as detail", async () => {
-    api.fetchPayment.mockResolvedValue(payment({ needs_review: true, review_reason: "success_reported_for_voided_payment" }));
+  it("points to the refused documents when a taken payment has no invoice yet", async () => {
+    api.fetchPayment.mockResolvedValue(payment({ invoice: null }));
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    const card = (await screen.findByRole("heading", { name: "Tax invoice" })).closest("section")!;
+    expect(card).toHaveTextContent("No tax invoice has been issued for this payment yet.");
+    expect(within(card).getByRole("link", { name: "See whether it was refused" })).toHaveAttribute("href", "/admin/finance/billing-refusals?payment_id=9");
+  });
+
+  it("says an invoice comes with the capture while nothing was taken", async () => {
+    api.fetchPayment.mockResolvedValue(payment({ invoice: null, status: "authorized", captured_fils: 0, captured_at: null, refundable_fils: 0 }));
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    expect(await screen.findByText("An invoice is issued once the payment is taken.")).toBeInTheDocument();
+  });
+
+  it("names each refund's credit note by its number", async () => {
+    const creditNote = { id: 41, number: "CN-2026-000041", issue_date: "2026-10-23", total_fils: 18000 };
+    api.fetchPayment.mockResolvedValue(payment({ refunds: [refund({ status: "succeeded", credit_note_id: 41, credit_note: creditNote })] }));
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    const link = await screen.findByRole("link", { name: "CN-2026-000041" });
+    expect(link).toHaveAttribute("href", "/admin/finance/credit-notes/41");
+    expect(link.parentElement).toHaveTextContent("Credit note CN-2026-000041");
+  });
+
+  it("says why the payment needs review in the API's words, keeping the code as detail", async () => {
+    api.fetchPayment.mockResolvedValue(
+      payment({
+        needs_review: true,
+        review_reason: "success_reported_for_voided_payment",
+        // Words the web's own table never built for this code (it said "…بعد أن أصبحت حالتها «{status}»."): only the
+        // API's label can put them on the page.
+        review_reason_label: {
+          ar: "وصل من المزود إشعار نجاح لدفعة سبق إلغاؤها.",
+          en: "The provider sent a success notice for a payment that was already cancelled.",
+        },
+      }),
+    );
     renderWithProviders(<PaymentDetailScreen id="9" />, { locale: "ar", permissions: ["payments.view"] });
     const notice = (await screen.findByText("تحتاج هذه الدفعة إلى مراجعة شخص من الفريق")).parentElement!;
-    expect(notice).toHaveTextContent("السبب: أبلغ المزود عن نجاح الدفعة بعد أن أصبحت حالتها «أُلغيت الدفعة».");
+    expect(notice).toHaveTextContent("السبب: وصل من المزود إشعار نجاح لدفعة سبق إلغاؤها.");
     expect(within(notice).getByText("success_reported_for_voided_payment")).toHaveAttribute("dir", "ltr");
+  });
+
+  it("says why a held amount was released in the API's words, with the code", async () => {
+    api.fetchPayment.mockResolvedValue(
+      payment({
+        status: "voided",
+        captured_fils: 0,
+        captured_at: null,
+        refundable_fils: 0,
+        invoice: null,
+        voided_at: "2026-10-23T18:00:00+00:00",
+        // A code the web's own table never labelled (it read "Released automatically."), in the API's words.
+        void_reason: "booking_alternative_declined",
+        void_reason_label: { ar: "رفض العميل الموعد البديل المقترح.", en: "The customer declined the alternative time offered." },
+      }),
+    );
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    const fact = (await screen.findByText("Cancelled")).parentElement!;
+    expect(fact).toHaveTextContent("The customer declined the alternative time offered.");
+    expect(fact).not.toHaveTextContent("Released automatically.");
+    expect(within(fact).getByText("booking_alternative_declined")).toHaveAttribute("dir", "ltr");
+  });
+
+  it("says no reason was recorded when the review has no code", async () => {
+    api.fetchPayment.mockResolvedValue(payment({ needs_review: true }));
+    renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view"] });
+    expect(await screen.findByText("Reason: No reason was recorded. Check the event log below.")).toBeInTheDocument();
   });
 
   it("keeps a refund's key when the dialog is closed after an unknown outcome and opened again", async () => {

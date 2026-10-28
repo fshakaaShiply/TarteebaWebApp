@@ -9,6 +9,8 @@ export type NavLeaf = {
   href: string;
   /** Visible when the user holds any of these; empty = every signed-in staff user. */
   anyOf: readonly string[];
+  /** And, when set, every one of these (a page of another module the entry opens). */
+  allOf?: readonly string[];
   built: boolean;
 };
 
@@ -30,6 +32,8 @@ export const OVERVIEW_PERMISSIONS = ["bookings.view", "schedule.view"] as const;
 /** Rounds and driver reports are readable with either; changes need trips.manage (Fleet routes/admin.php). */
 export const TRIPS_READ = ["trips.manage", "schedule.view"] as const;
 
+/** The A09 landing page: the period's KPI cards (GET /admin/finance/summary, DOCUMENTS_READ). */
+export const FINANCE_SUMMARY_PATH = "/admin/finance";
 export const PAYMENTS_PATH = "/admin/finance/payments";
 export const REFUNDS_PATH = "/admin/finance/refunds";
 export const INVOICES_PATH = "/admin/finance/invoices";
@@ -40,6 +44,11 @@ export const NOTIFICATION_TEMPLATES_PATH = "/admin/settings/notifications";
 export const REFUNDS_READ = ["refunds.create", "payments.view"] as const;
 /** Invoices, credit notes and refused documents are readable with either (Billing routes/admin.php). */
 export const DOCUMENTS_READ = ["invoices.manage", "payments.view"] as const;
+/**
+ * The A03 list of customer cancellations waiting for review (bookings.view): finance resolves them with a refund
+ * (POST /admin/bookings/{id}/cancel-review/resolve, refunds.create), so A09 links to it.
+ */
+export const CANCEL_REVIEWS_PATH = "/admin/bookings?cancel_review=1";
 
 const CATALOG = ["catalog.manage"] as const;
 
@@ -96,17 +105,21 @@ export const ADMIN_NAV: readonly NavModule[] = [
     built: false,
   },
   {
-    // A09: transactions and their refunds (payments.view; a refund needs refunds.create), tax invoices and credit notes,
-    // and the documents Billing refused to issue. Reconciliation is a later phase.
+    // A09: the period's summary cards (read like the documents), transactions and their refunds (payments.view; a refund
+    // needs refunds.create), tax invoices and credit notes, and the documents Billing refused to issue. Reconciliation is
+    // a later phase.
     id: "finance",
     code: "A09",
     labelKey: "finance",
-    href: PAYMENTS_PATH,
+    href: FINANCE_SUMMARY_PATH,
     anyOf: ["payments.view", "invoices.manage", "refunds.create"],
     built: true,
     children: [
+      // A prefix of every other finance page: activeChildHref marks the longest match, so they keep their own entry.
+      { id: "financeSummary", labelKey: "financeSummary", href: FINANCE_SUMMARY_PATH, anyOf: DOCUMENTS_READ, built: true },
       { id: "payments", labelKey: "payments", href: PAYMENTS_PATH, anyOf: ["payments.view"], built: true },
       { id: "refunds", labelKey: "refunds", href: REFUNDS_PATH, anyOf: REFUNDS_READ, built: true },
+      { id: "cancelReviews", labelKey: "cancelReviews", href: CANCEL_REVIEWS_PATH, anyOf: ["refunds.create"], allOf: ["bookings.view"], built: true },
       { id: "invoices", labelKey: "invoices", href: INVOICES_PATH, anyOf: DOCUMENTS_READ, built: true },
       { id: "creditNotes", labelKey: "creditNotes", href: CREDIT_NOTES_PATH, anyOf: DOCUMENTS_READ, built: true },
       { id: "billingRefusals", labelKey: "billingRefusals", href: BILLING_REFUSALS_PATH, anyOf: DOCUMENTS_READ, built: true },
@@ -171,14 +184,19 @@ export function hasAnyPermission(permissions: readonly string[], anyOf: readonly
   return anyOf.length === 0 || anyOf.some((p) => permissions.includes(p));
 }
 
+/** `anyOf` (any one, or open to all when empty) and every one of `allOf`. */
+function mayOpen(permissions: readonly string[], item: Pick<NavLeaf, "anyOf" | "allOf">): boolean {
+  return hasAnyPermission(permissions, item.anyOf) && (item.allOf ?? []).every((p) => permissions.includes(p));
+}
+
 /** The navigation this user may see: children filtered first, then modules without a visible child dropped. */
 export function filterNav(nav: readonly NavModule[], permissions: readonly string[]): NavModule[] {
   const out: NavModule[] = [];
   for (const item of nav) {
     if (item.children) {
-      const children = item.children.filter((c) => hasAnyPermission(permissions, c.anyOf));
+      const children = item.children.filter((c) => mayOpen(permissions, c));
       if (children.length > 0) out.push({ ...item, children });
-    } else if (hasAnyPermission(permissions, item.anyOf)) {
+    } else if (mayOpen(permissions, item)) {
       out.push(item);
     }
   }
@@ -187,8 +205,8 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
- * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 finance pages, else the
- * overview's welcome note.
+ * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 summary (or the refunds
+ * list for refunds.create alone), else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
@@ -198,26 +216,60 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("workers.view")) return "/admin/workers";
   if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
   if (permissions.includes("trips.manage")) return TRIPS_PATH;
-  if (permissions.includes("payments.view")) return PAYMENTS_PATH;
-  if (permissions.includes("invoices.manage")) return INVOICES_PATH;
+  if (hasAnyPermission(permissions, DOCUMENTS_READ)) return FINANCE_SUMMARY_PATH;
   if (permissions.includes("refunds.create")) return REFUNDS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 
-export function isActivePath(href: string, pathname: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+/**
+ * How closely an entry's href matches the page (`search`: its query string, with or without "?"), or null when it
+ * does not: the page is the href's path or below it, and carries every query parameter the href names with the same
+ * value. A longer path scores higher, and so does each query parameter on the same path, so
+ * "/admin/bookings?cancel_review=1" beats "/admin/bookings" on that list.
+ */
+function matchScore(href: string, pathname: string, search: string): number | null {
+  const q = href.indexOf("?");
+  const path = q < 0 ? href : href.slice(0, q);
+  if (pathname !== path && !pathname.startsWith(`${path}/`)) return null;
+  const wanted = new URLSearchParams(q < 0 ? "" : href.slice(q + 1));
+  const params = new URLSearchParams(search);
+  let named = 0;
+  for (const [key, value] of wanted) {
+    if (params.get(key) !== value) return null;
+    named += 1;
+  }
+  return path.length * 100 + named;
+}
+
+export function isActivePath(href: string, pathname: string, search = ""): boolean {
+  return matchScore(href, pathname, search) !== null;
 }
 
 /**
- * The child of a group that the page belongs to: the longest matching href, so /admin/trips/reports marks "Driver
- * reports" and not also "Trip planner" (/admin/trips).
+ * The entry the page belongs to among `children`: the closest match (matchScore), so /admin/trips/reports marks
+ * "Driver reports" and not also "Trip planner" (/admin/trips), and the cancellation review list
+ * (/admin/bookings?cancel_review=1) its own entry.
  */
-export function activeChildHref(children: readonly Pick<NavLeaf, "href">[], pathname: string): string | null {
-  let best: string | null = null;
+export function activeChildHref(children: readonly Pick<NavLeaf, "href">[], pathname: string, search = ""): string | null {
+  let best: { href: string; score: number } | null = null;
   for (const child of children) {
-    if (isActivePath(child.href, pathname) && (best === null || child.href.length > best.length)) best = child.href;
+    const score = matchScore(child.href, pathname, search);
+    if (score !== null && (best === null || score > best.score)) best = { href: child.href, score };
   }
-  return best;
+  return best?.href ?? null;
+}
+
+/**
+ * The one entry of the user's navigation (filterNav) the page belongs to, across every module, so only one carries
+ * aria-current: the cancellation review list marks A09's "Cancellation reviews" and not also A03 "Bookings", which
+ * stays the page's entry for users without the review entry.
+ */
+export function activeNavHref(modules: readonly NavModule[], pathname: string, search = ""): string | null {
+  return activeChildHref(
+    modules.flatMap((m) => m.children ?? [m]),
+    pathname,
+    search,
+  );
 }
 
 /**

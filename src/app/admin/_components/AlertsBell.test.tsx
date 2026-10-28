@@ -53,14 +53,15 @@ describe("alerts bell (D-11: polled every 20 s)", () => {
 
     renderWithProviders(<AlertsBell />, { permissions: [] });
     expect(await screen.findByRole("button", { name: "Alerts, 1 unread" })).toBeInTheDocument();
-    expect(api.fetchAlerts).toHaveBeenNthCalledWith(1, { perPage: 20 });
+    // Every read of the bell, the first one too, is a background poll (never staff activity).
+    expect(api.fetchAlerts).toHaveBeenNthCalledWith(1, { perPage: 20 }, { background: true });
     // The first load is not announced, only what later polls bring.
     expect(announcer()).toHaveTextContent("");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
-    await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(2, { since: "2026-10-23T10:00:05Z" }));
+    await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(2, { since: "2026-10-23T10:00:05Z" }, { background: true }));
     expect(await screen.findByRole("button", { name: "Alerts, 2 unread" })).toBeInTheDocument();
     // Screen readers hear the arrival (the badge is aria-hidden and a changed button name is not read out).
     expect(announcer()).toHaveTextContent("1 new urgent alert");
@@ -68,7 +69,7 @@ describe("alerts bell (D-11: polled every 20 s)", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
-    await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(3, { since: "2026-10-23T10:00:25Z" }));
+    await waitFor(() => expect(api.fetchAlerts).toHaveBeenNthCalledWith(3, { since: "2026-10-23T10:00:25Z" }, { background: true }));
     // A poll with nothing new clears the region (nothing is repeated).
     await waitFor(() => expect(announcer()).toHaveTextContent(""));
 

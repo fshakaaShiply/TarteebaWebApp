@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   MANUAL_DEFAULTS,
   bilingualMessage,
+  companyMaterialsOffered,
   manualFormSchema,
   manualPayload,
+  manualPreviewBody,
   normalizeUaePhone,
   parseCoordinates,
   stepOfField,
@@ -43,6 +45,9 @@ describe("customer phone and WhatsApp", () => {
     expect(normalizeUaePhone("٠٥٠١٢٣٤٥٦٧")).toBe("+971501234567");
     expect(normalizeUaePhone("04 123 4567")).toBeNull();
     expect(normalizeUaePhone("hello")).toBeNull();
+    // A UAE number is complete only at its full length; another country's may still be half typed (8–15 digits).
+    expect(normalizeUaePhone("+971 50 123 456")).toBeNull();
+    expect(normalizeUaePhone("+966 50 123")).toBe("+96650123");
   });
 
   it("opens WhatsApp with the message filled in, never sending it", () => {
@@ -145,10 +150,44 @@ describe("manual booking wizard checks", () => {
     expect(saved).toMatchObject({ override: true, reason: "agreed with ops" });
   });
 
+  it("sends the number the customer lookup normalized, and only the add-ons the service offers", () => {
+    // meta.phone wins over our own reading of the field (here they differ on purpose).
+    const body = manualPayload({ ...filled, phone: "0501234567", addons: ["MATERIALS", "IRONING"] }, { phone: "+971501234599", addons: new Set(["MATERIALS"]) });
+    expect(body.customer.phone).toBe("+971501234599");
+    expect(body.addons).toEqual(["MATERIALS"]);
+    // libphonenumber drops a national trunk 0 our reading keeps: the lookup's number is what goes out.
+    expect(manualPayload({ ...filled, phone: "+44 07700 900123" }, { phone: "+447700900123" }).customer.phone).toBe("+447700900123");
+    expect(manualPayload({ ...filled, phone: "+44 07700 900123" }).customer.phone).toBe("+4407700900123");
+    // Before the add-ons are known, the chosen codes go as they are (the API checks them).
+    expect(manualPayload({ ...filled, addons: ["MATERIALS"] }).addons).toEqual(["MATERIALS"]);
+  });
+
+  it("previews the body without notes or the override (they change neither the price nor the slot check)", () => {
+    const body = JSON.parse(
+      manualPreviewBody(manualPayload({ ...filled, instructions: "Ring twice", internalNote: "VIP", override: true, reason: "Customer is a VIP, ops agreed" })),
+    );
+    expect(body).toMatchObject({ service: "STANDARD_VISIT", slot_template_id: 1, workers_count: 2, instructions: null, internal_note: null, priorities: [] });
+    expect(body).not.toHaveProperty("override");
+    expect(body).not.toHaveProperty("reason");
+    // Typing a note keeps the same preview body (no new request).
+    expect(manualPreviewBody(manualPayload({ ...filled, instructions: "a" }))).toBe(manualPreviewBody(manualPayload({ ...filled, instructions: "ab" })));
+  });
+
   it("knows which step holds a field", () => {
     expect(stepOfField("phone")).toBe(0);
     expect(stepOfField("coordinates")).toBe(1);
     expect(stepOfField("slotTemplateId")).toBe(2);
     expect(stepOfField("internalNote")).toBe(3);
+    expect(stepOfField("materialsBy")).toBe(3);
+  });
+
+  it("offers the company's materials only with included materials or the MATERIALS add-on offered (D-02b)", () => {
+    expect(companyMaterialsOffered("company_included", null)).toBe(true);
+    expect(companyMaterialsOffered("company_addon", new Set(["MATERIALS", "FRIDGE"]))).toBe(true);
+    // The add-on inactive or not priced with the service: the pick-list leaves it out.
+    expect(companyMaterialsOffered("company_addon", new Set(["FRIDGE"]))).toBe(false);
+    expect(companyMaterialsOffered("customer", new Set())).toBe(false);
+    // Not known yet (add-ons or the service still loading).
+    expect(companyMaterialsOffered(undefined, null)).toBe(false);
   });
 });

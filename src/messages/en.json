@@ -378,6 +378,7 @@
       "customers": "Customers",
       "subscriptions": "Subscriptions",
       "finance": "Payments & invoices",
+      "financeSummary": "Summary",
       "quality": "Quality & support",
       "catalog": "Services & settings",
       "services": "Services & prices",
@@ -403,6 +404,7 @@
       "driverReports": "Driver reports",
       "payments": "Payments",
       "refunds": "Refunds",
+      "cancelReviews": "Cancellation reviews",
       "invoices": "Tax invoices",
       "creditNotes": "Credit notes",
       "billingRefusals": "Documents not issued",
@@ -885,6 +887,14 @@
           "dropoff_dwell_minutes": {
             "label": "Time at each stop (minutes)",
             "description": "Minutes a van spends at a stop to drop off or pick up cleaners. The trip planner adds it between stops."
+          },
+          "plan_extra_rounds": {
+            "label": "Draft an extra round when a van has already left",
+            "description": "When a van's round for the slot has already left, drafting rounds plans an extra round for the visits it does not cover, departing once a van and driver are free. Off: those visits are listed as not planned (round under way). An extra round already drafted is still extended."
+          },
+          "extra_round_prefer_other_van": {
+            "label": "Put the extra round on another free van first",
+            "description": "With extra rounds on, drafting first puts those visits on another van that is free and has the seats (their seat reservations move with them), rather than a later second trip of the same van. Without such a van, it plans the second trip."
           }
         },
         "visit": {
@@ -2634,7 +2644,7 @@
       },
       "filters": {
         "search": "Search",
-        "searchPlaceholder": "Booking reference or phone",
+        "searchPlaceholder": "Reference, phone, customer name or address",
         "status": "Status",
         "allStatuses": "All statuses",
         "payment": "Payment",
@@ -2645,6 +2655,15 @@
         "allServices": "All services",
         "source": "Source",
         "allSources": "All sources",
+        "slot": "Time",
+        "allSlots": "All times",
+        "worker": "Cleaner",
+        "allWorkers": "All cleaners",
+        "driver": "Driver",
+        "allDrivers": "All drivers",
+        "inactive": "{name} (inactive)",
+        "workerLeft": "{name} (left the company)",
+        "unknownChoice": "#{id}",
         "from": "From",
         "to": "To",
         "rangeInvalid": "The end date is before the start date.",
@@ -2765,13 +2784,12 @@
       },
       "slots": {
         "placeholder": "Choose a time",
-        "option": "{name} · {start}–{end} · {status} · {free, plural, one {up to # cleaner} other {up to # cleaners}}",
-        "optionUnavailable": "{name} · {start}–{end} · {status} · not enough room for this team",
-        "noPermission": "Free times come from the capacity view, which your role can't open.",
-        "chooseDate": "Choose a date first.",
-        "loading": "Loading free times…",
-        "loadError": "We couldn't load the free times. Change the date to try again.",
-        "none": "No slots for this service on that date."
+        "option": "{name} · {start}–{end}",
+        "noPermission": "Your role can't read the times.",
+        "loading": "Loading the times…",
+        "loadError": "We couldn't load the times.",
+        "retry": "Try again",
+        "none": "No times for this service."
       },
       "actions": {
         "confirm": "Confirm",
@@ -2781,7 +2799,9 @@
         "reject": "Reject",
         "cancel": "Cancel booking",
         "changedTitle": "This booking changed",
-        "changedBody": "Someone updated it after you opened this. If you continue, you'll be asked to reload and check the latest details first."
+        "changedBody": "Someone updated it after you opened this. If you continue, you'll be asked to reload and check the latest details first.",
+        "changedMark": "(changed)",
+        "termsChangedTitle": "The amounts changed"
       },
       "formErrors": {
         "required": "Choose a value.",
@@ -2825,6 +2845,7 @@
         "body": "Offer the customer up to three other dates and times. The booked time stays held until the customer accepts one.",
         "priceRule": "Each time must cost no more than the {amount} the customer authorized; a cheaper time takes less.",
         "deadlineRule": "The customer gets a deadline to answer (shown on the booking once sent). Without an answer in time, the request is cancelled.",
+        "deadline": "If you send now, the customer has until {time} to answer ({hours, plural, one {# hour} other {# hours}}). Without an answer in time, the request is cancelled.",
         "option": "Option {number}",
         "date": "Date",
         "slot": "Time",
@@ -2839,7 +2860,18 @@
         "optionProblem": "This option can't be offered.",
         "priceHigherTitle": "Option {number} costs more than the customer authorized",
         "priceHigherBody": "It costs {diff} more than the {amount} the customer authorized. Choose a time at the same price or cheaper.",
-        "optionFailed": "Option {number} can't be offered"
+        "optionFailed": "Option {number} can't be offered",
+        "previewHint": "Choose a date and time for each option to see its price and whether it can be offered.",
+        "checking": "Checking this option…",
+        "optionPrice": "{total} · {diff}",
+        "samePrice": "same price",
+        "cheaper": "{amount} cheaper",
+        "dearer": "{amount} more",
+        "noPrice": "No price for this time.",
+        "optionAllowed": "Can be offered.",
+        "cannotSend": "You can send once every option can be offered.",
+        "canSend": "Every option can be offered: you can send.",
+        "retryPreview": "Check again"
       },
       "reschedule": {
         "title": "Reschedule {reference}",
@@ -2856,7 +2888,28 @@
         "slotUnavailableTitle": "That time can't take the booking",
         "submit": "Reschedule",
         "cancel": "Cancel",
-        "done": "{reference} is moved to the new time."
+        "done": "{reference} is moved to the new time.",
+        "chooseToSee": "Choose the new date and time to see the amounts.",
+        "checking": "Checking the new time…",
+        "termsTitle": "What changes",
+        "currentTotal": "Current total",
+        "newTotal": "New total",
+        "difference": "Difference",
+        "samePrice": "Same price",
+        "cheaper": "{amount} less",
+        "dearer": "{amount} more",
+        "refund": "Refund of the difference",
+        "fee": "Change fee",
+        "keptFees": "Earlier change fees kept",
+        "priceBlocked": "The new time costs more than what was paid, so the booking can't be moved there.",
+        "pendingTitle": "A customer request is waiting",
+        "pendingBody": "The customer asked to change this booking. Approve or reject that request on the booking page first.",
+        "retryPreview": "Check again",
+        "termsMissing": "The amounts for the new time aren't shown yet. Wait for them, then press Reschedule.",
+        "pendingFirst": "The booking can't be moved while the customer's request waits: approve or reject it first.",
+        "previewFailedHint": "The new time couldn't be checked: fix the problem shown above, or press “Check again”.",
+        "termsAnnounce": "{label}: {value}.",
+        "termsChangedBody": "Nothing was moved. The new amounts are shown above with the changes marked: check them and press Reschedule again."
       },
       "cancel": {
         "title": "Cancel {reference}?",
@@ -2873,7 +2926,8 @@
         "providerNote": "Releases and refunds go through the payment provider; the booking shows their status.",
         "retryPreview": "Try again",
         "reviewTaskTitle": "Review required",
-        "reviewTaskBody": "The refund for this cancellation must be decided by someone who may both cancel bookings and decide refunds (a system admin). Ask them to cancel it with the refund amount; nothing is cancelled or charged until then.",
+        "reviewTaskBody": "The refund for this cancellation is decided by finance: they resolve the review from this booking page with the amount to refund. Nothing is cancelled or charged until then.",
+        "reviewNoRequestBody": "The refund for this cancellation must be decided by someone who may both cancel bookings and decide refunds (a system admin). Ask them to cancel it with the refund amount; nothing is cancelled or charged until then.",
         "startedTitle": "The visit has started",
         "startedNoPermission": "The policy doesn't cover a cancellation now, so the refund must be decided by someone who may both cancel bookings and decide refunds (a system admin).",
         "reason": "Reason",
@@ -2882,11 +2936,13 @@
         "refund": "Refund amount",
         "refundHint": "Up to {amount}.",
         "submit": "Cancel booking",
+        "submitNewTerms": "Cancel at the new amounts",
         "retry": "Try again",
         "unknownTitle": "The bank did not answer",
         "unknownBody": "The cancellation isn't done yet. Try again: it's safe.",
         "done": "{reference} is cancelled.",
-        "doneRefund": "{reference} is cancelled. A refund of {amount} was requested from the payment provider."
+        "doneRefund": "{reference} is cancelled. A refund of {amount} was requested from the payment provider.",
+        "termsChangedBody": "Nothing was cancelled. The policy's new amounts are shown above with the changes marked: check them and confirm again."
       },
       "review": {
         "taskTitle": "Cancellation waiting for review",
@@ -2894,15 +2950,16 @@
         "reason": "Reason: {reason}",
         "cancelWithRefund": "Cancel with a refund decision",
         "keep": "Keep the booking",
+        "resolve": "Resolve with refund",
         "declineTitle": "Keep the booking?",
         "declineBody": "The customer's cancellation request is turned down and the booking stays as it is. No money moves.",
         "declineSubmit": "Keep the booking",
         "note": "Message to the customer",
         "noteHint": "The customer is told why the booking stays.",
         "declined": "The booking is kept and the customer is told.",
-        "needsRefundDecider": "Deciding the refund also needs the refund permission. Ask a system admin (or someone with both permissions) to cancel it with the refund amount.",
-        "needsCancelPermission": "You can decide the refund, but cancelling also needs the permission to cancel bookings. Ask a system admin to cancel it with the refund amount you decide.",
-        "needsBoth": "Resolving this review needs the permissions to cancel bookings and to decide refunds (a system admin)."
+        "needsRefundDecider": "The refund is for finance to decide: they resolve this review with a refund from this page. You can keep the booking instead.",
+        "resolveHint": "The policy leaves the refund to finance: resolve this cancellation with the amount to refund. Operations can still keep the booking instead.",
+        "needsEither": "Resolving this review needs the permission to cancel bookings or to decide refunds."
       },
       "detail": {
         "back": "All bookings",
@@ -2977,6 +3034,9 @@
         "reference": "Provider reference",
         "attempts": "Attempts",
         "failure": "Failure code",
+        "invoice": "Tax invoice",
+        "invoicePending": "Not issued yet",
+        "invoiceLink": "Open tax invoice {number}",
         "needsReview": "The payment provider's answer needs a person to check it (finance).",
         "verifying": "The bank is still checking this payment.",
         "cancelledBy": "Cancelled by",
@@ -3164,6 +3224,36 @@
           "before_previous": "That time is before the visit's previous step.",
           "other": "That time isn't possible for this visit."
         }
+      },
+      "resolve": {
+        "title": "Resolve the cancellation of {reference}",
+        "body": "The booking is cancelled as the customer asked. The amount you enter is refunded; the rest of what can be refunded is kept as the fee.",
+        "summaryTitle": "The customer's request",
+        "customerReason": "Customer's reason: {reason}",
+        "paid": "Amount taken",
+        "refundable": "Can still be refunded",
+        "amount": "Refund amount",
+        "amountHint": "From 0 to {amount}.",
+        "amountTooHigh": "At most {amount} can still be refunded.",
+        "note": "Note",
+        "noteHint": "3 to 1,000 characters. Saved with the refund and in the audit log.",
+        "submit": "Cancel and refund",
+        "retry": "Try again",
+        "doneRefund": "{reference} is cancelled. A refund of {amount} was requested from the payment provider.",
+        "doneKept": "{reference} is cancelled. Nothing was refunded.",
+        "crewTitle": "The visit is already under way",
+        "crewBody": "The visit is “{status}”: turning the team back is for operations to decide. Ask a coordinator to cancel it.",
+        "unknownTitle": "The payment provider did not answer",
+        "unknownBody": "The cancellation isn't confirmed yet. Try again: it's safe."
+      },
+      "reviewQueue": {
+        "title": "Cancellations waiting for review",
+        "all": "All reviews ({count})",
+        "open": "All reviews",
+        "empty": "No cancellation is waiting for review.",
+        "openBooking": "Open {reference}",
+        "hintFinance": "Open a booking to resolve its cancellation with a refund.",
+        "hintCoordinator": "Open a booking to keep it or cancel it."
       }
     },
     "manual": {
@@ -3179,11 +3269,15 @@
       "source": "Where did the request come from?",
       "phone": "Customer mobile number",
       "phoneHint": "UAE mobile, e.g. 050 123 4567 or +971 50 123 4567.",
-      "find": "Find customer",
       "finding": "Looking for the customer…",
-      "found": "Existing customer: {name} · {count, plural, =0 {no saved address found} one {# saved address} other {# saved addresses}}",
-      "notFound": "No booking with this number yet. A new customer is created with it.",
-      "useName": "Use this name",
+      "found": "Existing customer: {name} · {count, plural, =0 {no saved address} one {# saved address} other {# saved addresses}}",
+      "notFound": "No customer has this number yet. A new customer is created with it.",
+      "blocked": "This customer's account can't make bookings.",
+      "lookupRateLimited": "Too many lookups: trying again in {seconds, plural, one {# second} other {# seconds}}.",
+      "lookupRetry": "Look up again",
+      "lookupRateLimitedRetry": "Too many lookups right now, so we can't tell yet whether this customer exists. Wait {seconds, plural, one {# second} other {# seconds}}, then look the number up again.",
+      "lookupOnLeave": "Numbers from outside the UAE are looked up once you leave this field.",
+      "phoneCountry": "We can't take numbers from this country yet. Numbers we take start with: {codes}.",
       "noName": "no name",
       "name": "Customer name",
       "nameHint": "Optional for an existing customer.",
@@ -3194,10 +3288,11 @@
         "en": "English"
       },
       "addressChoice": "Address",
-      "addressExisting": "A saved address of this customer",
       "addressNew": "A new address",
-      "savedAddress": "Saved address",
-      "chooseAddress": "Choose an address",
+      "addressDefault": "default",
+      "addressZone": "Zone: {zone}",
+      "addressBlocked": "Blocked: can't be booked.",
+      "addressOutOfZone": "Not in a zone we serve now: can't be booked.",
       "separator": ", ",
       "label": "Address label",
       "labelHint": "e.g. Home, Office.",
@@ -3227,12 +3322,12 @@
       "workersHint": "From {min} to {max}.",
       "date": "Date",
       "slot": "Time",
-      "slotFull": "This time is full for this team. Choose another one.",
-      "slotFullOverride": "This time is full for this team. Choose another one, or use the override on the next step.",
-      "priceNote": "The price is worked out by the system when the booking is created, with the same rules as the app.",
+      "priceNote": "The price and whether the time can take the booking are checked on the summary step, with the same rules as the app.",
       "addons": "Add-ons",
-      "addonCodes": "Add-on codes",
-      "addonCodesHint": "Optional, separated by commas (e.g. MATERIALS).",
+      "addonsNone": "No add-ons for this service.",
+      "addonsLoading": "Loading the add-ons…",
+      "addonsLoadError": "We couldn't load the add-ons, so none can be added to this booking yet.",
+      "addonsRetry": "Load the add-ons again",
       "materials": "Cleaning materials",
       "materialsDefault": "As the service sets it",
       "priorities": "Priorities",
@@ -3273,6 +3368,8 @@
         "required": "Fill in this field.",
         "sourceRequired": "Choose where the request came from.",
         "phoneInvalid": "Enter a UAE mobile number, e.g. 050 123 4567.",
+        "accountBlocked": "This customer's account can't make bookings.",
+        "lookupRateLimited": "We couldn't check yet whether this customer exists (too many lookups). Look the number up again before going on.",
         "tooLong": "This text is too long.",
         "addressRequired": "Choose an address.",
         "propertyTypeRequired": "Choose the property type.",
@@ -3295,11 +3392,35 @@
       "earlierTitle": "A booking may already exist from the first try",
       "earlierBody": "The first try reached us before the details changed. Show that booking, or check this phone's bookings before making another.",
       "showEarlier": "Show the booking from the first try",
-      "checkList": "Bookings for this phone"
+      "checkList": "Bookings for this phone",
+      "addonPer": {
+        "visit": "{amount} per visit",
+        "worker": "{amount} per cleaner per visit",
+        "month": "{amount} per month"
+      },
+      "summary": {
+        "title": "Price and availability",
+        "checking": "Working out the price…",
+        "updating": "Updating the figures after your change…",
+        "rateLimited": "Too many price checks: trying again in {seconds, plural, one {# second} other {# seconds}}. The figures shown are from before your last change.",
+        "retry": "Check again",
+        "available": "This time can take the booking.",
+        "limited": "This time can take the booking (room for {count, plural, one {# more cleaner} other {# more cleaners}}).",
+        "fullTitle": "This time is full for this team",
+        "closedTitle": "This time is closed",
+        "needsOverride": "Creating the booking needs an override: tick it above and give a reason, or choose another time.",
+        "needsOverrideNoPermission": "Creating the booking needs an override, which your role can't give. Choose another time.",
+        "overrideOn": "The override is ticked: the booking is created past the soft limits.",
+        "hold": "The payment link holds this time for {minutes, plural, one {# minute} other {# minutes}}.",
+        "newCustomer": "A new customer is created with this number.",
+        "newAddress": "The new address is saved to the customer.",
+        "policy": "Cancellation terms",
+        "announce": "Total {total} · {availability}"
+      }
     },
     "globalSearch": {
       "label": "Search bookings",
-      "placeholder": "Booking reference or phone"
+      "placeholder": "Reference, phone, name or address"
     },
     "schedule": {
       "title": "Operations schedule",
@@ -3441,6 +3562,8 @@
       "slot": "Slot",
       "allSlots": "All slots",
       "slotOption": "{name} · {start}–{end}",
+      "slotsFailed": "We couldn't load the slots, so none can be chosen.",
+      "slotsRetry": "Load the slots again",
       "zone": "Zone",
       "allZones": "All zones",
       "today": "Today",
@@ -3453,8 +3576,7 @@
       "plan": {
         "submit": "Draft rounds",
         "chooseSlot": "Choose a slot to draft its rounds.",
-        "needsScheduleTitle": "Drafting needs the schedule view permission too",
-        "needsSchedule": "The slots, the visits you can add and the vans come from the schedule. Without the schedule view permission, rounds can't be drafted, stops can't be added and the van can't be changed. Ask an administrator to add it to your role.",
+        "slotsLoading": "Loading the slots…",
         "done": "{count, plural, =0 {No round was drafted.} one {# round drafted or extended.} other {# rounds drafted or extended.}}",
         "resultTitleFor": "Draft result · {date} · {slot}",
         "resultTitleOn": "Draft result · {date}",
@@ -3463,7 +3585,13 @@
         "summary": "New rounds: {created} · rounds extended: {extended} · visits already planned: {already}.",
         "allPlaced": "Every visit of this slot has its rides.",
         "unplannedTitle": "{count, plural, one {# visit not planned} other {# visits not planned}}",
-        "bothRides": "Both rides"
+        "bothRides": "Both rides",
+        "followsTitle": "{count, plural, one {# extra round after a round that had already left} other {# extra rounds after a round that had already left}}",
+        "follows": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: added because round <ltr>#{follows}</ltr> had already left.",
+        "followsKnown": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: added because round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) had already left.",
+        "followsExtended": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: extended; it runs after round <ltr>#{follows}</ltr>, which had already left.",
+        "followsExtendedKnown": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: extended; it runs after round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>), which had already left.",
+        "followsNote": "Each is a draft on the same van or on another free van: check its warnings and publish it like any other round."
       },
       "unplanned": {
         "booking_not_confirmed": "The booking isn't confirmed yet.",
@@ -3592,7 +3720,11 @@
         "driver": "Driver",
         "noDriver": "No driver yet",
         "driverOff": "{name} (inactive)",
-        "driversNeedFleet": "Choosing a driver needs the fleet permission.",
+        "driverHint": "Only active drivers can take a round.",
+        "driversLoading": "Loading the drivers…",
+        "driversFailed": "We couldn't load the drivers, so only the round's own driver is listed.",
+        "driversRetry": "Load the drivers again",
+        "vehiclesNeedPermission": "Changing the van needs the fleet or schedule view permission.",
         "departure": "Departure time",
         "departureHint": "Dubai time on {date}."
       },
@@ -3710,6 +3842,36 @@
     },
     "finance": {
       "needsReview": "Needs review",
+      "summary": {
+        "title": "Payments & invoices",
+        "subtitle": "{from} – {to} · {days, plural, one {# day} other {# days}} · {zone}",
+        "subtitleLoading": "Collected, VAT, refunds and reconciliation for the period",
+        "allZones": "All zones",
+        "from": "From",
+        "to": "To",
+        "monthToDate": "This month to date",
+        "periodHint": "Dates are in UAE time, both days included. A period can cover up to 366 days.",
+        "generated": "Updated {time}",
+        "refresh": "Refresh",
+        "refreshFailed": "These figures couldn't be refreshed. What you see may be out of date.",
+        "refreshRetry": "Try again",
+        "refusedTitle": "These figures can't be shown",
+        "refusedPeriod": "Change the dates above.",
+        "errors": {
+          "period": "Choose a valid period of at most 366 days.",
+          "zone": "Choose another zone in the top bar."
+        },
+        "cards": {
+          "collectedDetail": "{count, plural, one {# payment taken} other {# payments taken}}",
+          "vatNet": "Net of credit notes: {amount}",
+          "vatCredited": "Credited: {amount} ({count, plural, one {# credit note} other {# credit notes}})",
+          "vatInvoices": "Invoiced: {amount} ({count, plural, one {# invoice} other {# invoices}})",
+          "refundsDetail": "{count, plural, one {# refund completed by the provider} other {# refunds completed by the provider}}",
+          "reconciliationUnavailable": "Shown once reconciliation with the provider's settlement reports is set up.",
+          "reconciliationDetail": "Settlement items that don't match and aren't resolved yet.",
+          "basisNote": "Collected counts payments by when they were taken, and refunds by when the provider completed them; VAT counts the tax invoices and credit notes by issue date. The payments list filters by the date a payment was created, so near the ends of the period the two can differ."
+        }
+      },
       "enums": {
         "payment": {
           "unpaid": "Unpaid",
@@ -3771,30 +3933,6 @@
           "staff": "Staff",
           "customer": "Customer",
           "system": "System"
-        },
-        "reviewReason": {
-          "verifying_timeout": "The provider's result didn't arrive in time.",
-          "success_reported_for_status": "The provider reported a success after this payment had become “{status}”.",
-          "success_reported_for_another_charge": "The provider reported a second successful charge for this payment. The customer may have paid twice.",
-          "success_on_earlier_checkout_attempt": "An earlier attempt on the payment page was paid too. The customer may have paid twice.",
-          "unknown_result_on_earlier_checkout_attempt": "An earlier attempt on the payment page has no clear result yet.",
-          "amount_mismatch": "The provider reported an amount that differs from the payment.",
-          "currency_mismatch": "The provider reported a currency that differs from the payment.",
-          "booking_listener_failed": "The booking couldn't be updated after this payment.",
-          "booking_void_failed": "Releasing the held amount failed when the booking was closed.",
-          "booking_closed_void_failed": "Releasing the held amount of a closed booking failed.",
-          "invoice_amounts_mismatch": "The tax invoice wasn't issued because the amounts don't match the booking.",
-          "credit_note_not_issued": "A credit note wasn't issued for a refund of this payment.",
-          "other": "Check the event log below for what happened."
-        },
-        "voidReason": {
-          "booking_rejected": "The booking request was rejected.",
-          "booking_cancelled": "The booking was cancelled.",
-          "booking_expired": "The booking expired before it was paid.",
-          "booking_sla_expired": "The booking wasn't confirmed in time.",
-          "booking_late_payment": "The payment arrived after the booking had ended.",
-          "booking_stray_payment": "An extra payment for a booking that was already paid.",
-          "other": "Released automatically."
         }
       },
       "filters": {
@@ -3823,6 +3961,7 @@
         "creditNoteSearchPlaceholder": "Credit note or invoice number",
         "showAllInvoices": "Show all invoices",
         "oneInvoice": "Showing the credit notes of invoice #{id} only.",
+        "onePaymentInvoices": "Showing the invoices of payment #{id} only.",
         "document": "Document",
         "allDocuments": "All documents"
       },
@@ -3853,11 +3992,11 @@
           "discount": "Discount",
           "net": "Net of VAT",
           "capturedRefunded": "Taken",
+          "invoice": "Tax invoice",
           "open": "Open"
         },
         "noReference": "No reference yet",
         "noName": "No name",
-        "bookingLink": "Booking #{id}",
         "refundedShort": "Refunded",
         "open": "Open",
         "openLabel": "Open payment {reference}",
@@ -3884,7 +4023,6 @@
         "customer": "Customer",
         "noName": "No name",
         "payable": "Paid for",
-        "openBooking": "Booking #{id}",
         "amounts": {
           "title": "Amounts",
           "net": "Net of VAT",
@@ -3931,9 +4069,12 @@
         "invoices": {
           "title": "Tax invoice",
           "notCaptured": "An invoice is issued once the payment is taken.",
-          "none": "No invoice found for this payment yet.",
-          "notLocated": "This customer has too many invoices to find this payment's invoice here.",
-          "openList": "Search the tax invoices"
+          "none": "No tax invoice has been issued for this payment yet.",
+          "refusals": "See whether it was refused",
+          "issueDate": "Issue date",
+          "total": "Total (VAT included)",
+          "credited": "Credited by credit notes",
+          "inList": "Show in the tax invoices list"
         },
         "events": {
           "title": "Event log",
@@ -3973,7 +4114,7 @@
         },
         "noName": "No name",
         "estimate": "Expected {text}",
-        "creditNote": "View credit note",
+        "creditNoteLabel": "Credit note",
         "empty": "No refunds yet.",
         "emptyFiltered": "No refunds match these filters.",
         "providerStatus": "Provider status:",
@@ -3989,6 +4130,9 @@
         "amountHint": "Up to {max}. Amounts include VAT.",
         "reason": "Reason",
         "chooseReason": "Choose a reason",
+        "reasonsLoading": "Loading the reasons…",
+        "reasonsFailed": "The refund reasons couldn't be loaded",
+        "reasonsRetry": "Try again",
         "noteOptional": "Note (optional)",
         "noteRequired": "Note",
         "noteHint": "Staff only. Recorded in the audit log.",

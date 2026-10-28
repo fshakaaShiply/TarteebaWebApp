@@ -2,7 +2,7 @@ import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 import { PAYMENT_STATUSES } from "@/lib/admin/bookings/filters";
 import { BILLING_DOCUMENTS, INVOICE_STATUSES, PAYABLE_TYPES } from "@/lib/admin/finance/filters";
-import { REFUND_FORM_ERRORS, REFUND_REASONS, REFUND_STATUSES, STAFF_REFUND_REASONS } from "@/lib/admin/finance/refund";
+import { REFUND_FORM_ERRORS, REFUND_STATUSES } from "@/lib/admin/finance/refund";
 import { AUDIENCES, CHANNELS, LOCALES, TEMPLATE_FORM_ERRORS, TEMPLATE_GROUPS } from "@/lib/admin/notifications/templates";
 import ar from "./ar.json";
 import en from "./en.json";
@@ -22,7 +22,19 @@ const FINANCE_ENUMS: Record<string, readonly string[]> = {
   refund: REFUND_STATUSES,
   invoice: INVOICE_STATUSES,
   payable: PAYABLE_TYPES,
-  reason: REFUND_REASONS,
+  // Refund rows and GET /admin/refund-reasons carry the API's labels; credit notes carry only the refund's reason code
+  // (AdminCreditNoteResource), so the web still names these for the credit note pages.
+  reason: [
+    "customer_cancellation",
+    "company_cancellation",
+    "booking_rejected",
+    "complaint_compensation",
+    "duplicate_payment",
+    "service_not_delivered",
+    "goodwill",
+    "other",
+    "price_difference",
+  ],
   document: BILLING_DOCUMENTS,
   // Billing InvoiceDraft problems and IssueCreditNoteForRefund refusals.
   problem: [
@@ -37,24 +49,6 @@ const FINANCE_ENUMS: Record<string, readonly string[]> = {
   ],
   eventSource: ["call", "webhook"],
   requester: ["staff", "customer", "system"],
-  // Payment review_reason codes (FlagPaymentForReview callers; success_reported_for_<status>_payment is one pattern).
-  reviewReason: [
-    "verifying_timeout",
-    "success_reported_for_status",
-    "success_reported_for_another_charge",
-    "success_on_earlier_checkout_attempt",
-    "unknown_result_on_earlier_checkout_attempt",
-    "amount_mismatch",
-    "currency_mismatch",
-    "booking_listener_failed",
-    "booking_void_failed",
-    "booking_closed_void_failed",
-    "invoice_amounts_mismatch",
-    "credit_note_not_issued",
-    "other",
-  ],
-  // VoidPayment reasons from the booking flows.
-  voidReason: ["booking_rejected", "booking_cancelled", "booking_expired", "booking_sla_expired", "booking_late_payment", "booking_stray_payment", "other"],
 };
 
 // Payment PaymentEvent outcomes.
@@ -102,10 +96,9 @@ describe.each([
     }
   });
 
-  it("name every staff refund reason the API accepts", () => {
-    expect([...STAFF_REFUND_REASONS].sort()).toEqual(
-      ["booking_rejected", "company_cancellation", "complaint_compensation", "customer_cancellation", "duplicate_payment", "goodwill", "other", "service_not_delivered"],
-    );
+  it("leave the payment review and release reasons to the API's labels", () => {
+    expect(get(messages, "admin.finance.enums.reviewReason")).toBeUndefined();
+    expect(get(messages, "admin.finance.enums.voidReason")).toBeUndefined();
   });
 });
 
@@ -131,9 +124,17 @@ describe("finance copy formats", () => {
   it("explains a refund the provider declined, with its status", () => {
     expect(finance("en")("refund.declinedTitle", { amount: "AED 180.00" })).toBe("The provider declined the refund of AED 180.00");
     expect(finance("ar")("refund.declinedBody", { status: "تعذر الاسترداد" })).toBe("لم يُسترد أي مبلغ. حالة المزود: تعذر الاسترداد.");
-    expect(finance("en")("enums.reviewReason.success_reported_for_status", { status: "Payment cancelled" })).toBe(
-      "The provider reported a success after this payment had become “Payment cancelled”.",
-    );
+  });
+
+  it("states the summary's period with plural days and its counts", () => {
+    const values = { from: "1 Oct", to: "19 Oct", zone: "Z" };
+    expect(finance("en")("summary.subtitle", { ...values, days: 1 })).toBe("1 Oct – 19 Oct · 1 day · Z");
+    expect(finance("en")("summary.subtitle", { ...values, days: 19 })).toBe("1 Oct – 19 Oct · 19 days · Z");
+    expect(finance("ar")("summary.subtitle", { ...values, days: 2 })).toBe("1 Oct – 19 Oct · يومان · Z");
+    expect(finance("ar")("summary.subtitle", { ...values, days: 19 })).toBe("1 Oct – 19 Oct · 19 يومًا · Z");
+    expect(finance("en")("summary.cards.collectedDetail", { count: 201 })).toBe("201 payments taken");
+    expect(finance("en")("summary.cards.vatCredited", { amount: "AED 62.86", count: 1 })).toBe("Credited: AED 62.86 (1 credit note)");
+    expect(finance("ar")("summary.cards.refundsDetail", { count: 6 })).toBe("عدد الاستردادات التي أتمها المزود: 6");
   });
 
   it("states the refund amount and the provider's own status", () => {

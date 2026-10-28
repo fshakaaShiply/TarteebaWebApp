@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { businessToday, dayOfMonth } from "@/lib/admin/format";
 import { calendarWeeks } from "@/lib/admin/schedule/board";
 import type { ScheduleMonth, ScheduleMonthCapacity } from "@/lib/admin/types";
-import { useDaySlots } from "../_ops/daySlots";
+import { useSlotPickList } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 
 /** Monday first, as the API's weeks (ScheduleBoard::range). */
@@ -18,7 +18,8 @@ const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
 export function MonthView({ board, onOpenDay }: { board: ScheduleMonth; onOpenDay: (date: string) => void }) {
   const t = useTranslations("admin.schedule.month");
   const text = useOpsText();
-  const slots = useDaySlots(board.date, board.filters.zone_id);
+  // Slot names from the slot pick-list (the month answer names a slot by its code only).
+  const slots = useSlotPickList();
   const today = businessToday();
   const slotName = (c: ScheduleMonthCapacity) => {
     const slot = slots.data?.find((s) => s.id === c.slot_template_id);

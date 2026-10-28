@@ -11,12 +11,13 @@ import { createRefund } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
 import {
   REFUND_NOTE_MAX,
-  STAFF_REFUND_REASONS,
   checkRefund,
   initialRefundValues,
+  pickableReason,
   refundFormSchema,
   refundableAfter,
   refundableFromError,
+  selectableReasons,
   type RefundFormError,
   type RefundFormValues,
 } from "@/lib/admin/finance/refund";
@@ -25,10 +26,12 @@ import { adminKeys } from "@/lib/admin/keys";
 import type { AdminPaymentDetail, AdminRefund, CreateRefundPayload } from "@/lib/admin/types";
 import { Code, Money } from "../../_components/FinanceParts";
 import { useFinanceText } from "../../_components/financeText";
+import { useRefundReasons } from "../../_components/useRefundReasons";
 
 /**
  * Refund (spec §10.4; refunds.create): the amount in AED (sent as fils), never more than what is left to refund, a
- * reason from the API's list (a note for "other"), then an explicit confirmation of the exact amount. The request
+ * reason from the API's list (GET /admin/refund-reasons: the selectable ones, a note when the reason requires text),
+ * then an explicit confirmation of the exact amount. The request
  * carries an Idempotency-Key: one per refund intent, kept for a retry after a lost answer or a server error. After an
  * unknown outcome the key stays with that first request even if the form changes (the API then answers 422
  * IDEMPOTENCY_KEY_REUSED instead of refunding twice), and "Try again" resends exactly that request. The result shows
@@ -56,12 +59,18 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   // A refund the provider refused on the spot: nothing was refunded, the form stays open to correct or try later.
   const [declined, setDeclined] = useState<AdminRefund | null>(null);
   const summary = useRef<HTMLDivElement>(null);
+  const reasons = useRefundReasons();
+  const reasonList = reasons.data ?? [];
 
   const form = useForm<RefundFormValues>({
-    resolver: zodResolver(refundFormSchema(refundable)) as Resolver<RefundFormValues>,
+    resolver: zodResolver(refundFormSchema(refundable, reasonList)) as Resolver<RefundFormValues>,
     defaultValues: initialRefundValues(payment.refundable_fils),
   });
-  const reason = useWatch({ control: form.control, name: "reason_code" });
+  const reasonCode = useWatch({ control: form.control, name: "reason_code" });
+  // The chosen reason as the API describes it (whether it needs a note).
+  const reason = pickableReason(reasonList, reasonCode);
+  /** A reason's label as the API names it (the confirm step reads it from the same list). */
+  const reasonLabel = (code: string) => text.reason(code, reasonList.find((r) => r.code === code)?.label);
 
   // Focus follows the step: the summary when the confirmation opens (never its Refund button, so a second Enter on
   // "Continue" does nothing), the amount when the form comes back.
@@ -139,7 +148,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   };
 
   const review = form.handleSubmit((values) => {
-    const check = checkRefund(values, refundable);
+    const check = checkRefund(values, refundable, reasonList);
     if (check.ok) setConfirming(check.payload);
   });
 
@@ -206,7 +215,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
             </div>
             <div className="flex justify-between gap-3">
               <dt>{t("reason")}</dt>
-              <dd className="text-end">{text.reason(confirming.reason_code)}</dd>
+              <dd className="text-end">{reasonLabel(confirming.reason_code)}</dd>
             </div>
             {confirming.reason_text && (
               <div className="flex justify-between gap-3">
@@ -279,14 +288,28 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
           <Select
             label={t("reason")}
             required
-            placeholder={t("chooseReason")}
-            options={STAFF_REFUND_REASONS.map((code) => ({ value: code, label: text.reason(code) }))}
+            placeholder={reasons.isPending ? t("reasonsLoading") : t("chooseReason")}
+            disabled={reasons.isPending}
+            options={selectableReasons(reasons.data).map((r) => ({ value: r.code, label: text.reason(r.code, r.label) }))}
             error={message(errors.reason_code?.message)}
             {...form.register("reason_code")}
           />
+          {reasons.isError && (
+            <Notice
+              tone="danger"
+              title={t("reasonsFailed")}
+              action={
+                <Button variant="secondary" size="sm" className="self-start" onClick={() => void reasons.refetch()} loading={reasons.isFetching}>
+                  {t("reasonsRetry")}
+                </Button>
+              }
+            >
+              {describe(reasons.error)}
+            </Notice>
+          )}
           <TextArea
-            label={reason === "other" ? t("noteRequired") : t("noteOptional")}
-            required={reason === "other"}
+            label={reason?.requires_text ? t("noteRequired") : t("noteOptional")}
+            required={reason?.requires_text ?? false}
             hint={t("noteHint")}
             rows={2}
             maxLength={REFUND_NOTE_MAX}

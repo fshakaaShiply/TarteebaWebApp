@@ -24,19 +24,19 @@ import { fetchPayments } from "@/lib/admin/endpoints";
 import { PAYABLE_TYPES, PAYMENT_FILTERS, dateRangeValid, filterKey, phoneSearchValid } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
-import { useAdminSession } from "@/lib/admin/session";
 import type { AdminPayment, PaymentStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { paymentTone } from "../../bookings/_components/bookingText";
-import { Code, DateRangeFields, Money, ReviewBadge } from "../_components/FinanceParts";
+import { Code, DateRangeFields, Money, PayableRef, ReviewBadge } from "../_components/FinanceParts";
 import { useFinanceText } from "../_components/financeText";
 import { useUrlFilters } from "../_components/useUrlFilters";
 
 const PER_PAGE = 25;
 
 /**
- * A09 transactions (spec §14.3, §17; design AdminFinance.dc.html; payments.view): provider reference, payable, status
- * as the provider reported it, amount, VAT, discount, net of VAT, captured and refunded; filters in the URL.
+ * A09 transactions (spec §14.3, §17; design AdminFinance.dc.html; payments.view): provider reference, what was paid for
+ * (the booking's reference), status as the provider reported it, amount, VAT, discount, net of VAT, captured and
+ * refunded, and the tax invoice; filters in the URL.
  */
 export function PaymentsScreen() {
   const t = useTranslations("admin.finance.payments");
@@ -52,7 +52,6 @@ function PaymentsTable() {
   const t = useTranslations("admin.finance.payments");
   const f = useTranslations("admin.finance.filters");
   const text = useFinanceText();
-  const { can } = useAdminSession();
   const { filters, set, setPage, reset, filtered } = useUrlFilters(PAYMENT_FILTERS);
 
   const phone = useDebouncedValue(filters.phone.trim(), 300);
@@ -111,20 +110,7 @@ function PaymentsTable() {
           "—"
         ),
     },
-    {
-      id: "payable",
-      header: t("columns.payable"),
-      cell: (p) =>
-        p.payable.type === "booking" && can("bookings.view") ? (
-          <Link href={`/admin/bookings/${p.payable.id}`} className="text-sm font-medium">
-            {t("bookingLink", { id: p.payable.id })}
-          </Link>
-        ) : (
-          <span className="text-sm">
-            {text.payable(p.payable.type)} <Code>#{p.payable.id}</Code>
-          </span>
-        ),
-    },
+    { id: "payable", header: t("columns.payable"), cell: (p) => <PayableRef payable={p.payable} className="text-sm whitespace-nowrap" /> },
     {
       id: "status",
       header: t("columns.status"),
@@ -152,6 +138,21 @@ function PaymentsTable() {
           )}
         </span>
       ),
+    },
+    {
+      id: "invoice",
+      header: t("columns.invoice"),
+      cell: (p) =>
+        p.invoice ? (
+          <span className="flex flex-col">
+            <Link href={`/admin/finance/invoices/${p.invoice.id}`} className="font-medium">
+              <Code className="whitespace-nowrap">{p.invoice.number}</Code>
+            </Link>
+            <span className="text-xs text-ink-600">{text.invoice(p.invoice.status, p.invoice.status_label)}</span>
+          </span>
+        ) : (
+          <span className="text-ink-600">—</span>
+        ),
     },
     {
       id: "open",
@@ -226,7 +227,7 @@ function PaymentsTable() {
         onRetry={() => void list.refetch()}
         empty={<EmptyState title={filtered ? t("emptyFiltered") : t("empty")} body={filtered ? f("emptyFilteredBody") : undefined} />}
         pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
-        minWidth={1180}
+        minWidth={1300}
       />
     </Card>
   );

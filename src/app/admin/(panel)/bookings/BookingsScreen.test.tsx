@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bookingRow, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
+import type { Worker } from "@/lib/admin/types";
+import { bookingRow, serviceOptions, slotTemplateOptions, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { BookingsScreen } from "./BookingsScreen";
 
@@ -31,20 +32,29 @@ vi.mock("next/navigation", async () => {
   };
 });
 
-const api = { fetchBookings: vi.fn() };
+const api = { fetchBookings: vi.fn(), fetchAllWorkers: vi.fn() };
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchBookings: (...a: unknown[]) => api.fetchBookings(...a),
+  fetchAllWorkers: (...a: unknown[]) => api.fetchAllWorkers(...a),
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
+  fetchSlotTemplateOptions: async () => slotTemplateOptions,
+  fetchDriverOptions: async () => [
+    { id: 3, name: "Omar Driver", status: "active", is_active: true, vehicle: { id: 2, plate_no: "DXB-A-1234" } },
+    { id: 5, name: "Old Driver", status: "inactive", is_active: false, vehicle: null },
+  ],
 }));
 
 const page = (rows = [bookingRow()]) => ({ data: rows, meta: { current_page: 1, per_page: 25, total: rows.length, last_page: 1 } });
+const worker = (id: number, name: string, status: Worker["employment_status"] = "active") => ({ id, display_name: name, employment_status: status }) as Worker;
 
 describe("A03 bookings list", () => {
   let replaceState: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     api.fetchBookings.mockReset();
     api.fetchBookings.mockResolvedValue(page());
+    api.fetchAllWorkers.mockReset();
+    api.fetchAllWorkers.mockResolvedValue([worker(14, "Maria S."), worker(7, "Joy R.", "terminated")]);
     replaceState = vi.spyOn(window.history, "replaceState").mockImplementation((_data, _unused, next) => url.set(String(next)));
   });
   afterEach(() => {
@@ -68,8 +78,79 @@ describe("A03 bookings list", () => {
       source: "",
       search: undefined,
       cancelReview: undefined,
+      slotTemplateId: null,
+      workerId: null,
+      driverId: null,
     });
     expect(screen.getByRole("combobox", { name: "Status" })).toHaveValue("pending_confirmation");
+  });
+
+  it("filters by slot, worker and driver, kept in the URL with the API's names", async () => {
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view", "workers.view"] });
+    const user = userEvent.setup();
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+
+    const slot = screen.getByRole("combobox", { name: "Time" });
+    // Every slot of the pick-list, inactive ones marked.
+    await waitFor(() => expect(within(slot).getByRole("option", { name: "Evening · 15:00–19:00" })).toBeInTheDocument());
+    expect(within(slot).getByRole("option", { name: "Night · 20:00–23:00 (inactive)" })).toBeInTheDocument();
+    const cleaner = screen.getByRole("combobox", { name: "Cleaner" });
+    await waitFor(() => expect(within(cleaner).getByRole("option", { name: "Maria S." })).toBeInTheDocument());
+    // A cleaner who left is marked as such (feminine in Arabic, like every other cleaner label).
+    expect(within(cleaner).getByRole("option", { name: "Joy R. (left the company)" })).toBeInTheDocument();
+    const driver = screen.getByRole("combobox", { name: "Driver" });
+    await waitFor(() => expect(within(driver).getByRole("option", { name: "Omar Driver" })).toBeInTheDocument());
+
+    await user.selectOptions(slot, "2");
+    await user.selectOptions(cleaner, "14");
+    await user.selectOptions(driver, "3");
+    await waitFor(() => expect(url.get().toString()).toBe("slot_template_id=2&worker_id=14&driver_id=3"));
+    await waitFor(() =>
+      expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ slotTemplateId: 2, workerId: 14, driverId: 3, page: 1 })),
+    );
+  });
+
+  it("hides the worker filter without workers.view and keeps a linked driver it doesn't list", async () => {
+    url.set("/admin/bookings?driver_id=99");
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+    expect(screen.queryByRole("combobox", { name: "Cleaner" })).not.toBeInTheDocument();
+    expect(api.fetchAllWorkers).not.toHaveBeenCalled();
+    expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ driverId: 99 }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Driver" })).toHaveValue("99"));
+    expect(within(screen.getByRole("combobox", { name: "Driver" })).getByRole("option", { name: "#99" })).toBeInTheDocument();
+  });
+
+  it("ignores a linked cleaner filter for users who can't see the Cleaner filter (the list never looks unfiltered)", async () => {
+    url.set("/admin/bookings?worker_id=7");
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+    expect(screen.queryByRole("combobox", { name: "Cleaner" })).not.toBeInTheDocument();
+    expect(api.fetchBookings).toHaveBeenCalledTimes(1);
+    expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ workerId: null }));
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    // The link keeps it for whoever can see it.
+    expect(url.get().get("worker_id")).toBe("7");
+  });
+
+  it("applies and shows a linked cleaner filter to users with workers.view, also one it doesn't list", async () => {
+    url.set("/admin/bookings?worker_id=8");
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view", "workers.view"] });
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+    expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ workerId: 8 }));
+    const cleaner = screen.getByRole("combobox", { name: "Cleaner" });
+    await waitFor(() => expect(cleaner).toHaveValue("8"));
+    expect(within(cleaner).getByRole("option", { name: "#8" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+  });
+
+  it("searches names and addresses too: the box says so", async () => {
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    const user = userEvent.setup();
+    const search = await screen.findByRole("searchbox", { name: "Search" });
+    expect(search).toHaveAttribute("placeholder", "Reference, phone, customer name or address");
+    await user.type(search, "Sara");
+    await waitFor(() => expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ search: "Sara" })));
   });
 
   it("writes each filter to the URL and sends it to the API", async () => {

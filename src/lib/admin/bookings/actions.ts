@@ -1,5 +1,5 @@
 import { AdminApiError } from "../client";
-import type { BookingDetail, BookingStatus, PaymentStatus, VisitStatus } from "../types";
+import type { AdminRefund, BookingDetail, BookingStatus, CancelPreview, PaymentStatus, ReschedulePreview, VisitStatus } from "../types";
 
 /*
  * A03 booking actions (spec §7.1, §10, §11.4, §14.3; Booking Actions): which ones a booking offers in its status, to a
@@ -14,6 +14,7 @@ export type BookingAction =
   | "reschedule"
   | "cancel"
   | "declineReview"
+  | "resolveReview"
   | "paymentLink"
   | "addNote";
 
@@ -76,6 +77,9 @@ export function availableActions(
   if (status === "confirmed" && can("bookings.reschedule") && (!visit || MOVABLE_VISIT.includes(visit.status))) out.add("reschedule");
   if (CANCELLABLE.includes(status) && can("bookings.cancel")) out.add("cancel");
   if (booking.cancellation.review_requested_at && can("bookings.cancel")) out.add("declineReview");
+  // Finance (refunds.create without bookings.cancel) finishes a waiting review with a refund (POST …/cancel-review/
+  // resolve); coordinators keep "keep the booking" and "cancel" (P3-38: finance stays read-only on operations).
+  if (booking.cancellation.review_requested_at && can("refunds.create") && !can("bookings.cancel")) out.add("resolveReview");
   if (status === "held" && booking.created_by_staff_id !== null && can("bookings.create_manual")) out.add("paymentLink");
   if (NOTE_PERMISSIONS.some((p) => can(p))) out.add("addNote");
   return out;
@@ -100,6 +104,19 @@ export function optionIndexOf(error: unknown): number | null {
   return typeof index === "number" && Number.isInteger(index) && index >= 0 ? index : null;
 }
 
+/**
+ * The VALIDATION_FAILED messages of one alternative (`options.N.service_date` on its date; `options.N.slot_template_id`
+ * or the whole option, `options.N`, on its time), e.g. the alternatives preview refusing the same time twice.
+ */
+export function optionFieldErrors(error: unknown, index: number): { date: string | null; slot: string | null } {
+  if (!(error instanceof AdminApiError) || error.code !== "VALIDATION_FAILED") return { date: null, slot: null };
+  const first = (field: string) => error.fieldErrors[field]?.[0] ?? null;
+  return {
+    date: first(`options.${index}.service_date`),
+    slot: first(`options.${index}.slot_template_id`) ?? first(`options.${index}`),
+  };
+}
+
 /** 422 OPTION_PRICE_HIGHER: how much more the option costs than the customer authorized. */
 export function priceHigherDetails(error: unknown): { priceDiffFils: number; authorizedFils: number } | null {
   if (!(error instanceof AdminApiError) || error.code !== "OPTION_PRICE_HIGHER") return null;
@@ -114,6 +131,108 @@ export function refundableOf(error: unknown): number | null {
   if (!(error instanceof AdminApiError)) return null;
   const value = error.details.refundable_fils;
   return typeof value === "number" && value >= 0 ? value : null;
+}
+
+/**
+ * What may still be refunded on the booking's payment as far as the page knows: taken, minus refunded (refunds the
+ * provider confirmed), minus `openRefundsFils` (refunds still requested or processing, which the API's cap
+ * Payment::refundableFils also holds back). The API decides (422 REFUND_AMOUNT_INVALID with details.refundable_fils, see
+ * refundableOf).
+ */
+export function refundableOfBooking(booking: Pick<BookingDetail, "payment">, openRefundsFils = 0): number {
+  const p = booking.payment;
+  return p ? Math.max(0, p.captured_fils - p.refunded_fils - openRefundsFils) : 0;
+}
+
+type RefundRow = Pick<AdminRefund, "status" | "amount_fils"> & {
+  payment?: { ulid?: string | null; payable_id?: number | null; payable_type?: string | null } | null;
+};
+
+/**
+ * The refunds of this booking's payment among a customer's refunds (GET /admin/refunds?phone= lists every booking of
+ * that phone): by the payment's ULID, or a payment whose payable is this booking.
+ */
+export function refundsOfBooking<T extends RefundRow>(rows: readonly T[], booking: Pick<BookingDetail, "id" | "payment">): T[] {
+  return rows.filter(
+    (r) => r.payment && (r.payment.ulid === booking.payment?.id || (r.payment.payable_id === booking.id && (r.payment.payable_type ?? "").includes("booking"))),
+  );
+}
+
+/** Refunds the provider has not finished (requested or processing): not in refunded_fils yet, but no longer refundable. */
+export function openRefundsFils(rows: readonly RefundRow[]): number {
+  return rows.filter((r) => r.status === "requested" || r.status === "processing").reduce((sum, r) => sum + r.amount_fils, 0);
+}
+
+const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const isNumberOrNull = (v: unknown): v is number | null => v === null || isNumber(v);
+const changedList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((c): c is string => typeof c === "string") : []);
+
+/** The amounts a 409 TERMS_CHANGED says changed (details.changed), e.g. ["fee_fils", "refund_fils"]. */
+export type TermsChanged<T> = T & { changed: string[] };
+
+/**
+ * 409 TERMS_CHANGED of a staff cancellation: the new cancel preview (nothing was cancelled) and which amounts moved.
+ * Null for any other error or a details shape the dialog cannot show.
+ */
+export function cancelTermsOf(error: unknown): TermsChanged<CancelPreview> | null {
+  if (!(error instanceof AdminApiError) || error.code !== "TERMS_CHANGED") return null;
+  const d = error.details;
+  if (typeof d.mode !== "string" || !isNumberOrNull(d.fee_fils) || !isNumberOrNull(d.refund_fils) || !isNumber(d.paid_fils)) return null;
+  const explanation = d.explanation && typeof d.explanation === "object" ? (d.explanation as { ar?: unknown; en?: unknown }) : null;
+  return {
+    allowed: d.allowed !== false,
+    mode: d.mode,
+    fee_fils: d.fee_fils,
+    kept_fees_fils: isNumber(d.kept_fees_fils) ? d.kept_fees_fils : 0,
+    refund_fils: d.refund_fils,
+    paid_fils: d.paid_fils,
+    held_fils: isNumber(d.held_fils) ? d.held_fils : 0,
+    requires_review: d.requires_review === true,
+    rule_applied: typeof d.rule_applied === "string" ? d.rule_applied : "",
+    explanation: {
+      ar: typeof explanation?.ar === "string" ? explanation.ar : "",
+      en: typeof explanation?.en === "string" ? explanation.en : "",
+    },
+    changed: changedList(d.changed),
+  };
+}
+
+/** 409 TERMS_CHANGED of a staff reschedule: the new reschedule preview (nothing was moved) and which amounts moved. */
+export function rescheduleTermsOf(error: unknown): TermsChanged<ReschedulePreview> | null {
+  if (!(error instanceof AdminApiError) || error.code !== "TERMS_CHANGED") return null;
+  const d = error.details;
+  if (!isNumber(d.new_total_fils) || !isNumber(d.fee_fils)) return null;
+  const availability = d.availability && typeof d.availability === "object" ? (d.availability as { status?: unknown; reason?: unknown }) : null;
+  return {
+    allowed: d.allowed !== false,
+    blockers: changedList(d.blockers),
+    requires_approval: d.requires_approval === true,
+    fee_fils: d.fee_fils,
+    price_diff_fils: isNumber(d.price_diff_fils) ? d.price_diff_fils : 0,
+    new_total_fils: d.new_total_fils,
+    refund_fils: isNumber(d.refund_fils) ? d.refund_fils : 0,
+    paid_fils: isNumber(d.paid_fils) ? d.paid_fils : 0,
+    kept_fees_fils: isNumber(d.kept_fees_fils) ? d.kept_fees_fils : 0,
+    currency: typeof d.currency === "string" ? d.currency : "AED",
+    availability: {
+      status: typeof availability?.status === "string" ? availability.status : "available",
+      reason: typeof availability?.reason === "string" ? availability.reason : null,
+    },
+    rule_applied: typeof d.rule_applied === "string" ? d.rule_applied : "staff",
+    explanation: typeof d.explanation === "string" ? d.explanation : "",
+    changed: changedList(d.changed),
+  };
+}
+
+/** A slot the previews report as unable to take the booking now (staff with capacity.override may still book it). */
+export function slotUnavailable(availability: { status: string } | null | undefined): boolean {
+  return availability?.status === "full" || availability?.status === "closed";
+}
+
+/** 409 INVALID_STATE with details.visit_status (e.g. the crew is already en route), else null. */
+export function visitStatusOf(error: unknown): string | null {
+  if (!(error instanceof AdminApiError) || error.code !== "INVALID_STATE") return null;
+  return typeof error.details.visit_status === "string" ? error.details.visit_status : null;
 }
 
 /** 409 OVERRIDE_REQUIRED (assignment): the soft rules each worker breaks, and whether this user may override. */

@@ -1,4 +1,4 @@
-import type { BookingDetail, BookingRow, DashboardSummary, VisitCandidates } from "@/lib/admin/types";
+import type { BookingDetail, BookingRow, DashboardSummary, SlotTemplateOption, VisitCandidates } from "@/lib/admin/types";
 
 // Shapes as the local API answers them (Phase 3 resources, seeded demo data: zone DEMO_BB, service STANDARD_VISIT).
 
@@ -9,6 +9,14 @@ export const zoneOptions = [
 
 export const serviceOptions = [
   { id: 1, code: "STANDARD_VISIT", name: { ar: "زيارة تنظيف", en: "Cleaning visit" }, kind: "standard_visit" as const, is_active: true },
+];
+
+/** GET /admin/slot-templates/options: the seeded slots (a live-out one and an inactive one are never offered for visits). */
+export const slotTemplateOptions: SlotTemplateOption[] = [
+  { id: 1, code: "MORNING", name: { ar: "الفترة الصباحية", en: "Morning" }, start_time: "10:00", end_time: "14:00", service_kind: "standard_visit", is_active: true },
+  { id: 2, code: "EVENING", name: { ar: "المسائية", en: "Evening" }, start_time: "15:00", end_time: "19:00", service_kind: "standard_visit", is_active: true },
+  { id: 3, code: "LIVE_OUT_DAY", name: { ar: "دوام كامل", en: "Live-out day" }, start_time: "08:00", end_time: "18:00", service_kind: "live_out", is_active: true },
+  { id: 4, code: "NIGHT", name: { ar: "ليلية", en: "Night" }, start_time: "20:00", end_time: "23:00", service_kind: "standard_visit", is_active: false },
 ];
 
 export const bookingRow = (over: Partial<BookingRow> = {}): BookingRow => ({
@@ -122,6 +130,7 @@ export const bookingDetail = (over: Partial<BookingDetail> = {}): BookingDetail 
     void_reason: null,
     created_at: "2026-10-22T22:57:18+00:00",
   },
+  invoice: null,
   history: [],
   timeline: [],
   photos: [],
@@ -194,7 +203,7 @@ export const visitCandidates = (missing = 2): VisitCandidates => ({
   ],
 });
 
-const link = (list: string, path: string, params: Record<string, string | number> | unknown[] = []) => ({ list, path, params });
+const link = (list: string, path: string, params: Record<string, string | number> = {}) => ({ list, path, params });
 
 export const dashboardSummary = (over: Partial<DashboardSummary["cards"]> = {}): DashboardSummary => ({
   date: "2026-10-23",

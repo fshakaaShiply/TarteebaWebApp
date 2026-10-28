@@ -9,17 +9,20 @@ describe("A02 links to admin pages", () => {
   it("opens the bookings list with the card's filters (the API's own names)", () => {
     expect(dashboardHref(bookings({ from: "2026-10-23", to: "2026-10-23", zone_id: 1 }))).toBe("/admin/bookings?from=2026-10-23&to=2026-10-23&zone_id=1");
     expect(dashboardHref(bookings({ status: "pending_confirmation" }))).toBe("/admin/bookings?status=pending_confirmation");
-    // PHP sends an empty filter object as [].
-    expect(dashboardHref(bookings([]))).toBe("/admin/bookings");
+    // No filters: an empty object (the API casts it, never []).
+    expect(dashboardHref(bookings({}))).toBe("/admin/bookings");
   });
 
-  it("drops filters the list does not know", () => {
-    expect(dashboardHref(bookings({ status: "held", view: "day", slot_template_id: 2 }))).toBe("/admin/bookings?status=held");
+  it("drops filters the list does not know, and keeps its slot, worker and driver filters", () => {
+    expect(dashboardHref(bookings({ status: "held", view: "day" }))).toBe("/admin/bookings?status=held");
+    expect(dashboardHref(bookings({ status: "held", view: "day", slot_template_id: 2, worker_id: 14, driver_id: 3 }))).toBe(
+      "/admin/bookings?driver_id=3&slot_template_id=2&status=held&worker_id=14",
+    );
   });
 
   it("opens one booking from its API path", () => {
-    expect(dashboardHref({ list: "booking", path: "/api/v1/admin/bookings/12", params: [] })).toBe("/admin/bookings/12");
-    expect(dashboardHref({ list: "booking", path: "/api/v1/admin/bookings/x", params: [] })).toBeNull();
+    expect(dashboardHref({ list: "booking", path: "/api/v1/admin/bookings/12", params: {} })).toBe("/admin/bookings/12");
+    expect(dashboardHref({ list: "booking", path: "/api/v1/admin/bookings/x", params: {} })).toBeNull();
   });
 
   it("opens the capacity view of a date and zone", () => {
@@ -36,7 +39,7 @@ describe("A02 links to admin pages", () => {
   });
 
   it("links an alert to its booking, also when its own target has no page yet", () => {
-    expect(dashboardAlertHref({ link: { list: "booking", path: "/api/v1/admin/bookings/4", params: [] }, entity: { type: "booking", id: 4 } })).toBe(
+    expect(dashboardAlertHref({ link: { list: "booking", path: "/api/v1/admin/bookings/4", params: {} }, entity: { type: "booking", id: 4 } })).toBe(
       "/admin/bookings/4",
     );
     // An uncovered visit links to the A04 board (later phase): its booking instead.

@@ -1,4 +1,4 @@
-import { adminApi, unwrap } from "./client";
+import { adminApi, backgroundPoll, unwrap, type ReadOptions } from "./client";
 import { withForce, type ForceInput, type OverridePayload } from "./ops/capacity";
 import type { DriverPayload, VehiclePayload } from "./ops/fleet";
 import type { BlackoutPayload, SlotRulePayload, SlotTemplatePayload } from "./ops/scheduling";
@@ -20,10 +20,12 @@ import type {
   BillingRetryResult,
   CreateRefundPayload,
   DocumentUrl,
+  FinanceSummary,
   InvoiceStatus,
   NotificationAudience,
   NotificationChannel,
   NotificationTemplate,
+  RefundReason,
   RefundStatus,
   TemplatePreview,
   AlternativeProposal,
@@ -35,6 +37,13 @@ import type {
   BookingStatus,
   CancelPreview,
   CancelResult,
+  AddonOption,
+  AlternativesPreview,
+  CustomerLookup,
+  DriverOption,
+  ManualBookingPreview,
+  ReschedulePreview,
+  SlotTemplateOption,
   CleaningArea,
   DashboardAlerts,
   DashboardSummary,
@@ -1131,16 +1140,23 @@ const optionalIfMatch = (version: number | null | undefined) => (version === nul
 
 export type DashboardQuery = { date?: string; zoneId?: number | null };
 
-export async function fetchDashboardSummary(q: DashboardQuery): Promise<DashboardSummary> {
+/** `background`: the overview's timed refresh (X-Background-Poll, not staff activity). */
+export async function fetchDashboardSummary(q: DashboardQuery, opts: ReadOptions = {}): Promise<DashboardSummary> {
   const body = await unwrap<DataEnvelope<DashboardSummary>>(
-    adminApi.GET("/v1/admin/dashboard/summary", { params: { query: compact({ date: q.date, zone_id: q.zoneId ?? undefined }) as never } }),
+    adminApi.GET("/v1/admin/dashboard/summary", {
+      params: { query: compact({ date: q.date, zone_id: q.zoneId ?? undefined }) as never },
+      headers: backgroundPoll(opts.background),
+    }),
   );
   return body.data;
 }
 
-export async function fetchDashboardAlerts(q: { zoneId?: number | null }): Promise<DashboardAlerts> {
+export async function fetchDashboardAlerts(q: { zoneId?: number | null }, opts: ReadOptions = {}): Promise<DashboardAlerts> {
   return unwrap<DashboardAlerts>(
-    adminApi.GET("/v1/admin/dashboard/alerts", { params: { query: compact({ zone_id: q.zoneId ?? undefined }) as never } }),
+    adminApi.GET("/v1/admin/dashboard/alerts", {
+      params: { query: compact({ zone_id: q.zoneId ?? undefined }) as never },
+      headers: backgroundPoll(opts.background),
+    }),
   );
 }
 
@@ -1148,13 +1164,17 @@ export async function fetchDashboardAlerts(q: { zoneId?: number | null }): Promi
 
 export type AlertsQuery = { since?: string; page?: number; perPage?: number; unread?: boolean };
 
-/** With `since` (the previous answer's meta.server_time) only alerts created at or after it; otherwise a page. */
-export async function fetchAlerts(q: AlertsQuery): Promise<AlertsPage> {
+/**
+ * With `since` (the previous answer's meta.server_time) only alerts created at or after it; otherwise a page. The bell
+ * passes `background` (the API treats GET /admin/alerts as a background poll anyway).
+ */
+export async function fetchAlerts(q: AlertsQuery, opts: ReadOptions = {}): Promise<AlertsPage> {
   return unwrap<AlertsPage>(
     adminApi.GET("/v1/admin/alerts", {
       params: {
         query: compact({ since: q.since, page: q.page, per_page: q.perPage, unread: q.unread === undefined ? undefined : q.unread ? 1 : 0 }) as never,
       },
+      headers: backgroundPoll(opts.background),
     }),
   );
 }
@@ -1171,6 +1191,26 @@ export async function markAllAlertsRead(): Promise<{ updated: number; unreadCoun
   return { updated: body.data.updated, unreadCount: body.meta.unread_count };
 }
 
+// Pick-lists (Phase 3 polish): light fields, readable without the permission that manages the records, no paging.
+
+/** GET /admin/slot-templates/options: every slot template (inactive ones marked) with its service kind. */
+export async function fetchSlotTemplateOptions(): Promise<SlotTemplateOption[]> {
+  const body = await unwrap<DataEnvelope<SlotTemplateOption[]>>(adminApi.GET("/v1/admin/slot-templates/options"));
+  return body.data;
+}
+
+/** GET /admin/drivers/options: every driver by name (never contact data), `is_active` when a round may be given. */
+export async function fetchDriverOptions(): Promise<DriverOption[]> {
+  const body = await unwrap<DataEnvelope<DriverOption[]>>(adminApi.GET("/v1/admin/drivers/options"));
+  return body.data;
+}
+
+/** GET /admin/addons/options: every add-on (inactive ones marked) with the service codes it can be priced with. */
+export async function fetchAddonOptions(): Promise<AddonOption[]> {
+  const body = await unwrap<DataEnvelope<AddonOption[]>>(adminApi.GET("/v1/admin/addons/options"));
+  return body.data;
+}
+
 // A03 bookings (bookings.view to read; each action its own permission)
 
 export type BookingListQuery = {
@@ -1184,9 +1224,15 @@ export type BookingListQuery = {
   /** Service code or numeric id. */
   service?: string;
   source?: BookingSource | "";
+  /** Reference, phone, or (2+ characters) part of the customer's name or the booked address. */
   search?: string;
   /** Cancellations waiting for staff review. */
   cancelReview?: boolean;
+  slotTemplateId?: number | null;
+  /** A worker named on one of the booking's visits now. */
+  workerId?: number | null;
+  /** The driver (drivers.id) of a live drop-off or pickup stop of one of the booking's visits. */
+  driverId?: number | null;
 };
 
 export async function fetchBookings(q: BookingListQuery): Promise<Paginated<BookingRow>> {
@@ -1205,14 +1251,20 @@ export async function fetchBookings(q: BookingListQuery): Promise<Paginated<Book
           source: q.source,
           search: q.search?.trim(),
           cancel_review: q.cancelReview ? 1 : undefined,
+          slot_template_id: q.slotTemplateId ?? undefined,
+          worker_id: q.workerId ?? undefined,
+          driver_id: q.driverId ?? undefined,
         }) as never,
       },
     }),
   );
 }
 
-export async function fetchBooking(id: number): Promise<BookingDetail> {
-  const body = await unwrap<DataEnvelope<BookingDetail>>(adminApi.GET("/v1/admin/bookings/{booking}", { params: { path: { booking: id } } }));
+/** `background`: the booking page's timed refresh (X-Background-Poll, not staff activity). */
+export async function fetchBooking(id: number, opts: ReadOptions = {}): Promise<BookingDetail> {
+  const body = await unwrap<DataEnvelope<BookingDetail>>(
+    adminApi.GET("/v1/admin/bookings/{booking}", { params: { path: { booking: id } }, headers: backgroundPoll(opts.background) }),
+  );
   return body.data;
 }
 
@@ -1268,7 +1320,37 @@ export async function proposeAlternatives(
   return body.data;
 }
 
-export type RescheduleInput = { service_date: string; slot_template_id: number; reason: string; override?: boolean };
+/**
+ * The options as the proposal would check them, every option reported (bookings.propose_alternative; writes nothing):
+ * price, difference and problem per option, `can_send`, and the customer's deadline if sent now.
+ */
+export async function previewAlternatives(id: number, input: ProposeInput): Promise<AlternativesPreview> {
+  const body = await unwrap<DataEnvelope<AlternativesPreview>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/propose-alternative/preview", { params: { path: { booking: id } }, body: input as never }),
+  );
+  return body.data;
+}
+
+/**
+ * `expected_*`: the terms the dialog showed (POST …/reschedule/preview); 409 TERMS_CHANGED (details = the new preview
+ * and `changed`) when they no longer hold. Staff moves have no fee (0).
+ */
+export type RescheduleInput = {
+  service_date: string;
+  slot_template_id: number;
+  reason: string;
+  override?: boolean;
+  expected_fee_fils?: number;
+  expected_new_total_fils?: number;
+};
+
+/** The staff move's terms for a date and slot (bookings.reschedule; 409 RESCHEDULE_PENDING while a customer request waits). */
+export async function previewReschedule(id: number, input: { service_date: string; slot_template_id: number }): Promise<ReschedulePreview> {
+  const body = await unwrap<DataEnvelope<ReschedulePreview>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/reschedule/preview", { params: { path: { booking: id } }, body: input }),
+  );
+  return body.data;
+}
 
 /** Staff move a confirmed booking (bookings.reschedule; override needs capacity.override and a 10-character reason). */
 export async function rescheduleBooking(
@@ -1295,7 +1377,18 @@ export async function previewCancellation(id: number, party: "customer" | "compa
   return body.data;
 }
 
-export type CancelInput = { reason_code: string; reason_text: string | null; party: "customer" | "company"; refund_fils?: number };
+/**
+ * `expected_*`: the preview's fee and refund as the dialog showed them (null for a review), also with an explicit
+ * refund_fils; 409 TERMS_CHANGED (details = the new preview and `changed`) when the policy terms moved meanwhile.
+ */
+export type CancelInput = {
+  reason_code: string;
+  reason_text: string | null;
+  party: "customer" | "company";
+  refund_fils?: number;
+  expected_fee_fils?: number | null;
+  expected_refund_fils?: number | null;
+};
 
 /** bookings.cancel; an explicit refund_fils needs refunds.create (403 REFUND_PERMISSION_REQUIRED otherwise). */
 export async function cancelBooking(id: number, input: CancelInput, version: number | null, key: string): Promise<CancelResult> {
@@ -1303,6 +1396,27 @@ export async function cancelBooking(id: number, input: CancelInput, version: num
     adminApi.POST("/v1/admin/bookings/{booking}/cancel", {
       params: { path: { booking: id } },
       body: input as never,
+      headers: { ...idempotency(key), ...optionalIfMatch(version) },
+    }),
+  );
+  return body.data;
+}
+
+/**
+ * Finish a customer's cancellation that waits for review with a refund (refunds.create, Idempotency-Key; the
+ * accountant's way): refund_fils of what is refundable goes back, the rest is kept as the fee; `note` is the refund's
+ * note and the audit reason.
+ */
+export async function resolveCancelReview(
+  id: number,
+  input: { refund_fils: number; note: string },
+  version: number | null,
+  key: string,
+): Promise<CancelResult> {
+  const body = await unwrap<DataEnvelope<CancelResult>>(
+    adminApi.POST("/v1/admin/bookings/{booking}/cancel-review/resolve", {
+      params: { path: { booking: id } },
+      body: input,
       headers: { ...idempotency(key), ...optionalIfMatch(version) },
     }),
   );
@@ -1380,6 +1494,25 @@ export type ManualBookingPayload = {
   reason?: string | null;
 };
 
+/**
+ * GET /admin/customers?phone= (bookings.create_manual): the customer with exactly this number (any notation, normalized
+ * like the manual booking's) and their saved addresses; `data` [] when nobody has it. A partial number is 422
+ * PHONE_INVALID; 429 RATE_LIMITED after 30 lookups a minute.
+ */
+export async function lookupCustomer(phone: string): Promise<CustomerLookup> {
+  return unwrap<CustomerLookup>(adminApi.GET("/v1/admin/customers", { params: { query: { phone } } }));
+}
+
+/**
+ * The manual booking as a dry run (bookings.create_manual; nothing is created): amounts and lines, the slot's
+ * availability, how long the link holds the slot, the cancellation terms. Same errors as the creation; 429 RATE_LIMITED
+ * after 60 previews a minute.
+ */
+export async function previewManualBooking(input: ManualBookingPayload): Promise<ManualBookingPreview> {
+  const body = await unwrap<DataEnvelope<ManualBookingPreview>>(adminApi.POST("/v1/admin/bookings/preview", { body: input as never }));
+  return body.data;
+}
+
 /** Manual booking (bookings.create_manual, Idempotency-Key): held until the customer pays the link. */
 export async function createManualBooking(input: ManualBookingPayload, key: string): Promise<ManualBookingResult> {
   const body = await unwrap<DataEnvelope<ManualBookingResult>>(
@@ -1396,8 +1529,11 @@ export async function createPaymentLink(id: number): Promise<PaymentLink> {
 
 // Assignment (assignments.manage; candidates also with schedule.view). `override` needs capacity.override.
 
-export async function fetchVisitCandidates(visitId: number): Promise<VisitCandidates> {
-  const body = await unwrap<DataEnvelope<VisitCandidates>>(adminApi.GET("/v1/admin/visits/{visit}/candidates", { params: { path: { visit: visitId } } }));
+/** `background`: a read a background poll set off on the booking page (lib/admin/backgroundRefresh.ts isPollDriven). */
+export async function fetchVisitCandidates(visitId: number, opts: ReadOptions = {}): Promise<VisitCandidates> {
+  const body = await unwrap<DataEnvelope<VisitCandidates>>(
+    adminApi.GET("/v1/admin/visits/{visit}/candidates", { params: { path: { visit: visitId } }, headers: backgroundPoll(opts.background) }),
+  );
   return body.data;
 }
 
@@ -1462,11 +1598,12 @@ export async function fetchBookingNotifications(id: number, page: number): Promi
 
 /**
  * GET /admin/refunds (payments.view or refunds.create) for one customer phone: the booking page keeps the refunds of
- * its own payments (matched by the payment's ULID or payable id) to show each one's provider status.
+ * its own payments (matched by the payment's ULID or payable id) to show each one's provider status. `background`: a read
+ * a background poll set off (lib/admin/backgroundRefresh.ts isPollDriven).
  */
-export async function fetchRefundsByPhone(phone: string): Promise<AdminRefund[]> {
+export async function fetchRefundsByPhone(phone: string, opts: ReadOptions = {}): Promise<AdminRefund[]> {
   const body = await unwrap<Paginated<AdminRefund>>(
-    adminApi.GET("/v1/admin/refunds", { params: { query: compact({ phone, per_page: 50 }) as never } }),
+    adminApi.GET("/v1/admin/refunds", { params: { query: compact({ phone, per_page: 50 }) as never }, headers: backgroundPoll(opts.background) }),
   );
   return body.data;
 }
@@ -1711,8 +1848,28 @@ export async function createRefund(paymentId: number, input: CreateRefundPayload
   const body = await unwrap<DataEnvelope<AdminRefund>>(
     adminApi.POST("/v1/admin/payments/{payment}/refunds", {
       params: { path: { payment: paymentId } },
-      body: input,
+      // reason_code is a code GET /admin/refund-reasons offered at run time, not the generated enum.
+      body: input as never,
       headers: idempotency(key),
+    }),
+  );
+  return body.data;
+}
+
+/** The refund reasons with their labels (refunds.create or payments.view): pick from `selectable`, filter by any. */
+export async function fetchRefundReasons(): Promise<RefundReason[]> {
+  const body = await unwrap<DataEnvelope<RefundReason[]>>(adminApi.GET("/v1/admin/refund-reasons"));
+  return body.data;
+}
+
+/**
+ * The A09 KPI cards (payments.view or invoices.manage). `from`/`to` are local dates; left out, the API takes month to
+ * date. At most 366 days (422 VALIDATION_FAILED on `to`, or on `from` when `to` was left out).
+ */
+export async function fetchFinanceSummary(q: { from?: string; to?: string; zoneId?: number | null }): Promise<FinanceSummary> {
+  const body = await unwrap<DataEnvelope<FinanceSummary>>(
+    adminApi.GET("/v1/admin/finance/summary", {
+      params: { query: compact({ from: q.from, to: q.to, zone_id: q.zoneId ?? undefined }) as never },
     }),
   );
   return body.data;
@@ -1759,6 +1916,8 @@ export type InvoiceListQuery = {
   from?: string;
   to?: string;
   customerId?: number;
+  /** Only this payment's invoice(s); an unknown id answers an empty page. */
+  paymentId?: number;
   /** Invoice number, booking reference or customer phone (4 digits or more). */
   search?: string;
 };
@@ -1774,6 +1933,7 @@ export async function fetchInvoices(q: InvoiceListQuery): Promise<Paginated<Admi
           from: q.from,
           to: q.to,
           customer_id: q.customerId,
+          payment_id: q.paymentId,
           search: q.search?.trim(),
         }) as never,
       },
@@ -1895,6 +2055,7 @@ export async function updateNotificationTemplate(id: number, input: TemplateUpda
 /** A sample value: one text for both languages, or each language its own (a missing one keeps the API's sample). */
 export type SampleValue = string | { ar?: string; en?: string };
 
+/** The editor's preview request (the API also takes numbers and nulls as sample values; the editor sends texts). */
 export type TemplatePreviewInput = { payload?: Record<string, SampleValue>; subject?: string | null; body?: string | null };
 
 /** Renders the template (an unsaved draft of its own language when given) and its twin in the other language. */
@@ -1902,8 +2063,7 @@ export async function previewNotificationTemplate(id: number, input: TemplatePre
   const body = await unwrap<DataEnvelope<TemplatePreview>>(
     adminApi.POST("/v1/admin/notification-templates/{template}/preview", {
       params: { path: { template: String(id) } },
-      // The generated schema types the payload as a list; the API reads a map of placeholder → value.
-      body: input as never,
+      body: input,
     }),
   );
   return body.data;

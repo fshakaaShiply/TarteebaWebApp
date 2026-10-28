@@ -1,39 +1,33 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CapacityView, ServiceOption, Shortfall, SlotTemplate, Vehicle, ZoneOption } from "@/lib/admin/types";
+import type { ServiceOption, Shortfall, SlotTemplateOption, Vehicle, ZoneOption } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
 import { ShortfallTable } from "./Shortfall";
 
 const api = {
-  fetchCapacity: vi.fn(),
   fetchAllVehicles: vi.fn(),
-  fetchAllSlotTemplates: vi.fn(),
+  fetchSlotTemplateOptions: vi.fn(),
   fetchServiceOptions: vi.fn(),
   fetchZoneOptions: vi.fn(),
 };
 vi.mock("@/lib/admin/endpoints", () => ({
-  fetchCapacity: (...a: unknown[]) => api.fetchCapacity(...a),
   fetchAllVehicles: (...a: unknown[]) => api.fetchAllVehicles(...a),
-  fetchAllSlotTemplates: (...a: unknown[]) => api.fetchAllSlotTemplates(...a),
+  fetchSlotTemplateOptions: (...a: unknown[]) => api.fetchSlotTemplateOptions(...a),
   fetchServiceOptions: (...a: unknown[]) => api.fetchServiceOptions(...a),
   fetchZoneOptions: (...a: unknown[]) => api.fetchZoneOptions(...a),
 }));
 
-// SchedulingSeeder slots, DemoFleetSeeder van and the catalogue's services (R-14).
-const morning = { id: 1, code: "MORNING", name: { ar: "الفترة الصباحية", en: "Morning" }, start_time: "10:00", end_time: "14:00" };
-const evening = { id: 2, code: "EVENING", name: { ar: "الفترة المسائية", en: "Evening" }, start_time: "16:00", end_time: "20:00" };
-const templates = [morning, evening].map((s) => ({ ...s, service_kind: "standard_visit", is_active: true, sort_order: s.id, version: 1, updated_at: null })) as SlotTemplate[];
-const view = {
-  date: "2026-11-03",
-  zone: { id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" } },
-  slots: [morning, evening].map((s) => ({ slot_template_id: s.id, code: s.code, name: s.name, start: s.start_time, end: s.end_time })),
-} as unknown as CapacityView;
+// SchedulingSeeder slots (GET /admin/slot-templates/options), DemoFleetSeeder van and the catalogue's services (R-14).
+const slots: SlotTemplateOption[] = [
+  { id: 1, code: "MORNING", name: { ar: "الفترة الصباحية", en: "Morning" }, start_time: "10:00", end_time: "14:00", service_kind: "standard_visit", is_active: true },
+  { id: 2, code: "EVENING", name: { ar: "الفترة المسائية", en: "Evening" }, start_time: "16:00", end_time: "20:00", service_kind: "standard_visit", is_active: true },
+];
 const van = { id: 1, plate_no: "DEMO-VAN-1", seats: 7 } as Vehicle;
 const services: ServiceOption[] = [
   { id: 1, code: "STANDARD_VISIT", kind: "standard_visit", name: { ar: "زيارة تنظيف", en: "Cleaning visit" }, is_active: true },
   { id: 3, code: "DEEP_CLEAN", kind: "standard_visit", name: { ar: "تنظيف عميق", en: "Deep cleaning" }, is_active: true },
 ];
-const zones: ZoneOption[] = [{ ...view.zone, is_active: true }];
+const zones: ZoneOption[] = [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }];
 
 // CapacityImpactGuard: one workers row per pool and service, one seats row per vehicle, slot = the template code.
 const shortfalls: Shortfall[] = [
@@ -54,9 +48,8 @@ describe("capacity shortfall table", () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset());
     consoleError.mockClear();
-    api.fetchCapacity.mockResolvedValue(view);
     api.fetchAllVehicles.mockResolvedValue([van]);
-    api.fetchAllSlotTemplates.mockResolvedValue(templates);
+    api.fetchSlotTemplateOptions.mockResolvedValue(slots);
     api.fetchServiceOptions.mockResolvedValue(services);
     api.fetchZoneOptions.mockResolvedValue(zones);
   });
@@ -73,17 +66,17 @@ describe("capacity shortfall table", () => {
         ["Business Bay & Downtown", "Evening16:00–20:00", "SeatsDEMO-VAN-1"],
       ]),
     );
-    // Without catalog.manage the names come from one capacity view per slot template (here one date and zone).
-    expect(api.fetchCapacity).toHaveBeenCalledTimes(1);
-    expect(api.fetchCapacity).toHaveBeenCalledWith({ date: "2026-11-03", zoneId: 1 });
-    expect(api.fetchAllSlotTemplates).not.toHaveBeenCalled();
+    // The slot names come from the slot pick-list, one light request whatever the dates and zones.
+    expect(api.fetchSlotTemplateOptions).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/#1|no\. 1/)).not.toBeInTheDocument();
   });
 
-  it("uses the slot templates for staff who manage them", async () => {
-    renderWithProviders(<ShortfallTable shortfalls={shortfalls} />, { permissions: ["catalog.manage", "schedule.view", "fleet.manage"] });
+  it("names the slots for any role that reads the slot pick-list (here bookings staff)", async () => {
+    renderWithProviders(<ShortfallTable shortfalls={shortfalls} />, { permissions: ["bookings.view"] });
     await waitFor(() => expect(cells()[2][2]).toBe("Evening16:00–20:00"));
-    expect(api.fetchCapacity).not.toHaveBeenCalled();
+    // No van list without fleet.manage or schedule.view: the plate stays a number.
+    expect(cells()[2][3]).toBe("SeatsVehicle no. 1");
+    expect(api.fetchAllVehicles).not.toHaveBeenCalled();
   });
 
   it("names them in Arabic", async () => {
@@ -98,7 +91,7 @@ describe("capacity shortfall table", () => {
       ["MORNING", "WorkersService no. 3"],
       ["EVENING", "SeatsVehicle no. 1"],
     ]);
-    expect(api.fetchCapacity).not.toHaveBeenCalled();
+    expect(api.fetchSlotTemplateOptions).not.toHaveBeenCalled();
     expect(api.fetchAllVehicles).not.toHaveBeenCalled();
   });
 });

@@ -7,8 +7,10 @@ import {
   fetchAllDrivers,
   fetchAllSlotTemplates,
   fetchDriverCandidates,
+  fetchDriverOptions,
   fetchServiceOptions,
   fetchSkills,
+  fetchSlotTemplateOptions,
   fetchZoneOptions,
 } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
@@ -103,12 +105,31 @@ export function useSkills(enabled = true) {
   return useQuery({ queryKey: adminKeys.skills(), queryFn: fetchSkills, staleTime: STALE, enabled });
 }
 
+/** Every slot template as a full A11 record (catalog.manage): the A11 screens that edit them. */
 export function useSlotTemplateOptions(enabled = true) {
   return useQuery({ queryKey: adminKeys.slotTemplateOptions(), queryFn: fetchAllSlotTemplates, staleTime: STALE, enabled });
 }
 
+/** Every driver as a full fleet record (fleet.manage): the fleet screens. */
 export function useDriverOptions(enabled = true) {
   return useQuery({ queryKey: adminKeys.driverOptions(), queryFn: fetchAllDrivers, staleTime: STALE, enabled });
+}
+
+/** Any of these reads GET /admin/slot-templates/options. */
+export const SLOT_PICK_LIST_PERMISSIONS = ["catalog.manage", "schedule.view", "trips.manage", "bookings.view", "bookings.create_manual"] as const;
+/** Any of these reads GET /admin/drivers/options. */
+export const DRIVER_PICK_LIST_PERMISSIONS = ["fleet.manage", "trips.manage", "schedule.view", "bookings.view"] as const;
+
+/** Every slot template (id, code, name, times, service kind, is_active) in the API's order (sort order, then id). */
+export function useSlotPickList(enabled = true) {
+  const allowed = useAdminSession().canAny(SLOT_PICK_LIST_PERMISSIONS);
+  return useQuery({ queryKey: adminKeys.slotTemplatePickList(), queryFn: () => fetchSlotTemplateOptions(), staleTime: STALE, enabled: enabled && allowed });
+}
+
+/** Every driver (id, name, status, is_active, usual van) by name; never contact data. */
+export function useDriverPickList(enabled = true) {
+  const allowed = useAdminSession().canAny(DRIVER_PICK_LIST_PERMISSIONS);
+  return useQuery({ queryKey: adminKeys.driverPickList(), queryFn: () => fetchDriverOptions(), staleTime: STALE, enabled: enabled && allowed });
 }
 
 /** Active driver-role staff accounts not linked to a driver yet (fleet.manage), for a new driver. */

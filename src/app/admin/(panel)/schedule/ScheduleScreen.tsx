@@ -35,8 +35,7 @@ import {
 import { useAdminSession } from "@/lib/admin/session";
 import type { ScheduleView, VisitStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
-import { useDaySlots } from "../_ops/daySlots";
-import { useChoiceOptions, useServiceChoices, useZoneChoices } from "../_ops/options";
+import { useChoiceLabel, useChoiceOptions, useServiceChoices, useSlotPickList, useZoneChoices } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 import { useZoneInUrl } from "../_ops/zoneParam";
 import { useBookingText } from "../bookings/_components/bookingText";
@@ -49,8 +48,8 @@ const TABS_ID = "schedule-view";
  * A04 operations schedule (spec §14.3, §17 A04; design AdminSchedule.dc.html; schedule.view to read, assignments.manage
  * to move cards): day and week as cleaner rows × slot (or date) columns with the visit cards, the unassigned lane and the
  * day markers; month as per-day counts and capacity. The view, date and filters live in the URL; the zone is the shared
- * top-bar zone, mirrored in the URL as zone_id. No timed polling (spec §13.2): data refreshes on focus, after a move and
- * with Refresh.
+ * top-bar zone, mirrored in the URL as zone_id. No timed refresh: data refreshes on focus, after a move and with Refresh.
+ * The slot filter lists the slot templates from their pick-list (GET /admin/slot-templates/options).
  */
 export function ScheduleScreen() {
   const t = useTranslations("admin.schedule");
@@ -76,6 +75,7 @@ function ScheduleContent() {
   const zones = useZoneChoices();
   const services = useServiceChoices();
   const choiceOptions = useChoiceOptions();
+  const choiceLabel = useChoiceLabel();
 
   /** Changes stay in this page's URL without a server round trip (history.replaceState is synced by Next). */
   const writeParams = useCallback(
@@ -95,7 +95,9 @@ function ScheduleContent() {
     queryFn: () => fetchSchedule(query),
     placeholderData: keepPreviousData,
   });
-  const slots = useDaySlots(date, effectiveZone);
+  const slots = useSlotPickList();
+  // The active slots, and the filtered one while it is out of service (marked).
+  const slotChoices = (slots.data ?? []).filter((s) => s.is_active || s.id === filters.slotTemplateId);
   const workers = useQuery({ queryKey: adminKeys.workerOptions(), queryFn: fetchAllWorkers, staleTime: 60_000, enabled: can("workers.view") });
 
   // Cleaner options: every worker (workers.view), else the rows this board shows.
@@ -191,7 +193,7 @@ function ScheduleContent() {
             value={filters.slotTemplateId === null ? "" : String(filters.slotTemplateId)}
             onChange={(e) => setFilters({ slotTemplateId: e.target.value ? Number(e.target.value) : null })}
             placeholder={t("filters.allSlots")}
-            options={(slots.data ?? []).map((s) => ({ value: String(s.id), label: t("slotOption", { name: text.name(s.name), start: s.start, end: s.end }) }))}
+            options={slotChoices.map((s) => ({ value: String(s.id), label: t("slotOption", { name: choiceLabel(s), start: s.start_time, end: s.end_time }) }))}
             containerClassName="min-w-[170px]"
           />
           <Select

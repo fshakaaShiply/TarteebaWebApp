@@ -1,5 +1,6 @@
 import type {
   CapacityView,
+  DriverOption,
   DriverReport,
   PlanResult,
   Round,
@@ -7,6 +8,7 @@ import type {
   ScheduleGrid,
   ScheduleMonth,
   ScheduleRow,
+  SlotTemplateOption,
   VisitSummary,
 } from "@/lib/admin/types";
 
@@ -18,6 +20,19 @@ const both = (en: string, ar = en) => ({ ar, en });
 export const slots = [
   { id: 1, code: "MORNING", name: both("Morning", "الفترة الصباحية"), start: "10:00", end: "14:00", service_kind: "standard_visit" as const },
   { id: 2, code: "EVENING", name: both("Evening", "الفترة المسائية"), start: "15:00", end: "19:00", service_kind: "standard_visit" as const },
+];
+
+/** GET /admin/slot-templates/options: the two demo slots and a retired one (listed with is_active false). */
+export const slotPickList = (): SlotTemplateOption[] => [
+  ...slots.map((s) => ({ id: s.id, code: s.code, name: s.name, start_time: s.start, end_time: s.end, service_kind: s.service_kind, is_active: true })),
+  { id: 3, code: "NIGHT", name: both("Night", "الفترة الليلية"), start_time: "20:00", end_time: "23:00", service_kind: "standard_visit", is_active: false },
+];
+
+/** GET /admin/drivers/options: by name, never contact data; a driver who can't take a round has is_active false. */
+export const driverPickList = (): DriverOption[] => [
+  { id: 3, name: "Retired Driver", status: "inactive", is_active: false, vehicle: null },
+  { id: 1, name: "Test Driver", status: "active", is_active: true, vehicle: { id: 1, plate_no: "DEMO-VAN-1" } },
+  { id: 2, name: "Test Driver 2", status: "active", is_active: true, vehicle: { id: 2, plate_no: "DEMO-VAN-2" } },
 ];
 
 const worker = (id: number, name: string, zone = 1) => ({
@@ -303,7 +318,7 @@ export const round = (over: Partial<Round> = {}): Round => ({
 export const planResult = (): PlanResult => ({
   date: "2026-10-24",
   slot_template_id: 1,
-  rounds: [{ ...round(), plan: "created" }],
+  rounds: [{ ...round(), plan: "created", follows_round_id: null }],
   unplanned: [
     {
       visit_id: 4,

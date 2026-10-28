@@ -6,26 +6,27 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, StatusBadge } from "@/components/admin";
-import { fetchInvoices, fetchPayment } from "@/lib/admin/endpoints";
+import { fetchPayment } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
-import { INVOICE_PAGE_SIZE, findPaymentInvoices, invoicesFromDate } from "@/lib/admin/finance/paymentInvoices";
 import { canRefund } from "@/lib/admin/finance/refund";
 import { refundKeysFor } from "@/lib/admin/finance/refundKeys";
 import type { IdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import { DOCUMENTS_READ, INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
+import { BILLING_REFUSALS_PATH, INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import type { AdminPaymentDetail, AdminRefund, PaymentEvent } from "@/lib/admin/types";
+import type { AdminPaymentDetail, AdminRefund, InvoiceStatus, PaymentEvent } from "@/lib/admin/types";
 import { RequirePermission } from "../../../../_components/RequirePermission";
 import { paymentTone } from "../../../bookings/_components/bookingText";
-import { BackLink, Code, Fact, Facts, Money, ReviewBadge, TotalRow } from "../../_components/FinanceParts";
+import { BackLink, Code, CreditNoteNumber, Fact, Facts, Money, PayableRef, ReviewBadge, TotalRow } from "../../_components/FinanceParts";
 import { invoiceTone, refundTone, useFinanceText } from "../../_components/financeText";
 import { RefundDialog } from "./RefundDialog";
 
 /**
- * A09 payment page (spec §10.4, §17 "payment detail with event log"; payments.view): amounts (captured, refunded and
- * what is left to refund), the provider's details and status, the refunds with the provider's status each, the
- * invoice issued for it, and every gateway call and webhook with its scrubbed payload. A refund needs refunds.create.
+ * A09 payment page (spec §10.4, §17 "payment detail with event log"; payments.view): what it paid for (the booking's
+ * reference), amounts (captured, refunded and what is left to refund), the provider's details and status, the refunds
+ * with the provider's status and credit note each, its tax invoice, and every gateway call and webhook with its
+ * scrubbed payload. Review and release reasons are the API's words, the code kept as detail. A refund needs
+ * refunds.create.
  */
 export function PaymentDetailScreen({ id }: { id: string }) {
   return (
@@ -125,6 +126,9 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
             <p className="text-sm text-ink-600">
               {t("summary", { amount: text.money(payment.amount_fils), date: text.dateTime(payment.created_at) })}
             </p>
+            <p className="text-sm text-ink-900">
+              <PayableRef payable={payment.payable} />
+            </p>
           </div>
           {can("refunds.create") && (
             <div className="flex flex-col items-end gap-1">
@@ -138,7 +142,7 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
         {payment.needs_review && (
           <Notice tone="warning" title={t("reviewTitle")}>
             <p>
-              {t("reviewReason")} {payment.review_reason ? text.reviewReason(payment.review_reason) : t("reviewReasonUnknown")}
+              {t("reviewReason")} {payment.review_reason_label ? text.name(payment.review_reason_label) : t("reviewReasonUnknown")}
             </p>
             {payment.review_reason && (
               <Code wrap className="text-xs font-normal opacity-80">
@@ -171,7 +175,7 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
         <div className="flex min-w-0 flex-col gap-5">
           <PayerCard payment={payment} />
           <ProviderCard payment={payment} />
-          <InvoicesCard payment={payment} />
+          <InvoiceCard payment={payment} />
         </div>
       </div>
 
@@ -204,8 +208,6 @@ function AmountsCard({ payment }: { payment: AdminPaymentDetail }) {
 
 function PayerCard({ payment }: { payment: AdminPaymentDetail }) {
   const t = useTranslations("admin.finance.payment");
-  const text = useFinanceText();
-  const { can } = useAdminSession();
   return (
     <Card title={t("payer")}>
       <Facts columns={1}>
@@ -220,15 +222,7 @@ function PayerCard({ payment }: { payment: AdminPaymentDetail }) {
           )}
         </Fact>
         <Fact label={t("payable")}>
-          {payment.payable.type === "booking" && can("bookings.view") ? (
-            <Link href={`/admin/bookings/${payment.payable.id}`} className="font-medium">
-              {t("openBooking", { id: payment.payable.id })}
-            </Link>
-          ) : (
-            <span>
-              {text.payable(payment.payable.type)} <Code>#{payment.payable.id}</Code>
-            </span>
-          )}
+          <PayableRef payable={payment.payable} />
         </Fact>
       </Facts>
     </Card>
@@ -287,7 +281,7 @@ function ProviderCard({ payment }: { payment: AdminPaymentDetail }) {
               <span>{text.dateTime(payment.voided_at)}</span>
               {payment.void_reason && (
                 <>
-                  <span>{text.voidReason(payment.void_reason)}</span>
+                  {payment.void_reason_label && <span>{text.name(payment.void_reason_label)}</span>}
                   <Code wrap className="text-xs text-ink-600">
                     {payment.void_reason}
                   </Code>
@@ -314,7 +308,6 @@ function RefundsCard({ refunds }: { refunds: AdminRefund[] }) {
 export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
   const t = useTranslations("admin.finance.refunds");
   const text = useFinanceText();
-  const { canAny } = useAdminSession();
   return (
     <ul className="flex flex-col">
       {refunds.map((r) => (
@@ -360,10 +353,10 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
                 {t("providerRef")} <Code wrap>{r.gateway_refund_ref}</Code>
               </span>
             )}
-            {r.credit_note_id !== null && canAny(DOCUMENTS_READ) && (
-              <Link href={`/admin/finance/credit-notes/${r.credit_note_id}`} className="font-medium">
-                {t("creditNote")}
-              </Link>
+            {r.credit_note && (
+              <span className="text-ink-600">
+                {t("creditNoteLabel")} <CreditNoteNumber note={r.credit_note} />
+              </span>
             )}
           </span>
         </li>
@@ -373,54 +366,48 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
 }
 
 /**
- * Tax invoices issued for this payment: the customer's invoices issued since the payment was created, every page of
- * them, this payment's only (findPaymentInvoices; the API has no payment filter yet).
+ * The payment's tax invoice (its capture invoice, `payment.invoice`). None yet after the capture means Billing has not
+ * issued it (still queued, or refused: the refused documents page, filtered to this payment, says why).
  */
-function InvoicesCard({ payment }: { payment: AdminPaymentDetail }) {
+function InvoiceCard({ payment }: { payment: AdminPaymentDetail }) {
   const t = useTranslations("admin.finance.payment.invoices");
   const text = useFinanceText();
-  const customerId = payment.customer?.id ?? null;
-  const from = invoicesFromDate(payment.created_at);
-  const invoices = useQuery({
-    queryKey: [...adminKeys.customerInvoices(customerId ?? 0), "payment", payment.id, from ?? ""] as const,
-    queryFn: () =>
-      findPaymentInvoices(payment.id, (page) => fetchInvoices({ customerId: customerId as number, from, page, perPage: INVOICE_PAGE_SIZE })),
-    enabled: customerId !== null && payment.captured_fils > 0,
-  });
-  const found = invoices.data?.invoices ?? [];
+  const invoice = payment.invoice;
 
   return (
     <Card title={t("title")}>
-      {payment.captured_fils === 0 ? (
-        <p className="text-sm text-ink-600">{t("notCaptured")}</p>
-      ) : invoices.isPending && customerId !== null ? (
-        <LoadingBlock lines={2} />
-      ) : invoices.isError ? (
-        <ErrorState error={invoices.error} onRetry={() => void invoices.refetch()} className="py-4" />
-      ) : found.length === 0 ? (
-        invoices.data && !invoices.data.complete ? (
-          // Stopped before the customer's last page: never claim there is no invoice.
-          <p className="text-sm text-ink-600">
-            {t("notLocated")}{" "}
-            <Link href={INVOICES_PATH} className="font-medium">
-              {t("openList")}
+      {invoice ? (
+        <>
+          <span className="flex flex-wrap items-center gap-2 text-sm">
+            <Link href={`/admin/finance/invoices/${invoice.id}`} className="min-w-0 font-bold">
+              <Code wrap>{invoice.number}</Code>
             </Link>
-          </p>
-        ) : (
-          <p className="text-sm text-ink-600">{t("none")}</p>
-        )
+            <StatusBadge tone={invoiceTone[invoice.status as InvoiceStatus] ?? "neutral"}>{text.invoice(invoice.status, invoice.status_label)}</StatusBadge>
+          </span>
+          <Facts columns={1}>
+            <Fact label={t("issueDate")}>{text.date(invoice.issue_date)}</Fact>
+            <Fact label={t("total")}>
+              <Money fils={invoice.total_fils} />
+            </Fact>
+            {invoice.credited_fils > 0 && (
+              <Fact label={t("credited")}>
+                <Money fils={invoice.credited_fils} />
+              </Fact>
+            )}
+          </Facts>
+          <Link href={`${INVOICES_PATH}?payment_id=${payment.id}`} className="w-fit text-sm font-medium">
+            {t("inList")}
+          </Link>
+        </>
+      ) : payment.captured_fils === 0 ? (
+        <p className="text-sm text-ink-600">{t("notCaptured")}</p>
       ) : (
-        <ul className="flex flex-col gap-2 text-sm">
-          {found.map((invoice) => (
-            <li key={invoice.id} className="flex flex-wrap items-center gap-2">
-              <Link href={`/admin/finance/invoices/${invoice.id}`} className="min-w-0 font-bold">
-                <Code wrap>{invoice.number}</Code>
-              </Link>
-              <StatusBadge tone={invoiceTone[invoice.status] ?? "neutral"}>{text.invoice(invoice.status, invoice.status_label)}</StatusBadge>
-              <Money fils={invoice.total_fils} className="text-ink-600" />
-            </li>
-          ))}
-        </ul>
+        <p className="text-sm text-ink-600">
+          {t("none")}{" "}
+          <Link href={`${BILLING_REFUSALS_PATH}?payment_id=${payment.id}`} className="font-medium">
+            {t("refusals")}
+          </Link>
+        </p>
       )}
     </Card>
   );

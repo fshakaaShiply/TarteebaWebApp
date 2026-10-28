@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
-import { bookingDetail, serviceOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
+import { bookingDetail, serviceOptions, slotTemplateOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { AssignmentPanel } from "./AssignmentPanel";
 
@@ -16,8 +16,8 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
   fetchAllVehicles: async () => [],
-  fetchAllSlotTemplates: async () => [],
-  fetchCapacity: async () => ({ slots: [] }),
+  // The shortfall table names slots from the slot pick-list (schedule.view and bookings.view may read it).
+  fetchSlotTemplateOptions: async () => slotTemplateOptions,
 }));
 
 const apiError = (status: number, code: string, details: Record<string, unknown> = {}) => new AdminApiError(status, { code, message: "", details });
@@ -158,6 +158,10 @@ describe("assignment panel (§8.5–§8.7)", () => {
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Sick");
     await user.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(api.unassignWorker).toHaveBeenCalledWith(4, 3, "Sick", 1, false));
+    // The short slot by its name and times, not its code.
+    const shortRow = within(await within(dialog).findByRole("table")).getAllByRole("row")[1];
+    expect(await within(shortRow).findByText("Morning")).toBeInTheDocument();
+    expect(within(shortRow).queryByText("MORNING")).not.toBeInTheDocument();
 
     await user.click(await within(dialog).findByRole("checkbox", { name: "Remove anyway (override)" }));
     await user.click(within(dialog).getByRole("button", { name: "Remove anyway" }));

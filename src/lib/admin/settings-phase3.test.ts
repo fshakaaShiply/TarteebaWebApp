@@ -7,6 +7,9 @@ describe("Phase 3 settings editors", () => {
     expect(editorKind({ key: "booking.alternative_proposal_hours", type: "int", value: 24 })).toBe("int");
     expect(editorKind({ key: "visit.auto_start_after_min", type: "int", value: 0 })).toBe("int");
     expect(editorKind({ key: "notifications.sms_on_confirm", type: "bool", value: true })).toBe("bool");
+    // A06 extra round switches (Phase 3 polish).
+    expect(editorKind({ key: "round.plan_extra_rounds", type: "bool", value: true })).toBe("bool");
+    expect(editorKind({ key: "round.extra_round_prefer_other_van", type: "bool", value: false })).toBe("bool");
     expect(editorKind({ key: "reminder.day_before_time", type: "string", value: "18:00" })).toBe("time");
     expect(editorKind({ key: "refund.estimated_arrival_text", type: "json", value: { ar: "خلال 5 إلى 10 أيام عمل", en: "within 5 to 10 business days" } })).toBe(
       "bilingual",

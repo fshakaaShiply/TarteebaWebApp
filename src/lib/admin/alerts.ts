@@ -4,8 +4,9 @@ import type { AdminAlert, AlertsPage } from "./types";
 /*
  * The alerts bell (spec §12 admin alerts, §17 top bar; D-11): GET /admin/alerts every 20 seconds. The first call loads
  * the newest page; each poll then asks only for alerts created at or after the previous answer's server_time and
- * merges them by id (an alert raised in that same second comes back again). The poll is passive on the API side: it
- * never keeps an idle session alive.
+ * merges them by id (an alert raised in that same second comes back again). The poll is passive: the bell sends
+ * X-Background-Poll: 1, and the API treats GET /admin/alerts as a background poll whatever the client sends, so it never
+ * keeps an idle session alive.
  */
 
 export const ALERTS_PAGE_SIZE = 20;

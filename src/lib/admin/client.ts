@@ -12,14 +12,32 @@ import { defaultLocale, isLocale, localeCookie } from "@/i18n/config";
  *   - mutating calls first make sure an XSRF-TOKEN cookie exists (GET /backend/sanctum/csrf-cookie) and send its
  *     decoded value as X-XSRF-TOKEN; a 419 (stale token) refreshes the cookie and retries once;
  *   - Accept-Language follows the current UI locale, so API messages come back in the same language;
- *   - 401 and 403 TWO_FACTOR_SETUP_REQUIRED are reported to the session (lib/admin/session.tsx), which redirects.
+ *   - 401 and 403 TWO_FACTOR_SETUP_REQUIRED are reported to the session (lib/admin/session.tsx), which redirects;
+ *   - a timer-driven read sends X-Background-Poll: 1 (backgroundPoll()): the API checks the idle timeout as usual (401
+ *     SESSION_EXPIRED goes to sign-in like any other 401) but does not count the read as staff activity (spec §13.2).
+ *     Only GET and HEAD may carry it (the API ignores it on writes, which always count); it is dropped from any other.
  */
 
 export const ADMIN_API_BASE = "/backend/api";
 export const CSRF_COOKIE_URL = "/backend/sanctum/csrf-cookie";
 export const XSRF_COOKIE = "XSRF-TOKEN";
+export const BACKGROUND_POLL_HEADER = "X-Background-Poll";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const POLL_METHODS = new Set(["GET", "HEAD"]);
+
+/** Whether a read was started by a timer (a background poll) rather than by the user. */
+export type ReadOptions = { background?: boolean };
+
+/**
+ * The per-call headers of a read: X-Background-Poll: 1 for a timer-driven one, nothing for a load the user started
+ * (opening a page, changing a filter, Refresh), which counts as activity.
+ *
+ *   adminApi.GET("/v1/admin/dashboard/summary", { params, headers: backgroundPoll(opts.background) })
+ */
+export function backgroundPoll(background: boolean | undefined): Record<string, string> {
+  return background ? { [BACKGROUND_POLL_HEADER]: "1" } : {};
+}
 
 /** The API error envelope: {"error": {"code", "message", "details"}} (spec §4.5). */
 export type ApiErrorBody = {
@@ -166,6 +184,7 @@ export function createAdminFetch(options: AdminFetchOptions = {}): FetchLike {
     headers.set("Accept", "application/json");
     headers.set("Accept-Language", getLocale());
     headers.set("X-Requested-With", "XMLHttpRequest");
+    if (!POLL_METHODS.has(request.method.toUpperCase())) headers.delete(BACKGROUND_POLL_HEADER);
 
     if (!SAFE_METHODS.has(request.method.toUpperCase())) {
       if (getCookie(XSRF_COOKIE) === null) await refreshCsrfCookie();

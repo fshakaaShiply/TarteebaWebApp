@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Route, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import {
   Button,
   Card,
@@ -26,10 +26,9 @@ import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { TRIPS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import type { PlanResult, Round, ScheduleSlot } from "@/lib/admin/types";
+import type { PlanResult, Round, SlotTemplateOption } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
-import { useDaySlots } from "../_ops/daySlots";
-import { useChoiceOptions, useZoneChoices } from "../_ops/options";
+import { useChoiceLabel, useChoiceOptions, useSlotPickList, useZoneChoices, useZoneName } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 import { useZoneInUrl } from "../_ops/zoneParam";
 import { Ltr, SlotLabel } from "../bookings/_components/BookingBits";
@@ -41,7 +40,9 @@ import { useRoundSaved, useTripText } from "./tripText";
  * panel per round (drop-off or pickup per van) with its vehicle, driver, departure, seat counter, status and the
  * feasibility warnings per stop. trips.manage drafts rounds from the confirmed visits, edits, reorders and seats them,
  * and publishes them to the driver; schedule.view reads them (each stop's area only, RoundPresenter). The date and slot
- * live in the URL, and the shared top-bar zone is mirrored there as zone_id.
+ * live in the URL, and the shared top-bar zone is mirrored there as zone_id. The slots come from the slot pick-list
+ * (GET /admin/slot-templates/options, which trips.manage and schedule.view may read), so drafting needs trips.manage
+ * only.
  *
  * DECISION: there is no maps key yet, so a round shows its stops as an ordered list with a sketch of the stop order
  * instead of a map.
@@ -63,19 +64,19 @@ function slotFromParams(value: string | null): number | null {
 function TripPlannerContent() {
   const t = useTranslations("admin.trips");
   const text = useOpsText();
+  const choiceLabel = useChoiceLabel();
   const toast = useToast();
   const describe = useAdminErrorMessage();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { can } = useAdminSession();
   const canManage = can("trips.manage");
-  // The slot picker, the visits to add and the van list come from the schedule (schedule.view): see the notice below.
-  const readsSchedule = can("schedule.view");
   const today = businessToday();
   const dateParam = searchParams.get("date");
   const date = isIsoDate(dateParam) ? dateParam : today;
   const slotId = slotFromParams(searchParams.get("slot_template_id"));
   const zones = useZoneChoices();
+  const zoneName = useZoneName();
   const choiceOptions = useChoiceOptions();
   const saved = useRoundSaved();
 
@@ -88,7 +89,7 @@ function TripPlannerContent() {
   );
   // The shared top-bar zone, kept in the URL as zone_id beside the date and slot (a link opens the same rounds).
   const { zoneId: effectiveZone, setZoneId } = useZoneInUrl(searchParams, writeParams);
-  const slots = useDaySlots(date, effectiveZone);
+  const slots = useSlotPickList();
 
   const roundsQuery = { date, slotTemplateId: slotId, zoneId: effectiveZone };
   const rounds = useQuery({
@@ -127,9 +128,19 @@ function TripPlannerContent() {
     [searchParams, date, slotId, today, writeParams],
   );
 
-  const slotList: ScheduleSlot[] = slots.data ?? [];
+  const slotList: SlotTemplateOption[] = slots.data ?? [];
+  // The active slots, and the chosen one while it is out of service (marked), e.g. from an older link.
+  const slotChoices = slotList.filter((s) => s.is_active || s.id === slotId);
   const groups = groupBySlot(rounds.data ?? [], slotList);
   const planSlot = plan ? (slotList.find((s) => s.id === plan.slot_template_id) ?? null) : null;
+  // The applied zone stays listed when the zone pick-list can't be read (trips.manage alone: GET /admin/zones/options
+  // does not allow it) or lacks it: named from the rounds shown, else "#id", so the picker never reads "All zones"
+  // while one zone is applied, and "All zones" clears it.
+  const zoneChoices = choiceOptions(zones.data);
+  if (effectiveZone !== null && !zoneChoices.some((o) => o.value === String(effectiveZone))) {
+    const named = (rounds.data ?? []).find((r) => r.zone?.id === effectiveZone)?.zone;
+    zoneChoices.push({ value: String(effectiveZone), label: zoneName(effectiveZone, named ? text.name(named.name) : null) });
+  }
 
   return (
     <>
@@ -165,7 +176,7 @@ function TripPlannerContent() {
             value={slotId === null ? "" : String(slotId)}
             onChange={(e) => setParams({ slot: e.target.value ? Number(e.target.value) : null })}
             placeholder={t("allSlots")}
-            options={slotList.map((s) => ({ value: String(s.id), label: t("slotOption", { name: text.name(s.name), start: s.start, end: s.end }) }))}
+            options={slotChoices.map((s) => ({ value: String(s.id), label: t("slotOption", { name: choiceLabel(s), start: s.start_time, end: s.end_time }) }))}
             containerClassName="min-w-[200px]"
           />
           <Select
@@ -173,7 +184,7 @@ function TripPlannerContent() {
             value={effectiveZone === null ? "" : String(effectiveZone)}
             onChange={(e) => setZoneId(e.target.value ? Number(e.target.value) : null)}
             placeholder={t("allZones")}
-            options={choiceOptions(zones.data)}
+            options={zoneChoices}
             containerClassName="min-w-[200px]"
           />
           <Button variant="ghost" className="h-11" onClick={() => setParams({ date: today })} disabled={date === today}>
@@ -203,18 +214,26 @@ function TripPlannerContent() {
             )}
           </div>
         </div>
-        {canManage && !readsSchedule ? (
-          <Notice tone="info" title={t("plan.needsScheduleTitle")}>
-            {t("plan.needsSchedule")}
+        {slots.isError && !slots.data ? (
+          // Not "no slots": the list failed, so none can be chosen until it loads.
+          <Notice
+            tone="warning"
+            action={
+              <Button variant="outline" size="sm" className="self-start" onClick={() => void slots.refetch()} loading={slots.isFetching}>
+                {t("slotsRetry")}
+              </Button>
+            }
+          >
+            {t("slotsFailed")}
           </Notice>
         ) : (
-          canManage && slotId === null && <p className="text-xs text-ink-600">{t("plan.chooseSlot")}</p>
+          canManage && slotId === null && <p className="text-xs text-ink-600">{slots.isLoading ? t("plan.slotsLoading") : t("plan.chooseSlot")}</p>
         )}
         {draftError ? <Notice tone="danger">{describe(draftError)}</Notice> : null}
         <p className="text-xs text-ink-600">{t("mapNote")}</p>
       </Card>
 
-      {plan && <PlanResultCard plan={plan} slot={planSlot} onClose={() => setClosed(plan)} />}
+      {plan && <PlanResultCard plan={plan} slot={planSlot} rounds={rounds.data ?? []} onClose={() => setClosed(plan)} />}
 
       {rounds.isPending ? (
         <LoadingBlock lines={8} className="rounded-lg bg-surface p-5 shadow-card" />
@@ -246,8 +265,8 @@ function TripPlannerContent() {
 
 type SlotGroup = { key: string; slot: Round["slot"]; rounds: Round[] };
 
-/** Rounds by slot in the day's slot order (then by start time), drop-offs before pickups, then by departure. */
-function groupBySlot(rounds: readonly Round[], slots: readonly ScheduleSlot[]): SlotGroup[] {
+/** Rounds by slot in the slot templates' order (then by start time), drop-offs before pickups, then by departure. */
+function groupBySlot(rounds: readonly Round[], slots: readonly { id: number }[]): SlotGroup[] {
   const order = new Map(slots.map((s, i) => [s.id, i]));
   const groups = new Map<number, SlotGroup>();
   for (const round of rounds) {
@@ -265,10 +284,23 @@ function groupBySlot(rounds: readonly Round[], slots: readonly ScheduleSlot[]): 
 }
 
 /**
- * What "Draft rounds" did, for the date and slot it ran for (named in the title): rounds created or extended, and the
- * visits it could not place, each with the reason.
+ * What "Draft rounds" did, for the date and slot it ran for (named in the title): rounds created or extended, the
+ * extra rounds that run after a round that had already left (`follows_round_id`: on the same van or on another free
+ * one, R-19; still drafts to check and publish), each said to be added or extended by this run as `plan` tells, and
+ * the visits it could not place, each with the reason.
  */
-function PlanResultCard({ plan, slot, onClose }: { plan: PlanResult; slot: ScheduleSlot | null; onClose: () => void }) {
+function PlanResultCard({
+  plan,
+  slot,
+  rounds,
+  onClose,
+}: {
+  plan: PlanResult;
+  slot: SlotTemplateOption | null;
+  /** The rounds the page shows (to name the round on the road by its van). */
+  rounds: readonly Round[];
+  onClose: () => void;
+}) {
   const t = useTranslations("admin.trips.plan");
   const trip = useTripText();
   const reasons = useTranslations("admin.trips.unplanned");
@@ -276,7 +308,11 @@ function PlanResultCard({ plan, slot, onClose }: { plan: PlanResult; slot: Sched
   const { can } = useAdminSession();
   const created = plan.rounds.filter((r) => r.plan === "created").length;
   const extended = plan.rounds.filter((r) => r.plan === "extended").length;
-  const slotName = slot ? t("slotName", { name: ops.name(slot.name), start: slot.start, end: slot.end }) : null;
+  const extra = plan.rounds.filter((r) => r.follows_round_id !== null);
+  // Both lists have an entry per visit and ride (drop-off, pickup): the counts say visits, so each visit counts once.
+  const alreadyVisits = new Set(plan.already_planned.map((p) => p.visit_id)).size;
+  const unplannedVisits = new Set(plan.unplanned.map((u) => u.visit_id)).size;
+  const slotName = slot ? t("slotName", { name: ops.name(slot.name), start: slot.start_time, end: slot.end_time }) : null;
   return (
     <Card
       title={slotName ? t("resultTitleFor", { date: ops.dateShort(plan.date), slot: slotName }) : t("resultTitleOn", { date: ops.dateShort(plan.date) })}
@@ -287,13 +323,47 @@ function PlanResultCard({ plan, slot, onClose }: { plan: PlanResult; slot: Sched
       }
     >
       <p role="status" className="text-sm text-ink-900">
-        {t("summary", { created, extended, already: plan.already_planned.length })}
+        {t("summary", { created, extended, already: alreadyVisits })}
       </p>
+      {extra.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-bold text-ink-900">{t("followsTitle", { count: extra.length })}</h3>
+          <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+            {extra.map((r) => {
+              const onRoad = rounds.find((o) => o.id === r.follows_round_id);
+              const values = {
+                kind: trip.kind(r.kind, r.kind_label),
+                plate: r.vehicle.plate_no,
+                time: r.depart_local,
+                follows: String(r.follows_round_id),
+                ltr: (chunks: ReactNode) => (
+                  <bdi dir="ltr" className="font-latin">
+                    {chunks}
+                  </bdi>
+                ),
+              };
+              return (
+                <li key={r.id} className="px-3 py-2 text-sm text-ink-900">
+                  {/* An extra round this run extended (counted as extended above) is not "added". */}
+                  {r.plan === "extended"
+                    ? onRoad
+                      ? t.rich("followsExtendedKnown", { ...values, followsPlate: onRoad.vehicle.plate_no })
+                      : t.rich("followsExtended", values)
+                    : onRoad
+                      ? t.rich("followsKnown", { ...values, followsPlate: onRoad.vehicle.plate_no })
+                      : t.rich("follows", values)}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-xs text-ink-600">{t("followsNote")}</p>
+        </div>
+      )}
       {plan.unplanned.length === 0 ? (
         <p className="text-sm text-ink-600">{t("allPlaced")}</p>
       ) : (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-bold text-ink-900">{t("unplannedTitle", { count: plan.unplanned.length })}</h3>
+          <h3 className="text-sm font-bold text-ink-900">{t("unplannedTitle", { count: unplannedVisits })}</h3>
           <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
             {plan.unplanned.map((u) => (
               <li key={`${u.visit_id}:${u.kind ?? "any"}`} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">

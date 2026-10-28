@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import type { ShiftRow, Worker, WorkerLeave } from "@/lib/admin/types";
+import { slotTemplateOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { WorkerInfoTab } from "./WorkerInfoTab";
 import { WorkerLeavesTab } from "./WorkerLeavesTab";
@@ -29,9 +30,9 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchWorker: (...a: unknown[]) => api.fetchWorker(...a),
   fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
   fetchServiceOptions: async () => [],
-  // The shortfall table names slots from the templates (catalog.manage) or the capacity view (schedule.view).
-  fetchAllSlotTemplates: async () => [],
-  fetchCapacity: async () => ({ slots: [] }),
+  // The shortfall table names slots from the slot pick-list (catalog.manage, schedule.view, trips.manage, bookings.view
+  // or bookings.create_manual); a leave approver without any of them sees the slot's code.
+  fetchSlotTemplateOptions: async () => slotTemplateOptions,
   fetchAllVehicles: async () => [],
 }));
 
@@ -150,6 +151,18 @@ describe("A05 worker tabs", () => {
     const dialog = await screen.findByRole("dialog", { name: "Booked requests would be left short" });
     expect(within(dialog).queryByRole("button", { name: "Save anyway" })).not.toBeInTheDocument();
     expect(within(dialog).getByText(/Only staff with the capacity override permission/)).toBeInTheDocument();
+  });
+
+  it("names the short slot from the slot pick-list for a role that may read it", async () => {
+    api.approveLeave.mockRejectedValue(shortfall);
+    renderWithProviders(<WorkerLeavesTab worker={maria} />, { permissions: ["workers.view", "leave.manage", "schedule.view"] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Approve the leave from Mon, 2 Nov 2026" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Approve" }));
+    const dialog = await screen.findByRole("dialog", { name: "Booked requests would be left short" });
+    const row = within(within(dialog).getByRole("table")).getAllByRole("row")[1];
+    expect(await within(row).findByText("Morning")).toBeInTheDocument();
+    expect(within(row).queryByText("MORNING")).not.toBeInTheDocument();
   });
 
   it("returns focus to the row's Approve button when the shortfall dialog that replaced the confirmation closes", async () => {

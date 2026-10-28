@@ -10,19 +10,18 @@ import { useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button, Card, Checkbox, ConfirmDialog, Notice, StatusBadge, TextArea, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
-import { NOTE_PERMISSIONS } from "@/lib/admin/bookings/actions";
+import { NOTE_PERMISSIONS, availableActions } from "@/lib/admin/bookings/actions";
 import { NOTE_MAX, approveRequestSchema, customerNoteSchema, internalNoteSchema, type ApproveValues } from "@/lib/admin/bookings/forms";
 import {
   addBookingNote,
   approveRescheduleRequest,
   fetchBookingNotifications,
-  fetchRefundsByPhone,
   rejectRescheduleRequest,
 } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import { PAYMENTS_PATH } from "@/lib/admin/nav";
+import { INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
 import { CAPACITY_OVERRIDE_PERMISSION } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, BookingHistoryRow, RescheduleRequest } from "@/lib/admin/types";
@@ -31,7 +30,8 @@ import { DeadlineCountdown, Ltr, SlotLabel } from "../_components/BookingBits";
 import { useBookingFocusFallback } from "../_components/focus";
 import { errorCode, useBookingRefresh } from "../_components/refresh";
 import { paymentTone, proposalTone, requestTone, useBookingText } from "../_components/bookingText";
-import { CancelBookingDialog, DeclineReviewDialog } from "./BookingActions";
+import { REFUND_READ_PERMISSIONS, useBookingRefunds } from "../_components/useBookingRefunds";
+import { CancelBookingDialog, DeclineReviewDialog, ResolveReviewDialog } from "./BookingActions";
 
 /** A label and its value in a two-column list. */
 export function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -222,17 +222,8 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
   const text = useBookingText();
   const { can, canAny } = useAdminSession();
   const p = booking.payment;
-  const seesRefunds = canAny(["payments.view", "refunds.create"]);
-  // Any money taken may have refunds, also ones still processing or failed (refunded_fils counts only those the
-  // provider confirmed): a reschedule's price difference, money the booking never accepted, a cancellation.
-  const mayHaveRefunds = !!p && (p.captured_fils > 0 || p.refunded_fils > 0 || (booking.cancellation.refund_fils ?? 0) > 0);
-  const refunds = useQuery({
-    queryKey: adminKeys.bookingRefunds(booking.id),
-    queryFn: () => fetchRefundsByPhone(booking.customer.phone),
-    enabled: seesRefunds && mayHaveRefunds,
-    select: (rows) =>
-      rows.filter((r) => r.payment && (r.payment.ulid === p?.id || (r.payment.payable_id === booking.id && (r.payment.payable_type ?? "").includes("booking")))),
-  });
+  const seesRefunds = canAny(REFUND_READ_PERMISSIONS);
+  const refunds = useBookingRefunds(booking);
 
   return (
     <Card title={t("title")}>
@@ -260,6 +251,7 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
               <Ltr className="text-xs">{p.failure_code}</Ltr>
             </Fact>
           )}
+          <InvoiceFact booking={booking} />
         </dl>
       )}
       {p?.needs_review && <Notice tone="warning">{t("needsReview")}</Notice>}
@@ -303,14 +295,44 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
   );
 }
 
+/** GET /admin/invoices/{id} (Billing routes/admin.php). */
+const INVOICE_READ = ["invoices.manage", "payments.view"] as const;
+
+/**
+ * The booking's tax invoice (issued after the capture): its number and status, linked to the A09 invoice page for
+ * users who may open it (invoices.manage or payments.view), plain text otherwise.
+ */
+function InvoiceFact({ booking }: { booking: BookingDetail }) {
+  const t = useTranslations("admin.bookings.payment");
+  const text = useBookingText();
+  const { canAny } = useAdminSession();
+  const invoice = booking.invoice;
+  if (!invoice) {
+    return (booking.payment?.captured_fils ?? 0) > 0 ? <Fact label={t("invoice")}>{t("invoicePending")}</Fact> : null;
+  }
+  const number = <Ltr>{invoice.number}</Ltr>;
+  return (
+    <Fact label={t("invoice")}>
+      <span className="flex flex-wrap items-center gap-2">
+        {canAny(INVOICE_READ) ? (
+          <Link href={`${INVOICES_PATH}/${invoice.id}`} className="font-bold" aria-label={t("invoiceLink", { number: invoice.number })}>
+            {number}
+          </Link>
+        ) : (
+          number
+        )}
+        <StatusBadge tone={invoice.status === "issued" ? "success" : "neutral"}>{text.name(invoice.status_label)}</StatusBadge>
+      </span>
+    </Fact>
+  );
+}
+
 // ---- Cancellation review task ---------------------------------------------------------------------------------------
 
 /**
- * A customer's cancellation waiting for staff (spec §10.4): cancel with a refund decision, or keep the booking.
- *
- * Deciding the refund takes bookings.cancel and refunds.create together; under the seeded roles only a system admin
- * holds both (coordinators cancel, accountants decide refunds), so the note names who can act (backend request: let
- * the finance role resolve these reviews).
+ * A customer's cancellation waiting for staff (spec §10.4). Coordinators (bookings.cancel) cancel it with a refund
+ * decision or keep the booking; finance (refunds.create without bookings.cancel) resolves it with a refund (POST
+ * …/cancel-review/resolve, P3-38: finance stays read-only on operations otherwise).
  */
 export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail; onStale: () => void }) {
   const t = useTranslations("admin.bookings.review");
@@ -318,17 +340,21 @@ export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail;
   const { can } = useAdminSession();
   const fallback = useBookingFocusFallback();
   // The booking as it was when a dialog opened (its version is the If-Match); the dialog stays while the review closes.
-  const [open, setOpen] = useState<{ action: "cancel" | "decline"; booking: BookingDetail } | null>(null);
+  const [open, setOpen] = useState<{ action: "cancel" | "decline" | "resolve"; booking: BookingDetail } | null>(null);
   const review = booking.cancellation.review;
   const changed = open !== null && open.booking.version !== booking.version;
+  const dialogProps = open ? { booking: open.booking, changed, returnFocusTo: fallback, onClose: () => setOpen(null), onStale } : null;
   const dialogs = (
     <>
-      {open?.action === "cancel" && <CancelBookingDialog booking={open.booking} changed={changed} returnFocusTo={fallback} onClose={() => setOpen(null)} onStale={onStale} />}
-      {open?.action === "decline" && <DeclineReviewDialog booking={open.booking} changed={changed} returnFocusTo={fallback} onClose={() => setOpen(null)} onStale={onStale} />}
+      {dialogProps && open?.action === "cancel" && <CancelBookingDialog {...dialogProps} />}
+      {dialogProps && open?.action === "decline" && <DeclineReviewDialog {...dialogProps} />}
+      {dialogProps && open?.action === "resolve" && <ResolveReviewDialog {...dialogProps} />}
     </>
   );
   if (!booking.cancellation.review_requested_at) return dialogs;
-  const canCancel = can("bookings.cancel");
+  const actions = availableActions(booking, can);
+  const canCancel = actions.has("declineReview");
+  const resolves = actions.has("resolveReview");
   const decidesRefund = can("refunds.create");
 
   return (
@@ -345,6 +371,12 @@ export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail;
               {t("keep")}
             </Button>
           </div>
+        ) : resolves ? (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button size="sm" variant="danger" onClick={() => setOpen({ action: "resolve", booking })}>
+              {t("resolve")}
+            </Button>
+          </div>
         ) : undefined
       }
     >
@@ -352,8 +384,8 @@ export function CancelReviewTask({ booking, onStale }: { booking: BookingDetail;
       {review?.reason_code && <p>{t("reason", { reason: text.cancelReason(review.reason_code) })}</p>}
       {review?.reason_text && <p className="whitespace-pre-line">“{review.reason_text}”</p>}
       {canCancel && !decidesRefund && <p>{t("needsRefundDecider")}</p>}
-      {!canCancel && decidesRefund && <p>{t("needsCancelPermission")}</p>}
-      {!canCancel && !decidesRefund && <p>{t("needsBoth")}</p>}
+      {resolves && <p>{t("resolveHint")}</p>}
+      {!canCancel && !resolves && <p>{t("needsEither")}</p>}
       {dialogs}
     </Notice>
   );

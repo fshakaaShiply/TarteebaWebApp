@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice } from "@/components/admin";
+import { BOOKING_REFRESH_MS, useBackgroundRefresh } from "@/lib/admin/backgroundRefresh";
 import { availableActions, paymentVerifying } from "@/lib/admin/bookings/actions";
 import { fetchBooking } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
@@ -49,13 +50,19 @@ export function BookingDetailScreen({ id }: { id: string }) {
 function BookingDetailContent({ id }: { id: string }) {
   const t = useTranslations("admin.bookings.detail");
   const numericId = /^\d{1,10}$/.test(id) ? Number(id) : null;
-  // No timed refresh: GET /admin/bookings/{id} counts as staff activity (StaffIdleTimeout), so a poll would keep an
-  // open tab's session alive past the idle timeout (spec §13.2). It refreshes on focus, after actions and on demand.
+  // Opening the page, focus, actions and Refresh load it as staff activity; the timer's reads, and the reads a change
+  // it brought sets off before anyone acts (candidates, refunds), are background polls (lib/admin/backgroundRefresh.ts),
+  // which never keep an idle session alive (spec §13.2).
+  const queryClient = useQueryClient();
   const booking = useQuery({
     queryKey: adminKeys.booking(numericId ?? 0),
     queryFn: () => fetchBooking(numericId as number),
     enabled: numericId !== null,
     refetchOnWindowFocus: true,
+  });
+  useBackgroundRefresh(adminKeys.booking(numericId ?? 0), () => fetchBooking(numericId as number, { background: true }), {
+    everyMs: BOOKING_REFRESH_MS,
+    enabled: numericId !== null,
   });
   const [stale, setStale] = useState(false);
 
@@ -70,7 +77,11 @@ function BookingDetailContent({ id }: { id: string }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => void booking.refetch()}
+            onClick={() => {
+              void booking.refetch();
+              // The cleaners card's candidates too (who is free changes with other bookings).
+              for (const visit of booking.data?.visits ?? []) void queryClient.invalidateQueries({ queryKey: adminKeys.visitCandidates(visit.id) });
+            }}
             loading={booking.isFetching}
             icon={<RefreshCw aria-hidden className="size-4" />}
           >

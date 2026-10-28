@@ -1,51 +1,84 @@
 import { describe, expect, it } from "vitest";
 import { AdminApiError } from "../client";
-import { canRefund, checkRefund, initialRefundValues, refundFormSchema, refundableAfter, refundableFromError, type RefundFormValues } from "./refund";
+import type { RefundReason } from "../types";
+import {
+  canRefund,
+  checkRefund,
+  initialRefundValues,
+  pickableReason,
+  refundFormSchema,
+  refundableAfter,
+  refundableFromError,
+  selectableReasons,
+  type RefundFormValues,
+} from "./refund";
 
 const values = (over: Partial<RefundFormValues>): RefundFormValues => ({ amount: "180", reason_code: "complaint_compensation", reason_text: "", ...over });
 
+// GET /admin/refund-reasons as the API answers it (staff reasons in their order, then the system-only one).
+const REASONS: RefundReason[] = [
+  { code: "complaint_compensation", label: { ar: "تعويض شكوى", en: "Complaint compensation" }, selectable: true, requires_text: false },
+  { code: "other", label: { ar: "سبب آخر", en: "Other" }, selectable: true, requires_text: true },
+  { code: "price_difference", label: { ar: "فرق السعر بعد تعديل الحجز", en: "Price difference after a booking change" }, selectable: false, requires_text: false },
+];
+
 describe("refund amount math (spec §10.4)", () => {
   it("turns the AED the admin typed into integer fils, without float math", () => {
-    expect(checkRefund(values({ amount: "180" }), 24000)).toEqual({
+    expect(checkRefund(values({ amount: "180" }), 24000, REASONS)).toEqual({
       ok: true,
       payload: { amount_fils: 18000, reason_code: "complaint_compensation", reason_text: null },
     });
     // 0.1 + 0.2 style amounts stay exact.
-    expect(checkRefund(values({ amount: "0.30" }), 24000)).toMatchObject({ ok: true, payload: { amount_fils: 30 } });
-    expect(checkRefund(values({ amount: "1,200.75" }), 200000)).toMatchObject({ ok: true, payload: { amount_fils: 120075 } });
+    expect(checkRefund(values({ amount: "0.30" }), 24000, REASONS)).toMatchObject({ ok: true, payload: { amount_fils: 30 } });
+    expect(checkRefund(values({ amount: "1,200.75" }), 200000, REASONS)).toMatchObject({ ok: true, payload: { amount_fils: 120075 } });
     // Arabic-Indic digits from an Arabic keyboard.
-    expect(checkRefund(values({ amount: "١٢٠٫٥" }), 24000)).toMatchObject({ ok: true, payload: { amount_fils: 12050 } });
+    expect(checkRefund(values({ amount: "١٢٠٫٥" }), 24000, REASONS)).toMatchObject({ ok: true, payload: { amount_fils: 12050 } });
   });
 
   it("allows exactly what is left to refund and nothing more", () => {
-    expect(checkRefund(values({ amount: "240.00" }), 24000)).toMatchObject({ ok: true, payload: { amount_fils: 24000 } });
-    expect(checkRefund(values({ amount: "240.01" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_over" } });
+    expect(checkRefund(values({ amount: "240.00" }), 24000, REASONS)).toMatchObject({ ok: true, payload: { amount_fils: 24000 } });
+    expect(checkRefund(values({ amount: "240.01" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_over" } });
     // A refund still processing already reduced what is refundable.
-    expect(checkRefund(values({ amount: "200" }), 6000)).toEqual({ ok: false, errors: { amount: "amount_over" } });
+    expect(checkRefund(values({ amount: "200" }), 6000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_over" } });
   });
 
   it("refuses empty, zero, negative, malformed and over-precise amounts", () => {
-    expect(checkRefund(values({ amount: "" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_required" } });
-    expect(checkRefund(values({ amount: "0" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_zero" } });
-    expect(checkRefund(values({ amount: "-5" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_invalid" } });
-    expect(checkRefund(values({ amount: "12a" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_invalid" } });
-    expect(checkRefund(values({ amount: "10.555" }), 24000)).toEqual({ ok: false, errors: { amount: "amount_precision" } });
+    expect(checkRefund(values({ amount: "" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_required" } });
+    expect(checkRefund(values({ amount: "0" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_zero" } });
+    expect(checkRefund(values({ amount: "-5" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_invalid" } });
+    expect(checkRefund(values({ amount: "12a" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_invalid" } });
+    expect(checkRefund(values({ amount: "10.555" }), 24000, REASONS)).toEqual({ ok: false, errors: { amount: "amount_precision" } });
   });
 
-  it("needs a staff reason from the API's list, and a note for other", () => {
-    expect(checkRefund(values({ reason_code: "" }), 24000)).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
+  it("needs a selectable reason from the API's list, and a note when that reason requires text", () => {
+    expect(checkRefund(values({ reason_code: "" }), 24000, REASONS)).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
     // System reasons (price_difference) are recorded by other modules, never offered to staff.
-    expect(checkRefund(values({ reason_code: "price_difference" }), 24000)).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
-    expect(checkRefund(values({ reason_code: "other", reason_text: "  " }), 24000)).toEqual({ ok: false, errors: { reason_text: "note_required" } });
-    expect(checkRefund(values({ reason_code: "other", reason_text: " Late team, agreed by phone " }), 24000)).toEqual({
+    expect(checkRefund(values({ reason_code: "price_difference" }), 24000, REASONS)).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
+    // A code the API does not list (or a list that has not loaded) is not sent.
+    expect(checkRefund(values({ reason_code: "goodwill" }), 24000, REASONS)).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
+    expect(checkRefund(values({}), 24000, [])).toEqual({ ok: false, errors: { reason_code: "reason_required" } });
+    expect(checkRefund(values({ reason_code: "other", reason_text: "  " }), 24000, REASONS)).toEqual({ ok: false, errors: { reason_text: "note_required" } });
+    expect(checkRefund(values({ reason_code: "other", reason_text: " Late team, agreed by phone " }), 24000, REASONS)).toEqual({
       ok: true,
       payload: { amount_fils: 18000, reason_code: "other", reason_text: "Late team, agreed by phone" },
     });
-    expect(checkRefund(values({ reason_text: "x".repeat(501) }), 24000)).toEqual({ ok: false, errors: { reason_text: "note_length" } });
+    // requires_text comes from the API, not from the code "other".
+    const noteless = REASONS.map((r) => ({ ...r, requires_text: false }));
+    expect(checkRefund(values({ reason_code: "other" }), 24000, noteless)).toMatchObject({ ok: true, payload: { reason_code: "other", reason_text: null } });
+    const strict = REASONS.map((r) => ({ ...r, requires_text: true }));
+    expect(checkRefund(values({}), 24000, strict)).toEqual({ ok: false, errors: { reason_text: "note_required" } });
+    expect(checkRefund(values({ reason_text: "x".repeat(501) }), 24000, REASONS)).toEqual({ ok: false, errors: { reason_text: "note_length" } });
+  });
+
+  it("offers only the selectable reasons, in the API's order", () => {
+    expect(selectableReasons(REASONS).map((r) => r.code)).toEqual(["complaint_compensation", "other"]);
+    expect(selectableReasons(undefined)).toEqual([]);
+    expect(pickableReason(REASONS, "other")).toBe(REASONS[1]);
+    expect(pickableReason(REASONS, "price_difference")).toBeNull();
   });
 
   it("reports every problem on its own field in the form schema", () => {
-    const result = refundFormSchema(1000).safeParse(values({ amount: "20", reason_code: "" }));
+    const result = refundFormSchema(1000, REASONS).safeParse(values({ amount: "20", reason_code: "" }));
     expect(result.success).toBe(false);
     expect(result.error?.issues.map((i) => [i.path.join("."), i.message])).toEqual([
       ["amount", "amount_over"],

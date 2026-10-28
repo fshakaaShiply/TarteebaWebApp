@@ -9,7 +9,9 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Card, Notice, StatusBadge, TextField } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { useNow } from "@/lib/admin/hooks";
-import type { DocumentUrl, SupplierBlock } from "@/lib/admin/types";
+import { DOCUMENTS_READ } from "@/lib/admin/nav";
+import { useAdminSession } from "@/lib/admin/session";
+import type { AdminPayment, DocumentUrl, RefundCreditNote, SupplierBlock } from "@/lib/admin/types";
 import { useFinanceText } from "./financeText";
 
 /**
@@ -48,6 +50,39 @@ export function Code({ children, className, wrap }: { children: ReactNode; class
 export function Money({ fils, className }: { fils: number | null | undefined; className?: string }) {
   const text = useFinanceText();
   return <span className={clsx("font-latin whitespace-nowrap", className)}>{text.money(fils)}</span>;
+}
+
+/**
+ * What a payment paid for: "Booking TRB-7K2Q9M" (the payable's own reference, else "#id"), a link to the booking page
+ * for bookings.view.
+ */
+export function PayableRef({ payable, className }: { payable: AdminPayment["payable"]; className?: string }) {
+  const text = useFinanceText();
+  const { can } = useAdminSession();
+  const content = (
+    <>
+      {text.payable(payable.type)} <Code>{payable.reference ?? `#${payable.id}`}</Code>
+    </>
+  );
+  return payable.type === "booking" && can("bookings.view") ? (
+    <Link href={`/admin/bookings/${payable.id}`} className={clsx("font-medium", className)}>
+      {content}
+    </Link>
+  ) : (
+    <span className={className}>{content}</span>
+  );
+}
+
+/** A refund's credit note by its number, linked to its page for whoever reads the tax documents. */
+export function CreditNoteNumber({ note }: { note: RefundCreditNote }) {
+  const { canAny } = useAdminSession();
+  return canAny(DOCUMENTS_READ) ? (
+    <Link href={`/admin/finance/credit-notes/${note.id}`} className="font-medium">
+      <Code>{note.number}</Code>
+    </Link>
+  ) : (
+    <Code>{note.number}</Code>
+  );
 }
 
 /** The provider flagged this for a person (needs_review). */

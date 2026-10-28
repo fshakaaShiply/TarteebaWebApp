@@ -1,11 +1,11 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Button, DataTable, Dialog, Notice, TextArea, showFieldError, type Column } from "@/components/admin";
-import { fetchAllVehicles, fetchCapacity } from "@/lib/admin/endpoints";
+import { fetchAllVehicles } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
 import {
@@ -19,41 +19,21 @@ import {
 } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { Shortfall, Translatable } from "@/lib/admin/types";
-import { useServiceName, useSlotTemplateOptions, useZoneName } from "./options";
+import { useServiceName, useSlotPickList, useZoneName } from "./options";
 import { useOpsErrorKey, useOpsText } from "./opsText";
 
 const STALE = 60_000;
 
 type SlotLabel = { name: Translatable; start: string; end: string };
 
-/** One (date, zone) per slot template: a template's name and times are the same on every date and in every zone. */
-function poolPerTemplate(shortfalls: readonly Shortfall[]): { date: string; zoneId: number }[] {
-  const seen = new Set<number>();
-  const pools = new Map<string, { date: string; zoneId: number }>();
-  for (const s of shortfalls) {
-    if (seen.has(s.slot_template_id)) continue;
-    seen.add(s.slot_template_id);
-    pools.set(`${s.date}|${s.zone_id}`, { date: s.date, zoneId: s.zone_id });
-  }
-  return [...pools.values()];
-}
-
 /**
  * Names for the ids a shortfall row carries, from lists this user may read: the slot's name and times (the slot
- * templates with catalog.manage, otherwise the capacity view of the row's date and zone with schedule.view) and the
- * vehicle's plate (fleet.manage or schedule.view). What stays unknown falls back to the slot code or the number.
+ * pick-list: catalog.manage, schedule.view, trips.manage, bookings.view or bookings.create_manual) and the vehicle's
+ * plate (fleet.manage or schedule.view). What stays unknown falls back to the slot code or the number.
  */
 function useShortfallNames(shortfalls: readonly Shortfall[]) {
-  const { can, canAny } = useAdminSession();
-  const fromTemplates = can("catalog.manage");
-  const templates = useSlotTemplateOptions(fromTemplates && shortfalls.length > 0);
-  const views = useQueries({
-    queries: (fromTemplates || !can("schedule.view") ? [] : poolPerTemplate(shortfalls)).map(({ date, zoneId }) => ({
-      queryKey: adminKeys.capacityView(date, zoneId),
-      queryFn: () => fetchCapacity({ date, zoneId }),
-      staleTime: STALE,
-    })),
-  });
+  const { canAny } = useAdminSession();
+  const templates = useSlotPickList(shortfalls.length > 0);
   const vehicles = useQuery({
     // The same list the capacity page loads for its seat bars.
     queryKey: adminKeys.vehicleList({ all: 1 }),
@@ -64,11 +44,6 @@ function useShortfallNames(shortfalls: readonly Shortfall[]) {
 
   const slots = new Map<number, SlotLabel>();
   for (const tpl of templates.data ?? []) slots.set(tpl.id, { name: tpl.name, start: tpl.start_time, end: tpl.end_time });
-  for (const view of views) {
-    for (const slot of view.data?.slots ?? []) {
-      if (!slots.has(slot.slot_template_id)) slots.set(slot.slot_template_id, { name: slot.name, start: slot.start, end: slot.end });
-    }
-  }
   const plates = new Map((vehicles.data ?? []).map((v) => [v.id, v.plate_no]));
   return { slot: (id: number) => slots.get(id), plate: (id: number) => plates.get(id) };
 }

@@ -63,19 +63,19 @@ describe("durations and counts read naturally", () => {
     expect(time("en")("hoursMinutes", { hours: 2, minutes: 10 })).toBe("2 hours 10 minutes");
   });
 
-  it("in Arabic, the slot picker and the assignment counts agree with their number", () => {
+  it("in Arabic, the assignment counts and the manual booking's hold agree with their number", () => {
+    // The slot picker names the time only; whether it can take the team is the previews' answer.
     const slots = createTranslator({ locale: "ar", messages: ar, namespace: "admin.bookings.slots" });
-    const slot = (free: number) => slots("option", { name: "صباحي", start: "10:00", end: "14:00", status: "متاحة", free });
-    expect(slot(1)).toBe("صباحي · 10:00–14:00 · متاحة · حتى عاملة واحدة");
-    expect(slot(2)).toBe("صباحي · 10:00–14:00 · متاحة · حتى عاملتين");
-    expect(slot(5)).toBe("صباحي · 10:00–14:00 · متاحة · حتى 5 عاملات");
-    expect(slot(12)).toBe("صباحي · 10:00–14:00 · متاحة · حتى 12 عاملة");
+    expect(slots("option", { name: "صباحي", start: "10:00", end: "14:00" })).toBe("صباحي · 10:00–14:00");
+    const summary = createTranslator({ locale: "ar", messages: ar, namespace: "admin.manual.summary" });
+    expect(summary("hold", { minutes: 2 })).toBe("يحجز رابط الدفع هذا الموعد لمدة دقيقتين.");
+    expect(summary("hold", { minutes: 120 })).toBe("يحجز رابط الدفع هذا الموعد لمدة 120 دقيقة.");
     const assignment = createTranslator({ locale: "ar", messages: ar, namespace: "admin.bookings.assignment" });
     expect(assignment("chooseMore", { count: 1 })).toBe("اختر عاملة أخرى");
     expect(assignment("chooseMore", { count: 2 })).toBe("اختر عاملتين أخريين");
     expect(assignment("chooseMore", { count: 3 })).toBe("اختر 3 عاملات أخرى");
     const enSlots = createTranslator({ locale: "en", messages: en, namespace: "admin.bookings.slots" });
-    expect(enSlots("option", { name: "Morning", start: "10:00", end: "14:00", status: "Open", free: 1 })).toBe("Morning · 10:00–14:00 · Open · up to 1 cleaner");
+    expect(enSlots("option", { name: "Morning", start: "10:00", end: "14:00" })).toBe("Morning · 10:00–14:00");
   });
 
   it("announces new alerts with the right forms", () => {

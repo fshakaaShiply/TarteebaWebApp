@@ -10,9 +10,10 @@ const updateSetting = vi.fn();
 vi.mock("@/lib/admin/endpoints", () => ({
   updateSetting: (...args: unknown[]) => updateSetting(...args),
   fetchZoneOptions: async () => [{ id: 1, code: "DEMO_BB", name: { ar: "الخليج التجاري وداون تاون", en: "Business Bay & Downtown" }, is_active: true }],
-  // The shortfall table names services and slots from these lists when the user may read them.
+  // The shortfall table names services and slots from their pick-lists when the user may read them; settings.manage
+  // reads neither, so the slot's code is shown.
   fetchServiceOptions: async () => [],
-  fetchAllSlotTemplates: async () => [],
+  fetchSlotTemplateOptions: async () => [],
 }));
 
 // SettingsDefaults (R-13): every day 08:00–20:00. GET /admin/settings answers the week as a list.

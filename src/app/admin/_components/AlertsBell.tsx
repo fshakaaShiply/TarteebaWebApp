@@ -43,7 +43,8 @@ export function AlertsBell() {
     queryFn: async (): Promise<AlertsState> => {
       // The first call loads the newest page; every poll after it asks only for what is new since the last answer.
       const previous = queryClient.getQueryData<AlertsState>(adminKeys.alerts());
-      const page = await fetchAlerts(previous ? { since: previous.since } : { perPage: ALERTS_PAGE_SIZE });
+      // Every read of the bell is a background poll (X-Background-Poll), never staff activity.
+      const page = await fetchAlerts(previous ? { since: previous.since } : { perPage: ALERTS_PAGE_SIZE }, { background: true });
       return nextAlertsState(previous, page);
     },
     refetchInterval: (query) => (query.state.data?.pollSeconds ?? DEFAULT_POLL_SECONDS) * 1000,

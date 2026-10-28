@@ -4,18 +4,20 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
-import { Card, Checkbox, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
+import { Button, Card, Checkbox, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
 import { fetchRefunds } from "@/lib/admin/endpoints";
+import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { REFUND_FILTERS, dateRangeValid, filterKey, idOrUndefined, phoneSearchValid } from "@/lib/admin/finance/filters";
-import { REFUND_REASONS, REFUND_STATUSES } from "@/lib/admin/finance/refund";
+import { REFUND_STATUSES } from "@/lib/admin/finance/refund";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
-import { DOCUMENTS_READ, REFUNDS_READ } from "@/lib/admin/nav";
+import { REFUNDS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminRefund, RefundStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
-import { Code, DateRangeFields, Money, ReviewBadge } from "../_components/FinanceParts";
+import { Code, CreditNoteNumber, DateRangeFields, Money, ReviewBadge } from "../_components/FinanceParts";
 import { refundTone, useFinanceText } from "../_components/financeText";
+import { useRefundReasons } from "../_components/useRefundReasons";
 import { useUrlFilters } from "../_components/useUrlFilters";
 
 const PER_PAGE = 25;
@@ -37,9 +39,18 @@ export function RefundsScreen() {
 function RefundsTable() {
   const t = useTranslations("admin.finance.refunds");
   const f = useTranslations("admin.finance.filters");
+  // The refund dialog's words for the same list of reasons.
+  const reasonText = useTranslations("admin.finance.refund");
+  const describe = useAdminErrorMessage();
   const text = useFinanceText();
-  const { can, canAny } = useAdminSession();
+  const { can } = useAdminSession();
   const { filters, set, setPage, reset, filtered } = useUrlFilters(REFUND_FILTERS);
+  const reasons = useRefundReasons();
+  // Every reason the API lists, the system-only ones too; one in the URL it does not name stays visible as its code.
+  const reasonOptions = (reasons.data ?? []).map((r) => ({ value: r.code, label: text.reason(r.code, r.label) }));
+  if (filters.reason_code !== "" && !reasonOptions.some((o) => o.value === filters.reason_code)) {
+    reasonOptions.push({ value: filters.reason_code, label: filters.reason_code });
+  }
 
   const phone = useDebouncedValue(filters.phone.trim(), 300);
   const rangeValid = dateRangeValid(filters);
@@ -139,14 +150,7 @@ function RefundsTable() {
     {
       id: "documents",
       header: t("columns.creditNote"),
-      cell: (r) =>
-        r.credit_note_id !== null && canAny(DOCUMENTS_READ) ? (
-          <Link href={`/admin/finance/credit-notes/${r.credit_note_id}`} className="font-medium">
-            {t("creditNote")}
-          </Link>
-        ) : (
-          <span className="text-ink-600">—</span>
-        ),
+      cell: (r) => (r.credit_note ? <CreditNoteNumber note={r.credit_note} /> : <span className="text-ink-600">—</span>),
     },
   ];
 
@@ -164,10 +168,11 @@ function RefundsTable() {
         />
         <Select
           label={f("reason")}
-          placeholder={f("allReasons")}
+          placeholder={reasons.isPending ? reasonText("reasonsLoading") : f("allReasons")}
+          disabled={reasons.isPending}
           value={filters.reason_code}
           onChange={(e) => set({ reason_code: e.target.value })}
-          options={REFUND_REASONS.map((s) => ({ value: s, label: text.reason(s) }))}
+          options={reasonOptions}
           containerClassName="min-w-[200px]"
         />
         <DateRangeFields from={filters.from} to={filters.to} onChange={set} valid={rangeValid} fromLabel={f("createdFrom")} toLabel={f("createdTo")} />
@@ -188,6 +193,20 @@ function RefundsTable() {
           }
         >
           {f("onePayment", { id: filters.payment_id })}
+        </Notice>
+      )}
+      {reasons.isError && (
+        // Only the reason filter is affected: the list itself still loads.
+        <Notice
+          tone="warning"
+          title={reasonText("reasonsFailed")}
+          action={
+            <Button variant="secondary" size="sm" className="self-start" onClick={() => void reasons.refetch()} loading={reasons.isFetching}>
+              {reasonText("reasonsRetry")}
+            </Button>
+          }
+        >
+          {describe(reasons.error)}
         </Notice>
       )}
       {!rangeValid && <Notice tone="warning">{f("rangeInvalid")}</Notice>}

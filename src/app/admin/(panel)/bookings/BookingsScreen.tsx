@@ -32,18 +32,54 @@ import {
   NO_BOOKING_FILTERS,
   type BookingFilters,
 } from "@/lib/admin/bookings/filters";
-import { fetchBookings } from "@/lib/admin/endpoints";
+import { fetchAllWorkers, fetchBookings } from "@/lib/admin/endpoints";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingRow } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
-import { useChoiceLabel, useChoiceOptions, useServiceChoices, useZoneChoices } from "../_ops/options";
+import { useChoiceLabel, useChoiceOptions, useDriverPickList, useServiceChoices, useZoneChoices } from "../_ops/options";
 import { BookingChips, DeadlineCountdown, Ltr, SlotLabel } from "./_components/BookingBits";
+import { useSlotLabel, useSlotTemplatePickList } from "./_components/SlotSelect";
 import { useBookingText } from "./_components/bookingText";
 
 const PER_PAGE = 25;
+
+/**
+ * The slot, worker and driver filters' options: every slot template (inactive ones marked), every worker (workers.view
+ * only; the filter is hidden without it) and every driver, each by name. A filter value from a link that is not in its
+ * list still shows (as "#id"), so the list never looks unfiltered.
+ */
+function useExtraFilterOptions(selected: { slot: string; worker: string; driver: string }) {
+  const t = useTranslations("admin.bookings.filters");
+  const { can } = useAdminSession();
+  const slotLabel = useSlotLabel();
+  const slots = useSlotTemplatePickList();
+  const canSeeWorkers = can("workers.view");
+  const workers = useQuery({ queryKey: adminKeys.workerOptions(), queryFn: fetchAllWorkers, staleTime: 60_000, enabled: canSeeWorkers });
+  const drivers = useDriverPickList();
+  const withSelected = (options: { value: string; label: string }[], value: string) =>
+    value && !options.some((o) => o.value === value) ? [...options, { value, label: t("unknownChoice", { id: value }) }] : options;
+
+  return {
+    slots: withSelected(
+      (slots.query.data ?? []).map((s) => ({ value: String(s.id), label: s.is_active ? slotLabel(s) : t("inactive", { name: slotLabel(s) }) })),
+      selected.slot,
+    ),
+    canSeeWorkers,
+    workers: withSelected(
+      [...(workers.data ?? [])]
+        .sort((a, b) => a.display_name.localeCompare(b.display_name))
+        .map((w) => ({ value: String(w.id), label: w.employment_status === "terminated" ? t("workerLeft", { name: w.display_name }) : w.display_name })),
+      selected.worker,
+    ),
+    drivers: withSelected(
+      (drivers.data ?? []).map((d) => ({ value: String(d.id), label: d.is_active ? d.name : t("inactive", { name: d.name }) })),
+      selected.driver,
+    ),
+  };
+}
 
 /**
  * A03 bookings (spec §14.3, §17; design AdminBookings.dc.html; bookings.view): every request with its status and
@@ -81,6 +117,7 @@ function BookingsTable() {
   const services = useServiceChoices();
   const choiceOptions = useChoiceOptions();
   const choiceLabel = useChoiceLabel();
+  const extra = useExtraFilterOptions({ slot: filters.slot_template_id, worker: filters.worker_id, driver: filters.driver_id });
 
   /** Filter changes stay in this page's URL without a server round trip (history.replaceState is synced by Next). */
   const writeParams = useCallback(
@@ -115,11 +152,14 @@ function BookingsTable() {
   }, [pageZone, effectiveZone, filters, writeParams]);
   const page = pageZone === effectiveZone ? filters.page : 1;
 
+  // A cleaner filter from a link applies only for users who see the Cleaner filter (workers.view): for anyone else the
+  // list would be filtered with nothing on screen saying so. The URL keeps it for whoever opens the link next.
+  const applied = extra.canSeeWorkers ? filters : { ...filters, worker_id: "" };
   const search = useDebouncedValue(filters.search.trim(), 300);
   const rangeValid = dateRangeValid(filters);
-  const query = filtersToQuery({ ...filters, search, page }, effectiveZone, PER_PAGE);
+  const query = filtersToQuery({ ...applied, search, page }, effectiveZone, PER_PAGE);
   const list = useQuery({
-    queryKey: adminKeys.bookingList({ ...filtersToKey({ ...filters, page }), search, zone: effectiveZone ?? 0 }),
+    queryKey: adminKeys.bookingList({ ...filtersToKey({ ...applied, page }), search, zone: effectiveZone ?? 0 }),
     queryFn: () => fetchBookings(query),
     placeholderData: keepPreviousData,
     enabled: rangeValid,
@@ -207,7 +247,7 @@ function BookingsTable() {
     },
   ];
 
-  const filtered = hasFilters(filters) || effectiveZone !== null;
+  const filtered = hasFilters(applied) || effectiveZone !== null;
 
   return (
     <Card>
@@ -263,6 +303,32 @@ function BookingsTable() {
           onChange={(e) => setFilters({ source: e.target.value as BookingFilters["source"] })}
           options={BOOKING_SOURCES.map((s) => ({ value: s, label: text.source(s) }))}
           containerClassName="min-w-[150px]"
+        />
+        <Select
+          label={t("filters.slot")}
+          placeholder={t("filters.allSlots")}
+          value={filters.slot_template_id}
+          onChange={(e) => setFilters({ slot_template_id: e.target.value })}
+          options={extra.slots}
+          containerClassName="min-w-[170px]"
+        />
+        {extra.canSeeWorkers && (
+          <Select
+            label={t("filters.worker")}
+            placeholder={t("filters.allWorkers")}
+            value={filters.worker_id}
+            onChange={(e) => setFilters({ worker_id: e.target.value })}
+            options={extra.workers}
+            containerClassName="min-w-[170px]"
+          />
+        )}
+        <Select
+          label={t("filters.driver")}
+          placeholder={t("filters.allDrivers")}
+          value={filters.driver_id}
+          onChange={(e) => setFilters({ driver_id: e.target.value })}
+          options={extra.drivers}
+          containerClassName="min-w-[170px]"
         />
         <TextField
           type="date"

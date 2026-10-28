@@ -87,7 +87,10 @@ describe("/backend proxy: request to the API", () => {
   });
 
   it("forwards the admin client's headers, the client address and the web origin, nothing else", () => {
-    const headers = upstreamRequestHeaders(new Headers(stagingHeaders), new URL("http://127.0.0.1:3000/backend/api/v1/admin/me"));
+    const headers = upstreamRequestHeaders(
+      new Headers({ ...stagingHeaders, "x-background-poll": "1" }),
+      new URL("http://127.0.0.1:3000/backend/api/v1/admin/me"),
+    );
     expect(Object.fromEntries(headers)).toEqual({
       accept: "application/json",
       "accept-language": "ar",
@@ -97,6 +100,7 @@ describe("/backend proxy: request to the API", () => {
       origin: "https://tarteeba.shiplytechnologies.com",
       referer: "https://tarteeba.shiplytechnologies.com/admin/catalog/services/1",
       "user-agent": "Mozilla/5.0 Test",
+      "x-background-poll": "1",
       "x-requested-with": "XMLHttpRequest",
       "x-xsrf-token": "tok",
       "x-forwarded-for": "203.0.113.7",
@@ -112,6 +116,19 @@ describe("/backend proxy: request to the API", () => {
       new URL("https://tarteeba.shiplytechnologies.com/backend/api/v1/admin/bookings/12/confirm"),
     );
     expect(headers.get("idempotency-key")).toBe("3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f");
+  });
+
+  it("forwards X-Background-Poll of a timer-driven read, so the API does not count it as staff activity", () => {
+    const poll = upstreamRequestHeaders(
+      new Headers({ ...stagingHeaders, "X-Background-Poll": "1" }),
+      new URL("https://tarteeba.shiplytechnologies.com/backend/api/v1/admin/dashboard/summary"),
+    );
+    expect(poll.get("x-background-poll")).toBe("1");
+    const ordinary = upstreamRequestHeaders(
+      new Headers(stagingHeaders),
+      new URL("https://tarteeba.shiplytechnologies.com/backend/api/v1/admin/dashboard/summary"),
+    );
+    expect(ordinary.has("x-background-poll")).toBe(false);
   });
 
   it("describes a local dev origin with its port", () => {

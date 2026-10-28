@@ -42,7 +42,7 @@ import {
 } from "@/lib/admin/trips/rounds";
 import type { Round, RoundStop, VisitSummary } from "@/lib/admin/types";
 import { useDayVisits } from "../_ops/daySlots";
-import { useDriverOptions } from "../_ops/options";
+import { useDriverPickList } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 import { Ltr } from "../bookings/_components/BookingBits";
 import { useBookingText } from "../bookings/_components/bookingText";
@@ -118,17 +118,19 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
   const ops = useOpsText();
   const toast = useToast();
   const serverMessage = useServerFieldMessage();
-  const { can, canAny } = useAdminSession();
+  const { canAny } = useAdminSession();
   const formId = useId();
   const [snapshot] = useState(round);
+  // There is no van pick-list: the vans come from the fleet list (fleet.manage or schedule.view).
+  const readsVehicles = canAny(["fleet.manage", "schedule.view"]);
   const vehicles = useQuery({
     queryKey: adminKeys.vehicleList({ all: 1 }),
     queryFn: fetchAllVehicles,
     staleTime: 60_000,
-    enabled: canAny(["fleet.manage", "schedule.view"]),
+    enabled: readsVehicles,
   });
-  const readsDrivers = can("fleet.manage");
-  const drivers = useDriverOptions(readsDrivers);
+  // The driver pick-list (GET /admin/drivers/options) is readable with trips.manage, not only fleet.manage.
+  const drivers = useDriverPickList();
   const form = useForm<RoundEditValues>({ resolver: zodResolver(editSchema) as never, defaultValues: roundEditDefaults(snapshot) });
   const mutation = useRoundChange(
     snapshot,
@@ -174,14 +176,11 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
       label: t("vehicleOption", { plate: snapshot.vehicle.plate_no, seats: snapshot.vehicle.seats, status: "" }),
     });
   }
-  const driverOptions = readsDrivers
-    ? (drivers.data ?? []).map((d) => ({
-        value: String(d.id),
-        label: d.status === "active" ? (d.staff_user?.name ?? `#${d.id}`) : t("driverOff", { name: d.staff_user?.name ?? `#${d.id}` }),
-      }))
-    : snapshot.driver
-      ? [{ value: String(snapshot.driver.id), label: snapshot.driver.name }]
-      : [];
+  // Drivers who can take a round (is_active: profile and staff account active), and the round's own driver while
+  // they can't (marked), so saving another change keeps them.
+  const driverOptions = (drivers.data ?? [])
+    .filter((d) => d.is_active || d.id === snapshot.driver?.id)
+    .map((d) => ({ value: String(d.id), label: d.is_active ? d.name : t("driverOff", { name: d.name }) }));
   if (snapshot.driver && !driverOptions.some((o) => o.value === String(snapshot.driver!.id))) {
     driverOptions.unshift({ value: String(snapshot.driver.id), label: snapshot.driver.name });
   }
@@ -209,7 +208,7 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
         <Select
           label={t("vehicle")}
           required
-          hint={t("vehicleHint")}
+          hint={readsVehicles ? t("vehicleHint") : t("vehiclesNeedPermission")}
           options={vehicleOptions}
           error={msg(errors.vehicleId)}
           {...form.register("vehicleId")}
@@ -218,11 +217,16 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
           label={t("driver")}
           placeholder={t("noDriver")}
           options={driverOptions}
-          disabled={!readsDrivers}
-          hint={readsDrivers ? undefined : t("driversNeedFleet")}
+          // While the list loads or after it failed, only the round's own driver is offered: say so, not "only active".
+          hint={drivers.isLoading ? t("driversLoading") : drivers.isError && !drivers.data ? t("driversFailed") : t("driverHint")}
           error={msg(errors.driverId)}
           {...form.register("driverId")}
         />
+        {drivers.isError && !drivers.data && (
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => void drivers.refetch()} loading={drivers.isFetching}>
+            {t("driversRetry")}
+          </Button>
+        )}
         <TextField
           type="time"
           label={t("departure")}

@@ -70,11 +70,15 @@ export const adminKeys = {
   vehicleList: (filters: Record<string, string | number>) => ["admin", "fleet", "vehicles", "list", filters] as const,
   driverList: (filters: Record<string, string | number>) => ["admin", "fleet", "drivers", "list", filters] as const,
   driverOptions: () => ["admin", "fleet", "drivers", "options"] as const,
+  /** GET /admin/drivers/options: every driver's name, state and usual van, for pickers outside fleet.manage. */
+  driverPickList: () => ["admin", "fleet", "drivers", "pick-list"] as const,
   /** Staff accounts a new driver can be linked to; under "fleet", so creating a driver refreshes it. */
   driverCandidates: () => ["admin", "fleet", "driver-candidates"] as const,
   scheduling: () => ["admin", "scheduling"] as const,
   slotTemplateList: (filters: Record<string, string | number>) => ["admin", "scheduling", "slot-templates", "list", filters] as const,
   slotTemplateOptions: () => ["admin", "scheduling", "slot-templates", "options"] as const,
+  /** GET /admin/slot-templates/options: every slot's name, times, kind and state, for pickers outside A11. */
+  slotTemplatePickList: () => ["admin", "scheduling", "slot-templates", "pick-list"] as const,
   slotRuleList: (filters: Record<string, string | number>) => ["admin", "scheduling", "slot-rules", "list", filters] as const,
   blackoutList: (filters: Record<string, string | number>) => ["admin", "scheduling", "blackout-dates", "list", filters] as const,
   capacity: () => ["admin", "capacity"] as const,
@@ -93,9 +97,21 @@ export const adminKeys = {
   visitCandidates: (visitId: number) => ["admin", "bookings", "candidates", visitId] as const,
   bookingRefunds: (bookingId: number) => ["admin", "bookings", "refunds", bookingId] as const,
   bookingNotifications: (bookingId: number, page: number) => ["admin", "bookings", "notifications", bookingId, page] as const,
-  /** Customer lookup in the manual booking wizard (past bookings by phone). */
-  customerLookup: (phone: string) => ["admin", "bookings", "customer-lookup", phone] as const,
-  addonOptions: () => ["admin", "catalog", "addons", "options"] as const,
+  /**
+   * GET /admin/customers?phone= in the manual booking wizard (by the normalized number). Outside ["admin", "bookings"]:
+   * a booking action marks it stale without asking again at once (rate limited, see bookings/_components/refresh.ts).
+   */
+  customerLookups: () => ["admin", "customer-lookup"] as const,
+  customerLookup: (phone: string) => ["admin", "customer-lookup", phone] as const,
+  // Dry runs, outside ["admin", "bookings"] so a booking action's refresh never sends them again.
+  /** POST /admin/bookings/preview for one request body (JSON). */
+  manualPreview: (body: string) => ["admin", "dry-run", "manual-booking", body] as const,
+  /** POST …/reschedule/preview and …/propose-alternative/preview of one booking version. */
+  reschedulePreview: (bookingId: number, version: number, date: string, slotId: number) =>
+    ["admin", "dry-run", "reschedule", bookingId, version, date, slotId] as const,
+  alternativesPreview: (bookingId: number, version: number, body: string) => ["admin", "dry-run", "alternatives", bookingId, version, body] as const,
+  /** GET /admin/addons/options (pick-list, also without catalog.manage). */
+  addonPickList: () => ["admin", "catalog", "addons", "pick-list"] as const,
   workerOptions: () => ["admin", "workers", "options"] as const,
 
   // A04 schedule board and A06 trip planner. Team changes and booking actions move cards and stops, so they invalidate
@@ -115,8 +131,10 @@ export const adminKeys = {
   refundList: (query: Record<string, string | number>) => ["admin", "finance", "refunds", "list", query] as const,
   invoiceList: (query: Record<string, string | number>) => ["admin", "finance", "invoices", "list", query] as const,
   invoice: (id: number) => ["admin", "finance", "invoices", "detail", id] as const,
-  /** The invoices of one customer (the payment page picks its own payment's). */
-  customerInvoices: (customerId: number) => ["admin", "finance", "invoices", "customer", customerId] as const,
+  /** GET /admin/refund-reasons (the refund dialog's picker, the refunds list's reason filter). */
+  refundReasons: () => ["admin", "finance", "refund-reasons"] as const,
+  /** GET /admin/finance/summary (A09 KPI cards); "" = the API's default for that end, null zone = all zones. */
+  financeSummary: (from: string, to: string, zoneId: number | null) => ["admin", "finance", "summary", from, to, zoneId] as const,
   creditNoteList: (query: Record<string, string | number>) => ["admin", "finance", "credit-notes", "list", query] as const,
   creditNote: (id: number) => ["admin", "finance", "credit-notes", "detail", id] as const,
   billingRefusalList: (query: Record<string, string | number>) => ["admin", "finance", "billing-refusals", "list", query] as const,

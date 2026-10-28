@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_NAV, activeChildHref, filterNav, firstAccessiblePath, hasAnyPermission, isActivePath, safeAdminNext } from "./nav";
+import {
+  ADMIN_NAV,
+  CANCEL_REVIEWS_PATH,
+  activeChildHref,
+  activeNavHref,
+  filterNav,
+  firstAccessiblePath,
+  hasAnyPermission,
+  isActivePath,
+  safeAdminNext,
+} from "./nav";
 
 const ids = (permissions: string[]) =>
   filterNav(ADMIN_NAV, permissions).map((m) => (m.children ? `${m.id}[${m.children.map((c) => c.id).join(",")}]` : m.id));
@@ -90,7 +100,7 @@ describe("filterNav", () => {
       "fleet[vehicles,drivers,trips,driverReports]",
       "customers",
       "subscriptions",
-      "finance[payments,refunds,invoices,creditNotes,billingRefusals]",
+      "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]",
       "quality",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,settings]",
       "reports",
@@ -130,15 +140,25 @@ describe("filterNav", () => {
   });
 
   it("hides modules and children the user lacks", () => {
-    // Accountant: bookings (read), customers, finance, reports; nothing in A11 or A13.
+    // Accountant: bookings (read), customers, finance (with the cancellation reviews it resolves), reports; nothing in
+    // A11 or A13.
     expect(ids(["bookings.view", "customers.view", "payments.view", "refunds.create", "reports.view.finance"])).toEqual([
       "access",
       "overview",
       "bookings",
       "customers",
-      "finance[payments,refunds,invoices,creditNotes,billingRefusals]",
+      "finance[financeSummary,payments,refunds,cancelReviews,invoices,creditNotes,billingRefusals]",
       "reports",
     ]);
+  });
+
+  it("links finance to the bookings waiting for a cancellation review only for those who resolve them and read bookings", () => {
+    const reviews = ADMIN_NAV.find((m) => m.code === "A09")!.children!.find((c) => c.id === "cancelReviews")!;
+    expect(reviews.href).toBe("/admin/bookings?cancel_review=1");
+    expect(ids(["bookings.view", "refunds.create"])).toContain("finance[refunds,cancelReviews]");
+    // refunds.create alone can't open the bookings list; bookings.view alone doesn't resolve reviews.
+    expect(ids(["refunds.create"])).toEqual(["access", "finance[refunds]"]);
+    expect(ids(["bookings.view", "payments.view"])).toContain("finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]");
   });
 
   it("keeps a module with only the children the user may open", () => {
@@ -219,12 +239,15 @@ describe("safeAdminNext", () => {
 });
 
 describe("A09 finance and A11 notification templates", () => {
-  it("builds A09 payments, refunds, invoices, credit notes and refused documents (reconciliation later)", () => {
+  it("builds A09 summary, payments, refunds, invoices, credit notes and refused documents (reconciliation later)", () => {
     const finance = ADMIN_NAV.find((m) => m.code === "A09")!;
     expect(finance.built).toBe(true);
+    expect(finance.href).toBe("/admin/finance");
     expect(finance.children!.map((c) => `${c.href}:${c.built ? "built" : "later"}`)).toEqual([
+      "/admin/finance:built",
       "/admin/finance/payments:built",
       "/admin/finance/refunds:built",
+      "/admin/bookings?cancel_review=1:built",
       "/admin/finance/invoices:built",
       "/admin/finance/credit-notes:built",
       "/admin/finance/billing-refusals:built",
@@ -233,16 +256,43 @@ describe("A09 finance and A11 notification templates", () => {
   });
 
   it("shows each finance page to the permissions its API routes accept", () => {
-    // payments.view reads everything in A09; invoices.manage the documents; refunds.create the refunds list.
-    expect(ids(["payments.view"])).toEqual(["access", "finance[payments,refunds,invoices,creditNotes,billingRefusals]"]);
-    expect(ids(["invoices.manage"])).toEqual(["access", "finance[invoices,creditNotes,billingRefusals]"]);
+    // payments.view reads everything in A09; invoices.manage the summary and the documents; refunds.create the refunds
+    // list.
+    expect(ids(["payments.view"])).toEqual(["access", "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]"]);
+    expect(ids(["invoices.manage"])).toEqual(["access", "finance[financeSummary,invoices,creditNotes,billingRefusals]"]);
     expect(ids(["refunds.create"])).toEqual(["access", "finance[refunds]"]);
     expect(ids(["reconciliation.run"])).toEqual(["access", "finance[reconciliation]"]);
   });
 
+  it("marks the summary on its own page and each finance page under its own entry", () => {
+    const finance = ADMIN_NAV.find((m) => m.code === "A09")!.children!;
+    expect(activeChildHref(finance, "/admin/finance")).toBe("/admin/finance");
+    expect(activeChildHref(finance, "/admin/finance/payments/9")).toBe("/admin/finance/payments");
+    expect(activeChildHref(finance, "/admin/finance/credit-notes")).toBe("/admin/finance/credit-notes");
+  });
+
+  it("marks the cancellation reviews on the bookings list filtered to them (path and query), and Bookings on the plain list", () => {
+    const finance = ADMIN_NAV.find((m) => m.code === "A09")!.children!;
+    expect(activeChildHref(finance, "/admin/bookings", "cancel_review=1")).toBe(CANCEL_REVIEWS_PATH);
+    expect(activeChildHref(finance, "/admin/bookings", "?status=held&cancel_review=1")).toBe(CANCEL_REVIEWS_PATH);
+    expect(activeChildHref(finance, "/admin/bookings", "")).toBeNull();
+    expect(activeChildHref(finance, "/admin/bookings", "cancel_review=0")).toBeNull();
+    expect(isActivePath(CANCEL_REVIEWS_PATH, "/admin/bookings", "cancel_review=1")).toBe(true);
+    expect(isActivePath(CANCEL_REVIEWS_PATH, "/admin/bookings")).toBe(false);
+
+    // Across the accountant's whole navigation one entry is the page: the review list's own, else Bookings.
+    const accountant = filterNav(ADMIN_NAV, ["bookings.view", "payments.view", "refunds.create"]);
+    expect(activeNavHref(accountant, "/admin/bookings", "cancel_review=1")).toBe(CANCEL_REVIEWS_PATH);
+    expect(activeNavHref(accountant, "/admin/bookings", "")).toBe("/admin/bookings");
+    expect(activeNavHref(accountant, "/admin/bookings/12", "")).toBe("/admin/bookings");
+    expect(activeNavHref(accountant, "/admin/finance/payments/9", "")).toBe("/admin/finance/payments");
+    // A coordinator has no review entry: the filtered list stays under Bookings.
+    expect(activeNavHref(filterNav(ADMIN_NAV, ["bookings.view"]), "/admin/bookings", "cancel_review=1")).toBe("/admin/bookings");
+  });
+
   it("opens the finance pages for finance-only roles and marks the template editor under its own entry", () => {
-    expect(firstAccessiblePath(["payments.view", "invoices.manage"])).toBe("/admin/finance/payments");
-    expect(firstAccessiblePath(["invoices.manage"])).toBe("/admin/finance/invoices");
+    expect(firstAccessiblePath(["payments.view", "invoices.manage"])).toBe("/admin/finance");
+    expect(firstAccessiblePath(["invoices.manage"])).toBe("/admin/finance");
     expect(firstAccessiblePath(["refunds.create"])).toBe("/admin/finance/refunds");
     const catalog = ADMIN_NAV.find((m) => m.code === "A11")!.children!;
     expect(activeChildHref(catalog, "/admin/settings/notifications/12")).toBe("/admin/settings/notifications");

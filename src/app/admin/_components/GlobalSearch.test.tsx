@@ -16,7 +16,7 @@ describe("top bar search (spec §17)", () => {
     renderWithProviders(<GlobalSearch />, { permissions: ["bookings.view"] });
     const user = userEvent.setup();
     const field = screen.getByRole("searchbox", { name: "Search bookings" });
-    expect(field).toHaveAttribute("placeholder", "Booking reference or phone");
+    expect(field).toHaveAttribute("placeholder", "Reference, phone, name or address");
     await user.type(field, "  +971 50 123 4567 {Enter}");
     expect(push).toHaveBeenCalledWith("/admin/bookings?search=%2B971+50+123+4567");
   });

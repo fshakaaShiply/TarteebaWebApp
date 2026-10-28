@@ -4,10 +4,12 @@ import {
   emailInvoice,
   fetchBillingRefusals,
   fetchCreditNotePdf,
+  fetchFinanceSummary,
   fetchInvoicePdf,
   fetchInvoices,
   fetchNotificationTemplates,
   fetchPayments,
+  fetchRefundReasons,
   previewNotificationTemplate,
   retryBillingRefusal,
   updateNotificationTemplate,
@@ -60,9 +62,25 @@ describe("A09 finance endpoints", () => {
     expect(last().options).toEqual({ params: { query: {} } });
   });
 
-  it("finds a customer's invoices, asks for signed PDF links and queues the e-mail", async () => {
+  it("reads the refund reasons and the A09 summary, leaving the API's defaults to the API", async () => {
+    await fetchRefundReasons();
+    expect(last()).toEqual({ method: "GET", path: "/v1/admin/refund-reasons", options: {} });
+    await fetchFinanceSummary({ from: "2026-10-01", to: "2026-10-19", zoneId: 3 });
+    expect(last()).toEqual({
+      method: "GET",
+      path: "/v1/admin/finance/summary",
+      options: { params: { query: { from: "2026-10-01", to: "2026-10-19", zone_id: 3 } } },
+    });
+    // Month to date and every zone: nothing sent.
+    await fetchFinanceSummary({ from: undefined, to: undefined, zoneId: null });
+    expect(last().options).toEqual({ params: { query: {} } });
+  });
+
+  it("finds a customer's or a payment's invoices, asks for signed PDF links and queues the e-mail", async () => {
     await fetchInvoices({ customerId: 2, perPage: 100 });
     expect(last()).toMatchObject({ path: "/v1/admin/invoices", options: { params: { query: { customer_id: 2, per_page: 100 } } } });
+    await fetchInvoices({ paymentId: 9, page: 1 });
+    expect(last().options).toEqual({ params: { query: { payment_id: 9, page: 1 } } });
     await fetchInvoicePdf(4);
     expect(last()).toEqual({ method: "GET", path: "/v1/admin/invoices/{invoice}/pdf", options: { params: { path: { invoice: 4 } } } });
     await fetchCreditNotePdf(2);

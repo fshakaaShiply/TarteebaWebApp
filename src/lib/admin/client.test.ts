@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AdminApiError,
+  BACKGROUND_POLL_HEADER,
+  backgroundPoll,
   createAdminClient,
   createAdminFetch,
   parseErrorEnvelope,
@@ -151,6 +153,29 @@ describe("createAdminFetch", () => {
       { type: "unauthenticated", code: "SESSION_EXPIRED" },
       { type: "two_factor_setup_required" },
     ]);
+  });
+
+  it("sends X-Background-Poll on a timer-driven read only, never on a write", async () => {
+    document.cookie = "XSRF-TOKEN=t; path=/";
+    const { fetch, seen } = recorder(() => json({ data: {} }));
+    const adminFetch = createAdminFetch({ fetch, csrfUrl: CSRF_URL, getLocale: () => "en" });
+
+    await adminFetch(new Request(`${ORIGIN}/backend/api/v1/admin/dashboard/summary`, { headers: backgroundPoll(true) }));
+    await adminFetch(new Request(`${ORIGIN}/backend/api/v1/admin/dashboard/summary`, { headers: backgroundPoll(false) }));
+    await adminFetch(new Request(`${ORIGIN}/backend/api/v1/admin/alerts/read-all`, { method: "POST", headers: backgroundPoll(true) }));
+
+    expect(seen.map((s) => s.headers.get(BACKGROUND_POLL_HEADER))).toEqual(["1", null, null]);
+  });
+
+  it("a background poll answered 401 SESSION_EXPIRED goes to sign-in like any other request", async () => {
+    const events: AdminAuthEvent[] = [];
+    const { fetch } = recorder(() => json({ error: { code: "SESSION_EXPIRED", message: "x", details: {} } }, 401));
+    const client = createAdminClient({ baseUrl: `${ORIGIN}/backend/api`, fetch, getLocale: () => "en", onAuthEvent: (e) => events.push(e) });
+
+    const error = await unwrap(client.GET("/v1/admin/dashboard/alerts", { headers: backgroundPoll(true) })).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ status: 401, code: "SESSION_EXPIRED" });
+    expect(events).toEqual([{ type: "unauthenticated", code: "SESSION_EXPIRED" }]);
   });
 
   it("does not treat sign-in endpoint answers as an ended session", async () => {
