@@ -98,9 +98,8 @@ function dragTo(from: HTMLElement, to: HTMLElement) {
 describe("A04 operations schedule", () => {
   let replaceState: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
-    // The board leaves today's date out of the URL: pin "today" (Dubai) to the day before the fixtures' 24 October, so
-    // the expectations hold whatever the clock says (they failed after midnight in Dubai on 24 October).
-    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-23T12:00:00+04:00"), shouldAdvanceTime: true });
+    // The board leaves today's date out of the URL; the expectations rely on "today" (Dubai) being the day before the
+    // fixtures' 24 October, which the clock pin in vitest.setup.ts provides whatever the real date.
     Object.values(api).forEach((fn) => fn.mockReset());
     consoleError.mockClear();
     api.fetchSchedule.mockImplementation(async (q: ScheduleQuery) => (q.view === "month" ? monthBoard() : q.view === "week" ? weekBoard() : dayBoard()));
@@ -110,7 +109,6 @@ describe("A04 operations schedule", () => {
     url.set("/admin/schedule?date=2026-10-24");
   });
   afterEach(() => {
-    vi.useRealTimers();
     replaceState.mockRestore();
     url.set("/admin/schedule");
     expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/MISSING_MESSAGE/);
