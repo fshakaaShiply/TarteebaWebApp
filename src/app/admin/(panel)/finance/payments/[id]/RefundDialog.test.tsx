@@ -41,6 +41,7 @@ const refund = (over: Partial<AdminRefund> = {}): AdminRefund => ({
   failure_code: null,
   failure_message: null,
   credit_note_id: null,
+  credit_note: null,
   estimated_arrival_text: { ar: "خلال 5 إلى 10 أيام عمل", en: "within 5 to 10 business days" },
   needs_review: false,
   created_at: "2026-10-23T17:40:00+00:00",

@@ -89,6 +89,9 @@ describe("A03 action dialogs", () => {
     expect(messages(resolveReviewSchema(20000).safeParse({ refund: "-1", note: "x".repeat(1001) }))).toEqual({ refund: "refundInvalid", note: "tooLong" });
     expect(resolveReviewSchema(20000).parse({ refund: "0", note: "  Fee kept per policy  " })).toEqual({ refund_fils: 0, note: "Fee kept per policy" });
     expect(resolveReviewSchema(20000).parse({ refund: "200", note: "Refunded in full" })).toEqual({ refund_fils: 20000, note: "Refunded in full" });
+    // Nothing captured (refundable_fils null): no amount is asked and nothing is refunded, whatever the field holds.
+    expect(messages(resolveReviewSchema(null).safeParse({ refund: "", note: "" }))).toEqual({ note: "reasonRequired" });
+    expect(resolveReviewSchema(null).parse({ refund: "50", note: "Nothing was taken" })).toEqual({ refund_fils: 0, note: "Nothing was taken" });
   });
 
   it("reschedule: a reason of 3 characters, 10 with an override", () => {

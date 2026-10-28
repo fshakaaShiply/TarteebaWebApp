@@ -387,6 +387,12 @@ export type SlotTemplateOption = GetJson<"/v1/admin/slot-templates/options">["da
 export type DriverOption = GetJson<"/v1/admin/drivers/options">["data"][number];
 
 /**
+ * GET /admin/vehicles/options (Fleet): every van not deleted, by plate (id, plate, seats, status, zone, usual driver).
+ * `is_active` (status active): only such a van carries workers. Readable with fleet.manage, trips.manage or schedule.view.
+ */
+export type VehicleOption = GetJson<"/v1/admin/vehicles/options">["data"][number];
+
+/**
  * GET /admin/addons/options (Catalog): every add-on by sort order, inactive ones marked, with the services (by code)
  * it can be priced with. Readable with catalog.manage, bookings.create_manual or bookings.view.
  */
@@ -720,6 +726,16 @@ export type DashboardSummary = {
       grace_minutes: number;
       link: DashboardLink | null;
     };
+    /**
+     * Customer cancellations waiting for staff review now (any service date): the A03 list `cancel_review=1` that `link`
+     * opens. Null unless the viewer reads bookings and acts on reviews (bookings.cancel or refunds.create).
+     */
+    cancellation_reviews: {
+      label: Translatable;
+      value: number;
+      oldest_request: { booking_id: number; reference: string; requested_at: string; waiting_minutes: number; link: DashboardLink | null } | null;
+      link: DashboardLink | null;
+    } | null;
   };
   panels: {
     bookings_by_status: { status: BookingStatus; label: Translatable; bookings: number; link: DashboardLink | null }[];
@@ -1102,6 +1118,11 @@ export type BookingDetail = BookingRow & {
   visits: BookingVisit[];
   hold: BookingHold | null;
   payment: BookingPayment | null;
+  /**
+   * What the current payment can still refund (captured − refunded − refunds still requested or processing, never
+   * below 0): the cap staff refunds are checked against. Null while nothing was captured (nothing to refund).
+   */
+  refundable_fils: number | null;
   /** Null until Billing issued it after the capture. */
   invoice: BookingInvoice | null;
   history: BookingHistoryRow[];
@@ -1275,9 +1296,9 @@ export type AdminRefund = {
   credit_note_id: number | null;
   /**
    * The credit note Billing issued for it (succeeded refunds of invoiced payments), null until then. The API sends it on
-   * every staff refund row; optional here only so refund fixtures written before it keep building.
+   * every staff refund row.
    */
-  credit_note?: RefundCreditNote | null;
+  credit_note: RefundCreditNote | null;
   /** The setting's text when the refund was made, until the provider gives its own estimate. */
   estimated_arrival_text: { ar: string | null; en: string | null } | null;
   needs_review: boolean;
@@ -1463,6 +1484,13 @@ export type Round = {
   zone: { id: number; code: string; name: Translatable } | null;
   vehicle: { id: number; plate_no: string; model: string | null; seats: number; status: VehicleStatus };
   driver: { id: number; name: string; phone: string | null; status: DriverStatus } | null;
+  /**
+   * The round already on the road this draft was planned after (another van's takeover, R-19, or the same van's
+   * second trip), as stored; null for an ordinary round. `follows_round` names it with its own van's plate (null
+   * exactly when `follows_round_id` is).
+   */
+  follows_round_id: number | null;
+  follows_round: { id: number; plate_no: string } | null;
   planned_depart_at: string;
   depart_local: string;
   planned_end_at: string;
@@ -1509,13 +1537,14 @@ export type UnplannedVisit = {
 };
 
 /**
- * POST /admin/rounds/plan: the rounds it created or extended, the visits it could not place and why. `follows_round_id`:
- * an extra round drafted because that round of a van (same slot and kind) had already left; null otherwise.
+ * POST /admin/rounds/plan: the rounds it created or extended, the visits it could not place and why. Here
+ * `follows_round_id` / `follows_round` are what this call planned: an extra round drafted because that round of a van
+ * (same slot and kind) had already left, named with its van's plate; null otherwise.
  */
 export type PlanResult = {
   date: string;
   slot_template_id: number;
-  rounds: (Round & { plan: "created" | "extended" | null; follows_round_id: number | null })[];
+  rounds: (Round & { plan: "created" | "extended" | null })[];
   unplanned: UnplannedVisit[];
   already_planned: { visit_id: number; kind: RoundKind; round_id: number }[];
 };
@@ -1725,6 +1754,8 @@ export type InvoiceCreditNoteRef = {
   issue_date: string;
   refund_id: number | null;
   reason_code: string | null;
+  /** The refund reason in both languages, as its refund's A09 row reads it ("Other" without a known code); never null. */
+  reason_label: Translatable;
   reason: string | null;
   net_fils: number;
   vat_fils: number;
@@ -1755,6 +1786,8 @@ export type AdminCreditNote = {
   customer: { id: number; name: string | null };
   booking_reference: string | null;
   reason_code: string | null;
+  /** The refund reason in both languages, as its refund's A09 row reads it ("Other" without a known code); never null. */
+  reason_label: Translatable;
   reason: string | null;
   net_fils: number;
   vat_rate_bp: number;

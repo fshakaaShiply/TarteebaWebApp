@@ -83,7 +83,7 @@ function CreditNotesTable() {
     },
     { id: "customer", header: t("columns.customer"), cell: (n) => n.customer.name || t("noName") },
     { id: "booking", header: t("columns.booking"), cell: (n) => (n.booking_reference ? <Code>{n.booking_reference}</Code> : "—") },
-    { id: "reason", header: t("columns.reason"), cell: (n) => text.reason(n.reason_code) },
+    { id: "reason", header: t("columns.reason"), cell: (n) => text.reason(n.reason_label) },
     { id: "vat", header: t("columns.vat"), cell: (n) => <Money fils={n.vat_fils} /> },
     { id: "total", header: t("columns.total"), cell: (n) => <Money fils={n.total_fils} className="font-bold text-ink-900" /> },
     {

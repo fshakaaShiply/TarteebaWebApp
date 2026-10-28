@@ -106,6 +106,7 @@ import type {
   Translatable,
   TwoFactorSetup,
   Vehicle,
+  VehicleOption,
   VehicleStatus,
   Worker,
   WorkerLeave,
@@ -1202,6 +1203,12 @@ export async function fetchSlotTemplateOptions(): Promise<SlotTemplateOption[]> 
 /** GET /admin/drivers/options: every driver by name (never contact data), `is_active` when a round may be given. */
 export async function fetchDriverOptions(): Promise<DriverOption[]> {
   const body = await unwrap<DataEnvelope<DriverOption[]>>(adminApi.GET("/v1/admin/drivers/options"));
+  return body.data;
+}
+
+/** GET /admin/vehicles/options: every van not deleted, by plate, `is_active` when it can carry workers (no paging). */
+export async function fetchVehicleOptions(): Promise<VehicleOption[]> {
+  const body = await unwrap<DataEnvelope<VehicleOption[]>>(adminApi.GET("/v1/admin/vehicles/options"));
   return body.data;
 }
 

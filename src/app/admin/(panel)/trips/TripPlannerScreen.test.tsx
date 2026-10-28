@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import { serviceOptions, zoneOptions } from "@/test/bookingFixtures";
-import { dayBoard, driverPickList, planResult, round, slotPickList } from "@/test/opsBoardFixtures";
+import { dayBoard, driverPickList, planResult, round, slotPickList, vehiclePickList } from "@/test/opsBoardFixtures";
 import { renderWithProviders } from "@/test/render";
 import { TripPlannerScreen } from "./TripPlannerScreen";
 
@@ -45,6 +45,7 @@ const api = {
   fetchSchedule: vi.fn(),
   fetchSlotTemplateOptions: vi.fn(),
   fetchDriverOptions: vi.fn(),
+  fetchVehicleOptions: vi.fn(),
 };
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchRounds: (...a: unknown[]) => api.fetchRounds(...a),
@@ -62,11 +63,8 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchServiceOptions: async () => serviceOptions,
   fetchSlotTemplateOptions: (...a: unknown[]) => api.fetchSlotTemplateOptions(...a),
   fetchDriverOptions: (...a: unknown[]) => api.fetchDriverOptions(...a),
-  fetchAllVehicles: async () => [
-    { id: 1, plate_no: "DEMO-VAN-1", seats: 7, status: "active" },
-    { id: 2, plate_no: "DEMO-VAN-2", seats: 7, status: "active" },
-    { id: 3, plate_no: "DEMO-VAN-3", seats: 10, status: "maintenance" },
-  ],
+  // The vans come from their pick-list (trips.manage reads it), never from the fleet list.
+  fetchVehicleOptions: (...a: unknown[]) => api.fetchVehicleOptions(...a),
 }));
 
 const apiError = (status: number, code: string, details: Record<string, unknown> = {}) => new AdminApiError(status, { code, message: "", details });
@@ -84,6 +82,7 @@ describe("A06 trip planner", () => {
     api.fetchSchedule.mockImplementation(async () => dayBoard());
     api.fetchSlotTemplateOptions.mockImplementation(async () => slotPickList());
     api.fetchDriverOptions.mockImplementation(async () => driverPickList());
+    api.fetchVehicleOptions.mockImplementation(async () => vehiclePickList());
     for (const fn of [api.updateRound, api.reorderStops, api.addStop, api.removeStop, api.setPassengers, api.publishRound, api.cancelRound]) {
       fn.mockResolvedValue(round({ version: 6 }));
     }
@@ -238,17 +237,23 @@ describe("A06 trip planner", () => {
     expect(slot).toHaveValue("3");
   });
 
-  it("names the extra rounds a draft added because a van's round had already left", async () => {
+  it("names the extra rounds a draft added because a van's round had already left, with that round's van from the answer", async () => {
     const onRoad = round({ status: "departed", status_label: { ar: "انطلقت", en: "Departed" } });
     api.fetchRounds.mockResolvedValue([onRoad]);
     api.planRounds.mockResolvedValue({
       ...planResult(),
       rounds: [
-        // R-19: on another free van, after round #11 (shown on this page) left.
-        { ...round({ id: 12, vehicle: { ...onRoad.vehicle, id: 2, plate_no: "DEMO-VAN-2" }, depart_local: "12:00" }), plan: "created", follows_round_id: 11 },
-        // A second trip of a van whose round on the road is not on this page (another zone).
-        { ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15" }), plan: "extended", follows_round_id: 9 },
-        { ...round({ id: 15 }), plan: "created", follows_round_id: null },
+        // R-19: on another free van, after round #11 (DEMO-VAN-1) left.
+        {
+          ...round({ id: 12, vehicle: { ...onRoad.vehicle, id: 2, plate_no: "DEMO-VAN-2" }, depart_local: "12:00", follows_round_id: 11, follows_round: { id: 11, plate_no: "DEMO-VAN-1" } }),
+          plan: "created",
+        },
+        // A second trip of a van whose round on the road is not on this page (another zone): the answer still names it.
+        {
+          ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15", follows_round_id: 9, follows_round: { id: 9, plate_no: "DEMO-VAN-1" } }),
+          plan: "extended",
+        },
+        { ...round({ id: 15 }), plan: "created" },
       ],
       unplanned: [],
     });
@@ -263,18 +268,33 @@ describe("A06 trip planner", () => {
     const items = within(extra.parentElement!).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
       "Drop-off · DEMO-VAN-2, departs 12:00: added because round #11 (DEMO-VAN-1) had already left.",
-      "Pickup · DEMO-VAN-1, departs 14:15: extended; it runs after round #9, which had already left.",
+      "Pickup · DEMO-VAN-1, departs 14:15: extended; it runs after round #9 (DEMO-VAN-1), which had already left.",
     ]);
     expect(result).not.toHaveTextContent(/rounds? added because/);
     expect(result).toHaveTextContent("Each is a draft on the same van or on another free van: check its warnings and publish it like any other round.");
+  });
+
+  it("still names an extra round after a reload: its panel reads the stored round on the road and its van", async () => {
+    api.fetchRounds.mockResolvedValue([
+      round({ id: 12, vehicle: { ...round().vehicle, id: 2, plate_no: "DEMO-VAN-2" }, follows_round_id: 41, follows_round: { id: 41, plate_no: "DXB-A-1234" } }),
+      round(),
+    ]);
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["schedule.view"] });
+    const extra = (await screen.findByRole("heading", { level: 3, name: "Drop-off · DEMO-VAN-2" })).closest("section")!;
+    expect(extra).toHaveTextContent("Extra round: added because round #41 (DXB-A-1234) had already left.");
+    // An ordinary round says nothing of the kind.
+    expect(await panel()).not.toHaveTextContent("Extra round");
   });
 
   it("names the extra rounds in Arabic", async () => {
     api.planRounds.mockResolvedValue({
       ...planResult(),
       rounds: [
-        { ...round({ id: 12, depart_local: "12:00" }), plan: "created", follows_round_id: 9 },
-        { ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15" }), plan: "extended", follows_round_id: 9 },
+        { ...round({ id: 12, depart_local: "12:00", follows_round_id: 9, follows_round: { id: 9, plate_no: "DEMO-VAN-1" } }), plan: "created" },
+        {
+          ...round({ id: 14, kind: "pickup", kind_label: { ar: "إعادة", en: "Pickup" }, depart_local: "14:15", follows_round_id: 9, follows_round: { id: 9, plate_no: "DEMO-VAN-1" } }),
+          plan: "extended",
+        },
       ],
       unplanned: [],
     });
@@ -283,8 +303,8 @@ describe("A06 trip planner", () => {
     await screen.findByRole("heading", { level: 3, name: "توصيل · DEMO-VAN-1" });
     await user.click(screen.getByRole("button", { name: "تجهيز الجولات" }));
     expect(await screen.findByText("جولتان إضافيتان بعد جولة كانت قد انطلقت")).toBeInTheDocument();
-    expect(screen.getByText(/أُضيفت لأن الجولة/).textContent).toBe("توصيل · DEMO-VAN-1، تنطلق 12:00: أُضيفت لأن الجولة #9 كانت قد انطلقت.");
-    expect(screen.getByText(/مُدّدت، وهي تلي/).textContent).toBe("استلام · DEMO-VAN-1، تنطلق 14:15: مُدّدت، وهي تلي الجولة #9 التي كانت قد انطلقت.");
+    expect(screen.getByText(/أُضيفت لأن الجولة/).textContent).toBe("توصيل · DEMO-VAN-1، تنطلق 12:00: أُضيفت لأن الجولة #9 (DEMO-VAN-1) كانت قد انطلقت.");
+    expect(screen.getByText(/مُدّدت، وهي تلي/).textContent).toBe("استلام · DEMO-VAN-1، تنطلق 14:15: مُدّدت، وهي تلي الجولة #9 (DEMO-VAN-1) التي كانت قد انطلقت.");
   });
 
   it("links stops and unplanned visits to their booking only with bookings.view", async () => {
@@ -402,9 +422,76 @@ describe("A06 trip planner", () => {
     const driver = within(dialog).getByRole("combobox", { name: "Driver" });
     expect(await within(driver).findByRole("option", { name: "Retired Driver (inactive)" })).toBeInTheDocument();
     expect(driver).toHaveValue("3");
-    // No van list without fleet.manage or schedule.view: the van stays, and the dialog says why.
-    expect(dialog).toHaveTextContent("Changing the van needs the fleet or schedule view permission.");
     expect(within(dialog).getByRole("combobox", { name: /Van/ })).toHaveValue("1");
+  });
+
+  it("offers the vans that can carry workers to a trips manager without fleet.manage (van pick-list), and changes the van", async () => {
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
+    const van = within(dialog).getByRole("combobox", { name: /Van/ });
+    await within(van).findByRole("option", { name: "DEMO-VAN-2 · 7 seats" });
+    expect(api.fetchVehicleOptions).toHaveBeenCalled();
+    // Out-of-service vans (is_active false) are not offered.
+    expect(within(van).getAllByRole("option").map((o) => o.textContent)).toEqual(["DEMO-VAN-1 · 7 seats", "DEMO-VAN-2 · 7 seats"]);
+    expect(van).toHaveAccessibleDescription("Only active vans can take a round.");
+    expect(dialog).not.toHaveTextContent(/permission/);
+
+    await user.selectOptions(van, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateRound).toHaveBeenCalledWith(11, { vehicle_id: 2 }, 5));
+  });
+
+  it("keeps a round's van that is out of service, marked with its status, so another change saves without moving it", async () => {
+    api.fetchRounds.mockResolvedValue([round({ vehicle: { id: 3, plate_no: "DEMO-VAN-3", model: null, seats: 10, status: "maintenance" } })]);
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    const section = (await screen.findByRole("heading", { level: 3, name: "Drop-off · DEMO-VAN-3" })).closest("section")!;
+    await user.click(within(section).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-3" });
+    const van = within(dialog).getByRole("combobox", { name: /Van/ });
+    await within(van).findByRole("option", { name: "DEMO-VAN-1 · 7 seats" });
+    expect(within(van).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "DEMO-VAN-1 · 7 seats",
+      "DEMO-VAN-2 · 7 seats",
+      "DEMO-VAN-3 · 10 seats (In maintenance)",
+    ]);
+    expect(van).toHaveValue("3");
+
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: "Driver" }), "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateRound).toHaveBeenCalledWith(11, { driver_id: 2 }, 5));
+  });
+
+  it("says when the vans are loading or could not be loaded, and loads them again", async () => {
+    let fail = true;
+    let answer!: () => void;
+    api.fetchVehicleOptions.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          answer = () => (fail ? reject(apiError(500, "SERVER_ERROR")) : resolve(vehiclePickList()));
+        }),
+    );
+    renderWithProviders(<TripPlannerScreen />, { permissions: ["trips.manage"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
+    const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
+    const van = within(dialog).getByRole("combobox", { name: /Van/ });
+    expect(van).toHaveAccessibleDescription("Loading the vans…");
+
+    act(() => answer());
+    await waitFor(() => expect(van).toHaveAccessibleDescription("We couldn't load the vans, so only the round's own van is listed."));
+    expect(within(van).getAllByRole("option").map((o) => o.textContent)).toEqual(["DEMO-VAN-1 · 7 seats"]);
+
+    fail = false;
+    await user.click(within(dialog).getByRole("button", { name: "Load the vans again" }));
+    await waitFor(() => expect(api.fetchVehicleOptions).toHaveBeenCalledTimes(2));
+    act(() => answer());
+    expect(await within(van).findByRole("option", { name: "DEMO-VAN-2 · 7 seats" })).toBeInTheDocument();
+    expect(van).toHaveAccessibleDescription("Only active vans can take a round.");
+    expect(within(dialog).queryByRole("button", { name: "Load the vans again" })).not.toBeInTheDocument();
+    expect(van).toHaveValue("1");
   });
 
   it("says when the drivers are loading or could not be loaded, and loads them again", async () => {

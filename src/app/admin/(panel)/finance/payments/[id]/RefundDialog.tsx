@@ -70,7 +70,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   // The chosen reason as the API describes it (whether it needs a note).
   const reason = pickableReason(reasonList, reasonCode);
   /** A reason's label as the API names it (the confirm step reads it from the same list). */
-  const reasonLabel = (code: string) => text.reason(code, reasonList.find((r) => r.code === code)?.label);
+  const reasonLabel = (code: string) => text.reason(reasonList.find((r) => r.code === code)?.label);
 
   // Focus follows the step: the summary when the confirmation opens (never its Refund button, so a second Enter on
   // "Continue" does nothing), the amount when the form comes back.
@@ -290,7 +290,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
             required
             placeholder={reasons.isPending ? t("reasonsLoading") : t("chooseReason")}
             disabled={reasons.isPending}
-            options={selectableReasons(reasons.data).map((r) => ({ value: r.code, label: text.reason(r.code, r.label) }))}
+            options={selectableReasons(reasons.data).map((r) => ({ value: r.code, label: text.reason(r.label) }))}
             error={message(errors.reason_code?.message)}
             {...form.register("reason_code")}
           />

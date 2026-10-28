@@ -47,7 +47,7 @@ function RefundsTable() {
   const { filters, set, setPage, reset, filtered } = useUrlFilters(REFUND_FILTERS);
   const reasons = useRefundReasons();
   // Every reason the API lists, the system-only ones too; one in the URL it does not name stays visible as its code.
-  const reasonOptions = (reasons.data ?? []).map((r) => ({ value: r.code, label: text.reason(r.code, r.label) }));
+  const reasonOptions = (reasons.data ?? []).map((r) => ({ value: r.code, label: text.reason(r.label) }));
   if (filters.reason_code !== "" && !reasonOptions.some((o) => o.value === filters.reason_code)) {
     reasonOptions.push({ value: filters.reason_code, label: filters.reason_code });
   }
@@ -137,7 +137,7 @@ function RefundsTable() {
       header: t("columns.reason"),
       cell: (r) => (
         <span className="flex flex-col">
-          <span>{text.reason(r.reason_code, r.reason_label)}</span>
+          <span>{text.reason(r.reason_label)}</span>
           {r.reason_text && <span className="text-xs text-ink-600">“{r.reason_text}”</span>}
         </span>
       ),

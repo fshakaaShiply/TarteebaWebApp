@@ -8,8 +8,8 @@ import ar from "./ar.json";
 import en from "./en.json";
 
 /*
- * A09 finance and A11 notification templates look message keys up at runtime (status chips, refund reasons, refused
- * document problems, channels, form errors). Every key must exist in both languages, so a missing one never shows as a
+ * A09 finance and A11 notification templates look message keys up at runtime (status chips, refused document
+ * problems, channels, form errors). Every key must exist in both languages, so a missing one never shows as a
  * raw key, and the plural and placeholder messages must format.
  */
 
@@ -22,19 +22,6 @@ const FINANCE_ENUMS: Record<string, readonly string[]> = {
   refund: REFUND_STATUSES,
   invoice: INVOICE_STATUSES,
   payable: PAYABLE_TYPES,
-  // Refund rows and GET /admin/refund-reasons carry the API's labels; credit notes carry only the refund's reason code
-  // (AdminCreditNoteResource), so the web still names these for the credit note pages.
-  reason: [
-    "customer_cancellation",
-    "company_cancellation",
-    "booking_rejected",
-    "complaint_compensation",
-    "duplicate_payment",
-    "service_not_delivered",
-    "goodwill",
-    "other",
-    "price_difference",
-  ],
   document: BILLING_DOCUMENTS,
   // Billing InvoiceDraft problems and IssueCreditNoteForRefund refusals.
   problem: [
@@ -99,6 +86,10 @@ describe.each([
   it("leave the payment review and release reasons to the API's labels", () => {
     expect(get(messages, "admin.finance.enums.reviewReason")).toBeUndefined();
     expect(get(messages, "admin.finance.enums.voidReason")).toBeUndefined();
+  });
+
+  it("leave the refund reasons to the API's labels (refund rows, credit notes, GET /admin/refund-reasons)", () => {
+    expect(get(messages, "admin.finance.enums.reason")).toBeUndefined();
   });
 });
 

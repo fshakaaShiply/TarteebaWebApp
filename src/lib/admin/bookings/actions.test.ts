@@ -5,13 +5,11 @@ import {
   availableActions,
   cancelTermsOf,
   minutesUntil,
-  openRefundsFils,
   optionFieldErrors,
   optionIndexOf,
   overrideRequiredOf,
   priceHigherDetails,
   refundableOf,
-  refundableOfBooking,
   refundsOfBooking,
   rescheduleTermsOf,
   slotUnavailable,
@@ -165,20 +163,14 @@ describe("A03 error details", () => {
     expect(rescheduleTermsOf(move)).toMatchObject({ new_total_fils: 26000, fee_fils: 0, availability: { status: "limited" }, changed: ["new_total_fils"] });
   });
 
-  it("reads the crew's visit status, a full slot and what may be refunded on the booking", () => {
+  it("reads the crew's visit status and a full slot", () => {
     expect(visitStatusOf(new AdminApiError(409, { code: "INVALID_STATE", message: "", details: { visit_status: "en_route" } }))).toBe("en_route");
     expect(visitStatusOf(new AdminApiError(409, { code: "INVALID_STATE", message: "", details: {} }))).toBeNull();
     expect(slotUnavailable({ status: "closed" })).toBe(true);
     expect(slotUnavailable({ status: "limited" })).toBe(false);
-    const payment = { captured_fils: 24000, refunded_fils: 4000 } as BookingDetail["payment"];
-    expect(refundableOfBooking({ payment })).toBe(20000);
-    expect(refundableOfBooking({ payment: null })).toBe(0);
-    // Refunds still open are held back like the API's cap (Payment::refundableFils), never below 0.
-    expect(refundableOfBooking({ payment }, 3000)).toBe(17000);
-    expect(refundableOfBooking({ payment }, 30000)).toBe(0);
   });
 
-  it("counts the booking's own refunds still open (requested or processing)", () => {
+  it("picks the booking's own refunds among the customer's (by the payment's ULID or its payable)", () => {
     const row = (status: "requested" | "processing" | "succeeded" | "failed", amount: number, payment: { ulid: string; payable_id: number; payable_type: string }) => ({
       status,
       amount_fils: amount,
@@ -189,7 +181,7 @@ describe("A03 error details", () => {
     const rows = [row("processing", 4000, own), row("requested", 500, own), row("succeeded", 2000, own), row("failed", 1000, own), row("processing", 7000, other)];
     const mine = refundsOfBooking(rows, { id: 4, payment: { id: "01PAY" } as BookingDetail["payment"] });
     expect(mine).toHaveLength(4);
-    expect(openRefundsFils(mine)).toBe(4500);
+    expect(mine.map((r) => r.amount_fils)).toEqual([4000, 500, 2000, 1000]);
   });
 
   it("reads one alternative's field errors from a VALIDATION_FAILED (a whole option lands on its time)", () => {

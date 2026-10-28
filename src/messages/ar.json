@@ -3228,6 +3228,7 @@
       "resolve": {
         "title": "حسم إلغاء الحجز {reference}",
         "body": "يُلغى الحجز كما طلب العميل. يُسترد المبلغ الذي تدخله، ويُحتسب الباقي مما يمكن استرداده رسومًا.",
+        "bodyNothing": "يُلغى الحجز كما طلب العميل، ولا يُسترد أي مبلغ.",
         "summaryTitle": "طلب العميل",
         "customerReason": "سبب العميل: {reason}",
         "paid": "المبلغ المخصوم",
@@ -3238,6 +3239,8 @@
         "note": "ملاحظة",
         "noteHint": "من 3 إلى 1000 حرف، وتُحفظ مع الاسترداد وفي سجل التدقيق.",
         "submit": "الإلغاء والاسترداد",
+        "submitNothing": "إلغاء الحجز",
+        "nothingTaken": "لم يُخصم أي مبلغ لهذا الحجز، فلا يوجد ما يُسترد.",
         "retry": "إعادة المحاولة",
         "doneRefund": "أُلغي الحجز {reference}، وطُلب استرداد {amount} من مزود الدفع.",
         "doneKept": "أُلغي الحجز {reference}، ولم يُسترد أي مبلغ.",
@@ -3247,10 +3250,9 @@
         "unknownBody": "لم يتأكد الإلغاء بعد. أعد المحاولة، فهي آمنة."
       },
       "reviewQueue": {
-        "title": "طلبات إلغاء بانتظار المراجعة",
         "all": "كل المراجعات ({count})",
-        "open": "كل المراجعات",
         "empty": "لا توجد طلبات إلغاء بانتظار المراجعة.",
+        "oldest": "الأقدم انتظارًا: <ref>{reference}</ref>، منذ {time}",
         "openBooking": "فتح الحجز {reference}",
         "hintFinance": "افتح الحجز لحسم إلغائه مع الاسترداد.",
         "hintCoordinator": "افتح الحجز للإبقاء عليه أو إلغائه."
@@ -3587,10 +3589,8 @@
         "unplannedTitle": "{count, plural, one {زيارة واحدة لم تُخطَّط} two {زيارتان لم تُخطَّطا} few {# زيارات لم تُخطَّط} many {# زيارة لم تُخطَّط} other {# زيارة لم تُخطَّط}}",
         "bothRides": "الرحلتان",
         "followsTitle": "{count, plural, one {جولة إضافية واحدة بعد جولة كانت قد انطلقت} two {جولتان إضافيتان بعد جولة كانت قد انطلقت} few {# جولات إضافية بعد جولة كانت قد انطلقت} many {# جولة إضافية بعد جولة كانت قد انطلقت} other {# جولة إضافية بعد جولة كانت قد انطلقت}}",
-        "follows": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: أُضيفت لأن الجولة <ltr>#{follows}</ltr> كانت قد انطلقت.",
-        "followsKnown": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: أُضيفت لأن الجولة <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) كانت قد انطلقت.",
-        "followsExtended": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: مُدّدت، وهي تلي الجولة <ltr>#{follows}</ltr> التي كانت قد انطلقت.",
-        "followsExtendedKnown": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: مُدّدت، وهي تلي الجولة <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) التي كانت قد انطلقت.",
+        "follows": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: أُضيفت لأن الجولة <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) كانت قد انطلقت.",
+        "followsExtended": "{kind} · <ltr>{plate}</ltr>، تنطلق <ltr>{time}</ltr>: مُدّدت، وهي تلي الجولة <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) التي كانت قد انطلقت.",
         "followsNote": "كل منها مسودة على السيارة نفسها أو على سيارة أخرى متاحة: راجع تنبيهاتها وانشرها كأي جولة أخرى."
       },
       "unplanned": {
@@ -3642,6 +3642,7 @@
       "round": {
         "published": "أُرسلت إلى السائق",
         "notPublished": "لم تُرسل بعد",
+        "follows": "جولة إضافية: أُضيفت لأن الجولة <ltr>#{follows}</ltr> (<ltr>{plate}</ltr>) كانت قد انطلقت.",
         "driver": "السائق",
         "noDriver": "لم يُعيَّن سائق بعد",
         "departure": "الانطلاق",
@@ -3724,7 +3725,9 @@
         "driversLoading": "جارٍ تحميل السائقين…",
         "driversFailed": "تعذّر تحميل السائقين، لذا لا يظهر إلا سائق الجولة الحالي.",
         "driversRetry": "أعد تحميل السائقين",
-        "vehiclesNeedPermission": "تغيير السيارة يتطلب صلاحية إدارة الأسطول أو عرض الجدول.",
+        "vehiclesLoading": "جارٍ تحميل السيارات…",
+        "vehiclesFailed": "تعذّر تحميل السيارات، لذا لا تظهر إلا سيارة الجولة الحالية.",
+        "vehiclesRetry": "أعد تحميل السيارات",
         "departure": "موعد الانطلاق",
         "departureHint": "بتوقيت دبي يوم {date}."
       },
@@ -3899,17 +3902,6 @@
           "booking": "حجز",
           "subscription_period": "فترة اشتراك",
           "wallet_topup": "شحن المحفظة"
-        },
-        "reason": {
-          "customer_cancellation": "إلغاء من العميل حسب السياسة",
-          "company_cancellation": "إلغاء من ترتيبة",
-          "booking_rejected": "لم يُؤكَّد طلب الحجز",
-          "complaint_compensation": "تعويض شكوى",
-          "duplicate_payment": "دفعة مكررة",
-          "service_not_delivered": "لم تُقدَّم الخدمة",
-          "goodwill": "لفتة تقدير",
-          "other": "سبب آخر",
-          "price_difference": "فرق السعر بعد تعديل الحجز"
         },
         "document": {
           "invoice": "فاتورة ضريبية",

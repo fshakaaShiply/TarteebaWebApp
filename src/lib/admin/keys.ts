@@ -72,6 +72,8 @@ export const adminKeys = {
   driverOptions: () => ["admin", "fleet", "drivers", "options"] as const,
   /** GET /admin/drivers/options: every driver's name, state and usual van, for pickers outside fleet.manage. */
   driverPickList: () => ["admin", "fleet", "drivers", "pick-list"] as const,
+  /** GET /admin/vehicles/options: every van's plate, seats and state, for pickers outside fleet.manage. */
+  vehiclePickList: () => ["admin", "fleet", "vehicles", "pick-list"] as const,
   /** Staff accounts a new driver can be linked to; under "fleet", so creating a driver refreshes it. */
   driverCandidates: () => ["admin", "fleet", "driver-candidates"] as const,
   scheduling: () => ["admin", "scheduling"] as const,

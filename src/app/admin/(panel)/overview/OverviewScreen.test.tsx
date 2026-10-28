@@ -277,6 +277,39 @@ describe("A02 daily operations overview", () => {
     expect(api.fetchBookings).toHaveBeenCalledWith({ status: "pending_confirmation", zoneId: null, page: 1, perPage: 5 });
   });
 
+  it("shows the cancellation reviews from the summary's card, without a bookings list call of its own", async () => {
+    api.fetchDashboardSummary.mockResolvedValue(
+      dashboardSummary({
+        cancellation_reviews: {
+          label: { ar: "طلبات إلغاء بانتظار المراجعة", en: "Cancellations waiting for review" },
+          value: 2,
+          oldest_request: {
+            booking_id: 812,
+            reference: "TRB-7Q2M9K",
+            requested_at: "2026-10-23T14:00:00+00:00",
+            waiting_minutes: 120,
+            link: { list: "booking", path: "/api/v1/admin/bookings/812", params: {} },
+          },
+          link: { list: "bookings", path: "/api/v1/admin/bookings", params: { cancel_review: 1 } },
+        },
+      }),
+    );
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "payments.view", "refunds.create"] });
+    const card = (await screen.findByRole("heading", { name: "Cancellations waiting for review" })).closest("section")!;
+    expect(within(card).getByRole("link", { name: "All reviews (2)" })).toHaveAttribute("href", "/admin/bookings?cancel_review=1");
+    expect(within(card).getByRole("link", { name: "Open TRB-7Q2M9K" })).toHaveAttribute("href", "/admin/bookings/812");
+    expect(card).toHaveTextContent("for 2 hours");
+    // The only bookings list on the page is the pending queue: the review card reads the summary.
+    await waitFor(() => expect(api.fetchBookings).toHaveBeenCalled());
+    expect(api.fetchBookings.mock.calls).toEqual([[{ status: "pending_confirmation", zoneId: null, page: 1, perPage: 5 }]]);
+  });
+
+  it("has no review card when the summary sends none (viewers who don't act on reviews)", async () => {
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "bookings.cancel", "refunds.create"] });
+    await screen.findByRole("link", { name: /Today's bookings/ });
+    expect(screen.queryByText("Cancellations waiting for review")).not.toBeInTheDocument();
+  });
+
   it("welcomes staff without bookings or schedule access instead of loading figures", () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["catalog.manage"] });
     expect(screen.getByText("Welcome to Tarteeba operations")).toBeInTheDocument();

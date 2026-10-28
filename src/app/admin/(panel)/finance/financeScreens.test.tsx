@@ -174,8 +174,10 @@ const creditNote: AdminCreditNoteDetail = {
   payment_id: 9,
   customer: { id: 2, name: "Omar Khalid" },
   booking_reference: "TRB-EBABPY",
-  reason_code: "goodwill",
-  reason: null,
+  // A reason configured on the API (refund reasons are a config list): the page shows the API's label, both languages.
+  reason_code: "loyalty_credit",
+  reason_label: { ar: "رصيد ولاء", en: "Loyalty credit" },
+  reason: "Long-standing customer",
   net_fils: 2857,
   vat_rate_bp: 500,
   vat_rate: "5%",
@@ -421,13 +423,24 @@ describe("A09 invoices and credit notes", () => {
     const link = await screen.findByRole("link", { name: "CN-2026-000003" });
     const row = link.closest("tr")!;
     expect(within(row).getByRole("link", { name: "INV-2026-000005" })).toHaveAttribute("href", "/admin/finance/invoices/5");
-    expect(row).toHaveTextContent("Goodwill gesture");
+    // The API's reason_label, never the code.
+    expect(row).toHaveTextContent("Loyalty credit");
+    expect(row).not.toHaveTextContent("loyalty_credit");
     expect(row).toHaveTextContent("AED 30");
+  });
+
+  it("shows the API's reason label on the credit notes list in Arabic too", async () => {
+    renderWithProviders(<CreditNotesScreen />, { permissions: ["payments.view"], locale: "ar" });
+    const row = (await screen.findByRole("link", { name: "CN-2026-000003" })).closest("tr")!;
+    expect(row).toHaveTextContent("رصيد ولاء");
   });
 
   it("shows a credit note's lines, totals, supplier block and PDF download", async () => {
     renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["payments.view"] });
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("CN-2026-000003");
+    // The reason as the API labels it, with the refund's own note.
+    const reason = screen.getByText("Loyalty credit").parentElement!;
+    expect(reason).toHaveTextContent("Loyalty credit“Long-standing customer”");
     expect(screen.getByRole("table", { name: "Lines of credit note CN-2026-000003" })).toHaveTextContent("Cleaning visit (price per worker)");
     expect(screen.getByText("Total credited (AED)").nextSibling).toHaveTextContent("AED 30");
     expect(screen.getAllByText("To be confirmed")).toHaveLength(2);

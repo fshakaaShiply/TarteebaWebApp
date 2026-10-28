@@ -3228,6 +3228,7 @@
       "resolve": {
         "title": "Resolve the cancellation of {reference}",
         "body": "The booking is cancelled as the customer asked. The amount you enter is refunded; the rest of what can be refunded is kept as the fee.",
+        "bodyNothing": "The booking is cancelled as the customer asked. Nothing is refunded.",
         "summaryTitle": "The customer's request",
         "customerReason": "Customer's reason: {reason}",
         "paid": "Amount taken",
@@ -3238,6 +3239,8 @@
         "note": "Note",
         "noteHint": "3 to 1,000 characters. Saved with the refund and in the audit log.",
         "submit": "Cancel and refund",
+        "submitNothing": "Cancel the booking",
+        "nothingTaken": "No money was taken for this booking, so there is nothing to refund.",
         "retry": "Try again",
         "doneRefund": "{reference} is cancelled. A refund of {amount} was requested from the payment provider.",
         "doneKept": "{reference} is cancelled. Nothing was refunded.",
@@ -3247,10 +3250,9 @@
         "unknownBody": "The cancellation isn't confirmed yet. Try again: it's safe."
       },
       "reviewQueue": {
-        "title": "Cancellations waiting for review",
         "all": "All reviews ({count})",
-        "open": "All reviews",
         "empty": "No cancellation is waiting for review.",
+        "oldest": "Waiting longest: <ref>{reference}</ref>, for {time}",
         "openBooking": "Open {reference}",
         "hintFinance": "Open a booking to resolve its cancellation with a refund.",
         "hintCoordinator": "Open a booking to keep it or cancel it."
@@ -3587,10 +3589,8 @@
         "unplannedTitle": "{count, plural, one {# visit not planned} other {# visits not planned}}",
         "bothRides": "Both rides",
         "followsTitle": "{count, plural, one {# extra round after a round that had already left} other {# extra rounds after a round that had already left}}",
-        "follows": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: added because round <ltr>#{follows}</ltr> had already left.",
-        "followsKnown": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: added because round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) had already left.",
-        "followsExtended": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: extended; it runs after round <ltr>#{follows}</ltr>, which had already left.",
-        "followsExtendedKnown": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: extended; it runs after round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>), which had already left.",
+        "follows": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: added because round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>) had already left.",
+        "followsExtended": "{kind} · <ltr>{plate}</ltr>, departs <ltr>{time}</ltr>: extended; it runs after round <ltr>#{follows}</ltr> (<ltr>{followsPlate}</ltr>), which had already left.",
         "followsNote": "Each is a draft on the same van or on another free van: check its warnings and publish it like any other round."
       },
       "unplanned": {
@@ -3642,6 +3642,7 @@
       "round": {
         "published": "Published to the driver",
         "notPublished": "Not published",
+        "follows": "Extra round: added because round <ltr>#{follows}</ltr> (<ltr>{plate}</ltr>) had already left.",
         "driver": "Driver",
         "noDriver": "No driver yet",
         "departure": "Departure",
@@ -3724,7 +3725,9 @@
         "driversLoading": "Loading the drivers…",
         "driversFailed": "We couldn't load the drivers, so only the round's own driver is listed.",
         "driversRetry": "Load the drivers again",
-        "vehiclesNeedPermission": "Changing the van needs the fleet or schedule view permission.",
+        "vehiclesLoading": "Loading the vans…",
+        "vehiclesFailed": "We couldn't load the vans, so only the round's own van is listed.",
+        "vehiclesRetry": "Load the vans again",
         "departure": "Departure time",
         "departureHint": "Dubai time on {date}."
       },
@@ -3899,17 +3902,6 @@
           "booking": "Booking",
           "subscription_period": "Subscription period",
           "wallet_topup": "Wallet top-up"
-        },
-        "reason": {
-          "customer_cancellation": "Customer cancellation per policy",
-          "company_cancellation": "Cancelled by Tarteeba",
-          "booking_rejected": "Booking request not confirmed",
-          "complaint_compensation": "Complaint compensation",
-          "duplicate_payment": "Duplicate payment",
-          "service_not_delivered": "Service not delivered",
-          "goodwill": "Goodwill gesture",
-          "other": "Other",
-          "price_difference": "Price difference after a booking change"
         },
         "document": {
           "invoice": "Tax invoice",

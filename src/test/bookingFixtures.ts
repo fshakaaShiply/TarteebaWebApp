@@ -130,6 +130,8 @@ export const bookingDetail = (over: Partial<BookingDetail> = {}): BookingDetail 
     void_reason: null,
     created_at: "2026-10-22T22:57:18+00:00",
   },
+  // Authorized only: nothing captured, so nothing to refund.
+  refundable_fils: null,
   invoice: null,
   history: [],
   timeline: [],
@@ -247,6 +249,8 @@ export const dashboardSummary = (over: Partial<DashboardSummary["cards"]> = {}):
       grace_minutes: 10,
       link: link("schedule", "/api/v1/admin/schedule", { view: "day", date: "2026-10-23" }),
     },
+    // Null unless the viewer reads bookings and acts on reviews (bookings.cancel or refunds.create).
+    cancellation_reviews: null,
     ...over,
   },
   panels: {

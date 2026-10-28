@@ -117,6 +117,21 @@ export function RoundPanel({ round, canManage }: { round: Round; canManage: bool
           )}
         </span>
       </div>
+      {/* An extra round planned after a round already on the road (another van's takeover, R-19, or the same van's second
+          trip), as stored: still named after a reload. */}
+      {round.follows_round && (
+        <p className="text-sm text-ink-900">
+          {t.rich("follows", {
+            follows: String(round.follows_round.id),
+            plate: round.follows_round.plate_no,
+            ltr: (chunks: ReactNode) => (
+              <bdi dir="ltr" className="font-latin">
+                {chunks}
+              </bdi>
+            ),
+          })}
+        </p>
+      )}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-ink-600">{t("driver")}</dt>

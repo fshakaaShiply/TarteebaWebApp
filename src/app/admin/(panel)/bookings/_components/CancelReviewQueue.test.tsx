@@ -1,44 +1,52 @@
 import { screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bookingRow } from "@/test/bookingFixtures";
+import { describe, expect, it } from "vitest";
+import type { DashboardSummary } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
-import { CancelReviewQueue, cancelReviewsHref } from "./CancelReviewQueue";
-
-const api = { fetchBookings: vi.fn() };
-vi.mock("@/lib/admin/endpoints", () => ({
-  fetchBookings: (...a: unknown[]) => api.fetchBookings(...a),
-}));
+import { CancelReviewQueue } from "./CancelReviewQueue";
 
 const ACCOUNTANT = ["bookings.view", "payments.view", "refunds.create", "invoices.manage"];
 
-describe("A02 cancellation review queue", () => {
-  beforeEach(() => {
-    api.fetchBookings.mockReset();
-    api.fetchBookings.mockResolvedValue({
-      data: [bookingRow({ id: 7, reference: "TRB-REV001", status: "confirmed", customer: { id: "01C", name: "Sara Ahmed", phone: "+971500000001" } })],
-      meta: { current_page: 1, per_page: 5, total: 3, last_page: 1 },
-    });
-  });
+type ReviewsCard = NonNullable<DashboardSummary["cards"]["cancellation_reviews"]>;
+const reviewsCard = (over: Partial<ReviewsCard> = {}): ReviewsCard => ({
+  label: { ar: "طلبات إلغاء بانتظار المراجعة", en: "Cancellations waiting for review" },
+  value: 3,
+  oldest_request: {
+    booking_id: 812,
+    reference: "TRB-7Q2M9K",
+    requested_at: "2026-10-22T21:30:00+00:00",
+    waiting_minutes: 1110,
+    link: { list: "booking", path: "/api/v1/admin/bookings/812", params: {} },
+  },
+  link: { list: "bookings", path: "/api/v1/admin/bookings", params: { cancel_review: 1, zone_id: 2 } },
+  ...over,
+});
 
-  it("gives the accountant the bookings waiting for review and the whole filtered list", async () => {
-    renderWithProviders(<CancelReviewQueue zoneId={2} />, { permissions: ACCOUNTANT });
-    expect(await screen.findByRole("link", { name: "Open TRB-REV001" })).toHaveAttribute("href", "/admin/bookings/7");
-    expect(api.fetchBookings).toHaveBeenCalledWith({ cancelReview: true, zoneId: 2, page: 1, perPage: 5 });
+describe("A02 cancellation review queue (the summary's cancellation_reviews card)", () => {
+  it("gives the accountant the count, the review waiting longest and the whole filtered list", () => {
+    renderWithProviders(<CancelReviewQueue card={reviewsCard()} />, { permissions: ACCOUNTANT });
+    expect(screen.getByText("Cancellations waiting for review")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "All reviews (3)" })).toHaveAttribute("href", "/admin/bookings?cancel_review=1&zone_id=2");
+    const oldest = screen.getByRole("link", { name: "Open TRB-7Q2M9K" });
+    expect(oldest).toHaveAttribute("href", "/admin/bookings/812");
+    expect(oldest.parentElement).toHaveTextContent("Waiting longest: TRB-7Q2M9K, for 18 hours 30 minutes");
     expect(screen.getByText("Open a booking to resolve its cancellation with a refund.")).toBeInTheDocument();
   });
 
-  it("tells coordinators what they do with a review, and says when none is waiting", async () => {
-    api.fetchBookings.mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 5, total: 0, last_page: 1 } });
-    renderWithProviders(<CancelReviewQueue zoneId={null} />, { permissions: ["bookings.view", "bookings.cancel"] });
-    expect(await screen.findByText("No cancellation is waiting for review.")).toBeInTheDocument();
+  it("tells coordinators what they do with a review, and says when none is waiting", () => {
+    renderWithProviders(
+      <CancelReviewQueue card={reviewsCard({ value: 0, oldest_request: null, link: { list: "bookings", path: "/api/v1/admin/bookings", params: { cancel_review: 1 } } })} />,
+      { permissions: ["bookings.view", "bookings.cancel"] },
+    );
+    expect(screen.getByText("No cancellation is waiting for review.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "All reviews (0)" })).toHaveAttribute("href", "/admin/bookings?cancel_review=1");
+    expect(screen.queryByRole("link", { name: /^Open TRB/ })).not.toBeInTheDocument();
     expect(screen.getByText("Open a booking to keep it or cancel it.")).toBeInTheDocument();
-    expect(cancelReviewsHref()).toBe("/admin/bookings?cancel_review=1");
   });
 
-  it("stays away from roles that don't act on reviews", () => {
-    renderWithProviders(<CancelReviewQueue zoneId={null} />, { permissions: ["bookings.view", "schedule.view"] });
+  it("is hidden when the API sends no card (roles that don't act on reviews)", () => {
+    renderWithProviders(<CancelReviewQueue card={null} />, { permissions: ["bookings.view", "schedule.view"] });
     expect(screen.queryByText("Cancellations waiting for review")).not.toBeInTheDocument();
-    expect(api.fetchBookings).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

@@ -27,13 +27,11 @@ import {
   CANCEL_REASONS,
   REJECT_REASONS,
   cancelTermsOf,
-  openRefundsFils,
   optionFieldErrors,
   optionIndexOf,
   priceHigherDetails,
   reasonTextRequired,
   refundableOf,
-  refundableOfBooking,
   rescheduleTermsOf,
   slotUnavailable,
   visitStatusOf,
@@ -86,7 +84,6 @@ import { PaymentLinkBox } from "../_components/PaymentLinkBox";
 import { errorCode, isStaleVersion, useBookingRefresh } from "../_components/refresh";
 import { SlotSelect, slotsForKind, useBookingServiceKind, useSlotTemplatePickList } from "../_components/SlotSelect";
 import { useBookingText } from "../_components/bookingText";
-import { useBookingRefunds } from "../_components/useBookingRefunds";
 
 /*
  * A03 booking actions (spec §7.1, §10, §11.4, §14.3; design AdminSchedule.dc.html "review booking"): each opens a
@@ -1172,11 +1169,12 @@ export function ResolveReviewDialog({ booking, onClose, onStale, changed, return
   const toast = useToast();
   const refresh = useBookingRefresh();
   const keys = useIdempotencyKeys();
-  // What may still be refunded: taken minus refunded minus refunds still open (the page's refund list), until the API
-  // names its own figure (422 REFUND_AMOUNT_INVALID).
-  const refunds = useBookingRefunds(booking);
+  // What may still be refunded: the booking's own cap (refundable_fils, the figure the API checks the refund against),
+  // until a 422 REFUND_AMOUNT_INVALID names a fresher one. null = nothing was taken, so no amount is asked and 0 is sent
+  // (which the API always accepts). Not expected while a review waits: only taken money is reviewed, and the API settles
+  // a lost capture before it asks for a review.
   const [apiCap, setApiCap] = useState<number | null>(null);
-  const refundable = apiCap ?? refundableOfBooking(booking, openRefundsFils(refunds.data ?? []));
+  const refundable = apiCap ?? booking.refundable_fils;
   const form = useForm<ResolveValues>({ defaultValues: { refund: "", note: "" } });
   const review = booking.cancellation.review;
 
@@ -1239,8 +1237,8 @@ export function ResolveReviewDialog({ booking, onClose, onStale, changed, return
       open
       onOpenChange={(o) => !o && onClose()}
       title={t("title", { reference: booking.reference })}
-      description={t("body")}
-      confirmLabel={unknown ? t("retry") : t("submit")}
+      description={refundable === null ? t("bodyNothing") : t("body")}
+      confirmLabel={unknown ? t("retry") : refundable === null ? t("submitNothing") : t("submit")}
       tone="danger"
       size="lg"
       pending={mutation.isPending}
@@ -1251,18 +1249,24 @@ export function ResolveReviewDialog({ booking, onClose, onStale, changed, return
       <section aria-label={t("summaryTitle")} className="flex flex-col gap-2 rounded-md bg-neutral-100 p-4 text-sm">
         {review?.reason_code && <p className="text-ink-900">{t("customerReason", { reason: text.cancelReason(review.reason_code) })}</p>}
         {review?.reason_text && <p className="whitespace-pre-line text-ink-600">“{review.reason_text}”</p>}
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-          {booking.payment && <TermsRow label={t("paid")} value={text.money(booking.payment.captured_fils)} />}
-          <TermsRow label={t("refundable")} value={text.money(refundable)} />
-        </dl>
+        {refundable === null ? (
+          <p className="font-medium text-ink-900">{t("nothingTaken")}</p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {booking.payment && <TermsRow label={t("paid")} value={text.money(booking.payment.captured_fils)} />}
+            <TermsRow label={t("refundable")} value={text.money(refundable)} />
+          </dl>
+        )}
       </section>
-      <MoneyField
-        label={t("amount")}
-        hint={t("amountHint", { amount: text.money(refundable) })}
-        required
-        error={fieldError(errors.refund)}
-        {...form.register("refund")}
-      />
+      {refundable !== null && (
+        <MoneyField
+          label={t("amount")}
+          hint={t("amountHint", { amount: text.money(refundable) })}
+          required
+          error={fieldError(errors.refund)}
+          {...form.register("refund")}
+        />
+      )}
       <TextArea label={t("note")} hint={t("noteHint")} required rows={3} maxLength={1000} error={fieldError(errors.note)} {...form.register("note")} />
       {crewStatus ? (
         <Notice tone="danger" title={t("crewTitle")}>

@@ -118,7 +118,7 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
               <Fact label={t("booking")}>{note.booking_reference ? <Code wrap>{note.booking_reference}</Code> : "—"}</Fact>
               <Fact label={t("reason")}>
                 <span className="flex flex-col">
-                  <span>{text.reason(note.reason_code)}</span>
+                  <span>{text.reason(note.reason_label)}</span>
                   {note.reason && <span className="text-xs text-ink-600">“{note.reason}”</span>}
                 </span>
               </Fact>

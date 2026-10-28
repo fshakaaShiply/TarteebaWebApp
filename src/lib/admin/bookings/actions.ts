@@ -133,17 +133,6 @@ export function refundableOf(error: unknown): number | null {
   return typeof value === "number" && value >= 0 ? value : null;
 }
 
-/**
- * What may still be refunded on the booking's payment as far as the page knows: taken, minus refunded (refunds the
- * provider confirmed), minus `openRefundsFils` (refunds still requested or processing, which the API's cap
- * Payment::refundableFils also holds back). The API decides (422 REFUND_AMOUNT_INVALID with details.refundable_fils, see
- * refundableOf).
- */
-export function refundableOfBooking(booking: Pick<BookingDetail, "payment">, openRefundsFils = 0): number {
-  const p = booking.payment;
-  return p ? Math.max(0, p.captured_fils - p.refunded_fils - openRefundsFils) : 0;
-}
-
 type RefundRow = Pick<AdminRefund, "status" | "amount_fils"> & {
   payment?: { ulid?: string | null; payable_id?: number | null; payable_type?: string | null } | null;
 };
@@ -156,11 +145,6 @@ export function refundsOfBooking<T extends RefundRow>(rows: readonly T[], bookin
   return rows.filter(
     (r) => r.payment && (r.payment.ulid === booking.payment?.id || (r.payment.payable_id === booking.id && (r.payment.payable_type ?? "").includes("booking"))),
   );
-}
-
-/** Refunds the provider has not finished (requested or processing): not in refunded_fils yet, but no longer refundable. */
-export function openRefundsFils(rows: readonly RefundRow[]): number {
-  return rows.filter((r) => r.status === "requested" || r.status === "processing").reduce((sum, r) => sum + r.amount_fils, 0);
 }
 
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);

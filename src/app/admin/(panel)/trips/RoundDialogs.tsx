@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Armchair } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -22,9 +22,8 @@ import {
 } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { assignmentReasonSchema } from "@/lib/admin/bookings/forms";
-import { addStop, cancelRound, fetchAllVehicles, publishRound, removeStop, setPassengers, updateRound } from "@/lib/admin/endpoints";
+import { addStop, cancelRound, publishRound, removeStop, setPassengers, updateRound } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
-import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import {
@@ -42,7 +41,7 @@ import {
 } from "@/lib/admin/trips/rounds";
 import type { Round, RoundStop, VisitSummary } from "@/lib/admin/types";
 import { useDayVisits } from "../_ops/daySlots";
-import { useDriverPickList } from "../_ops/options";
+import { useDriverPickList, useVehiclePickList } from "../_ops/options";
 import { useOpsText } from "../_ops/opsText";
 import { Ltr } from "../bookings/_components/BookingBits";
 import { useBookingText } from "../bookings/_components/bookingText";
@@ -118,18 +117,11 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
   const ops = useOpsText();
   const toast = useToast();
   const serverMessage = useServerFieldMessage();
-  const { canAny } = useAdminSession();
   const formId = useId();
   const [snapshot] = useState(round);
-  // There is no van pick-list: the vans come from the fleet list (fleet.manage or schedule.view).
-  const readsVehicles = canAny(["fleet.manage", "schedule.view"]);
-  const vehicles = useQuery({
-    queryKey: adminKeys.vehicleList({ all: 1 }),
-    queryFn: fetchAllVehicles,
-    staleTime: 60_000,
-    enabled: readsVehicles,
-  });
-  // The driver pick-list (GET /admin/drivers/options) is readable with trips.manage, not only fleet.manage.
+  // The van and driver pick-lists (GET /admin/vehicles/options and /admin/drivers/options) are readable with
+  // trips.manage, not only fleet.manage.
+  const vehicles = useVehiclePickList();
   const drivers = useDriverPickList();
   const form = useForm<RoundEditValues>({ resolver: zodResolver(editSchema) as never, defaultValues: roundEditDefaults(snapshot) });
   const mutation = useRoundChange(
@@ -160,20 +152,26 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
   const msg = (e: { message?: string; type?: string } | undefined) =>
     e?.message ? (e.type === "server" ? serverMessage(e.message, f("invalid")) : f.has(e.message) ? f(e.message) : f("invalid")) : undefined;
 
+  // Vans that can carry workers (is_active), and the round's own van while it can't (marked with its status), so saving
+  // another change keeps it.
   const vehicleOptions = (vehicles.data ?? [])
-    .filter((v) => v.status === "active" || v.id === snapshot.vehicle.id)
+    .filter((v) => v.is_active || v.id === snapshot.vehicle.id)
     .map((v) => ({
       value: String(v.id),
-      label: t(v.status === "active" ? "vehicleOption" : "vehicleOptionOff", {
+      label: t(v.is_active ? "vehicleOption" : "vehicleOptionOff", {
         plate: v.plate_no,
         seats: v.seats,
         status: ops.vehicleStatus(v.status),
       }),
     }));
   if (!vehicleOptions.some((o) => o.value === String(snapshot.vehicle.id))) {
+    const own = snapshot.vehicle;
     vehicleOptions.unshift({
-      value: String(snapshot.vehicle.id),
-      label: t("vehicleOption", { plate: snapshot.vehicle.plate_no, seats: snapshot.vehicle.seats, status: "" }),
+      value: String(own.id),
+      label:
+        own.status === "active"
+          ? t("vehicleOption", { plate: own.plate_no, seats: own.seats })
+          : t("vehicleOptionOff", { plate: own.plate_no, seats: own.seats, status: ops.vehicleStatus(own.status) }),
     });
   }
   // Drivers who can take a round (is_active: profile and staff account active), and the round's own driver while
@@ -208,11 +206,17 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
         <Select
           label={t("vehicle")}
           required
-          hint={readsVehicles ? t("vehicleHint") : t("vehiclesNeedPermission")}
+          // While the list loads or after it failed, only the round's own van is offered: say so, not "only active".
+          hint={vehicles.isLoading ? t("vehiclesLoading") : vehicles.isError && !vehicles.data ? t("vehiclesFailed") : t("vehicleHint")}
           options={vehicleOptions}
           error={msg(errors.vehicleId)}
           {...form.register("vehicleId")}
         />
+        {vehicles.isError && !vehicles.data && (
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => void vehicles.refetch()} loading={vehicles.isFetching}>
+            {t("vehiclesRetry")}
+          </Button>
+        )}
         <Select
           label={t("driver")}
           placeholder={t("noDriver")}

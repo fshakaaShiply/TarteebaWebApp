@@ -675,6 +675,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/bookings/{booking}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /customer/bookings/{ulid}/availability?from=&to=&slot_template_id= (screen 26): the date strip and slot cards
+         *     of GET /customer/availability for the booking's own zone, service and team (Support\RescheduleCheck::availability),
+         *     also once the saved address was deleted. Throttled with GET /customer/availability (one budget)
+         */
+        get: operations["customer.booking.bookings.availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/bookings/{booking}/cancel/preview": {
         parameters: {
             query?: never;
@@ -3003,6 +3024,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/vehicles/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.fleet.vehicles.options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/vehicles": {
         parameters: {
             query?: never;
@@ -3584,6 +3621,7 @@ export interface components {
                 void_reason: string | null;
                 created_at: string | null;
             } | null;
+            refundable_fils: number | null;
             invoice: {
                 id: number;
                 number: string;
@@ -3752,6 +3790,10 @@ export interface components {
             };
             booking_reference: string | null;
             reason_code: string | null;
+            reason_label: {
+                ar: string;
+                en: string;
+            };
             reason: string | null;
             net_fils: number;
             vat_rate_bp: number;
@@ -3801,6 +3843,10 @@ export interface components {
             };
             booking_reference: string | null;
             reason_code: string | null;
+            reason_label: {
+                ar: string;
+                en: string;
+            };
             reason: string | null;
             net_fils: number;
             vat_rate_bp: number;
@@ -3882,6 +3928,10 @@ export interface components {
                 issue_date: string;
                 refund_id: number;
                 reason_code: string | null;
+                reason_label: {
+                    ar: string;
+                    en: string;
+                };
                 reason: string | null;
                 net_fils: number;
                 vat_fils: number;
@@ -3976,7 +4026,7 @@ export interface components {
             invoice: {
                 id: number;
                 number: string;
-                status: string;
+                status: components["schemas"]["InvoiceStatus"];
                 status_label: {
                     ar: string;
                     en: string;
@@ -4115,7 +4165,7 @@ export interface components {
             invoice: {
                 id: number;
                 number: string;
-                status: string;
+                status: components["schemas"]["InvoiceStatus"];
                 status_label: {
                     ar: string;
                     en: string;
@@ -4487,8 +4537,12 @@ export interface components {
          *     the answer is 409 TERMS_CHANGED and nothing happens. The preview takes no body; staff use AdminCancelBookingRequest.
          */
         CancelBookingRequest: {
-            /** @enum {string} */
-            reason_code: "plans_changed" | "booked_by_mistake" | "time_not_suitable" | "other";
+            /**
+             * @description One of the codes the cancel preview lists (`reasons[].code`, config booking.customer_cancel_reasons);
+             *     "other" needs reason_text.
+             * @example plans_changed
+             */
+            reason_code: string;
             reason_text?: string | null;
             expected_fee_fils?: number | null;
             expected_refund_fils?: number | null;
@@ -7230,7 +7284,16 @@ export interface operations {
                     "application/json": {
                         data: {
                             date: string;
-                            slots: unknown[];
+                            slots: {
+                                slot_template_id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                                /** @enum {string} */
+                                status: "available" | "limited" | "full" | "closed";
+                                remaining?: number;
+                            }[];
                         }[];
                         meta: {
                             timezone: string;
@@ -8176,6 +8239,54 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.booking.bookings.availability": {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                slot_template_id?: number;
+            };
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            slots: {
+                                slot_template_id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                                /** @enum {string} */
+                                status: "available" | "limited" | "full" | "closed";
+                                remaining?: number;
+                            }[];
+                        }[];
+                        meta: {
+                            timezone: string;
+                            horizon_days: number;
+                            limited_threshold: number;
+                            workers: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -9431,6 +9542,35 @@ export interface operations {
                                         };
                                     } | null;
                                 };
+                                cancellation_reviews: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    value: number;
+                                    oldest_request: {
+                                        booking_id: number;
+                                        reference: string;
+                                        requested_at: string;
+                                        waiting_minutes: number;
+                                        link: {
+                                            /** @constant */
+                                            list: "booking";
+                                            path: string;
+                                            params: {
+                                                [key: string]: string | number;
+                                            };
+                                        } | null;
+                                    } | null;
+                                    link: {
+                                        /** @constant */
+                                        list: "bookings";
+                                        path: string;
+                                        params: {
+                                            [key: string]: string | number;
+                                        };
+                                    } | null;
+                                } | null;
                             };
                             panels: {
                                 bookings_by_status: {
@@ -13201,6 +13341,15 @@ export interface operations {
                                 phone: string | null;
                                 status: string;
                             } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
+                            } | null;
                             planned_depart_at: string;
                             depart_local: string;
                             planned_end_at: string;
@@ -13412,6 +13561,15 @@ export interface operations {
                                 phone: string | null;
                                 status: string;
                             } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
+                            } | null;
                             planned_depart_at: string;
                             depart_local: string;
                             planned_end_at: string;
@@ -13619,6 +13777,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -13831,6 +13998,15 @@ export interface operations {
                                 phone: string | null;
                                 status: string;
                             } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
+                            } | null;
                             planned_depart_at: string;
                             depart_local: string;
                             planned_end_at: string;
@@ -14042,6 +14218,15 @@ export interface operations {
                                 phone: string | null;
                                 status: string;
                             } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
+                            } | null;
                             planned_depart_at: string;
                             depart_local: string;
                             planned_end_at: string;
@@ -14247,6 +14432,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -14457,6 +14651,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -14669,6 +14872,11 @@ export interface operations {
                                     phone: string | null;
                                     status: string;
                                 } | null;
+                                follows_round_id: number | null;
+                                follows_round: {
+                                    id: number;
+                                    plate_no: string;
+                                } | null;
                                 planned_depart_at: string;
                                 depart_local: string;
                                 planned_end_at: string;
@@ -14806,7 +15014,6 @@ export interface operations {
                                 updated_at: string | null;
                                 /** @enum {string|null} */
                                 plan: "created" | "extended" | null;
-                                follows_round_id: number | null;
                             }[];
                             unplanned: {
                                 visit_id: number;
@@ -14904,6 +15111,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -15112,6 +15328,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -15322,6 +15547,15 @@ export interface operations {
                                 name: string;
                                 phone: string | null;
                                 status: string;
+                            } | null;
+                            /**
+                             * @description A draft planned after a round already on the road (another van's takeover or a second trip, P3-73,
+                             *     R-19): that round and its van, stored on the round so the planner labels it after a reload too.
+                             */
+                            follows_round_id: number | null;
+                            follows_round: {
+                                id: number;
+                                plate_no: string;
                             } | null;
                             planned_depart_at: string;
                             depart_local: string;
@@ -16978,6 +17212,48 @@ export interface operations {
             };
             401: components["responses"]["AuthenticationException"];
             422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.fleet.vehicles.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            plate_no: string;
+                            seats: number;
+                            /** @enum {string} */
+                            status: "active" | "maintenance" | "inactive";
+                            is_active: boolean;
+                            zone_id: number | null;
+                            zone: {
+                                id: number;
+                                code: string;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            default_driver: {
+                                id: number;
+                                name: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
         };
     };
     "admin.fleet.vehicles.index": {

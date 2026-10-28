@@ -11,6 +11,7 @@ import {
   fetchServiceOptions,
   fetchSkills,
   fetchSlotTemplateOptions,
+  fetchVehicleOptions,
   fetchZoneOptions,
 } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
@@ -130,6 +131,15 @@ export function useSlotPickList(enabled = true) {
 export function useDriverPickList(enabled = true) {
   const allowed = useAdminSession().canAny(DRIVER_PICK_LIST_PERMISSIONS);
   return useQuery({ queryKey: adminKeys.driverPickList(), queryFn: () => fetchDriverOptions(), staleTime: STALE, enabled: enabled && allowed });
+}
+
+/** Any of these reads GET /admin/vehicles/options. */
+export const VEHICLE_PICK_LIST_PERMISSIONS = ["fleet.manage", "trips.manage", "schedule.view"] as const;
+
+/** Every van not deleted (id, plate, seats, status, is_active, zone, usual driver) by plate; out-of-service ones too. */
+export function useVehiclePickList(enabled = true) {
+  const allowed = useAdminSession().canAny(VEHICLE_PICK_LIST_PERMISSIONS);
+  return useQuery({ queryKey: adminKeys.vehiclePickList(), queryFn: () => fetchVehicleOptions(), staleTime: STALE, enabled: enabled && allowed });
 }
 
 /** Active driver-role staff accounts not linked to a driver yet (fleet.manage), for a new driver. */

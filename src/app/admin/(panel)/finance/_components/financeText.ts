@@ -49,17 +49,10 @@ export function useFinanceText() {
       invoice: (value: string, apiLabel?: Translatable | string | null) => label("invoice", value, apiLabel),
       payable: (value: string) => label("payable", value),
       /**
-       * A refund reason: the API's bilingual label (refund rows, GET /admin/refund-reasons), else ours, which only the
-       * credit notes need (their resources carry the code alone); an unknown code reads "Other".
+       * A refund reason: always the API's bilingual label (refund rows, credit notes, GET /admin/refund-reasons; the API
+       * reads an unknown or missing code as "Other"), never a code. "—" only if a label is missing.
        */
-      reason: (code: string | null | undefined, apiLabel?: Translatable | null) => {
-        if (apiLabel) {
-          const text = pickText(apiLabel, locale);
-          if (text) return text;
-        }
-        const key = `reason.${code ?? "other"}`;
-        return t.has(key) ? t(key) : t("reason.other");
-      },
+      reason: (apiLabel: Translatable | null | undefined) => (apiLabel ? pickText(apiLabel, locale) : "") || "—",
       document: (value: string) => label("document", value),
       problem: (value: string) => label("problem", value),
       source: (value: string) => label("eventSource", value),

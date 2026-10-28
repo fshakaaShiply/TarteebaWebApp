@@ -12,8 +12,8 @@ import type { BookingDetail } from "@/lib/admin/types";
 export const REFUND_READ_PERMISSIONS = ["payments.view", "refunds.create"] as const;
 
 /**
- * The refunds of the booking's payment, with the provider's status (the payment card's list; the cancellation review's
- * cap leaves out the ones still open). Any money taken may have refunds, also ones still processing or failed
+ * The refunds of the booking's payment, with the provider's status (the payment card's list; what may still be
+ * refunded is the booking's own `refundable_fils`). Any money taken may have refunds, also ones still processing or failed
  * (refunded_fils counts only those the provider confirmed): a reschedule's price difference, money the booking never
  * accepted, a cancellation.
  */

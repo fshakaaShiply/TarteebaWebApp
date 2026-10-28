@@ -91,9 +91,10 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   dry runs' keys sit outside `["admin", "bookings"]`, so an action's refresh never sends them again (the customer
   lookups are only marked stale). Cancel and reschedule send the amounts their preview showed (`expected_*`);
   409 TERMS_CHANGED shows the new terms with the changes marked and needs a fresh confirm (new body, new key). Finance
-  (refunds.create without bookings.cancel) resolves a cancellation review with a refund; A09's nav and the overview
-  link the review queue (`?cancel_review=1`; the nav marks one entry as the page, by path and the query an entry
-  names: `activeNavHref`). The wizard offers "company brings the materials" only with materials included or the
+  (refunds.create without bookings.cancel) resolves a cancellation review with a refund, capped by the booking's
+  `refundable_fils` (null: nothing taken, no amount asked); A09's nav and the overview link the review queue
+  (`?cancel_review=1`; the overview's card is the summary's `cards.cancellation_reviews`, null = hidden; the nav marks
+  one entry as the page, by path and the query an entry names: `activeNavHref`). The wizard offers "company brings the materials" only with materials included or the
   MATERIALS add-on offered (D-02b), and marks the preview's 422 field errors on their fields.
 - **Schedule (A04):** `src/app/admin/(panel)/schedule` (view, date, filters and zone in the URL,
   `src/lib/admin/schedule/board.ts`). A card dropped on another cleaner's cell at its own time, or moved with its Move
@@ -109,13 +110,14 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   show only on the date, slot and zone they ran for) and `trips/reports` (driver reports).
   Round dialogs work on a snapshot of the round (its version is the If-Match); a changed round answers the recomputed
   round, which replaces the cached one (`useRoundSaved()`). Seat limits are never overridable; team rules need an
-  override. No maps key yet: stops show as an ordered list with an SVG sketch of the order. Slot and driver pickers
-  outside A11 and fleet read the pick-lists (`_ops/options.ts` `useSlotPickList`, `useDriverPickList`: GET
-  /admin/slot-templates/options and /admin/drivers/options, active ones offered, a chosen inactive one kept and
-  marked), so trips.manage alone can draft and pick a driver; adding a stop still lists the day board's visits
-  (`_ops/daySlots.ts` `useDayVisits`, schedule.view) and the van list needs fleet.manage or schedule.view. The draft
-  result names each extra round the API added because a van's round had already left (`follows_round_id`: on the same
-  van or another free one, R-19; still a draft to check and publish). Departure times become instants through the zone
+  override. No maps key yet: stops show as an ordered list with an SVG sketch of the order. Slot, driver and van pickers
+  outside A11 and fleet read the pick-lists (`_ops/options.ts` `useSlotPickList`, `useDriverPickList`,
+  `useVehiclePickList`: GET /admin/slot-templates/options, /admin/drivers/options and /admin/vehicles/options, active
+  ones offered, a chosen inactive one kept and marked), so trips.manage alone can draft, pick a driver and change a van;
+  adding a stop still lists the day board's visits (`_ops/daySlots.ts` `useDayVisits`, schedule.view). The draft result
+  names each extra round the API added because a van's round had already left (`follows_round {id, plate_no}`: on the
+  same van or another free one, R-19; still a draft to check and publish), and the round's panel names it from the
+  stored link after a reload. Departure times become instants through the zone
   (`zonedDateTimeIso` in `src/lib/admin/format.ts`, spec §4.1), never a fixed offset.
 - **Finance (A09):** `src/app/admin/(panel)/finance` — the landing page (`FinanceSummaryScreen`: the design's KPI
   cards from `GET /admin/finance/summary`, period in the URL, month to date by default, the API's 422 messages on the
@@ -127,8 +129,8 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   URL (`src/lib/admin/finance/filters.ts` specs, `_components/useUrlFilters.ts`). Payment and refund states are always
   the provider's (API labels); a refund is "processing" until the provider says otherwise. Refund reasons come from
   `GET /admin/refund-reasons` (`_components/useRefundReasons.ts`): the dialog offers the `selectable` ones and needs a
-  note when `requires_text`; the refunds list filters by all of them. Only the credit note pages still use our own
-  reason labels (their resources carry the code alone). The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the
+  note when `requires_text`; the refunds list filters by all of them. Every reason shown is the API's label (refund
+  rows, and credit notes' `reason_label`): the web has none of its own. The refund dialog (`payments/[id]/RefundDialog.tsx`) checks the
   AED amount against `refundable_fils` and the reason against that list (`lib/admin/finance/refund.ts`), then confirms
   the exact amount; its Idempotency-Key uses `holdAfterUnknown` (no If-Match on
   refunds). The key store (`lib/admin/finance/refundKeys.ts`) lives above the page's loading/error switch and keeps the

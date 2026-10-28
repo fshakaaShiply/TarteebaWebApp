@@ -231,7 +231,7 @@ function OverviewBody({
       </div>
       <QuickStats summary={summary} />
       {/* Customer cancellations waiting for review: finance resolves them, coordinators keep or cancel them. */}
-      <CancelReviewQueue zoneId={zoneId} />
+      <CancelReviewQueue card={summary.cards.cancellation_reviews} />
       {can("bookings.view") && <PendingQueue zoneId={zoneId} />}
     </>
   );

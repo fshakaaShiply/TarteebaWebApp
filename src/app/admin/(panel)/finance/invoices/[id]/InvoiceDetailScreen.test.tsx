@@ -61,7 +61,18 @@ const invoice = (over: Partial<AdminInvoiceDetail> = {}): AdminInvoiceDetail => 
     },
   ],
   credit_notes: [
-    { id: 3, number: "CN-2026-000003", issue_date: "2026-10-23", refund_id: 3, reason_code: "goodwill", reason: null, net_fils: 5714, vat_fils: 286, total_fils: 6000 },
+    {
+      id: 3,
+      number: "CN-2026-000003",
+      issue_date: "2026-10-23",
+      refund_id: 3,
+      reason_code: "price_difference",
+      reason_label: { ar: "فرق السعر بعد تعديل الحجز", en: "Price difference after a booking change" },
+      reason: null,
+      net_fils: 5714,
+      vat_fils: 286,
+      total_fils: 6000,
+    },
   ],
   version: 1,
   ...over,
@@ -98,7 +109,10 @@ describe("InvoiceDetailScreen", () => {
     expect(screen.getByText("Total (AED)").nextSibling).toHaveTextContent(/^AED 120\.00$/);
     expect(screen.getByText("Total (AED)").nextSibling).toHaveTextContent(invoice().total_text);
     expect(screen.getByText("Credited by credit notes").nextSibling).toHaveTextContent(/^AED 60\.00$/);
-    expect(screen.getByRole("link", { name: "CN-2026-000003" })).toHaveAttribute("href", "/admin/finance/credit-notes/3");
+    const creditNote = screen.getByRole("link", { name: "CN-2026-000003" });
+    expect(creditNote).toHaveAttribute("href", "/admin/finance/credit-notes/3");
+    // The credit note's reason as the API labels it (reason_label).
+    expect(creditNote.parentElement).toHaveTextContent("Price difference after a booking change");
     expect(screen.getByRole("link", { name: "TRB-QHKXMS" })).toHaveAttribute("href", "/admin/bookings/9");
     // Resending needs invoices.manage.
     expect(screen.queryByRole("button", { name: /Resend by email/ })).not.toBeInTheDocument();

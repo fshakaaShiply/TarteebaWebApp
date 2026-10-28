@@ -237,7 +237,7 @@ function CreditNotesCard({ invoice }: { invoice: AdminInvoiceDetail }) {
                 <Code>{note.number}</Code>
               </Link>
               <span className="text-xs text-ink-600">
-                {text.date(note.issue_date)} · {text.reason(note.reason_code)}
+                {text.date(note.issue_date)} · {text.reason(note.reason_label)}
               </span>
             </span>
             <Money fils={note.total_fils} className="font-bold text-ink-900" />

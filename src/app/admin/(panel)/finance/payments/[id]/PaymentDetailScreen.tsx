@@ -321,7 +321,7 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
             {r.needs_review && <ReviewBadge />}
           </span>
           <span className="text-ink-900">
-            {text.reason(r.reason_code, r.reason_label)}
+            {text.reason(r.reason_label)}
             {r.reason_text && <span className="text-ink-600"> · “{r.reason_text}”</span>}
           </span>
           <span className="text-xs text-ink-600">

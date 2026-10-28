@@ -33,6 +33,7 @@ const refund = (over: Partial<AdminRefund>): AdminRefund => ({
   failure_code: null,
   failure_message: null,
   credit_note_id: null,
+  credit_note: null,
   estimated_arrival_text: null,
   needs_review: false,
   created_at: "2026-10-23T10:00:00+00:00",
@@ -44,13 +45,14 @@ const refund = (over: Partial<AdminRefund>): AdminRefund => ({
   ...over,
 });
 
-/** A confirmed booking whose money was taken, nothing refunded yet as far as the payment row knows. */
+/** A confirmed booking whose money was taken, nothing refunded yet: all of it can still be refunded. */
 const captured = (over: Partial<BookingDetail> = {}) => {
   const base = bookingDetail({ status: "confirmed", payment_status: "captured" });
   return bookingDetail({
     status: "confirmed",
     payment_status: "captured",
     payment: { ...base.payment!, status: "captured", captured_fils: 24000, refunded_fils: 0 },
+    refundable_fils: 24000,
     ...over,
   });
 };
@@ -117,7 +119,7 @@ describe("payment and refunds summary", () => {
 });
 
 describe("cancellation review task (§10.4)", () => {
-  const review = () =>
+  const review = (over: Partial<BookingDetail> = {}) =>
     captured({
       cancellation: {
         party: null,
@@ -127,6 +129,7 @@ describe("cancellation review task (§10.4)", () => {
         review_requested_at: "2026-10-23T08:00:00+00:00",
         review: { party: "customer", reason_code: "customer_request", reason_text: null } as BookingDetail["cancellation"]["review"],
       },
+      ...over,
     });
 
   const ACCOUNTANT = ["bookings.view", "payments.view", "refunds.create", "invoices.manage"];
@@ -167,6 +170,9 @@ describe("cancellation review task (§10.4)", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Resolve with refund" }));
     const dialog = screen.getByRole("alertdialog", { name: "Resolve the cancellation of TRB-R4RYSD" });
+    expect(dialog).toHaveAccessibleDescription(
+      "The booking is cancelled as the customer asked. The amount you enter is refunded; the rest of what can be refunded is kept as the fee.",
+    );
     expect(dialog).toHaveTextContent("Customer's reason: ");
     expect(dialog).toHaveTextContent("Can still be refundedAED 240");
     const amount = within(dialog).getByRole("textbox", { name: /Refund amount/ });
@@ -218,18 +224,15 @@ describe("cancellation review task (§10.4)", () => {
     expect(api.resolveCancelReview.mock.calls[0][3]).not.toBe(api.resolveCancelReview.mock.calls[1][3]);
   });
 
-  it("resolve: a refund still processing lowers what can be refunded, as the API's cap does", async () => {
-    // A reschedule's price difference of AED 40 the provider has not confirmed yet (not in refunded_fils), and a
-    // failed one that frees its amount again.
-    api.fetchRefundsByPhone.mockResolvedValue([
-      refund({ amount_fils: 4000, status: "processing" }),
-      refund({ id: 2, ulid: "01R2", amount_fils: 1000, status: "failed" }),
-    ]);
-    renderWithProviders(<CancelReviewTask booking={review()} onStale={vi.fn()} />, { permissions: ACCOUNTANT });
+  it("resolve: caps the amount with the booking's refundable_fils (refunds still open held back), without reading the customer's refunds", async () => {
+    // A reschedule's price difference of AED 40 the provider has not confirmed yet: not in refunded_fils, but the API's
+    // figure already holds it back.
+    renderWithProviders(<CancelReviewTask booking={review({ refundable_fils: 20000 })} onStale={vi.fn()} />, { permissions: ACCOUNTANT });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Resolve with refund" }));
     const dialog = screen.getByRole("alertdialog", { name: "Resolve the cancellation of TRB-R4RYSD" });
-    await waitFor(() => expect(dialog).toHaveTextContent("Can still be refundedAED 200"));
+    expect(dialog).toHaveTextContent("Amount takenAED 240");
+    expect(dialog).toHaveTextContent("Can still be refundedAED 200");
     const amount = within(dialog).getByRole("textbox", { name: /Refund amount/ });
     expect(amount).toHaveAccessibleDescription("From 0 to AED 200.");
 
@@ -238,6 +241,30 @@ describe("cancellation review task (§10.4)", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel and refund" }));
     expect(within(dialog).getByText("The refund can't be more than what can still be refunded.")).toBeInTheDocument();
     expect(api.resolveCancelReview).not.toHaveBeenCalled();
+    // The cap is the booking's own: no lookup of the phone's refunds for it.
+    expect(api.fetchRefundsByPhone).not.toHaveBeenCalled();
+  });
+
+  it("resolve: nothing captured (refundable_fils null) asks no amount, says nothing is refunded, and sends 0", async () => {
+    api.resolveCancelReview.mockResolvedValueOnce({ payment: "voided", fee_fils: 0, refund_fils: 0, booking: captured({ status: "cancelled" }) });
+    const authorizedOnly = review();
+    const booking = { ...authorizedOnly, payment: { ...authorizedOnly.payment!, status: "authorized" as const, captured_fils: 0 }, refundable_fils: null };
+    renderWithProviders(<CancelReviewTask booking={booking} onStale={vi.fn()} />, { permissions: ACCOUNTANT });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Resolve with refund" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Resolve the cancellation of TRB-R4RYSD" });
+    // The description, read out first, asks for no amount and mentions no fee.
+    expect(dialog).toHaveAccessibleDescription("The booking is cancelled as the customer asked. Nothing is refunded.");
+    expect(dialog).not.toHaveTextContent("The amount you enter is refunded");
+    expect(dialog).toHaveTextContent("No money was taken for this booking, so there is nothing to refund.");
+    expect(dialog).not.toHaveTextContent("Can still be refunded");
+    expect(within(dialog).queryByRole("textbox", { name: /Refund amount/ })).not.toBeInTheDocument();
+
+    await user.type(within(dialog).getByRole("textbox", { name: /Note/ }), "Customer asked, nothing taken");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel the booking" }));
+    await waitFor(() => expect(api.resolveCancelReview).toHaveBeenCalledWith(4, { refund_fils: 0, note: "Customer asked, nothing taken" }, 3, expect.any(String)));
+    expect(await screen.findByText("TRB-R4RYSD is cancelled. Nothing was refunded.")).toBeInTheDocument();
+    expect(api.resolveCancelReview).toHaveBeenCalledTimes(1);
   });
 
   it("resolve: a review no longer waiting (409 CANCEL_REVIEW_NOT_PENDING) says so", async () => {

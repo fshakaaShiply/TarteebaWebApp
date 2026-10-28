@@ -9,6 +9,7 @@ import type {
   ScheduleMonth,
   ScheduleRow,
   SlotTemplateOption,
+  VehicleOption,
   VisitSummary,
 } from "@/lib/admin/types";
 
@@ -26,6 +27,22 @@ export const slots = [
 export const slotPickList = (): SlotTemplateOption[] => [
   ...slots.map((s) => ({ id: s.id, code: s.code, name: s.name, start_time: s.start, end_time: s.end, service_kind: s.service_kind, is_active: true })),
   { id: 3, code: "NIGHT", name: both("Night", "الفترة الليلية"), start_time: "20:00", end_time: "23:00", service_kind: "standard_visit", is_active: false },
+];
+
+/** GET /admin/vehicles/options: by plate; a van out of service is listed with is_active false. */
+export const vehiclePickList = (): VehicleOption[] => [
+  {
+    id: 1,
+    plate_no: "DEMO-VAN-1",
+    seats: 7,
+    status: "active",
+    is_active: true,
+    zone_id: 1,
+    zone: { id: 1, code: "DEMO_BB", name: both("Business Bay & Downtown", "الخليج التجاري وداون تاون") },
+    default_driver: { id: 1, name: "Test Driver" },
+  },
+  { id: 2, plate_no: "DEMO-VAN-2", seats: 7, status: "active", is_active: true, zone_id: null, zone: null, default_driver: { id: 2, name: "Test Driver 2" } },
+  { id: 3, plate_no: "DEMO-VAN-3", seats: 10, status: "maintenance", is_active: false, zone_id: null, zone: null, default_driver: null },
 ];
 
 /** GET /admin/drivers/options: by name, never contact data; a driver who can't take a round has is_active false. */
@@ -256,6 +273,8 @@ export const round = (over: Partial<Round> = {}): Round => ({
   zone: { id: 1, code: "DEMO_BB", name: both("Business Bay & Downtown", "الخليج التجاري وداون تاون") },
   vehicle: { id: 1, plate_no: "DEMO-VAN-1", model: "Toyota Hiace", seats: 7, status: "active" },
   driver: { id: 1, name: "Test Driver", phone: "+971500000009", status: "active" },
+  follows_round_id: null,
+  follows_round: null,
   planned_depart_at: "2026-10-24T05:15:00+00:00",
   depart_local: "09:15",
   planned_end_at: "2026-10-24T07:00:00+00:00",
@@ -318,7 +337,7 @@ export const round = (over: Partial<Round> = {}): Round => ({
 export const planResult = (): PlanResult => ({
   date: "2026-10-24",
   slot_template_id: 1,
-  rounds: [{ ...round(), plan: "created", follows_round_id: null }],
+  rounds: [{ ...round(), plan: "created" }],
   unplanned: [
     {
       visit_id: 4,

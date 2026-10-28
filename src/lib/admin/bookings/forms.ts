@@ -189,22 +189,27 @@ export const approveRequestSchema = z
 /** The accountant's resolution of a cancellation review (ResolveCancelReviewRequest: refund_fils ≥ 0, note 3–1000). */
 export type ResolveValues = { refund: string; note: string };
 
-/** `refundableFils` caps the amount (what may still be refunded on the payment). */
+/**
+ * `refundableFils` caps the amount (the booking's `refundable_fils`, what may still be refunded on the payment). Null:
+ * nothing was taken, so the amount is not asked (its field is hidden) and 0 is sent.
+ */
 export function resolveReviewSchema(refundableFils: number | null) {
   return z
     .object({ refund: z.string(), note: z.string() })
     .superRefine((v, ctx) => {
-      if (v.refund.trim() === "") issue(ctx, ["refund"], "refundRequired");
-      else {
-        const parsed = parseAedToFils(v.refund);
-        if (!parsed.ok) issue(ctx, ["refund"], "refundInvalid");
-        else if (refundableFils !== null && parsed.fils > refundableFils) issue(ctx, ["refund"], "refundTooHigh");
+      if (refundableFils !== null) {
+        if (v.refund.trim() === "") issue(ctx, ["refund"], "refundRequired");
+        else {
+          const parsed = parseAedToFils(v.refund);
+          if (!parsed.ok) issue(ctx, ["refund"], "refundInvalid");
+          else if (parsed.fils > refundableFils) issue(ctx, ["refund"], "refundTooHigh");
+        }
       }
       checkReason(ctx, "note", v.note, 3, 1000);
     })
     .transform((v) => {
       const parsed = parseAedToFils(v.refund);
-      return { refund_fils: parsed.ok ? parsed.fils : 0, note: v.note.trim() };
+      return { refund_fils: refundableFils !== null && parsed.ok ? parsed.fils : 0, note: v.note.trim() };
     });
 }
 

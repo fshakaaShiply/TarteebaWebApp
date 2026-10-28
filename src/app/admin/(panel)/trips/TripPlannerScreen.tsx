@@ -233,7 +233,7 @@ function TripPlannerContent() {
         <p className="text-xs text-ink-600">{t("mapNote")}</p>
       </Card>
 
-      {plan && <PlanResultCard plan={plan} slot={planSlot} rounds={rounds.data ?? []} onClose={() => setClosed(plan)} />}
+      {plan && <PlanResultCard plan={plan} slot={planSlot} onClose={() => setClosed(plan)} />}
 
       {rounds.isPending ? (
         <LoadingBlock lines={8} className="rounded-lg bg-surface p-5 shadow-card" />
@@ -285,22 +285,11 @@ function groupBySlot(rounds: readonly Round[], slots: readonly { id: number }[])
 
 /**
  * What "Draft rounds" did, for the date and slot it ran for (named in the title): rounds created or extended, the
- * extra rounds that run after a round that had already left (`follows_round_id`: on the same van or on another free
- * one, R-19; still drafts to check and publish), each said to be added or extended by this run as `plan` tells, and
- * the visits it could not place, each with the reason.
+ * extra rounds that run after a round that had already left (`follows_round`: that round and its van's plate, on the
+ * same van or on another free one, R-19; still drafts to check and publish), each said to be added or extended by this
+ * run as `plan` tells, and the visits it could not place, each with the reason.
  */
-function PlanResultCard({
-  plan,
-  slot,
-  rounds,
-  onClose,
-}: {
-  plan: PlanResult;
-  slot: SlotTemplateOption | null;
-  /** The rounds the page shows (to name the round on the road by its van). */
-  rounds: readonly Round[];
-  onClose: () => void;
-}) {
+function PlanResultCard({ plan, slot, onClose }: { plan: PlanResult; slot: SlotTemplateOption | null; onClose: () => void }) {
   const t = useTranslations("admin.trips.plan");
   const trip = useTripText();
   const reasons = useTranslations("admin.trips.unplanned");
@@ -308,7 +297,7 @@ function PlanResultCard({
   const { can } = useAdminSession();
   const created = plan.rounds.filter((r) => r.plan === "created").length;
   const extended = plan.rounds.filter((r) => r.plan === "extended").length;
-  const extra = plan.rounds.filter((r) => r.follows_round_id !== null);
+  const extra = plan.rounds.filter((r) => r.follows_round !== null);
   // Both lists have an entry per visit and ride (drop-off, pickup): the counts say visits, so each visit counts once.
   const alreadyVisits = new Set(plan.already_planned.map((p) => p.visit_id)).size;
   const unplannedVisits = new Set(plan.unplanned.map((u) => u.visit_id)).size;
@@ -330,12 +319,12 @@ function PlanResultCard({
           <h3 className="text-sm font-bold text-ink-900">{t("followsTitle", { count: extra.length })}</h3>
           <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
             {extra.map((r) => {
-              const onRoad = rounds.find((o) => o.id === r.follows_round_id);
               const values = {
                 kind: trip.kind(r.kind, r.kind_label),
                 plate: r.vehicle.plate_no,
                 time: r.depart_local,
-                follows: String(r.follows_round_id),
+                follows: String(r.follows_round!.id),
+                followsPlate: r.follows_round!.plate_no,
                 ltr: (chunks: ReactNode) => (
                   <bdi dir="ltr" className="font-latin">
                     {chunks}
@@ -345,13 +334,7 @@ function PlanResultCard({
               return (
                 <li key={r.id} className="px-3 py-2 text-sm text-ink-900">
                   {/* An extra round this run extended (counted as extended above) is not "added". */}
-                  {r.plan === "extended"
-                    ? onRoad
-                      ? t.rich("followsExtendedKnown", { ...values, followsPlate: onRoad.vehicle.plate_no })
-                      : t.rich("followsExtended", values)
-                    : onRoad
-                      ? t.rich("followsKnown", { ...values, followsPlate: onRoad.vehicle.plate_no })
-                      : t.rich("follows", values)}
+                  {r.plan === "extended" ? t.rich("followsExtended", values) : t.rich("follows", values)}
                 </li>
               );
             })}
