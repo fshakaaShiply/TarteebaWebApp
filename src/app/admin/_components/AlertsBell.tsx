@@ -19,7 +19,7 @@ import {
 } from "@/lib/admin/alerts";
 import { fetchAlerts, markAlertRead, markAllAlertsRead } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
-import { formatDateTime } from "@/lib/admin/format";
+import { formatDateTime, textDir } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminAlert } from "@/lib/admin/types";
@@ -217,8 +217,10 @@ function AlertItem({ alert, onRead, reading, onNavigate }: { alert: AdminAlert; 
         <div className="flex flex-wrap items-center gap-2">
           {alert.urgent && <StatusBadge tone="danger">{t("urgent")}</StatusBadge>}
           {!alert.read && <span className="sr-only">{t("unread")}</span>}
-          {/* The text is in the language the alert was raised in, which may not be the page's. */}
-          <p dir="auto" className="text-sm font-bold text-ink-900">
+          {/* The text is in the language the alert was raised in, which may not be the page's. Its direction comes from
+              its first letter outside the isolated names (textDir): dir="auto" would read an Arabic body that starts
+              with a Latin customer name left to right. */}
+          <p dir={textDir(alert.title)} className="text-sm font-bold text-ink-900">
             {href ? (
               <Link href={href} onClick={onNavigate} className="text-ink-900 underline-offset-4 hover:text-petrol-700 hover:underline">
                 {alert.title}
@@ -229,7 +231,7 @@ function AlertItem({ alert, onRead, reading, onNavigate }: { alert: AdminAlert; 
           </p>
         </div>
         {alert.body && (
-          <p dir="auto" className="text-sm/6 text-ink-600">
+          <p dir={textDir(alert.body)} className="text-sm/6 text-ink-600">
             {alert.body}
           </p>
         )}

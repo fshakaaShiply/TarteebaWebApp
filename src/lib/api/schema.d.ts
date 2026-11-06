@@ -6836,6 +6836,7 @@ export interface components {
                 appended_date?: string | null;
             }[];
             term_end_date: string;
+            removed_dates: string[];
             conflicts: {
                 [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
             };
@@ -14508,6 +14509,7 @@ export interface operations {
                             appended_date?: string | null;
                         }[];
                         term_end_date: string;
+                        removed_dates: string[];
                         conflicts: {
                             [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                         };

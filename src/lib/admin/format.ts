@@ -144,3 +144,32 @@ export function formatDateTime(value: Input, locale: string): string {
 export function isolate(text: string, dir: "auto" | "ltr" = "auto"): string {
   return `${dir === "ltr" ? "\u2066" : "\u2068"}${text}\u2069`;
 }
+
+/**
+ * A sentence that ends with an isolated name: the sentence's own "." after a name that already ends with a mark is
+ * dropped ("serving: \u2068Siti R.\u2069." reads "Siti R.." otherwise), as the API's TemplateRenderer does (P4-265).
+ */
+export function endAfterName(sentence: string): string {
+  return sentence.replace(/([.!?\u061f\u2026]\u2069)\.$/u, "$1");
+}
+
+const RTL_SCRIPT = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}]/u;
+
+/**
+ * The direction of a text from its first strong letter outside isolates (U+2066/U+2067/U+2068 \u2026 U+2069), as the
+ * Unicode bidi algorithm's rule P2 finds it; "auto" without one. A browser's dir="auto" does not skip isolates, so an
+ * Arabic alert that starts with an isolated Latin name ("\u2068Omar Khalid\u2069 \u00b7 \u0627\u0634\u062a\u0631\u0627\u0643 \u0634\u0647\u0631\u064a \u2026", P4-265) would read left to
+ * right there; the SMS and push copies of the same text read right to left.
+ */
+export function textDir(text: string | null | undefined): "rtl" | "ltr" | "auto" {
+  let depth = 0;
+  for (const ch of text ?? "") {
+    if (ch === "\u2066" || ch === "\u2067" || ch === "\u2068") depth++;
+    else if (ch === "\u2069") depth = Math.max(0, depth - 1);
+    else if (depth > 0) continue;
+    else if (ch === "\u200f") return "rtl";
+    else if (ch === "\u200e") return "ltr";
+    else if (/\p{L}/u.test(ch)) return RTL_SCRIPT.test(ch) ? "rtl" : "ltr";
+  }
+  return "auto";
+}

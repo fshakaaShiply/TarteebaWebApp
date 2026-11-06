@@ -123,7 +123,8 @@ export const confirmedCard = (): VisitSummary =>
     end: "19:00",
     area: "Downtown",
     status: "worker_assigned",
-    status_label: both("Cleaners assigned", "تم تعيين العاملات"),
+    // The API's own label (Booking messages.visit_status).
+    status_label: both("Workers assigned", "تم تعيين العاملات"),
     assigned_count: 2,
     missing: 0,
     workers: [

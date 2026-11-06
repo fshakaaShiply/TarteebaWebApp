@@ -300,6 +300,8 @@ function lineOf(type: string, p: Payload): Fact[] {
         fact("substitute", workers([p.substitute_worker_id])),
         fact("credited", dates(dateList(p, "credited"))),
         fact("addedOn", dates(dateList(p, "appended"))),
+        // A credited day or a holiday served again: the day appended for it is taken off the end (P4-267).
+        fact("removedFromEnd", dates(dateList(p, "replaced"))),
         fact("notCovered", dates(dateList(p, "unfit"))),
         termEnd(p),
       ];

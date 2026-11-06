@@ -594,6 +594,18 @@ describe("A06 trip planner", () => {
     expect(await screen.findByText("The seats on DEMO-VAN-1 are saved.")).toBeInTheDocument();
   });
 
+  it("names a rider on no stop's team as her own run, with one final mark after 'Maria S.'", async () => {
+    // "Not on a stop's team: Maria S.." and, in Arabic, a bare Latin name in a right-to-left sentence.
+    api.setPassengers.mockRejectedValue(apiError(409, "OVERRIDE_REQUIRED", { violations: { not_on_round: [1] }, can_override: true }));
+    renderWithProviders(<TripPlannerScreen />, { permissions: [...PLANNER, "capacity.override"] });
+    const user = userEvent.setup();
+    await user.click(within(await panel()).getByRole("button", { name: "Seats" }));
+    const dialog = await screen.findByRole("dialog", { name: "Seats on DEMO-VAN-1" });
+    await user.click(within(dialog).getByRole("button", { name: "Save seats" }));
+    expect(await within(dialog).findByText(`Not on a stop's team: ${isolate("Maria S.")}`)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Maria S\.\.$/)).not.toBeInTheDocument();
+  });
+
   it("refuses the same seat twice before sending", async () => {
     renderWithProviders(<TripPlannerScreen />, { permissions: PLANNER });
     const user = userEvent.setup();

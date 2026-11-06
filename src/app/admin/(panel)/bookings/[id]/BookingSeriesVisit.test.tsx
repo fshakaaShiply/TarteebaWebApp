@@ -276,13 +276,57 @@ describe("A03 booking page of a subscription visit", () => {
     );
     const { unmount } = renderWithProviders(<BookingDetailScreen id="33" />, { permissions: STAFF });
     await screen.findByRole("heading", { level: 1 });
-    expect(await screen.findByText(`Not serving this day; serving: ${isolate("Siti R.")}.`)).toBeInTheDocument();
+    // "Siti R." ends with her own mark: the sentence's "." is not added after it ("Siti R.." on screen otherwise), as
+    // the API's notices do (P4-265).
+    expect(await screen.findByText(`Not serving this day; serving: ${isolate("Siti R.")}`)).toBeInTheDocument();
+    expect(screen.queryByText(`Not serving this day; serving: ${isolate("Siti R.")}.`)).not.toBeInTheDocument();
     expect(screen.queryByText("Booked for the whole day.")).not.toBeInTheDocument();
     unmount();
 
     renderWithProviders(<BookingDetailScreen id="33" />, { permissions: STAFF, locale: "ar" });
-    expect(await screen.findByText(`لا تخدم هذا اليوم؛ تخدمه: ${isolate("Siti R.")}.`)).toBeInTheDocument();
+    expect(await screen.findByText(`لا تخدم هذا اليوم؛ تخدمه: ${isolate("Siti R.")}`)).toBeInTheDocument();
+    expect(screen.queryByText(`لا تخدم هذا اليوم؛ تخدمه: ${isolate("Siti R.")}.`)).not.toBeInTheDocument();
     expect(screen.queryByText("محجوزة طوال اليوم.")).not.toBeInTheDocument();
+  });
+
+  it("ends the note with the sentence's own full stop after a name without one", async () => {
+    const maria = { id: 14, display_name: "Maria S." };
+    const rosa = { worker_id: 15, display_name: "Rosa", role: "primary", assigned_at: "2026-11-16T10:00:00+00:00" };
+    const visit = { ...bookingDetail().visits[0], status: "worker_assigned" as const, assignments: [rosa] };
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(0));
+    api.fetchBooking.mockResolvedValue(
+      seriesVisit({ kind: "live_out_day", workers_count: 1, preferred_worker: maria, subscription: { ...link, type: "live_out" }, visits: [visit] }),
+    );
+    renderWithProviders(<BookingDetailScreen id="33" />, { permissions: STAFF });
+    expect(await screen.findByText(`Not serving this day; serving: ${isolate("Rosa")}.`)).toBeInTheDocument();
+  });
+
+  it("lists no booking-level fee or refund for a cancelled series visit: its money is its period's (P4-38, TRB-M4VGTX)", async () => {
+    // The card said "Refunded with subscription … (period 1)." and then "Fee kept AED 0" and "Refund recorded AED 0".
+    const cancelled = { ...bookingDetail().visits[0], status: "cancelled" as const, assignments: [] };
+    const cancellation = { party: "customer", cancelled_by_id: 3, fee_fils: 0, refund_fils: 0, review_requested_at: null, review: null };
+    api.fetchBooking.mockResolvedValue(
+      seriesVisit({
+        status: "cancelled",
+        payment: null,
+        cancel_reason_code: "subscription_cancelled",
+        cancellation,
+        visits: [cancelled],
+        subscription: { ...link, period_status: "refunded" as const },
+      }),
+    );
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="2" />, { permissions: STAFF });
+    const payment = (await screen.findByRole("heading", { name: "Payment and refunds" })).closest("section") as HTMLElement;
+    expect(plain(payment)).toContain("Refunded with subscription TRS-7K2M9Q (period 1).");
+    expect(payment).toHaveTextContent("Cancelled by");
+    expect(payment).not.toHaveTextContent("Fee kept");
+    expect(payment).not.toHaveTextContent("Refund recorded");
+    unmount();
+
+    renderWithProviders(<BookingDetailScreen id="2" />, { permissions: STAFF, locale: "ar" });
+    const arabic = (await screen.findByRole("heading", { name: "الدفع والاسترداد" })).closest("section") as HTMLElement;
+    expect(plain(arabic)).toContain("مستردة مع الاشتراك TRS-7K2M9Q (الفترة 1).");
+    expect(arabic).not.toHaveTextContent("المبلغ المسجل للاسترداد");
   });
 
   it("keeps 'Booked for the whole day' for the day she serves, and drops it on a day that will not take place", async () => {

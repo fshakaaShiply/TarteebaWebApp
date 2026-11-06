@@ -24,7 +24,7 @@ import { AdminApiError } from "@/lib/admin/client";
 import { assignmentReasonSchema } from "@/lib/admin/bookings/forms";
 import { addStop, cancelRound, publishRound, removeStop, setPassengers, updateRound } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
-import { isolate } from "@/lib/admin/format";
+import { endAfterName, isolate } from "@/lib/admin/format";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import {
@@ -396,7 +396,10 @@ export function PassengersDialog({ round, onClose, returnFocusTo }: DialogProps)
         )}
         {violations && (
           <Notice tone="warning" title={t("overrideTitle")}>
-            {violations.notOnRound.length > 0 && <p>{t("notOnRound", { names: violations.notOnRound.map(nameOf).join(t("separator")) })}</p>}
+            {/* Each name set apart, and one final mark after "⁨Siti R.⁩", as the booking page names a team. */}
+            {violations.notOnRound.length > 0 && (
+              <p>{endAfterName(t("notOnRound", { names: violations.notOnRound.map((id) => isolate(nameOf(id))).join(t("separator")) }))}</p>
+            )}
             {violations.teamSplit.length > 0 && (
               <p>
                 {t("teamSplit", {

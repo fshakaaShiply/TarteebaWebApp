@@ -22,6 +22,8 @@ import type { SeriesLink } from "./moveFlow";
  * A subscription's visit (the booking's `subscription` block, or USE_RESCHEDULE details.subscription) moves only from
  * its subscription (P4-48, design §6.2): staff are told so and, with an A08 permission, offered the subscription page
  * opened on that visit's move dialog with the drop's date and time filled in (lib/admin/subscriptions/handoff.ts).
+ * Opened from the Move dialog's "Another day or time" (`ownTime`), nothing was dropped: the move dialog opens on the
+ * visit's own day and time, and the copy says the new ones are chosen there.
  *
  * A drop on another cleaner's row at another time names a cleaner too: the reschedule moves only the time, so the
  * dialog says that cleaner is not added (`dropWorkerName`).
@@ -32,6 +34,7 @@ export function RescheduleHandoff({
   slotId,
   dropWorkerName,
   subscription = null,
+  ownTime = false,
   onClose,
   returnFocusTo,
 }: {
@@ -41,6 +44,8 @@ export function RescheduleHandoff({
   dropWorkerName?: string | null;
   /** The subscription the API named when it refused the move (USE_RESCHEDULE details.subscription). */
   subscription?: SeriesLink | null;
+  /** Opened on the visit's own day and time (the Move dialog's "Another day or time"), not by a drop. */
+  ownTime?: boolean;
   onClose: () => void;
   /** The card's Move button where it is now (focus was in the Move dialog, or nowhere after a drop, when this opened). */
   returnFocusTo?: FocusTarget;
@@ -84,7 +89,7 @@ export function RescheduleHandoff({
   const checking = !series && readable && detail.isPending;
   const reason = series
     ? canOpenSeries
-      ? t("seriesMove")
+      ? t(ownTime ? "seriesMoveOwn" : "seriesMove")
       : t("seriesNoAccess")
     : !readable || !can("bookings.reschedule")
       ? t("noPermission")

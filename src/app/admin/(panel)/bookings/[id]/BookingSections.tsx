@@ -20,7 +20,7 @@ import {
 } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
-import { isolate } from "@/lib/admin/format";
+import { endAfterName, isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { INVOICES_PATH, PAYMENTS_PATH, SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { CAPACITY_OVERRIDE_PERMISSION } from "@/lib/admin/ops/capacity";
@@ -187,7 +187,8 @@ export function PreferredWorkerFact({ booking }: { booking: BookingDetail }) {
   const note = !series
     ? t("preferredNote")
     : away
-      ? t(liveOut ? "seriesPrimaryAwayLiveOut" : "seriesPrimaryAway", { names })
+      ? // "serving: ⁨Siti R.⁩." keeps the name's own mark only.
+        endAfterName(t(liveOut ? "seriesPrimaryAwayLiveOut" : "seriesPrimaryAway", { names }))
       : liveOut && live.length > 0
         ? t("seriesPrimaryNoteLiveOut")
         : t("seriesPrimaryNote");
@@ -297,6 +298,7 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
   const p = booking.payment;
   const seesRefunds = canAny(REFUND_READ_PERMISSIONS);
   const refunds = useBookingRefunds(booking);
+  const series = isSeriesVisit(booking);
 
   return (
     <Card title={t("title")}>
@@ -335,8 +337,10 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
         <dl className="flex flex-col gap-2 border-t border-line pt-3">
           <Fact label={t("cancelledBy")}>{text.party(booking.cancellation.party)}</Fact>
           {booking.cancel_reason_code && <Fact label={t("cancelReason")}>{text.cancelReason(booking.cancel_reason_code)}</Fact>}
-          {booking.cancellation.fee_fils !== null && <Fact label={t("cancelFee")}>{text.money(booking.cancellation.fee_fils)}</Fact>}
-          {booking.cancellation.refund_fils !== null && <Fact label={t("cancelRefund")}>{text.money(booking.cancellation.refund_fils)}</Fact>}
+          {/* A series visit has no money of its own (P4-38): its fee and refund are always 0, and the card above
+              already says how its period was paid or refunded. */}
+          {!series && booking.cancellation.fee_fils !== null && <Fact label={t("cancelFee")}>{text.money(booking.cancellation.fee_fils)}</Fact>}
+          {!series && booking.cancellation.refund_fils !== null && <Fact label={t("cancelRefund")}>{text.money(booking.cancellation.refund_fils)}</Fact>}
         </dl>
       )}
       {refunds.data && refunds.data.length > 0 && (

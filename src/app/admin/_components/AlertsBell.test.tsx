@@ -128,6 +128,30 @@ describe("alerts bell (D-11: polled every 20 s)", () => {
     expect(screen.queryByRole("link", { name: "Refund failed for TRS-7K2M9Q" })).not.toBeInTheDocument();
   });
 
+  it("reads an Arabic alert that starts with an isolated Latin name right to left, in either UI language", async () => {
+    // subscription.requested starts with {{customer_name}}: "⁨Omar Khalid⁩ · اشتراك شهري …" (P4-265). dir="auto" takes the
+    // name's first letter and laid the Arabic sentence out left to right, its final "." on the right.
+    const name = "⁨Omar Khalid⁩";
+    const arabic = alert("DDDDD1", {
+      event: "subscription.requested",
+      title: "طلب اشتراك جديد TRL-4YN6AB",
+      body: `${name} · اشتراك شهري يبدأ الأحد 1 نوفمبر.`,
+    });
+    const english = alert("DDDDD2", { title: `${name} asked for a subscription`, body: "Starts Sunday 1 November." });
+    api.fetchAlerts.mockResolvedValue({ data: [arabic, english], meta: { unread_count: 2, server_time: "2026-10-23T10:00:05Z", poll_seconds: 20 } });
+    for (const locale of ["en", "ar"] as const) {
+      const { unmount } = renderWithProviders(<AlertsBell />, { permissions: [], locale });
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(await screen.findByRole("button", { name: locale === "en" ? "Alerts, 2 unread" : "التنبيهات، تنبيهان غير مقروءين" }));
+      expect((await screen.findByText(arabic.body)).closest("p")).toHaveAttribute("dir", "rtl");
+      expect(screen.getByText(arabic.title).closest("p")).toHaveAttribute("dir", "rtl");
+      // An English alert stays left to right, though it starts with the same isolated name.
+      expect(screen.getByText(english.title).closest("p")).toHaveAttribute("dir", "ltr");
+      expect(screen.getByText(english.body).closest("p")).toHaveAttribute("dir", "ltr");
+      unmount();
+    }
+  });
+
   it("closes with Escape and gives focus back to the bell", async () => {
     api.fetchAlerts.mockResolvedValue({ data: [], meta: { unread_count: 0, server_time: "2026-10-23T10:00:05Z", poll_seconds: 20 } });
     renderWithProviders(<AlertsBell />, { permissions: [] });

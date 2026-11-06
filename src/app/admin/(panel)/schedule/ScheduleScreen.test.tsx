@@ -155,7 +155,7 @@ describe("A04 operations schedule", () => {
     expect(pending).toHaveTextContent("Pending confirmation");
     expect(pending).toHaveTextContent("0 of 2 cleaners · 2 missing");
     await waitFor(() => expect(pending).toHaveTextContent("Van DEMO-VAN-1"));
-    expect(cardIn(rowOf("Maria S."), "TRB-K2M9QX")).toHaveTextContent("Cleaners assigned");
+    expect(cardIn(rowOf("Maria S."), "TRB-K2M9QX")).toHaveTextContent("Workers assigned");
     expect(cardIn(rowOf("Nirmala P."), "TRB-K2M9QX")).toHaveTextContent("Maria S., Nirmala P.");
     expect(within(rowOf("Siti R.")).getAllByText("Rest day")).toHaveLength(2);
     expect(within(rowOf("Grace N.")).getAllByText("Live-out day")).toHaveLength(2);
@@ -659,6 +659,46 @@ describe("A04 operations schedule", () => {
     await waitFor(() => expect(within(rowOf("Tigist B.")).getByRole("button", { name: "Move TRB-K2M9QX" })).toBeInTheDocument());
     expect(within(rowOf("Maria S.")).queryByText("TRB-K2M9QX")).not.toBeInTheDocument();
     await waitFor(() => expect(within(rowOf("Tigist B.")).getByRole("button", { name: "Move TRB-K2M9QX" })).toHaveFocus());
+  });
+
+  it("names a visit state in the Visit status filter as its cards do (the API's label)", async () => {
+    // The filter offered "Cleaners assigned" and "Cleaners arrived" while the cards said "Workers assigned".
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    const filter = screen.getByRole("combobox", { name: "Visit status" });
+    expect(within(filter).getByRole("option", { name: "Workers assigned" })).toHaveValue("worker_assigned");
+    expect(within(filter).getByRole("option", { name: "Workers arrived" })).toHaveValue("arrived");
+    expect(within(filter).queryByRole("option", { name: /Cleaners/ })).not.toBeInTheDocument();
+    expect(cardIn(rowOf("Maria S."), "TRB-K2M9QX")).toHaveTextContent("Workers assigned");
+  });
+
+  it("does not speak of a drop when a subscription visit's Move button asks for another day or time", async () => {
+    // Nothing was dropped: A08's move dialog opens on the visit's own day and time, and the new ones are chosen there.
+    api.fetchBooking.mockResolvedValue(
+      bookingDetail({
+        id: 9,
+        reference: "TRB-K2M9QX",
+        status: "confirmed",
+        payment_status: "captured",
+        kind: "subscription_visit",
+        subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 },
+        visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }],
+      }),
+    );
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
+    const user = userEvent.setup();
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    await user.click(within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
+    await user.click(within(dialog).getByRole("radio", { name: /Another day or time/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue to reschedule" }));
+
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
+    expect(
+      await within(handoff).findByText("Open the subscription to move this visit: its move dialog opens there, where you choose the new day and time."),
+    ).toBeInTheDocument();
+    expect(handoff).not.toHaveTextContent("dropped");
+    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toBeInTheDocument();
   });
 
   it("gives focus back to the card's Move button after the reschedule hand-off", async () => {

@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatLongDate, zonedDateTimeIso } from "./format";
+import { endAfterName, formatDateTime, formatLongDate, isolate, textDir, zonedDateTimeIso } from "./format";
+
+describe("text set into a sentence of the other direction", () => {
+  it("reads a text's direction from its first letter outside isolates, as the bidi algorithm's rule P2 does", () => {
+    // dir="auto" in a browser takes the "O" of the isolated name and lays the Arabic sentence out left to right.
+    expect(textDir(`${isolate("Omar Khalid")} · اشتراك شهري يبدأ الأحد.`)).toBe("rtl");
+    expect(textDir(`${isolate("سارة")} asked for a subscription.`)).toBe("ltr");
+    expect(textDir(`${isolate("+971500000003", "ltr")} طلب اشتراكًا`)).toBe("rtl");
+    // Nested isolates, digits and punctuation are passed over; a mark counts as a letter.
+    expect(textDir(`⁨${isolate("Maria")} S.⁩ 12:00 · طلب`)).toBe("rtl");
+    expect(textDir("‏TRL-4YN6AB")).toBe("rtl");
+    expect(textDir("TRL-4YN6AB طلب")).toBe("ltr");
+    expect(textDir(`12:00 ${isolate("Siti R.")}`)).toBe("auto");
+    expect(textDir("")).toBe("auto");
+    expect(textDir(null)).toBe("auto");
+  });
+
+  it("keeps one final mark after an isolated name that ends with its own", () => {
+    expect(endAfterName(`serving: ${isolate("Siti R.")}.`)).toBe(`serving: ${isolate("Siti R.")}`);
+    expect(endAfterName(`تخدمه: ${isolate("Siti R.")}.`)).toBe(`تخدمه: ${isolate("Siti R.")}`);
+    expect(endAfterName(`serving: ${isolate("Rosa")}.`)).toBe(`serving: ${isolate("Rosa")}.`);
+    // Only after a name: a sentence's own ellipsis is left alone.
+    expect(endAfterName("Wait...")).toBe("Wait...");
+    expect(endAfterName("Siti R..")).toBe("Siti R..");
+  });
+});
 
 describe("admin date formatting", () => {
   // 2026-10-20 21:30 UTC is already 21 October 01:30 in Dubai (UTC+4).

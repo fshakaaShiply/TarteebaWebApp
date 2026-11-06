@@ -154,3 +154,43 @@ describe("one name per visit outcome on every screen (A03 status chips and histo
     });
   }
 });
+
+describe("one name per visit state on every screen (A04 filter and cards, A03 team panel and history)", () => {
+  // The A04 Visit status filter offered "Cleaners assigned" while its cards said "Workers assigned" (the API's label),
+  // and A03's history said "Scheduled → Cleaners assigned" beside a panel saying "Workers assigned". The API's own
+  // labels (Booking messages.visit_status) are used everywhere.
+  const places = ["status.visit", "admin.bookings.enums.visit"];
+  const api = {
+    en: { worker_assigned: "Workers assigned", arrived: "Workers arrived" },
+    ar: { worker_assigned: "تم تعيين العاملات", arrived: "وصلت العاملات" },
+  };
+  for (const [locale, messages] of [
+    ["en", en],
+    ["ar", ar],
+  ] as const) {
+    it(`in ${locale === "en" ? "English" : "Arabic"}`, () => {
+      for (const state of ["worker_assigned", "arrived"] as const) {
+        for (const place of places) expect(get(messages, `${place}.${state}`), `${place}.${state}`).toBe(api[locale][state]);
+      }
+    });
+  }
+});
+
+describe("the days to choose again when editing the following days (A08)", () => {
+  it("in English, one day and one rest day without a plural", () => {
+    const t = createTranslator({ locale: "en", messages: en, namespace: "admin.subscriptions.following" });
+    expect(t("restHint", { count: 1 })).toBe("Choose 1 rest day, as now.");
+    expect(t("restHint", { count: 2 })).toBe("Choose 2 rest days, as now.");
+    expect(t("weekdaysHint", { count: 1 })).toBe("Choose 1 day, as now.");
+    expect(t("weekdaysHint", { count: 3 })).toBe("Choose 3 days, as now.");
+  });
+
+  it("in Arabic, with the singular, dual and plural forms", () => {
+    const t = createTranslator({ locale: "ar", messages: ar, namespace: "admin.subscriptions.following" });
+    expect(t("restHint", { count: 1 })).toBe("اختر يوم راحة واحدًا كما هو الآن.");
+    expect(t("restHint", { count: 2 })).toBe("اختر يومَي راحة كما هما الآن.");
+    expect(t("weekdaysHint", { count: 1 })).toBe("اختر يومًا واحدًا كما هو الآن.");
+    expect(t("weekdaysHint", { count: 2 })).toBe("اختر يومين كما هما الآن.");
+    expect(t("weekdaysHint", { count: 3 })).toBe("اختر 3 أيام كما هي الآن.");
+  });
+});

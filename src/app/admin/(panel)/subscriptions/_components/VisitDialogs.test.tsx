@@ -299,6 +299,24 @@ describe("A08 edit the following visits", () => {
     await screen.findByRole("region", { name: "What changes" });
     expect(api.previewFollowing).toHaveBeenLastCalledWith(32, "01jocc2", { scope: "following", rest_weekdays: [6] });
   });
+
+  it("counts the days to choose with each language's forms: one rest day, one day, two days (no \"1 rest days\")", async () => {
+    const liveOut = subscriptionDetail({ id: 32, type: "live_out", pattern: { days_of_week: null, rest_weekdays: [5], slot: null, pattern_from: "2026-11-01" } });
+    const weekly = subscriptionDetail({ pattern: { ...sub.pattern, days_of_week: [3] } });
+    const cases: [typeof sub, "en" | "ar", string][] = [
+      [liveOut, "en", "Choose 1 rest day, as now."],
+      [weekly, "en", "Choose 1 day, as now."],
+      [sub, "en", "Choose 2 days, as now."],
+      [liveOut, "ar", "اختر يوم راحة واحدًا كما هو الآن."],
+      [weekly, "ar", "اختر يومًا واحدًا كما هو الآن."],
+      [sub, "ar", "اختر يومين كما هما الآن."],
+    ];
+    for (const [subscription, locale, hint] of cases) {
+      const { unmount } = renderWithProviders(<EditFollowingDialog subscription={subscription} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE, locale });
+      expect(await screen.findByText(hint)).toBeInTheDocument();
+      unmount();
+    }
+  });
 });
 
 const skipPreview = (over: Record<string, unknown> = {}) => ({
@@ -360,6 +378,21 @@ describe("A08 skip and undo skip", () => {
     show((p) => <SkipDialog subscription={sub} visit={visit} {...p} />);
     expect((await screen.findAllByText("Sun, 29 Nov 2026", { selector: "dd" })).length).toBe(2);
     expect(screen.queryByText(/The later dates move up/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/still ends on/)).not.toBeInTheDocument();
+  });
+
+  it("says the term end stays when a visit of the open next period is skipped, the visit added at that period's end", async () => {
+    // The visit skipped is in period 2: the term (to 28 Nov) keeps its end and period 2 gains 27 Dec. The customer app
+    // says so (exception.shift.kept); the dialog showed the two dates with nothing joining them.
+    api.previewSkip.mockResolvedValue(skipPreview({ appended_date: "2026-12-27", new_term_end_date: "2026-11-28" }));
+    const { unmount } = renderWithProviders(<SkipDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE });
+    expect(await screen.findByText("Sun, 27 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("This term still ends on Sat, 28 Nov 2026, and the next period gains Sun, 27 Dec 2026 at its end.")).toBeInTheDocument();
+    expect(screen.queryByText(/The later dates move up/)).not.toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<SkipDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE, locale: "ar" });
+    expect(await screen.findByText(/^تبقى نهاية هذه المدة في .+، وتُضاف .+ إلى آخر الفترة التالية\.$/)).toBeInTheDocument();
   });
 
   it("asks which visit when opened from the header, offering the skippable upcoming ones", async () => {

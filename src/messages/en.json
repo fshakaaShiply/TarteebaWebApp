@@ -34,9 +34,9 @@
     },
     "visit": {
       "scheduled": "Scheduled",
-      "worker_assigned": "Worker assigned",
+      "worker_assigned": "Workers assigned",
       "en_route": "On the way",
-      "arrived": "Worker arrived",
+      "arrived": "Workers arrived",
       "in_progress": "In progress",
       "completed": "Completed",
       "no_show_customer": "Customer not available",
@@ -2819,9 +2819,9 @@
         },
         "visit": {
           "scheduled": "Scheduled",
-          "worker_assigned": "Cleaners assigned",
+          "worker_assigned": "Workers assigned",
           "en_route": "On the way",
-          "arrived": "Cleaners arrived",
+          "arrived": "Workers arrived",
           "in_progress": "In progress",
           "completed": "Completed",
           "no_show_customer": "Customer not available",
@@ -3707,6 +3707,7 @@
         "openBooking": "Open the booking",
         "seriesBody": "This is a subscription visit. Its day and time are changed from its subscription, not from the booking.",
         "seriesMove": "Open the subscription to move this visit: its move dialog opens with the day and time you dropped it on.",
+        "seriesMoveOwn": "Open the subscription to move this visit: its move dialog opens there, where you choose the new day and time.",
         "seriesNoAccess": "Your role can't open subscriptions. A coordinator who manages subscriptions can move this visit from its subscription.",
         "openSubscription": "Open subscription {reference}",
         "openSubscriptionPlain": "Open the subscription"
@@ -5169,7 +5170,8 @@
         "changedMark": "(changed)",
         "termsChangedTitle": "The terms changed",
         "moreDates": "and {count} more",
-        "shiftNote": "The later dates move up: this term now ends on {end}, and the next period gains {dates} at its end."
+        "shiftNote": "The later dates move up: this term now ends on {end}, and the next period gains {dates} at its end.",
+        "shiftNoteKept": "This term still ends on {end}, and the next period gains {dates} at its end."
       },
       "confirm": {
         "title": "Confirm {reference}",
@@ -5353,9 +5355,9 @@
         "body": "Sets a new weekly pattern from this visit on: the weekdays and the time. The number of weekdays stays the same.",
         "bodyLiveOut": "Sets new weekly rest days from this day on. The number of rest days stays the same.",
         "weekdays": "Visit days",
-        "weekdaysHint": "Choose {count} days, as now.",
+        "weekdaysHint": "{count, plural, one {Choose # day, as now.} other {Choose # days, as now.}}",
         "restDays": "Weekly rest days",
-        "restHint": "Choose {count} rest days, as now.",
+        "restHint": "{count, plural, =0 {Choose no rest days, as now.} one {Choose # rest day, as now.} other {Choose # rest days, as now.}}",
         "slot": "Time",
         "chooseChange": "Change the days or the time to see what happens.",
         "noDays": "Choose at least one day.",
@@ -5604,6 +5606,7 @@
         "credited": "credited",
         "appended": "added on {date}",
         "newEnd": "New end of the term",
+        "removed": "Removed from the end",
         "unfitTitle": "Days the substitute cannot cover (credited instead)",
         "noMoney": "No fee and no refund.",
         "retryPreview": "Try again",

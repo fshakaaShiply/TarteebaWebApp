@@ -79,6 +79,21 @@ describe("A08 history rows", () => {
     });
   });
 
+  it("names the day a Live-out day served again took off the end, as unskip and unfreeze rows do (P4-267)", () => {
+    expect(
+      historyFacts("live_out_day_changed", {
+        to: "2026-11-18", from: "2026-11-18", dates: ["2026-11-18"], scope: "this", unfit: [], change: "service", appended: [], credited: [],
+        replaced: ["2026-12-08"], term_end_date: { to: "2026-12-07", from: "2026-12-08" }, substitute_worker_id: null,
+      }),
+    ).toEqual([
+      { key: "change", value: { kind: "label", group: "day", value: "service" } },
+      { key: "scope", value: { kind: "label", group: "scope", value: "this" } },
+      { key: "days", value: { kind: "dates", dates: ["2026-11-18"] } },
+      { key: "removedFromEnd", value: { kind: "dates", dates: ["2026-12-08"] } },
+      { key: "termEnd", value: { kind: "dateChange", from: "2026-12-08", to: "2026-12-07" } },
+    ]);
+  });
+
   it("names workers by id for the screen, and leaves an unchanged term end out", () => {
     expect(historyFacts("worker_changed", { date: "2026-11-17", added: [2], reason: "live_out_absence", removed: [1], workers: [2], visit_id: 33, booking_id: 33 })).toEqual([
       { key: "visit", value: { kind: "date", date: "2026-11-17" } },

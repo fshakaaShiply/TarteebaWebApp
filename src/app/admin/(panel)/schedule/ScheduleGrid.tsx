@@ -68,8 +68,11 @@ const rowKey = (workerId: number | null) => (workerId === null ? "lane" : String
 
 type CardAction = "move" | "review";
 type Banner = { reference: string; name: string; conflicts?: { code: string; message: string }[]; error?: unknown };
-/** `subscription`: the API said the visit is a subscription's (USE_RESCHEDULE details), so A08 moves it. */
-type Reschedule = { source: DragSource; date: string; slotId: number | null; dropWorkerId: number | null; subscription?: SeriesLink | null };
+/**
+ * `subscription`: the API said the visit is a subscription's (USE_RESCHEDULE details), so A08 moves it. `ownTime`: opened
+ * from the Move dialog's "Another day or time" on the visit's own day and time, not by a drop.
+ */
+type Reschedule = { source: DragSource; date: string; slotId: number | null; dropWorkerId: number | null; subscription?: SeriesLink | null; ownTime?: boolean };
 
 export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
   const t = useTranslations("admin.schedule");
@@ -333,7 +336,7 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
           onReschedule={() => {
             const { source } = dialog;
             setDialog(null);
-            setReschedule({ source, date: source.card.service_date, slotId: null, dropWorkerId: null });
+            setReschedule({ source, date: source.card.service_date, slotId: null, dropWorkerId: null, ownTime: true });
           }}
         />
       )}
@@ -344,6 +347,7 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
           slotId={reschedule.slotId}
           dropWorkerName={reschedule.dropWorkerId === null ? null : nameOf(reschedule.dropWorkerId)}
           subscription={reschedule.subscription ?? null}
+          ownTime={reschedule.ownTime ?? false}
           returnFocusTo={backTo(reschedule.source.card.id, "move", rowKey(reschedule.source.fromWorkerId))}
           onClose={() => setReschedule(null)}
         />

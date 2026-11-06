@@ -136,16 +136,18 @@ export function TermsRow({ label, value, changed }: { label: ReactNode; value: R
 /**
  * P4-218: with the next period open, dates that stop counting in the paid term shift the chain. The term takes the next
  * period's first dates (its new end, `end`) and the dates are added at the end of the next period (`added`, the
- * preview's "added on"). Said when the term end moves and a date is added after it, so the two dates on screen do not
- * contradict each other; nothing otherwise.
+ * preview's "added on"). A date that stops counting in the next period leaves the term end as it was (`before`) and adds
+ * a date at the next period's end all the same. Said whenever a date is added after the term end, so the two dates on
+ * screen do not contradict each other, as the customer app says it (exception.shift.moved / kept); nothing otherwise.
  */
 export function ShiftNote({ before, end, added }: { before: string; end: string | null | undefined; added: readonly (string | null | undefined)[] }) {
   const t = useTranslations("admin.subscriptions.dialogs");
   const text = useSubscriptionText();
-  if (!end || end === before) return null;
+  if (!end) return null;
   const later = added.filter((d): d is string => !!d && d > end).sort();
   if (later.length === 0) return null;
-  return <p className="text-xs text-ink-600">{t("shiftNote", { end: text.dateShort(end), dates: text.list(later.map((d) => text.dateShort(d))) })}</p>;
+  const values = { end: text.dateShort(end), dates: text.list(later.map((d) => text.dateShort(d))) };
+  return <p className="text-xs text-ink-600">{end === before ? t("shiftNoteKept", values) : t("shiftNote", values)}</p>;
 }
 
 /** 409 TERMS_CHANGED: nothing was done; the new terms are on screen and need a fresh confirm. */

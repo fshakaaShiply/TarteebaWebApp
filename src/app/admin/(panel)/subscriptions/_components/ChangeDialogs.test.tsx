@@ -215,6 +215,17 @@ describe("A08 freeze dialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("says the term end stays when visits of the open next period are frozen, the visits added at that period's end", async () => {
+    // The frozen visits are in period 2: the term (to 28 Nov) keeps its end; period 2 gains 27 and 30 Dec.
+    api.previewFreeze.mockResolvedValue(freezePreview({ new_term_end_date: "2026-11-28" }));
+    const { user } = show((p) => <FreezeDialog subscription={sub} {...p} />);
+    await chooseRange(user);
+    expect(
+      await screen.findByText("This term still ends on Sat, 28 Nov 2026, and the next period gains Sun, 27 Dec 2026, Wed, 30 Dec 2026 at its end."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/The later dates move up/)).not.toBeInTheDocument();
+  });
+
   it("maps FREEZE_EXISTS and rejects a backwards range before any request", async () => {
     api.freezeSubscription.mockRejectedValue(apiError(409, "FREEZE_EXISTS", { from: "2026-11-15", to: "2026-11-21" }));
     const { user } = show((p) => <FreezeDialog subscription={sub} {...p} />);
@@ -401,6 +412,50 @@ describe("A08 Live-out day", () => {
     expect(screen.getByText("New end of the term")).toBeInTheDocument();
     expect(screen.getByText("Sat, 12 Dec 2026")).toBeInTheDocument();
     expect(screen.getByText("The later dates move up: this term now ends on Sat, 12 Dec 2026, and the next period gains Mon, 11 Jan 2027 at its end.")).toBeInTheDocument();
+  });
+
+  it("says the term end stays for a credit in the open next period, its day added at that period's end", async () => {
+    // TRL-S2FB7Q: 16 Dec is in period 2; the term (to 8 Dec) keeps its end and period 2 gains 11 Jan.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({ days: [{ date: "2026-12-16", before: "service", after: "absence", substitute: null, credited: true, appended_date: "2027-01-11" }], term_end_date: "2026-12-08" }),
+    );
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-12-16" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
+    expect(await screen.findByText("This term still ends on Tue, 8 Dec 2026, and the next period gains Mon, 11 Jan 2027 at its end.")).toBeInTheDocument();
+  });
+
+  it("names the day taken off the end when a credited day goes back to service (P4-267)", async () => {
+    // TRL-…: 18 Nov was credited and 8 Dec appended for it; serving 18 Nov again takes 8 Dec off, the term ends on 7 Dec.
+    // The preview named only the new end.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({
+        days: [{ date: "2026-11-18", before: "absence", after: "service", substitute: null, credited: false }],
+        term_end_date: "2026-12-07",
+        removed_dates: ["2026-12-08"],
+      }),
+    );
+    const { unmount } = renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+    });
+    expect(await screen.findByText("Removed from the end")).toBeInTheDocument();
+    expect(screen.getByText("Tue, 8 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("New end of the term")).toBeInTheDocument();
+    expect(screen.getByText("Mon, 7 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+      locale: "ar",
+    });
+    expect(await screen.findByText("أُزيلت من آخر المدة")).toBeInTheDocument();
+  });
+
+  it("names nothing removed when the preview takes no day off the end", async () => {
+    api.previewLiveOutDay.mockResolvedValue(dayPreview({ removed_dates: [] }));
+    show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
+    expect(await screen.findByText(`Substitute: ${isolate("Rosa")}`)).toBeInTheDocument();
+    expect(screen.queryByText("Removed from the end")).not.toBeInTheDocument();
   });
 
   it("draws the arrow the way Arabic reads: the old state, then the new one (خدمة ← غياب)", async () => {

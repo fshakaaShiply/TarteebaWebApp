@@ -81,6 +81,8 @@ export function LiveOutDayDialog({
   });
 
   const terms = untilInvalid ? undefined : preview.data;
+  const movesEnd = !!terms?.term_end_date && terms.term_end_date !== subscription.term_end_date;
+  const removed = [...(terms?.removed_dates ?? [])].sort();
   // The write's refusal, else the preview's (it checks the same substitute).
   const refused = mutation.error ? notAssignableOf(mutation.error) : notAssignableOf(preview.error);
   const submit = () => {
@@ -190,10 +192,12 @@ export function LiveOutDayDialog({
           </ul>
           {/* The API's term_end_date is the subscription's term end (the paid periods'); a change inside a later,
               unpaid period moves that period's end (each day's "added on" says where), never this one. Shown only
-              when it moves. */}
-          {terms.term_end_date && terms.term_end_date !== subscription.term_end_date && (
+              when it moves. A credited day or a holiday served again takes the day appended for it off the end of
+              the chain: named too (removed_dates, P4-267), as the history's "Removed from the end" names it. */}
+          {(movesEnd || removed.length > 0) && (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-              <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} />
+              {movesEnd && <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} />}
+              {removed.length > 0 && <TermsRow label={t("removed")} value={text.list(removed.map((d) => text.dateShort(d)))} />}
             </dl>
           )}
           {/* A credit in the paid term with the next period open: both moves are said (P4-218). */}
