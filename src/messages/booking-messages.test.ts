@@ -34,6 +34,24 @@ const ENUMS: Record<string, readonly string[]> = {
 
 const RULES = ["other_zone", "travel_buffer", "not_active", "not_eligible", "already_assigned", "rest_day", "not_on_shift", "leave", "live_out", "busy", "unknown"];
 
+/**
+ * Reasons the API writes on booking and visit history rows beside the cancel and reject reasons: a move (ApplyReschedule,
+ * MoveSeriesVisitBooking), a round setting off (ApplyDriverAction), a series visit settled (SettleSeriesVisit) and the
+ * series' own assignments (AutoAssignVisit, RecordSeriesVisitWorkers).
+ */
+const HISTORY_REASONS = [
+  "customer_reschedule",
+  "staff_reschedule",
+  "round_departed",
+  "no_show_customer",
+  "missed_by_company",
+  "series_primary",
+  "series_backup",
+  "series_substitute",
+  "series_primary_changed",
+  "live_out_absence",
+];
+
 describe.each([
   ["ar", ar],
   ["en", en],
@@ -46,6 +64,11 @@ describe.each([
     for (const [group, values] of Object.entries(ENUMS)) {
       for (const value of values) expect(get(messages, `admin.bookings.enums.${group}.${value}`), `${group}.${value}`).toEqual(expect.any(String));
     }
+  });
+
+  it("label every history reason the API writes, and a series visit missed on our side as its cancellation reason", () => {
+    for (const reason of HISTORY_REASONS) expect(get(messages, `admin.bookings.history.reasons.${reason}`), reason).toEqual(expect.any(String));
+    expect(get(messages, "admin.bookings.enums.cancelReason.missed_by_company")).toEqual(expect.any(String));
   });
 
   it("explain every assignment rule, visit status target and wizard step", () => {

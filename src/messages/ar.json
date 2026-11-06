@@ -2872,7 +2872,8 @@
           "subscription_cancelled": "أُلغي الاشتراك",
           "subscription_credit": "عُوِّضت ضمن الاشتراك",
           "subscription_holiday": "عطلة رسمية ضمن الاشتراك",
-          "subscription_late_capture": "نُقلت بعد دفع متأخر"
+          "subscription_late_capture": "نُقلت بعد دفع متأخر",
+          "missed_by_company": "لم تتم الزيارة"
         },
         "party": {
           "customer": "العميل",
@@ -3246,11 +3247,16 @@
           "reschedule_requested": "طلب العميل موعدًا آخر",
           "reschedule_rejected": "لم تتم الموافقة على طلب التغيير",
           "reschedule_applied": "نُقل إلى موعد آخر",
+          "customer_reschedule": "نُقل بطلب من العميل",
+          "staff_reschedule": "نقله فريقنا",
           "cancel_review_requested": "أُحيل طلب الإلغاء إلى المراجعة",
           "cancel_review_declined": "رُفض طلب الإلغاء",
           "visits_completed": "اكتملت كل الزيارات",
           "auto_start": "بدأت تلقائيًا",
           "auto_complete": "اكتملت تلقائيًا",
+          "round_departed": "انطلقت الجولة",
+          "no_show_customer": "العميل غير متواجد",
+          "missed_by_company": "لم تتم الزيارة",
           "series_primary": "عُيّنت من الاشتراك",
           "series_backup": "عُيّنت البديلة من الاشتراك",
           "series_substitute": "عُيّنت بديلة لهذا اليوم",
@@ -3278,6 +3284,8 @@
         "pickOverride": "تعيين {name} بتجاوز يدوي",
         "rank": "#{rank}",
         "preferredBadge": "المفضلة لدى العميل",
+        "preferredBadgeSeries": "الأساسية في الاشتراك",
+        "seriesPrimaryReason": "العاملة الأساسية في هذا الاشتراك.",
         "excluded": "غير مقترحات ({count})",
         "softRule": "يمكن التجاوز",
         "hardRule": "غير ممكن",
@@ -3312,7 +3320,7 @@
         "softChosen": "هذه العاملة تخالف قاعدة مرنة، فيُحفظ التغيير كتجاوز يدوي مع سببك (عشرة أحرف على الأقل).",
         "overrideReplace": "الاستبدال مع التجاوز",
         "replaceSubmit": "استبدال",
-        "replaced": "استُبدلت {name}.",
+        "replaced": "استُبدلت {name} في هذه الزيارة.",
         "rules": {
           "other_zone": "تعمل في منطقة أخرى",
           "travel_buffer": "الوقت غير كافٍ للتنقل بين الزيارات",
@@ -4071,7 +4079,9 @@
           "currency_mismatch": "عملة الدفعة تختلف عن عملة الحجز",
           "nothing_to_invoice": "لا يوجد ما تُصدر له فاتورة",
           "no_invoice": "لا توجد فاتورة للدفعة المستردة لإصدار إشعار دائن مقابلها",
-          "amount_exceeds_open_invoice": "مبلغ الاسترداد أكبر من المتبقي في الفاتورة"
+          "amount_exceeds_open_invoice": "مبلغ الاسترداد أكبر من المتبقي في الفاتورة",
+          "no_period_basis": "هذه الدفعة ليست الدفعة المعتمدة لفترة الاشتراك",
+          "period_not_paid": "لم تُسجَّل فترة الاشتراك مدفوعة بعد"
         },
         "eventSource": {
           "call": "طلب من نظامنا",
@@ -4485,7 +4495,8 @@
           "payment_currency": "عملة الدفعة",
           "amount_fils": "مبلغ الاسترداد",
           "invoice": "الفاتورة",
-          "invoice_open_fils": "المتبقي في الفاتورة"
+          "invoice_open_fils": "المتبقي في الفاتورة",
+          "payable_id": "فترة الاشتراك"
         }
       }
     },
@@ -4732,6 +4743,7 @@
           "travel_buffer": "لا يكفي وقت التنقل",
           "other_zone": "تعمل في منطقة أخرى"
         },
+        "unfitOther": "تعذّر الإسناد",
         "conflict": {
           "BLACKOUT": "يوم مغلق",
           "SLOT_FULL": "الفترة ممتلئة",

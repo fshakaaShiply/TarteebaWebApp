@@ -33,6 +33,9 @@ const FINANCE_ENUMS: Record<string, readonly string[]> = {
     "nothing_to_invoice",
     "no_invoice",
     "amount_exceeds_open_invoice",
+    // IssueInvoiceForPayment::refusePeriod(): a subscription period payment that cannot be invoiced (Phase 4).
+    "no_period_basis",
+    "period_not_paid",
   ],
   eventSource: ["call", "webhook"],
   requester: ["staff", "customer", "system"],

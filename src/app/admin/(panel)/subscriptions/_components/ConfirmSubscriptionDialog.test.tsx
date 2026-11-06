@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import { renderWithProviders } from "@/test/render";
 import { candidate, liveOutDetail, pendingDetail } from "@/test/subscriptionFixtures";
 import { ConfirmSubscriptionDialog } from "./ConfirmSubscriptionDialog";
@@ -24,7 +25,8 @@ const preview = (over: Record<string, unknown> = {}) => ({
 /** Waits for the candidates to load, then chooses one. */
 async function pick(user: ReturnType<typeof userEvent.setup>, label: string, value: string) {
   const select = await screen.findByLabelText(label);
-  await waitFor(() => expect(within(select).getByRole("option", { name: new RegExp(`^${value === "14" ? "Maria" : "Rosa"}`) })).toBeInTheDocument());
+  // The option starts with the name as its own bidi run (U+2068 … U+2069).
+  await waitFor(() => expect(within(select).getByRole("option", { name: new RegExp(`^⁨${value === "14" ? "Maria" : "Rosa"}`) })).toBeInTheDocument());
   await user.selectOptions(select, value);
 }
 
@@ -117,7 +119,7 @@ describe("A08 confirm dialog", () => {
     await pick(user, "Backup worker", "15");
     await waitFor(() => expect(api.previewConfirm).toHaveBeenLastCalledWith(31, { backup_worker_id: 15 }));
     await confirmAfterPreview(user);
-    expect(await screen.findByText("Backup worker: Rosa · Not eligible for this service")).toBeInTheDocument();
+    expect(await screen.findByText(`Backup worker: ${isolate("Rosa")} · Not eligible for this service`)).toBeInTheDocument();
     expect(screen.queryByText(/^15 ·/)).not.toBeInTheDocument();
   });
 
@@ -131,7 +133,8 @@ describe("A08 confirm dialog", () => {
       }),
     );
     setup();
-    expect(await screen.findByText("Primary worker: Ana P. · Not eligible for this service")).toBeInTheDocument();
+    // A name is its own bidi run ("Ana P." keeps its period before " · " in Arabic); the number without a name is plain.
+    expect(await screen.findByText(`Primary worker: ${isolate("Ana P.")} · Not eligible for this service`)).toBeInTheDocument();
     expect(screen.getByText("Backup worker: worker no. 77 · Not an active worker")).toBeInTheDocument();
   });
 

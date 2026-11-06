@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { Button, Dialog, Notice, Select, TextArea, showFieldError, type FocusTarget } from "@/components/admin";
 import { assignmentReasonSchema } from "@/lib/admin/bookings/forms";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
+import { isolate } from "@/lib/admin/format";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
 import { moveTargets, type DragSource, type DropTarget } from "@/lib/admin/schedule/board";
 import { useAdminSession } from "@/lib/admin/session";
@@ -58,7 +59,9 @@ export function MoveDialog({
   const { can } = useAdminSession();
   const canOverride = can(CAPACITY_OVERRIDE_PERMISSION);
   const card = source.card;
-  const fromName = source.fromWorkerId === null ? null : (board.rows.find((r) => r.worker.id === source.fromWorkerId)?.worker.display_name ?? `#${source.fromWorkerId}`);
+  // Set into a sentence as its own bidi run ("Replacing Maria S. …" keeps the name's period in Arabic).
+  const fromRow = source.fromWorkerId === null ? null : board.rows.find((r) => r.worker.id === source.fromWorkerId);
+  const fromName = source.fromWorkerId === null ? null : fromRow ? isolate(fromRow.worker.display_name) : `#${source.fromWorkerId}`;
   const options = moveTargets(board, card);
 
   const [mode, setMode] = useState<Mode>("worker");

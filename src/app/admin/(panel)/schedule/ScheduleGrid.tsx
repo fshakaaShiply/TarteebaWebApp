@@ -9,6 +9,7 @@ import { useCallback, useId, useState, type DragEvent, type ReactNode } from "re
 import { Button, EmptyState, IconButton, Notice, StatusBadge, useToast, type StatusTone } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { fetchAllVehicles } from "@/lib/admin/endpoints";
+import { isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import {
   cellCards,
@@ -86,7 +87,14 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
     enabled: canAny(["fleet.manage", "schedule.view"]),
   });
   const plateOf = (id: number | null) => (id === null ? null : (vehicles.data?.find((v) => v.id === id)?.plate_no ?? null));
-  const nameOf = (id: number) => board.rows.find((r) => r.worker.id === id)?.worker.display_name ?? `#${id}`;
+  /**
+   * A cleaner's name for the toasts, the banner and the reschedule note: its own bidi run, so a Latin name ending in "."
+   * keeps its period in an Arabic sentence ("Maria S.", never ".Maria S").
+   */
+  const nameOf = (id: number) => {
+    const name = board.rows.find((r) => r.worker.id === id)?.worker.display_name;
+    return name ? isolate(name) : `#${id}`;
+  };
 
   const [drag, setDrag] = useState<DragSource | null>(null);
   const [hover, setHover] = useState<string | null>(null);

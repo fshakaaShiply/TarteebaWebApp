@@ -262,6 +262,22 @@ describe("A08 edit the following visits", () => {
     expect(api.writeVisit.mock.calls[1][4]).not.toBe(api.writeVisit.mock.calls[0][4]);
   });
 
+  it("never calls the current term end new when the edit leaves it where it is", async () => {
+    // The term end (28 Nov, the paid period's) stays: the new pattern's dates lie in it or in a later, unpaid period.
+    api.previewFollowing.mockResolvedValue(diff({ term_end_date: "2026-11-28" }));
+    api.writeVisit.mockResolvedValue({ data: sub, conflicts: {} });
+    const { user, onClose } = show((p) => <EditFollowingDialog subscription={sub} visit={visit} {...p} />);
+    await user.click(await screen.findByRole("checkbox", { name: "Wednesday" }));
+    await user.click(screen.getByRole("checkbox", { name: "Thursday" }));
+    const box = (await screen.findByRole("region", { name: "What changes" })) as HTMLElement;
+    expect(within(box).queryByText("New end of the term")).not.toBeInTheDocument();
+    expect(within(box).queryByText("Sat, 28 Nov 2026")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save the new pattern" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // The write still sends back the end date the API gave.
+    expect(api.writeVisit.mock.calls[0][2]).toMatchObject({ expected_term_end_date: "2026-11-28" });
+  });
+
   it("edits the weekly rest days of a Live-out contract", async () => {
     const liveOut = subscriptionDetail({ id: 32, type: "live_out", pattern: { days_of_week: null, rest_weekdays: [5], slot: null, pattern_from: "2026-11-01" } });
     api.writeVisit.mockResolvedValue({ data: liveOut, conflicts: {} });
@@ -302,6 +318,20 @@ describe("A08 skip and undo skip", () => {
     const [id, ulid, expected, version, key] = api.skipVisit.mock.calls[0];
     expect([id, ulid, expected, version]).toEqual([31, "01jocc2", "2026-11-29", 7]);
     expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("never calls the current term end new: a visit added in a later, unpaid period says only where it is added", async () => {
+    // TRS-C7H810-like: the term end (28 Nov) stays; the visit is added on 27 Dec, in period 2.
+    api.previewSkip.mockResolvedValue(skipPreview({ appended_date: "2026-12-27", new_term_end_date: "2026-11-28" }));
+    api.skipVisit.mockResolvedValue(sub);
+    const { user, onClose } = show((p) => <SkipDialog subscription={sub} visit={visit} {...p} />);
+    expect(await screen.findByText("Sun, 27 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.queryByText("New end of the term")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sat, 28 Nov 2026")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Skip the visit" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // The write still sends back the end date the API gave.
+    expect(api.skipVisit.mock.calls[0][2]).toBe("2026-11-28");
   });
 
   it("asks which visit when opened from the header, offering the skippable upcoming ones", async () => {

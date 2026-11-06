@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Select } from "@/components/admin";
+import { isolate } from "@/lib/admin/format";
 import { fetchWorkerCandidates } from "@/lib/admin/subscriptions/endpoints";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { CandidateRole } from "@/lib/admin/subscriptions/types";
@@ -57,7 +58,8 @@ export function WorkerPicker({
     .filter((c) => c.worker.id !== excludeId)
     .map((c) => ({
       value: String(c.worker.id),
-      label: [c.worker.name, t("fits", { fits: c.fits, of: c.of }), c.current ? t("current") : null].filter(Boolean).join(" · "),
+      // An <option> holds text only: the name is its own bidi run, so "Maria S." keeps its period before the Arabic.
+      label: [isolate(c.worker.name), t("fits", { fits: c.fits, of: c.of }), c.current ? t("current") : null].filter(Boolean).join(" · "),
     }));
   const state = query.isPending ? (
     t("loading")

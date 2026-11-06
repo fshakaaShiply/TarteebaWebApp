@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import type { ScheduleQuery } from "@/lib/admin/endpoints";
+import { isolate } from "@/lib/admin/format";
 import type { MoveCheckResult, ScheduleGrid, VisitSummary } from "@/lib/admin/types";
 import { bookingDetail, serviceOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
 import { capacityView, confirmedCard, dayBoard, monthBoard, slotPickList, weekBoard } from "@/test/opsBoardFixtures";
@@ -229,7 +230,17 @@ describe("A04 operations schedule", () => {
     const move = { visit_id: 7, from_worker_id: 1, to_worker_id: 5, date: "2026-10-24", slot_template_id: 2 };
     await waitFor(() => expect(api.validateMove).toHaveBeenCalledWith(move));
     await waitFor(() => expect(api.moveVisit).toHaveBeenCalledWith(move, 3, {}));
-    expect(await screen.findByText("Tigist B. replaces Maria S. on TRB-K2M9QX.")).toBeInTheDocument();
+    expect(await screen.findByText(`${isolate("Tigist B.")} replaces ${isolate("Maria S.")} on TRB-K2M9QX.`)).toBeInTheDocument();
+  });
+
+  it("sets the cleaners' names in the drag messages as their own bidi runs, so a Latin name keeps its period in Arabic", async () => {
+    api.validateMove.mockResolvedValue(OK);
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER, locale: "ar" });
+    await screen.findByRole("columnheader", { name: "الفترة الصباحية · 10:00–14:00" });
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
+    await waitFor(() => expect(api.moveVisit).toHaveBeenCalled());
+    // Unisolated, "Maria S." before "في" renders ".Maria S".
+    expect(await screen.findByText(`حلّت ${isolate("Tigist B.")} محل ${isolate("Maria S.")} في TRB-K2M9QX.`)).toBeInTheDocument();
   });
 
   it("shows why a drop is refused and saves nothing", async () => {
@@ -244,7 +255,7 @@ describe("A04 operations schedule", () => {
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
 
     dragTo(cardIn(rowOf("Visits missing cleaners"), "TRB-R4RYSD"), cell(2, "2026-10-24", 1));
-    const alert = (await screen.findByText("TRB-R4RYSD can't go to Siti R.")).closest<HTMLElement>('[role="alert"]')!;
+    const alert = (await screen.findByText(`TRB-R4RYSD can't go to ${isolate("Siti R.")}`)).closest<HTMLElement>('[role="alert"]')!;
     expect(alert).toHaveTextContent("Rest day");
     expect(alert).toHaveTextContent("Nothing was saved.");
     expect(api.validateMove).toHaveBeenCalledWith({ visit_id: 4, from_worker_id: null, to_worker_id: 2, date: "2026-10-24", slot_template_id: 1 });
@@ -302,7 +313,7 @@ describe("A04 operations schedule", () => {
 
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 1));
     const dialog = await screen.findByRole("dialog", { name: "Reschedule TRB-K2M9QX" });
-    expect(dialog).toHaveTextContent("Only the day and time change here: Tigist B. isn't added to the team.");
+    expect(dialog).toHaveTextContent(`Only the day and time change here: ${isolate("Tigist B.")} isn't added to the team.`);
     expect(api.validateMove).not.toHaveBeenCalled();
   });
 
@@ -369,7 +380,7 @@ describe("A04 operations schedule", () => {
     const move = { visit_id: 4, from_worker_id: null, to_worker_id: 5, date: "2026-10-24", slot_template_id: 1 };
     await waitFor(() => expect(api.moveVisit).toHaveBeenCalledWith(move, 1, {}));
     expect(api.validateMove).toHaveBeenCalledWith(move);
-    expect(await screen.findByText("Tigist B. is added to TRB-R4RYSD.")).toBeInTheDocument();
+    expect(await screen.findByText(`${isolate("Tigist B.")} is added to TRB-R4RYSD.`)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 

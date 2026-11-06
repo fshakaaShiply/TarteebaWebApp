@@ -142,6 +142,82 @@ describe("A03 booking page of a subscription visit", () => {
     expect(document.body).not.toHaveTextContent("Maria S..");
   });
 
+  it("badges the subscription's primary among the candidates as the subscription's, never as the customer's wish", async () => {
+    const maria = { id: 1, display_name: "Maria S." };
+    const list = visitCandidates(2);
+    // As the API ranks her: preferred, with the rank reason it gives any booking's preferred worker.
+    const asked = { code: "preferred_worker", label: { ar: "طلب العميل هذه العاملة.", en: "The customer asked for this worker." } };
+    list.candidates[0] = { ...list.candidates[0], preferred: true, reasons: [asked, ...list.candidates[0].reasons] };
+    api.fetchVisitCandidates.mockResolvedValue(list);
+    api.fetchBooking.mockResolvedValue(seriesVisit({ preferred_worker: maria }));
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    const cleaners = (await screen.findByRole("heading", { name: "Cleaners" })).closest("section") as HTMLElement;
+    const row = (await within(cleaners).findByText("Maria S.")).closest("li") as HTMLElement;
+    expect(row).toHaveTextContent("Subscription's primary");
+    expect(row).toHaveTextContent("The primary worker of this subscription.");
+    expect(cleaners).not.toHaveTextContent(/Customer's preferred|The customer asked for this worker/);
+    unmount();
+
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF, locale: "ar" });
+    const arabic = (await screen.findByText("Maria S.", { selector: "li bdi" })).closest("li") as HTMLElement;
+    expect(arabic).toHaveTextContent("الأساسية في الاشتراك");
+    expect(arabic).toHaveTextContent("العاملة الأساسية في هذا الاشتراك.");
+    expect(document.body).not.toHaveTextContent(/المفضلة لدى العميل|طلب العميل هذه العاملة/);
+  });
+
+  it("keeps the customer's preferred wording among a single booking's candidates", async () => {
+    const list = visitCandidates(2);
+    const asked = { code: "preferred_worker", label: { ar: "طلب العميل هذه العاملة.", en: "The customer asked for this worker." } };
+    list.candidates[0] = { ...list.candidates[0], preferred: true, reasons: [asked, ...list.candidates[0].reasons] };
+    api.fetchVisitCandidates.mockResolvedValue(list);
+    api.fetchBooking.mockResolvedValue(bookingDetail({ status: "confirmed", payment_status: "captured", preferred_worker: { id: 1, display_name: "Maria S." } }));
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    const cleaners = (await screen.findByRole("heading", { name: "Cleaners" })).closest("section") as HTMLElement;
+    const row = (await within(cleaners).findByText("Maria S.")).closest("li") as HTMLElement;
+    expect(row).toHaveTextContent("Customer's preferred");
+    expect(row).toHaveTextContent("The customer asked for this worker.");
+  });
+
+  it("labels the reasons a series visit's moves, misses and no-shows write, in history, the Ended line and the cancellation reason", async () => {
+    const at = "2026-11-06T10:54:00+00:00";
+    const row = { visit_id: null, actor_id: null, meta: null };
+    api.fetchBooking.mockResolvedValue(
+      seriesVisit({
+        status: "cancelled",
+        payment: null,
+        cancelled_at: at,
+        cancel_reason_code: "missed_by_company",
+        cancelled_by_type: "system",
+        cancellation: { party: "company", cancelled_by_id: null, fee_fils: null, refund_fils: null, review_requested_at: null, review: null },
+        history: [
+          { ...row, id: 6, scope: "booking", from_status: "confirmed", to_status: "cancelled", actor_type: "system", reason: "missed_by_company", created_at: at },
+          { ...row, id: 5, scope: "visit", visit_id: 4, from_status: "worker_assigned", to_status: "en_route", actor_type: "driver", reason: "round_departed", created_at: "2026-11-06T06:00:00+00:00" },
+          { ...row, id: 4, scope: "booking", from_status: "confirmed", to_status: "completed", actor_type: "system", reason: "no_show_customer", created_at: "2026-11-05T10:00:00+00:00" },
+          { ...row, id: 3, scope: "booking", from_status: "confirmed", to_status: "rescheduled", actor_type: "staff", reason: "staff_reschedule", created_at: "2026-11-04T10:00:00+00:00" },
+          { ...row, id: 2, scope: "booking", from_status: "rescheduled", to_status: "confirmed", actor_type: "staff", reason: "reschedule_applied", created_at: "2026-11-04T10:00:00+00:00" },
+          { ...row, id: 1, scope: "booking", from_status: "confirmed", to_status: "rescheduled", actor_type: "customer", reason: "customer_reschedule", created_at: "2026-11-03T10:00:00+00:00" },
+        ],
+      }),
+    );
+    const raw = /missed_by_company|no_show_customer|customer_reschedule|staff_reschedule|round_departed/;
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    const header = (await screen.findByRole("heading", { level: 1 })).closest("section") as HTMLElement;
+    expect(header).toHaveTextContent("Ended: Visit missed · 6 Nov 2026, 14:54");
+    const history = screen.getByRole("heading", { name: "History" }).closest("section") as HTMLElement;
+    for (const label of ["System · Visit missed", "Driver · Round departed", "System · Customer not available", "Staff · Moved by our team", "Customer · Moved at the customer's request"]) {
+      expect(history).toHaveTextContent(label);
+    }
+    const payment = screen.getByRole("heading", { name: "Payment and refunds" }).closest("section") as HTMLElement;
+    expect(payment).toHaveTextContent("ReasonVisit missed");
+    expect(document.body).not.toHaveTextContent(raw);
+    unmount();
+
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF, locale: "ar" });
+    await screen.findByRole("heading", { level: 1 });
+    for (const label of ["لم تتم الزيارة", "انطلقت الجولة", "العميل غير متواجد", "نقله فريقنا", "نُقل بطلب من العميل"]) expect(document.body).toHaveTextContent(label);
+    expect(document.body).not.toHaveTextContent(raw);
+  });
+
   it("keeps cancel and reschedule on a single booking, with no subscription notice", async () => {
     api.fetchBooking.mockResolvedValue(bookingDetail({ status: "confirmed", payment_status: "captured" }));
     renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });

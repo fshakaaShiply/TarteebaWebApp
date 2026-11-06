@@ -32,7 +32,7 @@ import { isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX, readShortfalls } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
-import type { BookingDetail, BookingVisit, CandidateWorker, VisitCandidates } from "@/lib/admin/types";
+import type { BookingDetail, BookingVisit, CandidateReason, CandidateWorker, VisitCandidates } from "@/lib/admin/types";
 import { ResourceConflictNotice, ShortfallTable } from "../../_ops/Shortfall";
 import { SlotLabel } from "../_components/BookingBits";
 import { useFocusRescue } from "../_components/focus";
@@ -143,7 +143,9 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
         <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
           {assigned.map((w) => (
             <li key={w.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-              <span className="font-medium text-ink-900">{w.name}</span>
+              <span className="font-medium text-ink-900">
+                <bdi>{w.name}</bdi>
+              </span>
               {canManage && (
                 <span className="flex gap-1">
                   {assignable && (
@@ -271,6 +273,9 @@ function CandidatePicker({
   };
 
   const preferredId = booking.preferred_worker?.id ?? data.preferred_worker?.id ?? null;
+  // A series visit's named worker is the subscription's primary (A08 names her for the series), not a customer's wish.
+  const series = !!booking.subscription;
+  const reasonText = (r: CandidateReason) => (series && r.code === "preferred_worker" ? t("seriesPrimaryReason") : text.name(r.label));
   const shortfalls = readShortfalls(mutation.error);
 
   return (
@@ -307,21 +312,24 @@ function CandidatePicker({
                       {t("rank", { rank: c.rank })}
                     </span>
                     {canAssign ? (
-                      <label htmlFor={ids.input} className="cursor-pointer font-bold text-ink-900 after:absolute after:inset-0 after:rounded-md">
+                      // The name alone, its direction its own (as <bdi>): "Maria S." keeps its period in Arabic.
+                      <label htmlFor={ids.input} dir="auto" className="cursor-pointer font-bold text-ink-900 after:absolute after:inset-0 after:rounded-md">
                         {c.worker.display_name}
                       </label>
                     ) : (
-                      <span className="font-bold text-ink-900">{c.worker.display_name}</span>
+                      <span className="font-bold text-ink-900">
+                        <bdi>{c.worker.display_name}</bdi>
+                      </span>
                     )}
                     {preferred && (
                       <StatusBadge tone="confirmed">
-                        <span id={ids.badge}>{t("preferredBadge")}</span>
+                        <span id={ids.badge}>{series ? t("preferredBadgeSeries") : t("preferredBadge")}</span>
                       </StatusBadge>
                     )}
                   </div>
                   <ul id={ids.reasons} className="flex flex-col gap-0.5 text-sm text-ink-600">
                     {c.reasons.map((r) => (
-                      <li key={r.code}>{text.name(r.label)}</li>
+                      <li key={r.code}>{reasonText(r)}</li>
                     ))}
                   </ul>
                 </div>
@@ -355,11 +363,11 @@ function CandidatePicker({
                   <div className="flex flex-col">
                     <span className="flex flex-wrap items-center gap-2 font-medium text-ink-900">
                       {selectable ? (
-                        <label htmlFor={ids.input} className="cursor-pointer after:absolute after:inset-0 after:rounded-md">
+                        <label htmlFor={ids.input} dir="auto" className="cursor-pointer after:absolute after:inset-0 after:rounded-md">
                           {e.worker.display_name}
                         </label>
                       ) : (
-                        e.worker.display_name
+                        <bdi>{e.worker.display_name}</bdi>
                       )}
                       <StatusBadge tone={e.overridable ? "pending" : "neutral"}>
                         <span id={ids.badge}>{e.overridable ? t("softRule") : t("hardRule")}</span>
@@ -483,7 +491,7 @@ function OverrideDialog({
       <ul className="flex flex-col gap-1 text-sm">
         {rules.map((r) => (
           <li key={r.name}>
-            <span className="font-bold text-ink-900">{r.name}</span>: {r.rules.map(ruleLabel).join(" · ") || t("rules.unknown")}
+            <bdi className="font-bold text-ink-900">{r.name}</bdi>: {r.rules.map(ruleLabel).join(" · ") || t("rules.unknown")}
           </li>
         ))}
       </ul>
@@ -533,7 +541,7 @@ function UnassignDialog({
   const mutation = useMutation({
     mutationFn: (input: { reason: string; override: boolean }) => unassignWorker(visitId, worker.id, input.reason, version, input.override),
     onSuccess: () => {
-      toast.success(t("unassigned", { name: worker.name }));
+      toast.success(t("unassigned", { name: isolate(worker.name) }));
       after();
       onClose();
     },
@@ -554,7 +562,7 @@ function UnassignDialog({
     <ConfirmDialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={t("unassignTitle", { name: worker.name })}
+      title={t("unassignTitle", { name: isolate(worker.name) })}
       description={t("unassignBody")}
       confirmLabel={override ? t("unassignAnyway") : t("unassign")}
       tone="danger"
@@ -626,7 +634,7 @@ function ReplaceDialog({
     mutationFn: (input: { reason: string; override: boolean }) =>
       replaceWorker(visitId, { worker_id: worker.id, new_worker_id: Number(newWorker), reason: input.reason, ...(input.override ? { override: true } : {}) }, data.visit.version),
     onSuccess: () => {
-      toast.success(t("replaced", { name: worker.name }));
+      toast.success(t("replaced", { name: isolate(worker.name) }));
       after();
       onClose();
     },
@@ -651,7 +659,7 @@ function ReplaceDialog({
     <ConfirmDialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={t("replaceTitle", { name: worker.name })}
+      title={t("replaceTitle", { name: isolate(worker.name) })}
       description={t("replaceBody")}
       confirmLabel={t("replaceSubmit")}
       pending={mutation.isPending}
@@ -667,7 +675,7 @@ function ReplaceDialog({
           setNewWorker(e.target.value);
           setErrors((x) => ({ ...x, worker: undefined }));
         }}
-        options={options.map((o) => ({ value: String(o.worker.id), label: o.soft ? t("softOption", { name: o.worker.display_name }) : o.worker.display_name }))}
+        options={options.map((o) => ({ value: String(o.worker.id), label: o.soft ? t("softOption", { name: isolate(o.worker.display_name) }) : o.worker.display_name }))}
         error={errors.worker}
       />
       {chosen?.soft && <Notice tone="warning">{t("softChosen")}</Notice>}

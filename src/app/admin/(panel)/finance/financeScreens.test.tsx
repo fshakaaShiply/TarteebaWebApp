@@ -540,6 +540,30 @@ describe("A09 documents not issued", () => {
     await screen.findByText("The amount taken differs from the booking total");
     expect(screen.queryByRole("button", { name: /Retry now/ })).not.toBeInTheDocument();
   });
+
+  it("explains a subscription period payment that cannot be invoiced, in both languages, never by its codes", async () => {
+    // IssueInvoiceForPayment::refusePeriod(): one problem, the period's id and the amount taken.
+    const period = (problem: string, id: number) => ({ ...refusal, id, payment_id: 20 + id, problems: [problem], details: { payable_id: 7, captured_fils: 91201 } });
+    api.fetchBillingRefusals.mockResolvedValue(page([period("no_period_basis", 2), period("period_not_paid", 3)]));
+    api.retryBillingRefusal.mockRejectedValue(new AdminApiError(422, { code: "BILLING_DOCUMENT_REFUSED", message: "", details: { problems: ["period_not_paid"] } }));
+    const raw = /no_period_basis|period_not_paid|payable_id/;
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<BillingRefusalsScreen />, { permissions: ["invoices.manage"] });
+    const row = (await screen.findByText("The subscription period is still not marked as paid")).closest("tr")!;
+    expect(row).toHaveTextContent("Subscription period:7");
+    expect(row).toHaveTextContent("Amount taken:AED 912.01");
+    expect(screen.getByText("This payment isn't the subscription period's own payment")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: /Retry now/ }));
+    expect(await within(row).findByText("Still can't be issued: The subscription period is still not marked as paid.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(raw);
+    unmount();
+
+    renderWithProviders(<BillingRefusalsScreen />, { permissions: ["invoices.manage"], locale: "ar" });
+    expect(await screen.findByText("لم تُسجَّل فترة الاشتراك مدفوعة بعد")).toBeInTheDocument();
+    expect(screen.getByText("هذه الدفعة ليست الدفعة المعتمدة لفترة الاشتراك")).toBeInTheDocument();
+    expect(screen.getAllByText("فترة الاشتراك:")).toHaveLength(2);
+    expect(document.body).not.toHaveTextContent(raw);
+  });
 });
 
 describe("A09 finance summary", () => {

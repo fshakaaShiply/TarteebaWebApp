@@ -138,7 +138,11 @@ export function FreezeDialog({ subscription, onClose, onStale, changed, returnFo
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
             <TermsRow label={t("days")} value={terms.days} />
             <TermsRow label={t("visitsFrozen")} value={terms.affected.length} />
-            <TermsRow label={t("newEnd")} value={terms.new_term_end_date ? text.dateShort(terms.new_term_end_date) : "—"} changed={moved("term_end_date")} />
+            {/* The subscription's term end (the paid periods'): frozen visits credited in a later, unpaid period move
+                that period's end, never this one. Shown only when it moves. */}
+            {terms.new_term_end_date && terms.new_term_end_date !== subscription.term_end_date && (
+              <TermsRow label={t("newEnd")} value={text.dateShort(terms.new_term_end_date)} changed={moved("term_end_date")} />
+            )}
             {terms.max_freeze_days !== null && (
               <TermsRow label={t("daysUsed")} value={t("daysOfMax", { used: terms.freeze_days_used_this_period, max: terms.max_freeze_days })} />
             )}

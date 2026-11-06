@@ -151,7 +151,11 @@ export function EditFollowingDialog({ subscription, visit, onClose, onStale, cha
             <TermsRow label={t("kept")} value={terms.kept.length} />
             <TermsRow label={t("replaced")} value={terms.replaced.length} />
             <TermsRow label={t("newDates")} value={terms.new.length} />
-            <TermsRow label={t("newEnd")} value={terms.term_end_date ? text.dateShort(terms.term_end_date) : "—"} changed={moved("term_end_date")} />
+            {/* The subscription's term end (the paid periods'): an edit inside a later, unpaid period moves that
+                period's end, never this one. Shown only when it moves. */}
+            {terms.term_end_date && terms.term_end_date !== subscription.term_end_date && (
+              <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} changed={moved("term_end_date")} />
+            )}
           </dl>
           {terms.replaced.length > 0 && (
             <div className="flex flex-col gap-1">

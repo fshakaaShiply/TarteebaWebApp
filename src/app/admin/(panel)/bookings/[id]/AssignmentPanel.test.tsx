@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import { bookingDetail, serviceOptions, slotTemplateOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { AssignmentPanel } from "./AssignmentPanel";
@@ -131,7 +132,7 @@ describe("assignment panel (§8.5–§8.7)", () => {
     renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: MANAGER });
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Replace Lakshmi N." }));
-    const dialog = screen.getByRole("alertdialog", { name: "Replace Lakshmi N." });
+    const dialog = screen.getByRole("alertdialog", { name: `Replace ${isolate("Lakshmi N.")}` });
     await user.click(within(dialog).getByRole("button", { name: "Replace" }));
     expect(within(dialog).getByText("Choose a value.")).toBeInTheDocument();
 
@@ -139,6 +140,25 @@ describe("assignment panel (§8.5–§8.7)", () => {
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Sick today");
     await user.click(within(dialog).getByRole("button", { name: "Replace" }));
     await waitFor(() => expect(api.replaceWorker).toHaveBeenCalledWith(4, { worker_id: 3, new_worker_id: 1, reason: "Sick today" }, 1));
+    expect(await screen.findByText(`${isolate("Lakshmi N.")} is replaced.`)).toBeInTheDocument();
+  });
+
+  it("sets the cleaners' names as their own bidi runs in Arabic: the team, the candidates, the dialog and the toast", async () => {
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(1));
+    api.replaceWorker.mockResolvedValue(visitCandidates(1).visit);
+    renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: MANAGER, locale: "ar" });
+    const user = userEvent.setup();
+    const replace = await screen.findByRole("button", { name: "استبدال Lakshmi N." });
+    // A Latin name alone in an Arabic row, or before Arabic words, renders ".Lakshmi N" unless it is its own run.
+    expect(replace.closest("li")?.querySelector("bdi")).toHaveTextContent(/^Lakshmi N\.$/);
+    expect(screen.getByText("Maria S.", { selector: "label" })).toHaveAttribute("dir", "auto");
+    await user.click(replace);
+    const dialog = screen.getByRole("alertdialog", { name: `استبدال ${isolate("Lakshmi N.")}` });
+    await user.selectOptions(within(dialog).getByRole("combobox"), "1");
+    await user.type(within(dialog).getByRole("textbox"), "Sick today");
+    await user.click(within(dialog).getByRole("button", { name: "استبدال" }));
+    // The name no longer ends the sentence ("Lakshmi N..").
+    expect(await screen.findByText(`استُبدلت ${isolate("Lakshmi N.")} في هذه الزيارة.`)).toBeInTheDocument();
   });
 
   it("removes a cleaner past a pool shortfall only with an override", async () => {
@@ -154,7 +174,7 @@ describe("assignment panel (§8.5–§8.7)", () => {
     renderWithProviders(<AssignmentPanel booking={bookingDetail()} />, { permissions: [...MANAGER, "capacity.override"] });
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Remove Lakshmi N. from the visit" }));
-    const dialog = screen.getByRole("alertdialog", { name: "Remove Lakshmi N. from this visit?" });
+    const dialog = screen.getByRole("alertdialog", { name: `Remove ${isolate("Lakshmi N.")} from this visit?` });
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Sick");
     await user.click(within(dialog).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(api.unassignWorker).toHaveBeenCalledWith(4, 3, "Sick", 1, false));

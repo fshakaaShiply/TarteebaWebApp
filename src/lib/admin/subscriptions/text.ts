@@ -83,7 +83,11 @@ export function useSubscriptionText() {
       reason: (value: string) => own("cancelReason", value),
       cancelRule: (value: string | null | undefined) => (value ? own("rule", value) : ""),
       compensation: (value: string | null | undefined) => (value ? own("compensation", value) : ""),
-      unfit: (value: string) => own("unfit", value),
+      /**
+       * Why a worker cannot take a day (WorkerFit's codes). Anything else (an assignment that failed on that day for
+       * another reason: the API's lowercased error code, or "error") reads "Could not be assigned", never a code.
+       */
+      unfit: (value: string) => own("unfit", value, t("unfitOther")),
       /**
        * Why a date cannot be held (P4-245: Scheduling's closed and full reasons, lead_time … max_bookings): the label of
        * a preview's `conflicts {date: reason}` and `reason` fields. Never label those with the conflict codes below.

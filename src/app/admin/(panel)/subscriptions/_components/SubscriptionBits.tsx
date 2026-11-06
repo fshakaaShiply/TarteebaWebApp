@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { StatusBadge } from "@/components/admin";
+import { isolate } from "@/lib/admin/format";
 import type { RefusedWorker } from "@/lib/admin/subscriptions/actions";
 import { healthToneOf, statusToneOf } from "@/lib/admin/subscriptions/status";
 import type { UnfitDay } from "@/lib/admin/subscriptions/types";
@@ -61,7 +62,8 @@ export function RefusedWorkers({ workers }: { workers: readonly RefusedWorker[] 
   return (
     <ul className="list-disc ps-5 text-sm text-danger-700" aria-label={t("title")}>
       {workers.map((w) => {
-        const name = w.name ?? t("workerNo", { id: w.workerId });
+        // Her name as its own bidi run: "Maria S." keeps its period before " · " and the Arabic reasons.
+        const name = w.name ? isolate(w.name) : t("workerNo", { id: w.workerId });
         const who = w.role ? t("line", { role: t(`roles.${w.role}`), name }) : name;
         const reasons = [...new Set([w.reason, ...w.reasons].filter(Boolean))].map((r) => text.unfit(r));
         return <li key={`${w.role ?? "worker"}-${w.workerId}`}>{reasons.length > 0 ? `${who} · ${text.list(reasons)}` : who}</li>;

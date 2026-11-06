@@ -2872,7 +2872,8 @@
           "subscription_cancelled": "Subscription cancelled",
           "subscription_credit": "Credited in the subscription",
           "subscription_holiday": "Public holiday in the subscription",
-          "subscription_late_capture": "Moved after a late payment"
+          "subscription_late_capture": "Moved after a late payment",
+          "missed_by_company": "Visit missed"
         },
         "party": {
           "customer": "The customer",
@@ -3246,11 +3247,16 @@
           "reschedule_requested": "Customer asked for another time",
           "reschedule_rejected": "Change request not approved",
           "reschedule_applied": "Moved to another time",
+          "customer_reschedule": "Moved at the customer's request",
+          "staff_reschedule": "Moved by our team",
           "cancel_review_requested": "Cancellation sent for review",
           "cancel_review_declined": "Cancellation request turned down",
           "visits_completed": "All visits completed",
           "auto_start": "Started automatically",
           "auto_complete": "Completed automatically",
+          "round_departed": "Round departed",
+          "no_show_customer": "Customer not available",
+          "missed_by_company": "Visit missed",
           "series_primary": "Assigned from the subscription",
           "series_backup": "Backup assigned from the subscription",
           "series_substitute": "Substitute assigned for the day",
@@ -3278,6 +3284,8 @@
         "pickOverride": "Assign {name} with an override",
         "rank": "#{rank}",
         "preferredBadge": "Customer's preferred",
+        "preferredBadgeSeries": "Subscription's primary",
+        "seriesPrimaryReason": "The primary worker of this subscription.",
         "excluded": "Not suggested ({count})",
         "softRule": "Override possible",
         "hardRule": "Not possible",
@@ -4071,7 +4079,9 @@
           "currency_mismatch": "The payment and the booking have different currencies",
           "nothing_to_invoice": "There is nothing to invoice",
           "no_invoice": "The refunded payment has no invoice to credit",
-          "amount_exceeds_open_invoice": "The refund is larger than what is left on the invoice"
+          "amount_exceeds_open_invoice": "The refund is larger than what is left on the invoice",
+          "no_period_basis": "This payment isn't the subscription period's own payment",
+          "period_not_paid": "The subscription period is still not marked as paid"
         },
         "eventSource": {
           "call": "Our call",
@@ -4485,7 +4495,8 @@
           "payment_currency": "Payment currency",
           "amount_fils": "Refund amount",
           "invoice": "Invoice",
-          "invoice_open_fils": "Left on the invoice"
+          "invoice_open_fils": "Left on the invoice",
+          "payable_id": "Subscription period"
         }
       }
     },
@@ -4732,6 +4743,7 @@
           "travel_buffer": "No time to travel",
           "other_zone": "Works in another zone"
         },
+        "unfitOther": "Could not be assigned",
         "conflict": {
           "BLACKOUT": "Blackout day",
           "SLOT_FULL": "Slot is full",

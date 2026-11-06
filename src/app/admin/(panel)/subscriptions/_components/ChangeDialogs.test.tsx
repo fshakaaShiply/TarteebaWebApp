@@ -190,6 +190,21 @@ describe("A08 freeze dialog", () => {
     expect(api.freezeSubscription.mock.calls[1][1]).toMatchObject({ expected_term_end_date: "2026-12-12" });
   });
 
+  it("never calls the current term end new: visits credited in a later, unpaid period say only where they are added", async () => {
+    // The term end (28 Nov, the paid period's) stays: the credited visits are added in period 2, after it.
+    api.previewFreeze.mockResolvedValue(freezePreview({ new_term_end_date: "2026-11-28" }));
+    api.freezeSubscription.mockResolvedValue(sub);
+    const { user, onClose } = show((p) => <FreezeDialog subscription={sub} {...p} />);
+    await chooseRange(user);
+    expect(await screen.findByText("Sun, 27 Dec 2026")).toBeInTheDocument();
+    expect(screen.queryByText("New end of the term")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sat, 28 Nov 2026")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Freeze" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // The write still sends back the end date the API gave.
+    expect(api.freezeSubscription.mock.calls[0][1]).toMatchObject({ expected_term_end_date: "2026-11-28" });
+  });
+
   it("maps FREEZE_EXISTS and rejects a backwards range before any request", async () => {
     api.freezeSubscription.mockRejectedValue(apiError(409, "FREEZE_EXISTS", { from: "2026-11-15", to: "2026-11-21" }));
     const { user } = show((p) => <FreezeDialog subscription={sub} {...p} />);
@@ -210,7 +225,8 @@ describe("A08 assign a worker", () => {
     const { user, onClose } = show((p) => <AssignWorkerDialog subscription={sub} role="primary" {...p} />);
     const select = await screen.findByRole("combobox", { name: /^Worker/ });
     await waitFor(() => expect(within(select).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
-    expect(within(select).getByRole("option", { name: /Joy R\. · fits 8 of 8 visits · current/ })).toBeInTheDocument();
+    // The name is its own bidi run inside the option's text, so "Joy R." keeps its period before " · " in Arabic.
+    expect(within(select).getByRole("option", { name: `${isolate("Joy R.")} · fits 8 of 8 visits · current` })).toBeInTheDocument();
     await user.selectOptions(select, "15");
     await user.click(screen.getByRole("button", { name: "Assign" }));
     expect(await screen.findByText("Days she cannot cover: 1")).toBeInTheDocument();
@@ -250,10 +266,36 @@ describe("A08 assign a worker", () => {
     await user.selectOptions(select, "15");
     await user.click(screen.getByRole("button", { name: "Assign" }));
     expect(await screen.findByText(/cannot take the role/)).toBeInTheDocument();
-    expect(screen.getByText("Backup worker: Rosa · Not eligible for this service")).toBeInTheDocument();
+    expect(screen.getByText(`Backup worker: ${isolate("Rosa")} · Not eligible for this service`)).toBeInTheDocument();
     expect(screen.queryByText(/^15 ·/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Assign" }));
     expect(await screen.findByText("The primary and the backup must be different workers.")).toBeInTheDocument();
+  });
+
+  it("words a day the assignment failed on for another reason, never the API's code (resource_conflict, error)", async () => {
+    const answer = { data: sub, assigned: ["2026-11-04"], kept: [], unfit: [{ date: "2026-11-08", reasons: ["resource_conflict"] }, { date: "2026-11-11", reasons: ["error"] }] };
+    api.assignWorker.mockResolvedValue(answer);
+    const { user } = show((p) => <AssignWorkerDialog subscription={sub} role="primary" {...p} />);
+    const select = await screen.findByRole("combobox", { name: /^Worker/ });
+    await waitFor(() => expect(within(select).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
+    await user.selectOptions(select, "15");
+    await user.click(screen.getByRole("button", { name: "Assign" }));
+    const days = await screen.findByRole("list", { name: "Days she cannot cover" });
+    expect(within(days).getAllByText("Could not be assigned")).toHaveLength(2);
+    expect(days).not.toHaveTextContent(/resource_conflict|error/);
+  });
+
+  it("names a refused worker as her own bidi run in Arabic, and words an unknown reason there too", async () => {
+    api.assignWorker.mockResolvedValue({ data: sub, assigned: [], kept: [], unfit: [{ date: "2026-11-08", reasons: ["resource_conflict"] }] });
+    renderWithProviders(<AssignWorkerDialog subscription={sub} role="primary" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER, locale: "ar" });
+    const user = userEvent.setup();
+    const select = await screen.findByRole("combobox", { name: /^العاملة/ });
+    await waitFor(() => expect(within(select).getByRole("option", { name: `${isolate("Joy R.")} · الزيارات المناسبة: 8 من 8 · الحالية` })).toBeInTheDocument());
+    await user.selectOptions(select, "15");
+    await user.click(screen.getByRole("button", { name: "تعيين" }));
+    const days = await screen.findByRole("list", { name: "أيام لا تستطيع تغطيتها" });
+    expect(days).toHaveTextContent("تعذّر الإسناد");
+    expect(days).not.toHaveTextContent(/resource_conflict/);
   });
 });
 
@@ -359,7 +401,7 @@ describe("A08 Live-out day", () => {
     const { user, onClose } = show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
     await screen.findByText(`Substitute: ${isolate("Rosa")}`);
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText("Substitute: Rosa · On leave", { selector: "li" })).toBeInTheDocument();
+    expect(await screen.findByText(`Substitute: ${isolate("Rosa")} · On leave`, { selector: "li" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 

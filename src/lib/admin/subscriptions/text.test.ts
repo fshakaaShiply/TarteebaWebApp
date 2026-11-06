@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AdminApiError } from "../client";
+import { formatIsoDate } from "../format";
 import { subscriptionErrorText } from "./errors";
 import { HISTORY_FACT_KEYS, HISTORY_LABELS, historyFacts } from "./history";
 import { healthToneOf, statusToneOf } from "./status";
@@ -146,6 +147,17 @@ describe("A08 error copy", () => {
     expect(subscriptionErrorText(error("DAY_NOT_EDITABLE", { reason: "rest" }), lookup, has)).toBe("This is a weekly rest day.");
     expect(subscriptionErrorText(error("DAY_NOT_EDITABLE", { reason: "something_new" }), lookup, has)).toBe("This day cannot be changed.");
     expect(subscriptionErrorText(error("FREEZE_NOT_ALLOWED", { reason: "live_out" }), lookup, has)).toContain("Live-out");
+  });
+
+  it("names the earliest date an error gives in the admin's date format, never the API's YYYY-MM-DD", () => {
+    // FreezeSubscription answers FREEZE_DATES_INVALID {min_from}; AssignSeriesWorker DATE_OUT_OF_RANGE {min_date}.
+    const { lookup, has } = t(en);
+    expect(subscriptionErrorText(error("FREEZE_DATES_INVALID", { min_from: "2026-11-20" }), lookup, has, "en")).toBe("The freeze cannot start before Fri, 20 Nov 2026.");
+    expect(subscriptionErrorText(error("DATE_OUT_OF_RANGE", { min_date: "2026-11-20" }), lookup, has, "en")).toBe("That date is not allowed. The earliest is Fri, 20 Nov 2026.");
+    const arabic = t(ar as unknown as typeof en);
+    const text = subscriptionErrorText(error("FREEZE_DATES_INVALID", { min_from: "2026-11-20" }), arabic.lookup, arabic.has, "ar");
+    expect(text).toBe(`لا يمكن أن يبدأ التجميد قبل ${formatIsoDate("2026-11-20", "ar", "short")}.`);
+    expect(text).not.toContain("2026-11-20");
   });
 
   it("leaves a code it does not know to the shared messages, and speaks Arabic", () => {

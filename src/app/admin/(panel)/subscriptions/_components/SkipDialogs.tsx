@@ -119,7 +119,11 @@ export function SkipDialog({ subscription, visit, onClose, onStale, changed, ret
             {!blocked && <p className="text-ink-900">{text.name(terms.explanation)}</p>}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
               <TermsRow label={t("added")} value={terms.appended_date ? text.dateShort(terms.appended_date) : t("noneAdded")} changed={fresh?.changed.includes("term_end_date")} />
-              <TermsRow label={t("newEnd")} value={terms.new_term_end_date ? text.dateShort(terms.new_term_end_date) : "—"} changed={fresh?.changed.includes("term_end_date")} />
+              {/* The API's new_term_end_date is the subscription's term end (the paid periods'): a visit added in a later,
+                  unpaid period moves that period's end (the added date says where), never this one. Shown only when it moves. */}
+              {terms.new_term_end_date && terms.new_term_end_date !== subscription.term_end_date && (
+                <TermsRow label={t("newEnd")} value={text.dateShort(terms.new_term_end_date)} changed={fresh?.changed.includes("term_end_date")} />
+              )}
             </dl>
             <p className="text-xs text-ink-600">{t("noMoney")}</p>
           </PreviewBox>
