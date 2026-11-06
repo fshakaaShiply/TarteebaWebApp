@@ -130,6 +130,16 @@ describe("A08 history rows", () => {
     expect(historyFacts("created", undefined)).toEqual([]);
   });
 
+  it("words a date added at or taken off the end of the chain without calling it the term's in Arabic: with the next period open it is that period's (P4-218)", () => {
+    // «أُزيلت من آخر المدة» (removed from the end of the term) next to an unfreeze's or Live-out day's new term end named
+    // the next period's last day as one of the term's; «أُضيفت في آخر المدة» did the same for a day added after the term.
+    const facts = (messages: typeof en | typeof ar) => (messages.admin.subscriptions.history as unknown as { facts: Record<string, string> }).facts;
+    expect(facts(ar).addedOn).toBe("أُضيفت في النهاية");
+    expect(facts(ar).removedFromEnd).toBe("أُزيلت من النهاية");
+    expect(facts(en).addedOn).toBe("Added at the end");
+    expect(facts(en).removedFromEnd).toBe("Removed from the end");
+  });
+
   it("has a label for every fact and every code it shows, in both languages", () => {
     for (const messages of [en, ar]) {
       const history = messages.admin.subscriptions.history as unknown as { facts: Record<string, string>; values: Record<string, Record<string, string>> };

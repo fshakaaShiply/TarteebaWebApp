@@ -10,7 +10,7 @@ import { changeLiveOutDay, previewLiveOutDay, type LiveOutDayInput } from "@/lib
 import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
-import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, ShiftNote, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
+import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, ShiftNote, TermsRow, hasFieldErrors, removedByPlace, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 import { RefusedWorkers, UnfitList } from "./SubscriptionBits";
 import { WorkerPicker } from "./WorkerPicker";
 
@@ -82,7 +82,7 @@ export function LiveOutDayDialog({
 
   const terms = untilInvalid ? undefined : preview.data;
   const movesEnd = !!terms?.term_end_date && terms.term_end_date !== subscription.term_end_date;
-  const removed = [...(terms?.removed_dates ?? [])].sort();
+  const removed = removedByPlace(terms?.removed_dates, subscription.term_end_date);
   // The write's refusal, else the preview's (it checks the same substitute).
   const refused = mutation.error ? notAssignableOf(mutation.error) : notAssignableOf(preview.error);
   const submit = () => {
@@ -192,16 +192,26 @@ export function LiveOutDayDialog({
           </ul>
           {/* The API's term_end_date is the subscription's term end (the paid periods'); a change inside a later,
               unpaid period moves that period's end (each day's "added on" says where), never this one. Shown only
-              when it moves. A credited day or a holiday served again takes the day appended for it off the end of
-              the chain: named too (removed_dates, P4-267), as the history's "Removed from the end" names it. */}
-          {(movesEnd || removed.length > 0) && (
+              when it moves. A credited day or a holiday served again takes a day off the end of the chain (named:
+              removed_dates, P4-267): the day appended for it when no next period is open (the term's own last day,
+              "Removed from the end"); with the next period open, that period's last day ("Removed from the next
+              period's end"), the term's last day staying to open that period (P4-218). */}
+          {(movesEnd || removed.term.length > 0 || removed.next.length > 0) && (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
               {movesEnd && <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} />}
-              {removed.length > 0 && <TermsRow label={t("removed")} value={text.list(removed.map((d) => text.dateShort(d)))} />}
+              {removed.term.length > 0 && <TermsRow label={t("removed")} value={text.list(removed.term.map((d) => text.dateShort(d)))} />}
+              {removed.next.length > 0 && <TermsRow label={t("removedNext")} value={text.list(removed.next.map((d) => text.dateShort(d)))} />}
             </dl>
           )}
-          {/* A credit in the paid term with the next period open: both moves are said (P4-218). */}
-          <ShiftNote before={subscription.term_end_date} end={terms.term_end_date} added={terms.days.map((d) => d.appended_date)} />
+          {/* With the next period open, both moves are said (P4-218): a credit in the paid term (the term takes the next
+              period's first day, the day is added at its end), or a credited day served again (the term gives its last
+              day back to the next period, which loses its last day). */}
+          <ShiftNote
+            before={subscription.term_end_date}
+            end={terms.term_end_date}
+            added={terms.days.map((d) => d.appended_date)}
+            removed={terms.removed_dates ?? []}
+          />
           {terms.unfit.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="font-medium text-warning-700">{t("unfitTitle")}</p>

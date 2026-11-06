@@ -139,15 +139,43 @@ export function TermsRow({ label, value, changed }: { label: ReactNode; value: R
  * preview's "added on"). A date that stops counting in the next period leaves the term end as it was (`before`) and adds
  * a date at the next period's end all the same. Said whenever a date is added after the term end, so the two dates on
  * screen do not contradict each other, as the customer app says it (exception.shift.moved / kept); nothing otherwise.
+ *
+ * The other way (`removed`, a Live-out day served again, P4-267): a date taken off the end of the chain after the term
+ * end (`before`) is the next period's last one. The term gives its last dates back to the next period (its end moves
+ * back to `end`; its dates after that, up to `before`, stay and open the next period) and the next period loses the
+ * removed dates at its end. Said so the next period's date is not read as one of the term's, nor the term's last date as
+ * dropped; nothing when the removed date is the term's own last day (no next period open).
  */
-export function ShiftNote({ before, end, added }: { before: string; end: string | null | undefined; added: readonly (string | null | undefined)[] }) {
+export function ShiftNote({
+  before,
+  end,
+  added,
+  removed = [],
+}: {
+  before: string;
+  end: string | null | undefined;
+  added: readonly (string | null | undefined)[];
+  removed?: readonly (string | null | undefined)[];
+}) {
   const t = useTranslations("admin.subscriptions.dialogs");
   const text = useSubscriptionText();
   if (!end) return null;
+  const dates = (list: readonly string[]) => text.list(list.map((d) => text.dateShort(d)));
   const later = added.filter((d): d is string => !!d && d > end).sort();
-  if (later.length === 0) return null;
-  const values = { end: text.dateShort(end), dates: text.list(later.map((d) => text.dateShort(d))) };
-  return <p className="text-xs text-ink-600">{end === before ? t("shiftNoteKept", values) : t("shiftNote", values)}</p>;
+  if (later.length > 0) {
+    const values = { end: text.dateShort(end), dates: dates(later) };
+    return <p className="text-xs text-ink-600">{end === before ? t("shiftNoteKept", values) : t("shiftNote", values)}</p>;
+  }
+  const gone = removed.filter((d): d is string => !!d && d > before).sort();
+  if (gone.length === 0 || end > before) return null;
+  const values = { end: text.dateShort(end), last: text.dateShort(before), dates: dates(gone) };
+  return <p className="text-xs text-ink-600">{end === before ? t("shiftBackNoteKept", values) : t("shiftBackNote", values)}</p>;
+}
+
+/** The dates a change took off the end of the chain: the term's own (on or before its end), then the next period's. */
+export function removedByPlace(removed: readonly string[] | null | undefined, termEnd: string): { term: string[]; next: string[] } {
+  const sorted = [...(removed ?? [])].sort();
+  return { term: sorted.filter((d) => d <= termEnd), next: sorted.filter((d) => d > termEnd) };
 }
 
 /** 409 TERMS_CHANGED: nothing was done; the new terms are on screen and need a fresh confirm. */

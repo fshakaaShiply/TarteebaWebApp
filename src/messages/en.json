@@ -5171,7 +5171,9 @@
         "termsChangedTitle": "The terms changed",
         "moreDates": "and {count} more",
         "shiftNote": "The later dates move up: this term now ends on {end}, and the next period gains {dates} at its end.",
-        "shiftNoteKept": "This term still ends on {end}, and the next period gains {dates} at its end."
+        "shiftNoteKept": "This term still ends on {end}, and the next period gains {dates} at its end.",
+        "shiftBackNote": "This term now ends on {end}: its dates after that, up to {last}, stay and open the next period, which loses {dates} at its end.",
+        "shiftBackNoteKept": "This term still ends on {end}, and the next period loses {dates} at its end."
       },
       "confirm": {
         "title": "Confirm {reference}",
@@ -5607,6 +5609,7 @@
         "appended": "added on {date}",
         "newEnd": "New end of the term",
         "removed": "Removed from the end",
+        "removedNext": "Removed from the next period's end",
         "unfitTitle": "Days the substitute cannot cover (credited instead)",
         "noMoney": "No fee and no refund.",
         "retryPreview": "Try again",

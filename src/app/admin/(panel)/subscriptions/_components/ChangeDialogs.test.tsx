@@ -451,6 +451,73 @@ describe("A08 Live-out day", () => {
     expect(await screen.findByText("أُزيلت من آخر المدة")).toBeInTheDocument();
   });
 
+  it("tells both moves when a credited day of the paid term is served again while the next period is open: the term's last day stays and opens that period, which loses its own last day (P4-218, P4-267)", async () => {
+    // TRL-338BN5: 18 Nov was credited and 8 Dec appended for it (the term, period 1, ends on 8 Dec); period 2 is open,
+    // 9 Dec – 10 Jan. Serving 18 Nov again ends the term on 7 Dec, 8 Dec stays as period 2's first day and period 2's
+    // last day, 10 Jan, goes. The dialog showed "New end of the term 7 Dec" and "Removed from the end 10 Jan" (in
+    // Arabic «أُزيلت من آخر المدة», removed from the end of the term) and nothing to say 8 Dec stays.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({
+        days: [{ date: "2026-11-18", before: "absence", after: "service", substitute: null, credited: false }],
+        term_end_date: "2026-12-07",
+        removed_dates: ["2027-01-10"],
+      }),
+    );
+    const { unmount } = renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+    });
+    expect(await screen.findByText("Removed from the next period's end")).toBeInTheDocument();
+    expect(screen.getByText("Sun, 10 Jan 2027", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.queryByText("Removed from the end")).not.toBeInTheDocument();
+    expect(screen.getByText("New end of the term")).toBeInTheDocument();
+    expect(screen.getByText("Mon, 7 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(
+      screen.getByText("This term now ends on Mon, 7 Dec 2026: its dates after that, up to Tue, 8 Dec 2026, stay and open the next period, which loses Sun, 10 Jan 2027 at its end."),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+      locale: "ar",
+    });
+    expect(await screen.findByText("أُزيلت من آخر الفترة التالية")).toBeInTheDocument();
+    expect(screen.queryByText("أُزيلت من آخر المدة")).not.toBeInTheDocument();
+    expect(screen.getByText(/^تنتهي هذه المدة الآن في .+: تبقى تواريخها بعد ذلك حتى .+ وتبدأ بها الفترة التالية، وتُزال .+ من آخر الفترة التالية\.$/)).toBeInTheDocument();
+  });
+
+  it("says the term end stays when a credited day of the open next period is served again, that period losing its last day", async () => {
+    // TRL-338BN5: 16 Dec is in period 2; the term (to 8 Dec) keeps its end and period 2 loses 10 Jan.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({
+        days: [{ date: "2026-12-16", before: "absence", after: "service", substitute: null, credited: false }],
+        term_end_date: "2026-12-08",
+        removed_dates: ["2027-01-10"],
+      }),
+    );
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-12-16" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
+    expect(await screen.findByText("This term still ends on Tue, 8 Dec 2026, and the next period loses Sun, 10 Jan 2027 at its end.")).toBeInTheDocument();
+    expect(screen.getByText("Removed from the next period's end")).toBeInTheDocument();
+    expect(screen.queryByText("Removed from the end")).not.toBeInTheDocument();
+    expect(screen.queryByText("New end of the term")).not.toBeInTheDocument();
+  });
+
+  it("adds no note when the day taken off is the term's own last day (no next period open)", async () => {
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({
+        days: [{ date: "2026-11-18", before: "absence", after: "service", substitute: null, credited: false }],
+        term_end_date: "2026-12-07",
+        removed_dates: ["2026-12-08"],
+      }),
+    );
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="absence" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
+    expect(await screen.findByText("Removed from the end")).toBeInTheDocument();
+    expect(screen.queryByText("Removed from the next period's end")).not.toBeInTheDocument();
+    expect(screen.queryByText(/next period/)).not.toBeInTheDocument();
+  });
+
   it("names nothing removed when the preview takes no day off the end", async () => {
     api.previewLiveOutDay.mockResolvedValue(dayPreview({ removed_dates: [] }));
     show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
