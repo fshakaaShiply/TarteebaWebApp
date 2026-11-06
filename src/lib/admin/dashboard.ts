@@ -107,6 +107,15 @@ export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity"
   return null;
 }
 
+/**
+ * A08's queue of subscriptions whose cancellation waits for review (design §9.1 A02: `cancel_review=1`; GET
+ * /admin/subscriptions takes cancel_review and zone_id), in the zone the overview's alerts were counted for. Each
+ * subscription_cancel_review alert opens one subscription; this opens them all.
+ */
+export function subscriptionCancelReviewsHref(zoneId: number | null): string {
+  return withQuery(SUBSCRIPTIONS_PATH, { cancel_review: true, zone_id: zoneId });
+}
+
 /** Hours and minutes for a duration in whole minutes ("2 h 10 min"); negative values are treated as zero. */
 export function splitMinutes(minutes: number): { hours: number; minutes: number } {
   const total = Math.max(0, Math.floor(minutes));

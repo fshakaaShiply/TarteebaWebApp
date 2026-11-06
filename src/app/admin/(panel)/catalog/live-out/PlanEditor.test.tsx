@@ -170,6 +170,20 @@ describe("A11 Live-out plans and packages", () => {
     ).toBeInTheDocument();
   });
 
+  it.each([
+    ["en", "Active contracts"],
+    ["ar", "العقود النشطة"],
+  ] as const)("editor: isolates only the figures of the contract line, never its label (%s)", (locale, label) => {
+    renderWithProviders(<PlanEditor plan={capped} onClose={vi.fn()} />, { permissions: ["catalog.manage"], locale });
+    const line = screen.getByTestId("active-contracts");
+    // The label keeps the page's direction (an Arabic reader meets it first, at the start of the line) …
+    expect(line.textContent?.startsWith(label)).toBe(true);
+    // … and only "3 / 3" reads left to right.
+    const figures = line.querySelectorAll('bdi[dir="ltr"]');
+    expect(figures).toHaveLength(1);
+    expect(figures[0].textContent).toMatch(/^(3|٣) \/ (3|٣)$/);
+  });
+
   it("editor: a new plan has no slot to compare with and no contract line", () => {
     renderWithProviders(<PlanEditor plan={null} serviceId={2} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
     expect(screen.queryByTestId("active-contracts")).not.toBeInTheDocument();

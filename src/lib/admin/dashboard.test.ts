@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardAlertHref, dashboardHref, linkParams, splitMinutes, trailingId, withQuery } from "./dashboard";
+import { dashboardAlertHref, dashboardHref, linkParams, splitMinutes, subscriptionCancelReviewsHref, trailingId, withQuery } from "./dashboard";
 import type { DashboardLink } from "./types";
 
 // Links as GET /admin/dashboard/summary and /alerts send them (Reporting Support\Links).
@@ -18,6 +18,11 @@ describe("A02 links to admin pages", () => {
     expect(dashboardHref({ list: "subscription", path: "/api/v1/admin/subscriptions/x", params: {} })).toBeNull();
     // A subscription alert without a usable link still opens its subscription through the entity.
     expect(dashboardAlertHref({ link: null, entity: { type: "subscription", id: 29, reference: "TRS-A1B2C3" } })).toBe("/admin/subscriptions/29");
+  });
+
+  it("opens A08's cancellation review queue (design §9.1 A02: cancel_review=1), in the overview's zone", () => {
+    expect(subscriptionCancelReviewsHref(null)).toBe("/admin/subscriptions?cancel_review=1");
+    expect(subscriptionCancelReviewsHref(2)).toBe("/admin/subscriptions?cancel_review=1&zone_id=2");
   });
 
   it("opens the bookings list with the card's filters (the API's own names)", () => {

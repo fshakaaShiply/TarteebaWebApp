@@ -408,6 +408,46 @@ describe("A02 daily operations overview", () => {
     expect(screen.getByRole("link", { name: /Visit conflict/ })).toHaveAttribute("href", "/admin/subscriptions/29");
   });
 
+  it("opens A08's cancellation review queue beside the subscription_cancel_review alerts", async () => {
+    const review = (id: number, reference: string): DashboardAlerts["data"][number] => ({
+      type: "subscription_cancel_review",
+      severity: "warning",
+      at: "2026-10-23T07:00:00+00:00",
+      title: { ar: "مراجعة إلغاء", en: "Cancellation to review" },
+      message: { ar: "…", en: `The cancellation of ${reference} waits for review.` },
+      entity: { type: "subscription", id, reference },
+      link: { list: "subscription", path: `/api/v1/admin/subscriptions/${id}`, params: {} },
+      details: {},
+    });
+    const withReviews: DashboardAlerts = {
+      data: [review(31, "TRS-7K2M9Q"), review(29, "TRS-A1B2C3")],
+      meta: { ...alerts.meta, types: ["subscription_cancel_review"], counts: { subscription_cancel_review: 3 }, total: 3, urgent: 0 },
+    };
+    api.fetchDashboardAlerts.mockResolvedValue(withReviews);
+    const first = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    // The count is the full number (meta.counts), not only the alerts listed.
+    const queue = await screen.findByRole("link", { name: "Subscription cancellations waiting for review (3)" });
+    expect(queue).toHaveAttribute("href", "/admin/subscriptions?cancel_review=1");
+    expect(screen.getAllByRole("link", { name: /Cancellation to review/ }).map((a) => a.getAttribute("href"))).toEqual([
+      "/admin/subscriptions/31",
+      "/admin/subscriptions/29",
+    ]);
+    first.unmount();
+
+    // None waiting: no queue link.
+    api.fetchDashboardAlerts.mockResolvedValue(alerts);
+    const second = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    expect(await screen.findByText("Confirmation due")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Subscription cancellations waiting for review/ })).not.toBeInTheDocument();
+    second.unmount();
+
+    // No A08 permission: the alerts stay, the queue link does not.
+    api.fetchDashboardAlerts.mockResolvedValue(withReviews);
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
+    expect(await screen.findAllByText("Cancellation to review")).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: /Subscription cancellations waiting for review/ })).not.toBeInTheDocument();
+  });
+
   it("welcomes staff without bookings or schedule access instead of loading figures", () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["catalog.manage"] });
     expect(screen.getByText("Welcome to Tarteeba operations")).toBeInTheDocument();

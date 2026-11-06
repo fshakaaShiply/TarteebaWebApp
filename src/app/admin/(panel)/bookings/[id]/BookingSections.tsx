@@ -10,7 +10,7 @@ import { useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button, Card, Checkbox, ConfirmDialog, Notice, StatusBadge, TextArea, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
-import { NOTE_PERMISSIONS, availableActions } from "@/lib/admin/bookings/actions";
+import { NOTE_PERMISSIONS, availableActions, isSeriesVisit } from "@/lib/admin/bookings/actions";
 import { NOTE_MAX, approveRequestSchema, customerNoteSchema, internalNoteSchema, type ApproveValues } from "@/lib/admin/bookings/forms";
 import {
   addBookingNote,
@@ -21,7 +21,7 @@ import {
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import { INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
+import { INVOICES_PATH, PAYMENTS_PATH, SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { CAPACITY_OVERRIDE_PERMISSION } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail, BookingHistoryRow, RescheduleRequest } from "@/lib/admin/types";
@@ -440,12 +440,16 @@ export function ProposalsCard({ booking }: { booking: BookingDetail }) {
 export function RescheduleRequestsCard({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("admin.bookings.requests");
   const text = useBookingText();
-  const { can } = useAdminSession();
+  const { can, canAny } = useAdminSession();
   const [deciding, setDeciding] = useState<{ request: RescheduleRequest; action: "approve" | "reject" } | null>(null);
   const fallback = useBookingFocusFallback();
   const requests = booking.reschedule_requests;
   if (requests.length === 0) return null;
-  const canDecide = can("bookings.reschedule");
+  // P4-48: a series visit's request is approved or declined in A08 (POST /admin/subscriptions/{id}/visits/{visit}/
+  // reschedule-request); the booking's own decision routes answer 409 USE_SUBSCRIPTION_ACTIONS.
+  const series = isSeriesVisit(booking);
+  const canDecide = !series && can("bookings.reschedule");
+  const subscription = booking.subscription ?? null;
 
   return (
     <Card title={t("title")}>
@@ -469,6 +473,16 @@ export function RescheduleRequestsCard({ booking }: { booking: BookingDetail }) 
             </p>
             {r.reason && <p className="text-sm text-ink-600">{t("reason", { reason: r.reason })}</p>}
             {r.decision_note && <p className="text-sm text-ink-600">{t("decisionNote", { note: r.decision_note })}</p>}
+            {r.status === "pending" && series && (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-600">
+                <span>{t("seriesDecided")}</span>
+                {subscription && canAny([...SUBSCRIPTIONS_READ]) && (
+                  <Link href={`${SUBSCRIPTIONS_PATH}/${subscription.id}`} className="font-bold">
+                    {t("openSubscription", { reference: subscription.reference })}
+                  </Link>
+                )}
+              </p>
+            )}
             {r.status === "pending" && canDecide && (
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => setDeciding({ request: r, action: "approve" })}>

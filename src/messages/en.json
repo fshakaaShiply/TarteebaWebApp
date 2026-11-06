@@ -462,7 +462,8 @@
         "uncoveredTitle": "Uncovered visits today, all zones",
         "showAllTypes": "Show all alerts",
         "firstOf": "Showing the first {shown} of {total}.",
-        "uncoveredEmpty": "Every visit today has its team."
+        "uncoveredEmpty": "Every visit today has its team.",
+        "subscriptionCancelReviews": "Subscription cancellations waiting for review ({count})"
       },
       "panels": {
         "ofTotal": "{value} / {total}",
@@ -1667,8 +1668,8 @@
         "maxContractsHint": "Optional. Once reached, the plan shows as unavailable.",
         "active": "Active",
         "activeHint": "Inactive plans are hidden from customers.",
-        "contractsNoCap": "Active contracts {count}",
-        "contractsOfCap": "Active contracts {count} / {cap}",
+        "contractsNoCap": "Active contracts <ltr>{count}</ltr>",
+        "contractsOfCap": "Active contracts <ltr>{count} / {cap}</ltr>",
         "capReached": "Contract cap reached",
         "windowDiffers": "Window differs from the slot",
         "windowSlotWarning": "This plan's window differs from the Live-out slot ({code}), which runs {start} to {end}. Visits follow the plan's window and the slot is only the capacity pool, so make sure the difference is intended."
@@ -3191,7 +3192,9 @@
         "rejectBody": "The booking keeps its time and the customer is told why.",
         "rejectNote": "Message to the customer",
         "rejectNoteHint": "The customer reads this.",
-        "rejected": "The change is rejected and the customer is told."
+        "rejected": "The change is rejected and the customer is told.",
+        "seriesDecided": "This visit belongs to a subscription, so the request is approved or declined on the subscription page.",
+        "openSubscription": "Open subscription {reference}"
       },
       "notes": {
         "title": "Internal notes",
@@ -3661,7 +3664,12 @@
         "notReschedulable": "Only a confirmed booking whose visit hasn't started can be rescheduled. A request still pending confirmation can be offered other times from the booking page.",
         "workerNotMoved": "Only the day and time change here: {name} isn't added to the team. Change the cleaners after the reschedule, on the booking or here on the schedule.",
         "close": "Close",
-        "openBooking": "Open the booking"
+        "openBooking": "Open the booking",
+        "seriesBody": "This is a subscription visit. Its day and time are changed from its subscription, not from the booking.",
+        "seriesMove": "Open the subscription to move this visit to another day or time.",
+        "seriesNoAccess": "Your role can't open subscriptions. A coordinator who manages subscriptions can move this visit from its subscription.",
+        "openSubscription": "Open subscription {reference}",
+        "openSubscriptionPlain": "Open the subscription"
       },
       "review": {
         "title": "Review booking",

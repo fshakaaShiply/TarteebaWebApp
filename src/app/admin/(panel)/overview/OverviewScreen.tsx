@@ -21,11 +21,11 @@ import {
   type Column,
 } from "@/components/admin";
 import { OVERVIEW_REFRESH_MS, useBackgroundRefresh } from "@/lib/admin/backgroundRefresh";
-import { BOOKINGS_PATH, dashboardAlertHref, dashboardHref, withQuery } from "@/lib/admin/dashboard";
+import { BOOKINGS_PATH, dashboardAlertHref, dashboardHref, subscriptionCancelReviewsHref, withQuery } from "@/lib/admin/dashboard";
 import { fetchBookings, fetchDashboardAlerts, fetchDashboardSummary } from "@/lib/admin/endpoints";
 import { addDaysIso, businessToday, formatDateTime, isIsoDate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
-import { OVERVIEW_PERMISSIONS } from "@/lib/admin/nav";
+import { OVERVIEW_PERMISSIONS, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingRow, DashboardAlert, DashboardAlertType, DashboardSummary } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
@@ -405,6 +405,7 @@ function AlertsCard({
   className?: string;
 }) {
   const t = useTranslations("admin.overview.alerts");
+  const { canAny } = useAdminSession();
   const [all, setAll] = useState(false);
   const alerts = useQuery({
     queryKey: adminKeys.dashboardAlerts(zoneId),
@@ -428,6 +429,9 @@ function AlertsCard({
   const shown = all || type !== null ? items : items.slice(0, ALERTS_SHOWN);
   /** The API lists at most limit_per_type alerts of a type; meta.counts has the full number. */
   const typeTotal = type !== null ? (alerts.data?.meta.counts[type] ?? items.length) : 0;
+  // Subscription cancellations waiting for review: each alert opens one subscription; A08's filtered list opens them all.
+  const cancelReviews = alerts.data?.meta.counts.subscription_cancel_review ?? 0;
+  const cancelReviewsHref = type === null && cancelReviews > 0 && canAny([...SUBSCRIPTIONS_READ]) ? subscriptionCancelReviewsHref(zoneId) : null;
 
   return (
     <Card
@@ -469,6 +473,11 @@ function AlertsCard({
             <Button variant="ghost" size="sm" className="self-start" onClick={() => setAll((v) => !v)}>
               {all ? t("showFewer") : t("showAll", { count: items.length })}
             </Button>
+          )}
+          {cancelReviewsHref && (
+            <Link href={cancelReviewsHref} className="self-start text-sm font-bold">
+              {t("subscriptionCancelReviews", { count: cancelReviews })}
+            </Link>
           )}
         </>
       )}

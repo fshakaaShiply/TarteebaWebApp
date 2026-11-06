@@ -52,11 +52,11 @@ export const CANCEL_REVIEWS_PATH = "/admin/bookings?cancel_review=1";
 
 /** A08 reads with either permission (design §8.4: subscriptions.view is read only, subscriptions.manage writes). */
 export const SUBSCRIPTIONS_READ = ["subscriptions.view", "subscriptions.manage"] as const;
+/**
+ * A08. The overview opens its filtered lists through lib/admin/dashboard.ts: the requests card by the API's own link
+ * (status=pending_confirmation and the zone), the cancellation review queue by subscriptionCancelReviewsHref.
+ */
 export const SUBSCRIPTIONS_PATH = "/admin/subscriptions";
-/** A08 list of subscriptions waiting for confirmation (the overview's request card and alerts). */
-export const SUBSCRIPTION_REQUESTS_PATH = "/admin/subscriptions?status=pending_confirmation";
-/** A08 list of subscriptions whose cancellation waits for review. */
-export const SUBSCRIPTION_CANCEL_REVIEWS_PATH = "/admin/subscriptions?cancel_review=1";
 
 const CATALOG = ["catalog.manage"] as const;
 

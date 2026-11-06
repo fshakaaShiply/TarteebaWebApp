@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { MoneyField, Notice, Select, StatusBadge, Switch, TextField, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
@@ -23,6 +23,13 @@ import {
   useCatalogInvalidate,
 } from "../_components/CatalogFields";
 import { useCatalogText, useFieldError, useServiceOptions } from "../_components/catalogText";
+
+/** "3 / 5" read left to right inside a sentence in either language (the label stays outside the isolate). */
+const contractFigures = (chunks: ReactNode) => (
+  <bdi dir="ltr" className="font-latin font-medium">
+    {chunks}
+  </bdi>
+);
 
 const FIELDS = [
   "service_id",
@@ -203,11 +210,10 @@ export function PlanEditor({ plan, serviceId, onClose }: { plan: LiveOutPlan | n
           )}
           {plan && (
             <p className="text-sm text-ink-700 sm:col-span-2" data-testid="active-contracts">
-              <bdi dir="ltr" className="font-latin font-medium">
-                {plan.max_active_contracts === null
-                  ? t("contractsNoCap", { count: plan.active_contracts })
-                  : t("contractsOfCap", { count: plan.active_contracts, cap: plan.max_active_contracts })}
-              </bdi>
+              {/* Only the figures are isolated left to right ("3 / 5"); the label keeps the page's direction. */}
+              {plan.max_active_contracts === null
+                ? t.rich("contractsNoCap", { count: plan.active_contracts, ltr: contractFigures })
+                : t.rich("contractsOfCap", { count: plan.active_contracts, cap: plan.max_active_contracts, ltr: contractFigures })}
               {plan.unavailable_reason === "cap_reached" && (
                 <StatusBadge tone="danger" className="ms-2">
                   {t("capReached")}

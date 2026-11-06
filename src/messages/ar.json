@@ -462,7 +462,8 @@
         "uncoveredTitle": "الزيارات غير المغطاة اليوم في كل المناطق",
         "showAllTypes": "عرض كل التنبيهات",
         "firstOf": "يظهر أول {shown} من {total}.",
-        "uncoveredEmpty": "لكل زيارات اليوم فريقها."
+        "uncoveredEmpty": "لكل زيارات اليوم فريقها.",
+        "subscriptionCancelReviews": "طلبات إلغاء الاشتراكات بانتظار المراجعة ({count})"
       },
       "panels": {
         "ofTotal": "{value} / {total}",
@@ -738,11 +739,11 @@
             "description": "ساعات العمل اليومية لعاملات Live-out شاملة الاستراحة."
           },
           "absence_without_substitute": {
-            "label": "غياب عاملة الإقامة بلا بديلة",
+            "label": "غياب عاملة Live-out بلا بديلة",
             "description": "يُضاف يوم في نهاية الفترة (رصيد يوم)، أو لا شيء."
           },
           "day_notifications": {
-            "label": "إشعارات أيام الإقامة",
+            "label": "إشعارات أيام Live-out",
             "description": "هادئة: بلا تذكيرات ولا إشعارات الانطلاق والوصول والاكتمال (يستمر إشعار تغيير العاملة والتأخير)، أو كل الإشعارات."
           }
         },
@@ -1667,11 +1668,11 @@
         "maxContractsHint": "اختياري. عند بلوغه تظهر الخطة غير متاحة.",
         "active": "نشطة",
         "activeHint": "الخطط غير النشطة مخفية عن العملاء.",
-        "contractsNoCap": "العقود النشطة {count}",
-        "contractsOfCap": "العقود النشطة {count} / {cap}",
+        "contractsNoCap": "العقود النشطة <ltr>{count}</ltr>",
+        "contractsOfCap": "العقود النشطة <ltr>{count} / {cap}</ltr>",
         "capReached": "بلغت الحد الأقصى للعقود",
         "windowDiffers": "النافذة تختلف عن الفترة",
-        "windowSlotWarning": "نافذة هذه الخطة تختلف عن فترة الإقامة الكاملة ({code}) التي تعمل من {start} إلى {end}. تُنفَّذ الزيارات وفق نافذة الخطة، وتبقى الفترة مجرد مجمّع للسعة، فتأكد من أن الاختلاف مقصود."
+        "windowSlotWarning": "نافذة هذه الخطة تختلف عن فترة Live-out ({code}) التي تعمل من {start} إلى {end}. تُنفَّذ الزيارات وفق نافذة الخطة، وتبقى الفترة مجرد مجمّع للسعة، فتأكد من أن الاختلاف مقصود."
       },
       "addons": {
         "title": "الإضافات",
@@ -3191,7 +3192,9 @@
         "rejectBody": "يبقى الحجز في موعده ويُبلَّغ العميل بالسبب.",
         "rejectNote": "رسالة إلى العميل",
         "rejectNoteHint": "يقرأ العميل هذه الرسالة.",
-        "rejected": "رُفض التغيير وأُبلغ العميل."
+        "rejected": "رُفض التغيير وأُبلغ العميل.",
+        "seriesDecided": "هذه الزيارة جزء من اشتراك، لذا يُوافَق على الطلب أو يُرفض من صفحة الاشتراك.",
+        "openSubscription": "فتح الاشتراك {reference}"
       },
       "notes": {
         "title": "ملاحظات داخلية",
@@ -3369,15 +3372,15 @@
         "single": "حجز منفرد",
         "series": "كل زيارات الاشتراكات",
         "subscription_visit": "زيارة اشتراك دوري",
-        "live_out_day": "يوم إقامة",
-        "live_out_trial": "يوم تجريبي للإقامة"
+        "live_out_day": "يوم Live-out",
+        "live_out_trial": "يوم Live-out تجريبي"
       },
       "series": {
         "recurringVisit": "اشتراك <ref>{reference}</ref> · الزيارة {no} من {total}",
         "recurring": "اشتراك <ref>{reference}</ref>",
-        "liveOutDay": "إقامة كاملة <ref>{reference}</ref> · اليوم {no} من {total}",
-        "liveOut": "إقامة كاملة <ref>{reference}</ref>",
-        "liveOutTrial": "يوم تجريبي للإقامة <ref>{reference}</ref>",
+        "liveOutDay": "Live-out <ref>{reference}</ref> · اليوم {no} من {total}",
+        "liveOut": "Live-out <ref>{reference}</ref>",
+        "liveOutTrial": "يوم Live-out تجريبي <ref>{reference}</ref>",
         "openLabel": "فتح الاشتراك {reference}"
       }
     },
@@ -3604,8 +3607,8 @@
         "not_on_shift": "خارج المناوبة",
         "not_active": "غير نشطة",
         "leaveOf": "في إجازة · {type}",
-        "liveOutDay": "إقامة كاملة · <name>{who}</name>",
-        "liveOutDayWindow": "إقامة كاملة · <name>{who}</name> · <ltr>{start}–{end}</ltr>"
+        "liveOutDay": "Live-out · <name>{who}</name>",
+        "liveOutDayWindow": "Live-out · <name>{who}</name> · <ltr>{start}–{end}</ltr>"
       },
       "card": {
         "noArea": "المنطقة غير محددة",
@@ -3661,7 +3664,12 @@
         "notReschedulable": "لا تُعاد جدولة إلا الحجوزات المؤكدة التي لم تبدأ زيارتها. أما الطلب الذي ما زال بانتظار التأكيد فيمكن اقتراح مواعيد بديلة له من صفحة الحجز.",
         "workerNotMoved": "يتغير هنا اليوم والوقت فقط، ولن تُضاف {name} إلى الفريق. غيّر العاملات بعد إعادة الجدولة من صفحة الحجز أو من الجدول.",
         "close": "إغلاق",
-        "openBooking": "فتح الحجز"
+        "openBooking": "فتح الحجز",
+        "seriesBody": "هذه زيارة ضمن اشتراك، ويُغيَّر يومها ووقتها من صفحة الاشتراك لا من صفحة الحجز.",
+        "seriesMove": "افتح الاشتراك لنقل هذه الزيارة إلى يوم أو وقت آخر.",
+        "seriesNoAccess": "لا يملك دورك صلاحية فتح الاشتراكات. يستطيع منسق يدير الاشتراكات نقل هذه الزيارة من صفحة اشتراكها.",
+        "openSubscription": "فتح الاشتراك {reference}",
+        "openSubscriptionPlain": "فتح الاشتراك"
       },
       "review": {
         "title": "مراجعة الحجز",

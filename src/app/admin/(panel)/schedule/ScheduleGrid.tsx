@@ -32,7 +32,7 @@ import { Ltr, SlotLabel } from "../bookings/_components/BookingBits";
 import { useBookingText, visitTone } from "../bookings/_components/bookingText";
 import { useFocusRescue } from "../bookings/_components/focus";
 import { MoveDialog } from "./MoveDialog";
-import { attemptMove, isStale, useAfterMove, type MoveOutcome } from "./moveFlow";
+import { attemptMove, isStale, useAfterMove, type MoveOutcome, type SeriesLink } from "./moveFlow";
 import { RescheduleHandoff } from "./RescheduleHandoff";
 import { ReviewDrawer } from "./ReviewDrawer";
 
@@ -67,7 +67,8 @@ const rowKey = (workerId: number | null) => (workerId === null ? "lane" : String
 
 type CardAction = "move" | "review";
 type Banner = { reference: string; name: string; conflicts?: { code: string; message: string }[]; error?: unknown };
-type Reschedule = { source: DragSource; date: string; slotId: number | null; dropWorkerId: number | null };
+/** `subscription`: the API said the visit is a subscription's (USE_RESCHEDULE details), so A08 moves it. */
+type Reschedule = { source: DragSource; date: string; slotId: number | null; dropWorkerId: number | null; subscription?: SeriesLink | null };
 
 export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
   const t = useTranslations("admin.schedule");
@@ -151,7 +152,13 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
       return;
     }
     if (outcome.kind === "reschedule") {
-      setReschedule({ source, date: outcome.date, slotId: outcome.slotId ?? source.card.slot_template_id, dropWorkerId: droppedOnOtherWorker(source, target) });
+      setReschedule({
+        source,
+        date: outcome.date,
+        slotId: outcome.slotId ?? source.card.slot_template_id,
+        dropWorkerId: droppedOnOtherWorker(source, target),
+        subscription: outcome.subscription,
+      });
       return;
     }
     if (outcome.kind === "override") {
@@ -328,6 +335,7 @@ export function ScheduleGridView({ board }: { board: ScheduleGrid }) {
           date={reschedule.date}
           slotId={reschedule.slotId}
           dropWorkerName={reschedule.dropWorkerId === null ? null : nameOf(reschedule.dropWorkerId)}
+          subscription={reschedule.subscription ?? null}
           returnFocusTo={backTo(reschedule.source.card.id, "move", rowKey(reschedule.source.fromWorkerId))}
           onClose={() => setReschedule(null)}
         />

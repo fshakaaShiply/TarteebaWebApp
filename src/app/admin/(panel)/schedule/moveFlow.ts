@@ -14,20 +14,33 @@ import { useBookingRefresh } from "../bookings/_components/refresh";
  * A04 move (spec §14.3, §17 A04: "on drop → validate-move dry run → show result → save only on success"): the dry run
  * first; a clean answer is saved at once with the visit's version as If-Match; soft rules (another zone, the travel
  * buffer) ask for an override with a reason; anything else is refused and nothing is saved. Another date or slot is a
- * reschedule (422 USE_RESCHEDULE), which the booking's reschedule dialog takes over.
+ * reschedule (422 USE_RESCHEDULE), which the booking's reschedule dialog takes over; a subscription's visit is moved
+ * from its subscription (the error names it in details.subscription).
  */
+
+/** The subscription a series visit belongs to (USE_RESCHEDULE details.subscription): A08 moves it (P4-48). */
+export type SeriesLink = { id: number; reference: string | null };
 
 export type MoveOutcome =
   | { kind: "saved"; visit: VisitSummary }
   | { kind: "conflicts"; conflicts: { code: string; message: string }[] }
   | { kind: "override"; rules: string[]; canOverride: boolean }
-  | { kind: "reschedule"; date: string; slotId: number | null }
+  | { kind: "reschedule"; date: string; slotId: number | null; subscription: SeriesLink | null }
   | { kind: "error"; error: unknown };
 
 const codeOf = (error: unknown) => (error instanceof AdminApiError ? error.code : null);
 
+/** details.subscription of a 422 USE_RESCHEDULE: set when the visit is a subscription's (MoveVisitWorker), else null. */
+export function seriesLinkOf(error: unknown): SeriesLink | null {
+  if (!(error instanceof AdminApiError) || error.code !== "USE_RESCHEDULE") return null;
+  const s = error.details.subscription;
+  if (!s || typeof s !== "object") return null;
+  const { id, reference } = s as { id?: unknown; reference?: unknown };
+  return typeof id === "number" && Number.isInteger(id) ? { id, reference: typeof reference === "string" ? reference : null } : null;
+}
+
 function failed(error: unknown, target: DropTarget): MoveOutcome {
-  if (codeOf(error) === "USE_RESCHEDULE") return { kind: "reschedule", date: target.date, slotId: target.slotId };
+  if (codeOf(error) === "USE_RESCHEDULE") return { kind: "reschedule", date: target.date, slotId: target.slotId, subscription: seriesLinkOf(error) };
   const required = overrideRequiredOf(error);
   if (required) return { kind: "override", rules: [...new Set(required.workers.flatMap((w) => w.rules))], canOverride: required.canOverride };
   return { kind: "error", error };

@@ -408,6 +408,69 @@ describe("A04 operations schedule", () => {
     expect(api.moveVisit).not.toHaveBeenCalled();
   });
 
+  it("sends a subscription visit dropped on another time to its subscription, not to the booking's reschedule", async () => {
+    // P4-48: A08 moves a series visit; the booking offers no reschedule, so the hand-off must not say it isn't confirmed.
+    api.fetchBooking.mockResolvedValue(
+      bookingDetail({
+        id: 9,
+        reference: "TRB-K2M9QX",
+        status: "confirmed",
+        payment_status: "captured",
+        kind: "subscription_visit",
+        subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 },
+        visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }],
+      }),
+    );
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(1, "2026-10-24", 1));
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
+    expect(await within(handoff).findByText("Open the subscription to move this visit to another day or time.")).toBeInTheDocument();
+    expect(handoff).toHaveTextContent("This is a subscription visit.");
+    expect(handoff).not.toHaveTextContent("Only a confirmed booking");
+    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(screen.queryByRole("dialog", { name: "Reschedule TRB-K2M9QX" })).not.toBeInTheDocument();
+    expect(api.previewReschedule).not.toHaveBeenCalled();
+    expect(api.validateMove).not.toHaveBeenCalled();
+  });
+
+  it("takes the subscription from the API's USE_RESCHEDULE answer, even without access to the booking", async () => {
+    api.validateMove.mockRejectedValue(
+      apiError(422, "USE_RESCHEDULE", {
+        visit_id: 7,
+        booking_id: 9,
+        service_date: "2026-10-25",
+        slot_template_id: 2,
+        subscription: { id: 31, reference: "TRS-7K2M9Q" },
+      }),
+    );
+    renderWithProviders(<ScheduleScreen />, { permissions: ["schedule.view", "assignments.manage", "subscriptions.manage"] });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
+    expect(within(handoff).getByText("Open the subscription to move this visit to another day or time.")).toBeInTheDocument();
+    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(within(handoff).queryByRole("link", { name: "Open the booking" })).not.toBeInTheDocument();
+    expect(handoff).not.toHaveTextContent("can't reschedule bookings");
+    expect(api.fetchBooking).not.toHaveBeenCalled();
+    expect(api.moveVisit).not.toHaveBeenCalled();
+  });
+
+  it("tells staff without an A08 permission who can move a subscription visit", async () => {
+    api.validateMove.mockRejectedValue(
+      apiError(422, "USE_RESCHEDULE", { visit_id: 7, booking_id: 9, service_date: "2026-10-25", slot_template_id: 2, subscription: { id: 31, reference: "TRS-7K2M9Q" } }),
+    );
+    renderWithProviders(<ScheduleScreen />, { permissions: ["schedule.view", "assignments.manage"] });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+
+    dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
+    const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
+    expect(handoff).toHaveTextContent("A coordinator who manages subscriptions can move this visit");
+    expect(within(handoff).queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("explains why a request still pending confirmation can't be moved to another time", async () => {
     api.fetchBooking.mockResolvedValue(bookingDetail());
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
@@ -466,7 +529,7 @@ describe("A04 operations schedule", () => {
               markers: [
                 {
                   code: "live_out",
-                  label: { ar: "يوم إقامة", en: "Live-out day" },
+                  label: { ar: "يوم Live-out", en: "Live-out day" },
                   subscription: { id: 31, reference: "TRS-7K2M9Q", customer_name: "Sara Ahmed" },
                   window: { start: "09:00", end: "18:00" },
                 },
@@ -476,11 +539,19 @@ describe("A04 operations schedule", () => {
         : r,
     );
     api.fetchSchedule.mockResolvedValue(board);
-    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
+    const { unmount } = renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
     await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
-    const marker = within(rowOf("Tigist B.")).getAllByText((_, el) => el?.textContent === "Live-out · Sara Ahmed · 09:00–18:00" && el.classList.contains("bg-sage-100"))[0];
+    const isMarker = (text: string) => (_: string, el: Element | null) => el?.textContent === text && el.classList.contains("bg-sage-100");
+    const marker = within(rowOf("Tigist B.")).getAllByText(isMarker("Live-out · Sara Ahmed · 09:00–18:00"))[0];
     expect(marker).toHaveClass("bg-sage-100");
     expect(marker.closest("a")).toHaveAttribute("href", "/admin/subscriptions/31");
+    unmount();
+
+    // Arabic: the same term as the design (AdminSchedule.dc.html) and the plain Live-out day marker, never a second name.
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"], locale: "ar" });
+    const arMarker = (await screen.findAllByText(isMarker("Live-out · Sara Ahmed · 09:00–18:00")))[0];
+    expect(arMarker.closest("a")).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(document.body).not.toHaveTextContent("إقامة");
   });
 
   it("shows the Live-out marker as text without a link for staff who cannot open A08, and falls back to the reference", async () => {
@@ -491,7 +562,7 @@ describe("A04 operations schedule", () => {
             ...r,
             days: r.days.map((d) => ({
               ...d,
-              markers: [{ code: "live_out", label: { ar: "يوم إقامة", en: "Live-out day" }, subscription: { id: 31, reference: "TRS-7K2M9Q", customer_name: null }, window: null }],
+              markers: [{ code: "live_out", label: { ar: "يوم Live-out", en: "Live-out day" }, subscription: { id: 31, reference: "TRS-7K2M9Q", customer_name: null }, window: null }],
             })),
           }
         : r,
