@@ -99,7 +99,8 @@ function SubscriptionsTable() {
     value && !options.some((o) => o.value === value) ? [...options, { value, label: t("filters.unknownChoice", { id: value }) }] : options;
   const zoneOptions = withSelected(choiceOptions(zones.data), filters.zone_id);
   const workerOptions = withSelected(
-    [...(workers.data ?? [])].sort((a, b) => a.display_name.localeCompare(b.display_name)).map((w) => ({ value: String(w.id), label: w.display_name })),
+    // An <option> holds text only: the name is its own bidi run, so "Maria S." keeps its period in Arabic.
+    [...(workers.data ?? [])].sort((a, b) => a.display_name.localeCompare(b.display_name)).map((w) => ({ value: String(w.id), label: isolate(w.display_name) })),
     filters.worker_id,
   );
 

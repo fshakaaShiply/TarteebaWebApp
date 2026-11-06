@@ -39,8 +39,8 @@
       "arrived": "وصلت العاملة",
       "in_progress": "قيد التنفيذ",
       "completed": "مكتملة",
-      "no_show_customer": "لم يتواجد العميل",
-      "missed_by_company": "فاتت من الشركة",
+      "no_show_customer": "العميل غير متواجد",
+      "missed_by_company": "لم تتم الزيارة",
       "cancelled": "ملغاة"
     }
   },
@@ -2732,6 +2732,7 @@
       "caption": "الحجوزات",
       "noName": "بلا اسم بعد",
       "workersCount": "{count, plural, one {عاملة واحدة} two {عاملتان} few {# عاملات} many {# عاملة} other {# عاملة}}",
+      "totalInSubscription": "ضمن الاشتراك",
       "open": "فتح",
       "openLabel": "فتح الحجز {reference}",
       "empty": "لا توجد حجوزات بعد.",
@@ -3143,6 +3144,8 @@
         "seriesPrimary": "العاملة الأساسية في الاشتراك",
         "seriesPrimaryNote": "مُسمّاة لزيارات الاشتراك، وتُغيَّر من صفحة الاشتراك.",
         "seriesPrimaryNoteLiveOut": "محجوزة طوال اليوم.",
+        "seriesPrimaryAwayLiveOut": "لا تخدم هذا اليوم؛ تخدمه: {names}.",
+        "seriesPrimaryAway": "ليست ضمن فريق هذه الزيارة؛ تخدمها: {names}.",
         "noSeriesPrimary": "لم تُسمَّ العاملة الأساسية بعد"
       },
       "payment": {
@@ -3172,7 +3175,11 @@
         "refundStatusFinance": "تظهر حالة الاسترداد من مزود الدفع لفريق المالية.",
         "openInFinance": "فتح في المدفوعات والفواتير",
         "series": "مدفوعة ضمن الاشتراك {reference} (الفترة {n}).",
-        "seriesNoPeriod": "مدفوعة ضمن الاشتراك {reference}."
+        "seriesNoPeriod": "مدفوعة ضمن الاشتراك {reference}.",
+        "seriesRefunded": "مستردة مع الاشتراك {reference} (الفترة {n}).",
+        "seriesPartlyRefunded": "مدفوعة ضمن الاشتراك {reference} (الفترة {n})، واستُرد جزء من الفترة.",
+        "seriesUnpaid": "غير مدفوعة بعد: الفترة {n} من الاشتراك {reference}.",
+        "seriesVoid": "غير مدفوعة: لم تُدفع الفترة {n} من الاشتراك {reference}."
       },
       "proposals": {
         "title": "المواعيد البديلة المقترحة",
@@ -3271,6 +3278,8 @@
         "count": "المعيّنات: {assigned} من {required}",
         "changeStatus": "تغيير حالة الزيارة",
         "nobody": "لم تُعيَّن أي عاملة بعد.",
+        "nobodyClosed": "لا عاملة: لن تتم هذه الزيارة.",
+        "nobodyDone": "لم تُسجَّل عاملة لهذه الزيارة.",
         "notAssignable": "يمكن تعيين العاملات ما دام الطلب بانتظار التأكيد أو مؤكدًا ولم تبدأ الزيارة.",
         "replace": "استبدال",
         "replaceLabel": "استبدال {name}",
@@ -4900,7 +4909,8 @@
         "discountRevoked": "مسحوب",
         "upcoming": "الزيارات القادمة",
         "allVisits": "كل الزيارات",
-        "noUpcoming": "لم تُخطَّط زيارات بعد."
+        "noUpcoming": "لم تُخطَّط زيارات بعد.",
+        "noUpcomingClosed": "لا زيارات قادمة."
       },
       "periods": {
         "empty": "لا توجد فترات بعد",
@@ -5074,8 +5084,8 @@
           },
           "visitStatus": {
             "completed": "مكتملة",
-            "no_show_customer": "العميل غير موجود",
-            "missed_by_company": "فاتت بسبب الشركة",
+            "no_show_customer": "العميل غير متواجد",
+            "missed_by_company": "لم تتم الزيارة",
             "cancelled": "ملغاة"
           },
           "autoRenew": {
@@ -5158,7 +5168,8 @@
         "changedBody": "جرى تحديثه أثناء فتح هذه النافذة. ما ترسله يُفحص مقابل النسخة التي فتحتها؛ وإن تغيّر في الأثناء سيطلب النظام إعادة التحميل.",
         "changedMark": "(تغيّر)",
         "termsChangedTitle": "تغيّرت الشروط",
-        "moreDates": "و{count} أخرى"
+        "moreDates": "و{count} أخرى",
+        "shiftNote": "تتقدّم التواريخ اللاحقة: تنتهي هذه المدة الآن في {end}، وتُضاف {dates} إلى آخر الفترة التالية."
       },
       "confirm": {
         "title": "تأكيد {reference}",
@@ -5364,6 +5375,7 @@
         },
         "priceTitle": "سعر كل تاريخ جديد",
         "dearer": "أغلى",
+        "priceChange": "{from} ← {to}",
         "priceBlocked": "تاريخ جديد أغلى من التاريخ الذي يستبدله، لذلك لا يمكن إجراء هذا التعديل.",
         "priceHigherTitle": "تاريخ جديد سيكون أغلى",
         "priceHigherBody": "{date}: {oldPrice} الآن، و{newPrice} بعد التعديل. السعر المتفق عليه لا يرتفع بتعديل.",
@@ -5577,6 +5589,7 @@
           "public_holiday": "عطلة رسمية",
           "service": "خدمة"
         },
+        "beforeAfter": "{from} ← <b>{to}</b>",
         "scope": "يسري على",
         "scopeThis": "هذا اليوم فقط",
         "scopeFollowing": "هذا اليوم والأيام التالية",

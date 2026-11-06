@@ -186,9 +186,8 @@ export function EditFollowingDialog({ subscription, visit, onClose, onStale, cha
                 {terms.price.checks.map((c) => (
                   <li key={c.date} className="flex flex-wrap gap-x-2">
                     <Ltr>{text.dateShort(c.date)}</Ltr>
-                    <span className="font-latin">
-                      {text.moneyFixed(c.old_unit_fils)} → {text.moneyFixed(c.new_unit_fils)}
-                    </span>
+                    {/* The arrow follows the reading direction (old ← new in Arabic), as the history's change does. */}
+                    <span className="font-latin">{t("priceChange", { from: text.moneyFixed(c.old_unit_fils), to: text.moneyFixed(c.new_unit_fils) })}</span>
                     {c.new_unit_fils > c.old_unit_fils && <span className="font-medium text-danger-700">{t("dearer")}</span>}
                   </li>
                 ))}

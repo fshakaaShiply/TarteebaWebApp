@@ -133,7 +133,13 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
               <span className="sr-only">{t("titlePrefix")} </span>
               <Ltr>{booking.reference}</Ltr>
             </h1>
-            <BookingChips status={booking.status} statusLabel={booking.status_label} payment={booking.payment_status} paymentLabel={booking.payment_status_label} />
+            <BookingChips
+              status={booking.status}
+              statusLabel={booking.status_label}
+              payment={booking.payment_status}
+              paymentLabel={booking.payment_status_label}
+              series={booking.subscription}
+            />
             <p className="text-sm text-ink-600">
               {text.name(booking.service.name)} · {text.dateShort(booking.service_date)} · <SlotLabel name={booking.slot.name} start={booking.slot.start} end={booking.slot.end} /> ·{" "}
               {text.name(booking.zone.name)}

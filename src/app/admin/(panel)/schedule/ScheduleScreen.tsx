@@ -18,7 +18,7 @@ import {
   TextField,
 } from "@/components/admin";
 import { fetchAllWorkers, fetchSchedule } from "@/lib/admin/endpoints";
-import { businessToday, formatMonth, isIsoDate } from "@/lib/admin/format";
+import { businessToday, formatMonth, isIsoDate, isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import {
   NO_SCHEDULE_FILTERS,
@@ -201,7 +201,8 @@ function ScheduleContent() {
             value={filters.workerId === null ? "" : String(filters.workerId)}
             onChange={(e) => setFilters({ workerId: e.target.value ? Number(e.target.value) : null })}
             placeholder={t("filters.allWorkers")}
-            options={workerOptions.map((w) => ({ value: String(w.id), label: w.name }))}
+            // An <option> holds text only: the name is its own bidi run, so "Maria S." keeps its period in Arabic.
+            options={workerOptions.map((w) => ({ value: String(w.id), label: isolate(w.name) }))}
             containerClassName="min-w-[170px]"
           />
           <Select

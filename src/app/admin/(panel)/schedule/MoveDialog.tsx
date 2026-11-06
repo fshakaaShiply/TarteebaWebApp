@@ -177,7 +177,8 @@ export function MoveDialog({
                 setOutcome(null);
                 setErrors({});
               }}
-              options={options.map((w) => ({ value: String(w.id), label: w.display_name }))}
+              // An <option> holds text only: the name is its own bidi run, so "Maria S." keeps its period in Arabic.
+              options={options.map((w) => ({ value: String(w.id), label: isolate(w.display_name) }))}
               error={errors.worker}
             />
             {outcome?.kind === "conflicts" && (

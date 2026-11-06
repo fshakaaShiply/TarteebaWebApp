@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import { serviceOptions, zoneOptions } from "@/test/bookingFixtures";
 import { dayBoard, driverPickList, planResult, round, slotPickList, vehiclePickList } from "@/test/opsBoardFixtures";
 import { renderWithProviders } from "@/test/render";
@@ -385,7 +386,7 @@ describe("A06 trip planner", () => {
     const user = userEvent.setup();
     await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
     const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
-    await within(dialog).findByRole("option", { name: "Test Driver 2" });
+    await within(dialog).findByRole("option", { name: isolate("Test Driver 2") });
     await user.selectOptions(within(dialog).getByRole("combobox", { name: "Driver" }), "2");
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(await within(dialog).findByText("This driver isn't available: the driver or the staff account is inactive.")).toBeInTheDocument();
@@ -402,9 +403,9 @@ describe("A06 trip planner", () => {
     await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
     const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
     const driver = within(dialog).getByRole("combobox", { name: "Driver" });
-    await within(driver).findByRole("option", { name: "Test Driver 2" });
+    await within(driver).findByRole("option", { name: isolate("Test Driver 2") });
     expect(driver).toBeEnabled();
-    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", "Test Driver", "Test Driver 2"]);
+    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", isolate("Test Driver"), isolate("Test Driver 2")]);
     expect(driver).toHaveValue("1");
     expect(dialog).not.toHaveTextContent(/fleet permission/);
 
@@ -420,7 +421,7 @@ describe("A06 trip planner", () => {
     await user.click(within(await panel()).getByRole("button", { name: "Van, driver and time" }));
     const dialog = await screen.findByRole("dialog", { name: "Van, driver and time of DEMO-VAN-1" });
     const driver = within(dialog).getByRole("combobox", { name: "Driver" });
-    expect(await within(driver).findByRole("option", { name: "Retired Driver (inactive)" })).toBeInTheDocument();
+    expect(await within(driver).findByRole("option", { name: `${isolate("Retired Driver")} (inactive)` })).toBeInTheDocument();
     expect(driver).toHaveValue("3");
     expect(within(dialog).getByRole("combobox", { name: /Van/ })).toHaveValue("1");
   });
@@ -513,13 +514,13 @@ describe("A06 trip planner", () => {
     act(() => answer());
     await waitFor(() => expect(driver).toHaveAccessibleDescription("We couldn't load the drivers, so only the round's own driver is listed."));
     expect(dialog).not.toHaveTextContent("Only active drivers can take a round.");
-    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", "Test Driver"]);
+    expect(within(driver).getAllByRole("option").map((o) => o.textContent)).toEqual(["No driver yet", isolate("Test Driver")]);
 
     fail = false;
     await user.click(within(dialog).getByRole("button", { name: "Load the drivers again" }));
     await waitFor(() => expect(api.fetchDriverOptions).toHaveBeenCalledTimes(2));
     act(() => answer());
-    expect(await within(driver).findByRole("option", { name: "Test Driver 2" })).toBeInTheDocument();
+    expect(await within(driver).findByRole("option", { name: isolate("Test Driver 2") })).toBeInTheDocument();
     expect(driver).toHaveAccessibleDescription("Only active drivers can take a round.");
     expect(within(dialog).queryByRole("button", { name: "Load the drivers again" })).not.toBeInTheDocument();
     expect(driver).toHaveValue("1");

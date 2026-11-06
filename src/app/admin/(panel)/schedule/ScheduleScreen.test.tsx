@@ -372,7 +372,7 @@ describe("A04 operations schedule", () => {
     expect(within(dialog).getByText("Choose a cleaner.")).toBeInTheDocument();
     expect(within(dialog).getByRole("combobox", { name: /Cleaner/ })).toHaveFocus();
 
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Cleaner/ }), "Tigist B.");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Cleaner/ }), isolate("Tigist B."));
     await user.tab();
     await user.tab();
     expect(within(dialog).getByRole("button", { name: "Check and move" })).toHaveFocus();
@@ -396,7 +396,7 @@ describe("A04 operations schedule", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Move TRB-R4RYSD" }));
     const dialog = await screen.findByRole("dialog", { name: "Move TRB-R4RYSD" });
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Cleaner/ }), "Grace N.");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Cleaner/ }), isolate("Grace N."));
     await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
     expect(await within(dialog).findByText("On a Live-out day")).toBeInTheDocument();
     expect(dialog).toHaveTextContent("This move isn't allowed");
@@ -624,7 +624,7 @@ describe("A04 operations schedule", () => {
 
     await user.click(within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }));
     let dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), isolate("Tigist B."));
     await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
     await waitFor(() => expect(api.moveVisit).toHaveBeenCalledWith(expect.objectContaining({ to_worker_id: 5 }), 3, {}));
     // The dialog closes, the board says so and reloads (before, the dialog stayed with the old version).
@@ -634,7 +634,7 @@ describe("A04 operations schedule", () => {
 
     await user.click(within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }));
     dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), isolate("Tigist B."));
     await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
     await waitFor(() => expect(api.moveVisit).toHaveBeenLastCalledWith(expect.objectContaining({ to_worker_id: 5 }), 4, {}));
   });
@@ -654,7 +654,7 @@ describe("A04 operations schedule", () => {
     within(rowOf("Maria S.")).getByRole("button", { name: "Move TRB-K2M9QX" }).focus();
     await user.keyboard("{Enter}");
     const dialog = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX" });
-    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "Tigist B.");
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), isolate("Tigist B."));
     await user.click(within(dialog).getByRole("button", { name: "Check and move" }));
     await waitFor(() => expect(within(rowOf("Tigist B.")).getByRole("button", { name: "Move TRB-K2M9QX" })).toBeInTheDocument());
     expect(within(rowOf("Maria S.")).queryByText("TRB-K2M9QX")).not.toBeInTheDocument();

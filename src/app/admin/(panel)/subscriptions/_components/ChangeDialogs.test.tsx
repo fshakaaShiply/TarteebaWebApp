@@ -205,6 +205,16 @@ describe("A08 freeze dialog", () => {
     expect(api.freezeSubscription.mock.calls[0][1]).toMatchObject({ expected_term_end_date: "2026-11-28" });
   });
 
+  it("tells both moves of a freeze in the paid term while the next period is open: the term's new end and the visits added after it (P4-218)", async () => {
+    // The term (to 28 Nov) takes period 2's first visits up to 5 Dec; the frozen visits are added at period 2's end.
+    const { user } = show((p) => <FreezeDialog subscription={sub} {...p} />);
+    await chooseRange(user);
+    expect(await screen.findByText("Sat, 5 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(
+      screen.getByText("The later dates move up: this term now ends on Sat, 5 Dec 2026, and the next period gains Sun, 27 Dec 2026, Wed, 30 Dec 2026 at its end."),
+    ).toBeInTheDocument();
+  });
+
   it("maps FREEZE_EXISTS and rejects a backwards range before any request", async () => {
     api.freezeSubscription.mockRejectedValue(apiError(409, "FREEZE_EXISTS", { from: "2026-11-15", to: "2026-11-21" }));
     const { user } = show((p) => <FreezeDialog subscription={sub} {...p} />);
@@ -374,6 +384,34 @@ describe("A08 Live-out day", () => {
     renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
     expect(await screen.findByText("New end of the term")).toBeInTheDocument();
     expect(screen.getByText("Wed, 9 Dec 2026")).toBeInTheDocument();
+    // The day added is the term's new end itself: nothing moves on, so there is no second move to tell.
+    expect(screen.queryByText(/The later dates move up/)).not.toBeInTheDocument();
+  });
+
+  it("tells both moves of a credit in the paid term while the next period is open: the term's new end and the day added after it (P4-218)", async () => {
+    // TRL-S2FB7Q: 24 Nov is in period 1 (paid, to 8 Dec); period 2 is open with its days held from 12 Dec. The term
+    // takes 12 Dec and the day is added at the end of period 2 (11 Jan): the row said "added on 11 Jan" and the term
+    // row "12 Dec", with nothing to say which day the customer gets back.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({ days: [{ date: "2026-11-24", before: "service", after: "absence", substitute: null, credited: true, appended_date: "2027-01-11" }], term_end_date: "2026-12-12" }),
+    );
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-24" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
+    expect(await screen.findByText("added on Mon, 11 Jan 2027")).toBeInTheDocument();
+    expect(screen.getByText("New end of the term")).toBeInTheDocument();
+    expect(screen.getByText("Sat, 12 Dec 2026")).toBeInTheDocument();
+    expect(screen.getByText("The later dates move up: this term now ends on Sat, 12 Dec 2026, and the next period gains Mon, 11 Jan 2027 at its end.")).toBeInTheDocument();
+  });
+
+  it("draws the arrow the way Arabic reads: the old state, then the new one (خدمة ← غياب)", async () => {
+    // It was a hard-coded "→": drawn right to left it read «غياب → خدمة», absence back to service.
+    renderWithProviders(<LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+      locale: "ar",
+    });
+    const line = await screen.findByText((_, el) => el?.tagName === "SPAN" && /^خدمة . غياب$/.test(el.textContent ?? ""));
+    expect(line.textContent).toBe("خدمة ← غياب");
+    expect(within(line).getByText("غياب")).toHaveClass("font-medium");
   });
 
   it("names each day's substitute as the API does, without looking her up among the candidates", async () => {

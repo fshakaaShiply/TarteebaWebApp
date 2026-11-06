@@ -24,6 +24,7 @@ import { AdminApiError } from "@/lib/admin/client";
 import { assignmentReasonSchema } from "@/lib/admin/bookings/forms";
 import { addStop, cancelRound, publishRound, removeStop, setPassengers, updateRound } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
+import { isolate } from "@/lib/admin/format";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
 import {
@@ -175,12 +176,13 @@ export function EditRoundDialog({ round, onClose, returnFocusTo }: DialogProps) 
     });
   }
   // Drivers who can take a round (is_active: profile and staff account active), and the round's own driver while
-  // they can't (marked), so saving another change keeps them.
+  // they can't (marked), so saving another change keeps them. An <option> holds text only: each name is its own bidi
+  // run, so a Latin name ending in "." keeps its period in Arabic.
   const driverOptions = (drivers.data ?? [])
     .filter((d) => d.is_active || d.id === snapshot.driver?.id)
-    .map((d) => ({ value: String(d.id), label: d.is_active ? d.name : t("driverOff", { name: d.name }) }));
+    .map((d) => ({ value: String(d.id), label: d.is_active ? isolate(d.name) : t("driverOff", { name: isolate(d.name) }) }));
   if (snapshot.driver && !driverOptions.some((o) => o.value === String(snapshot.driver!.id))) {
-    driverOptions.unshift({ value: String(snapshot.driver.id), label: snapshot.driver.name });
+    driverOptions.unshift({ value: String(snapshot.driver.id), label: isolate(snapshot.driver.name) });
   }
 
   return (

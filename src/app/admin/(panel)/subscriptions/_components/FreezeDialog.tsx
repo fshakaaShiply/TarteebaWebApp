@@ -14,7 +14,19 @@ import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { FreezePreview } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { DateList } from "./SubscriptionBits";
-import { ChangedNotice, DRY_RUN, ErrorNotice, PreviewBox, TermsChangedNotice, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
+import {
+  ChangedNotice,
+  DRY_RUN,
+  ErrorNotice,
+  PreviewBox,
+  ShiftNote,
+  TermsChangedNotice,
+  TermsRow,
+  hasFieldErrors,
+  useDialogMutation,
+  useFieldError,
+  type SubscriptionDialogProps,
+} from "./kit";
 
 /**
  * Freeze a range of visits (recurring only): the visits in it are credited back at the end of the term, nothing is
@@ -153,6 +165,8 @@ export function FreezeDialog({ subscription, onClose, onStale, changed, returnFo
               <DateList dates={terms.appended_dates} />
             </div>
           )}
+          {/* A freeze in the paid term with the next period open: both moves are said (P4-218). */}
+          <ShiftNote before={subscription.term_end_date} end={terms.new_term_end_date} added={terms.appended_dates} />
           <p className="text-xs text-ink-600">{t("noMoney")}</p>
         </PreviewBox>
       )}

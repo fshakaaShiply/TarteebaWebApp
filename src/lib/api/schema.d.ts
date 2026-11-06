@@ -4360,6 +4360,8 @@ export interface components {
                 visit_no: number | null;
                 visits_total: number | null;
                 period_no: number | null;
+                /** @enum {string|null} */
+                period_status: "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void" | null;
                 visit_ulid: string | null;
             } | null;
             customer: {
@@ -4590,6 +4592,8 @@ export interface components {
                 visit_no: number | null;
                 visits_total: number | null;
                 period_no: number | null;
+                /** @enum {string|null} */
+                period_status: "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void" | null;
                 visit_ulid: string | null;
             } | null;
             customer: {
@@ -8434,6 +8438,7 @@ export interface components {
             id: number;
             /** @enum {string} */
             type: "skip" | "reschedule_visit" | "freeze" | "unfreeze" | "renew" | "renewal_failed" | "cancel" | "discount_revoked" | "worker_changed" | "created" | "confirmed" | "rejected" | "expired" | "suspended" | "reactivated" | "ended" | "series_edited" | "auto_renew_changed" | "payment_method_changed" | "conflict" | "credited" | "live_out_day_changed" | "cancel_review_requested" | "cancel_review_declined" | "cancel_review_resolved" | "unskip" | "renewal_priced" | "late_capture" | "reschedule_requested" | "reschedule_decided" | "settled";
+            /** @description The row's heading in the reader's language; a `renew` row's names its stage (P4-262). */
             type_label: string;
             /**
              * @description DECISION (P4-249): the history row's own facts, a JSON object whose keys depend on `type` (31 types written

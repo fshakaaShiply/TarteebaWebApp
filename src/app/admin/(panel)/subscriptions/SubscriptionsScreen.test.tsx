@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import type { Worker } from "@/lib/admin/types";
 import { zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
@@ -161,7 +162,10 @@ describe("A08 subscriptions list", () => {
     const user = userEvent.setup();
     const { unmount } = renderWithProviders(<SubscriptionsScreen />, { permissions: [...READ, "workers.view"] });
     await screen.findByRole("link", { name: "TRS-7K2M9Q" });
-    await user.selectOptions(await screen.findByLabelText("Worker"), "15");
+    // An <option> holds text only: each name is its own bidi run, so "Maria S." never shows as ".Maria S" in Arabic.
+    const filter = await screen.findByLabelText("Worker");
+    await waitFor(() => expect(within(filter).getByRole("option", { name: isolate("Maria S.") })).toHaveValue("14"));
+    await user.selectOptions(filter, "15");
     await waitFor(() => expect(api.fetchSubscriptions).toHaveBeenLastCalledWith(expect.objectContaining({ workerId: 15 })));
     unmount();
     url.set("/admin/subscriptions");

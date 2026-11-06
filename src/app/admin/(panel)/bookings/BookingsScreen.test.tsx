@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Worker } from "@/lib/admin/types";
+import { isolate } from "@/lib/admin/format";
 import { bookingRow, serviceOptions, slotTemplateOptions, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { BookingsScreen } from "./BookingsScreen";
@@ -86,6 +87,33 @@ describe("A03 bookings list", () => {
     expect(single).not.toHaveTextContent("Subscription");
   });
 
+  it("lists a subscription visit's total as within its subscription, never AED 0, and its payment as its period's (P4-38, P4-264)", async () => {
+    const link = { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 };
+    api.fetchBookings.mockResolvedValue(
+      page([
+        bookingRow({ id: 9, reference: "TRB-V3V3V3", kind: "subscription_visit", total_fils: 0, payment_status: "captured", subscription: { ...link, period_status: "paid" } }),
+        bookingRow({ id: 2, reference: "TRB-RFND01", kind: "subscription_visit", total_fils: 0, payment_status: "captured", subscription: { ...link, period_status: "refunded" } }),
+        bookingRow({ id: 4 }),
+      ]),
+    );
+    const { unmount } = renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    const row = (await screen.findByRole("link", { name: "TRB-V3V3V3" })).closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("In the subscription");
+    expect(row).not.toHaveTextContent("AED 0");
+    expect(row).toHaveTextContent("Payment: Paid");
+    const refunded = screen.getByRole("link", { name: "TRB-RFND01" }).closest("tr") as HTMLElement;
+    expect(refunded).toHaveTextContent("Payment: Refunded");
+    expect(refunded).not.toHaveTextContent("Payment: Paid");
+    // A single booking keeps its own total.
+    expect(screen.getByRole("link", { name: "TRB-R4RYSD" }).closest("tr")).not.toHaveTextContent("In the subscription");
+    unmount();
+
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"], locale: "ar" });
+    const arabic = (await screen.findByRole("link", { name: "TRB-V3V3V3" })).closest("tr") as HTMLElement;
+    expect(arabic).toHaveTextContent("ضمن الاشتراك");
+    expect(arabic).not.toHaveTextContent("0 د.إ");
+  });
+
   it("shows the subscription label as text without a link for staff who cannot open A08", async () => {
     api.fetchBookings.mockResolvedValue(
       page([bookingRow({ kind: "subscription_visit", subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 } })]),
@@ -142,11 +170,11 @@ describe("A03 bookings list", () => {
     await waitFor(() => expect(within(slot).getByRole("option", { name: "Evening · 15:00–19:00" })).toBeInTheDocument());
     expect(within(slot).getByRole("option", { name: "Night · 20:00–23:00 (inactive)" })).toBeInTheDocument();
     const cleaner = screen.getByRole("combobox", { name: "Cleaner" });
-    await waitFor(() => expect(within(cleaner).getByRole("option", { name: "Maria S." })).toBeInTheDocument());
+    await waitFor(() => expect(within(cleaner).getByRole("option", { name: isolate("Maria S.") })).toBeInTheDocument());
     // A cleaner who left is marked as such (feminine in Arabic, like every other cleaner label).
-    expect(within(cleaner).getByRole("option", { name: "Joy R. (left the company)" })).toBeInTheDocument();
+    expect(within(cleaner).getByRole("option", { name: `${isolate("Joy R.")} (left the company)` })).toBeInTheDocument();
     const driver = screen.getByRole("combobox", { name: "Driver" });
-    await waitFor(() => expect(within(driver).getByRole("option", { name: "Omar Driver" })).toBeInTheDocument());
+    await waitFor(() => expect(within(driver).getByRole("option", { name: isolate("Omar Driver") })).toBeInTheDocument());
 
     await user.selectOptions(slot, "2");
     await user.selectOptions(cleaner, "14");

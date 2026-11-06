@@ -936,7 +936,8 @@ export type BookingKind = "single" | "subscription_visit" | "live_out_trial" | "
 /**
  * The subscription a series visit belongs to and its place in the period (SeriesVisitLink::staff); A08 is addressed
  * by `id`. `visit_no` / `visits_total` are null while the visit has no place in the numbering; `period_no` is the
- * period's sequence (P4-261), null without a period.
+ * period's sequence (P4-261), null without a period; `period_status` its status (P4-264: the visit's own
+ * payment_status stays captured, P4-38), null without a period and absent from an older answer (read as paid).
  */
 export type BookingSubscriptionLink = {
   id: number;
@@ -946,7 +947,11 @@ export type BookingSubscriptionLink = {
   visit_no: number | null;
   visits_total: number | null;
   period_no: number | null;
+  period_status?: SeriesPeriodStatus | null;
 };
+
+/** subscription_periods.status as the staff booking link gives it (P4-264). */
+export type SeriesPeriodStatus = "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void";
 
 export type BookingRow = {
   id: number;

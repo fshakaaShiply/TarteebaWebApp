@@ -754,7 +754,11 @@ function PendingQueue({ zoneId }: { zoneId: number | null }) {
     },
     { id: "zone", header: t("columns.zone"), cell: (b) => text.name(b.zone.name) },
     { id: "workers", header: t("columns.workers"), cell: (b) => <span className="font-latin">{b.workers_count}</span> },
-    { id: "payment", header: t("columns.payment"), cell: (b) => <BookingChips status={b.status} statusLabel={b.status_label} payment={b.payment_status} paymentLabel={b.payment_status_label} /> },
+    {
+      id: "payment",
+      header: t("columns.payment"),
+      cell: (b) => <BookingChips status={b.status} statusLabel={b.status_label} payment={b.payment_status} paymentLabel={b.payment_status_label} series={b.subscription} />,
+    },
     { id: "deadline", header: t("columns.deadline"), cell: (b) => <DeadlineCountdown deadline={b.confirmation_deadline_at} /> },
     {
       id: "action",

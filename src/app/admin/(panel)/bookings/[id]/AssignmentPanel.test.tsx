@@ -154,6 +154,8 @@ describe("assignment panel (§8.5–§8.7)", () => {
     expect(screen.getByText("Maria S.", { selector: "label" })).toHaveAttribute("dir", "auto");
     await user.click(replace);
     const dialog = screen.getByRole("alertdialog", { name: `استبدال ${isolate("Lakshmi N.")}` });
+    // An <option> holds text only: a bare "Maria S." showed as ".Maria S" in the RTL select.
+    expect(within(within(dialog).getByRole("combobox")).getByRole("option", { name: isolate("Maria S.") })).toHaveValue("1");
     await user.selectOptions(within(dialog).getByRole("combobox"), "1");
     await user.type(within(dialog).getByRole("textbox"), "Sick today");
     await user.click(within(dialog).getByRole("button", { name: "استبدال" }));

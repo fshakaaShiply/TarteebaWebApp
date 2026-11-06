@@ -10,7 +10,7 @@ import { changeLiveOutDay, previewLiveOutDay, type LiveOutDayInput } from "@/lib
 import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
-import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
+import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, ShiftNote, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 import { RefusedWorkers, UnfitList } from "./SubscriptionBits";
 import { WorkerPicker } from "./WorkerPicker";
 
@@ -175,7 +175,12 @@ export function LiveOutDayDialog({
               <li key={d.date} className="flex flex-wrap items-baseline gap-x-2">
                 <Ltr>{text.dateShort(d.date)}</Ltr>
                 <span className="text-ink-600">
-                  {text.day(d.before)} → <span className="font-medium text-ink-900">{text.day(d.after)}</span>
+                  {/* The arrow follows the reading direction ("خدمة ← غياب" in Arabic), as the history's change does. */}
+                  {t.rich("beforeAfter", {
+                    from: text.day(d.before),
+                    to: text.day(d.after),
+                    b: (chunks) => <span className="font-medium text-ink-900">{chunks}</span>,
+                  })}
                 </span>
                 {d.substitute !== null && <span>{t("substituteIs", { name: isolate(d.substitute.name) })}</span>}
                 {d.credited && <span className="text-success-700">{t("credited")}</span>}
@@ -191,6 +196,8 @@ export function LiveOutDayDialog({
               <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} />
             </dl>
           )}
+          {/* A credit in the paid term with the next period open: both moves are said (P4-218). */}
+          <ShiftNote before={subscription.term_end_date} end={terms.term_end_date} added={terms.days.map((d) => d.appended_date)} />
           {terms.unfit.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="font-medium text-warning-700">{t("unfitTitle")}</p>

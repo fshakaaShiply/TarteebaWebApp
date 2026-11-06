@@ -129,3 +129,28 @@ describe("durations and counts read naturally", () => {
     expect(time("ar")("hoursMinutes", { hours: 16, minutes: 48 })).toBe("16 ساعة و48 دقيقة");
   });
 });
+
+describe("one name per visit outcome on every screen (A03 status chips and history, A04, A08 history)", () => {
+  // The same visit state read "Customer not available", "Customer not home" and "Missed by company", "Visit missed",
+  // "Missed by the company" from screen to screen; A03 and A04 show the API's own label (Booking messages.visit_status).
+  const places = [
+    "status.visit",
+    "admin.bookings.enums.visit",
+    "admin.bookings.history.reasons",
+    "admin.subscriptions.history.values.visitStatus",
+  ];
+  const api = {
+    en: { no_show_customer: "Customer not available", missed_by_company: "Visit missed" },
+    ar: { no_show_customer: "العميل غير متواجد", missed_by_company: "لم تتم الزيارة" },
+  };
+  for (const [locale, messages] of [
+    ["en", en],
+    ["ar", ar],
+  ] as const) {
+    it(`in ${locale === "en" ? "English" : "Arabic"}`, () => {
+      for (const state of ["no_show_customer", "missed_by_company"] as const) {
+        for (const place of places) expect(get(messages, `${place}.${state}`), `${place}.${state}`).toBe(api[locale][state]);
+      }
+    });
+  }
+});

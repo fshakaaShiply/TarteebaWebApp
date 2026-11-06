@@ -34,6 +34,7 @@ import {
   type BookingFilters,
 } from "@/lib/admin/bookings/filters";
 import { fetchAllWorkers, fetchBookings } from "@/lib/admin/endpoints";
+import { isolate } from "@/lib/admin/format";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
@@ -72,11 +73,15 @@ function useExtraFilterOptions(selected: { slot: string; worker: string; driver:
     workers: withSelected(
       [...(workers.data ?? [])]
         .sort((a, b) => a.display_name.localeCompare(b.display_name))
-        .map((w) => ({ value: String(w.id), label: w.employment_status === "terminated" ? t("workerLeft", { name: w.display_name }) : w.display_name })),
+        // An <option> holds text only: each name is its own bidi run, so "Maria S." keeps its period in Arabic.
+        .map((w) => ({
+          value: String(w.id),
+          label: w.employment_status === "terminated" ? t("workerLeft", { name: isolate(w.display_name) }) : isolate(w.display_name),
+        })),
       selected.worker,
     ),
     drivers: withSelected(
-      (drivers.data ?? []).map((d) => ({ value: String(d.id), label: d.is_active ? d.name : t("inactive", { name: d.name }) })),
+      (drivers.data ?? []).map((d) => ({ value: String(d.id), label: d.is_active ? isolate(d.name) : t("inactive", { name: isolate(d.name) }) })),
       selected.driver,
     ),
   };
@@ -225,13 +230,23 @@ function BookingsTable() {
       header: t("columns.status"),
       cell: (b) => (
         <span className="flex flex-col items-start gap-1">
-          <BookingChips status={b.status} statusLabel={b.status_label} payment={b.payment_status} paymentLabel={b.payment_status_label} />
+          <BookingChips status={b.status} statusLabel={b.status_label} payment={b.payment_status} paymentLabel={b.payment_status_label} series={b.subscription} />
           {b.status === "pending_confirmation" && <DeadlineCountdown deadline={b.confirmation_deadline_at} />}
         </span>
       ),
     },
     { id: "source", header: t("columns.source"), cell: (b) => text.source(b.source, b.source_label) },
-    { id: "total", header: t("columns.total"), cell: (b) => <span className="font-latin whitespace-nowrap">{text.money(b.total_fils)}</span> },
+    {
+      id: "total",
+      header: t("columns.total"),
+      // A series visit has no money of its own (P4-38: every amount 0): its subscription's period paid for it, not "AED 0".
+      cell: (b) =>
+        b.subscription ? (
+          <span className="text-sm text-ink-600">{t("totalInSubscription")}</span>
+        ) : (
+          <span className="font-latin whitespace-nowrap">{text.money(b.total_fils)}</span>
+        ),
+    },
     {
       id: "open",
       header: <span className="sr-only">{t("columns.open")}</span>,

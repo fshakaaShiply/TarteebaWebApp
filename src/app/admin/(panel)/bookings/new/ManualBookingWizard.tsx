@@ -51,7 +51,7 @@ import {
   type ManualBookingPayload,
 } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
-import { addDaysIso, businessToday } from "@/lib/admin/format";
+import { addDaysIso, businessToday, isolate } from "@/lib/admin/format";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { keepsIdempotencyKey, useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
@@ -734,7 +734,8 @@ function Wizard() {
                 label={t("preferredWorker")}
                 hint={t("preferredHint")}
                 placeholder={t("noPreference")}
-                options={(workers.data?.data ?? []).map((w) => ({ value: String(w.id), label: w.display_name }))}
+                // An <option> holds text only: the name is its own bidi run, so "Maria S." keeps its period in Arabic.
+                options={(workers.data?.data ?? []).map((w) => ({ value: String(w.id), label: isolate(w.display_name) }))}
                 error={fieldError("preferredWorkerId")}
                 {...form.register("preferredWorkerId")}
               />

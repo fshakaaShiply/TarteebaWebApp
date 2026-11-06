@@ -1,5 +1,16 @@
 import { AdminApiError } from "../client";
-import type { AdminRefund, BookingDetail, BookingRow, BookingStatus, CancelPreview, PaymentStatus, ReschedulePreview, VisitStatus } from "../types";
+import type {
+  AdminRefund,
+  BookingDetail,
+  BookingRow,
+  BookingStatus,
+  BookingSubscriptionLink,
+  CancelPreview,
+  PaymentStatus,
+  ReschedulePreview,
+  SeriesPeriodStatus,
+  VisitStatus,
+} from "../types";
 
 /*
  * A03 booking actions (spec §7.1, §10, §11.4, §14.3; Booking Actions): which ones a booking offers in its status, to a
@@ -58,6 +69,27 @@ export function paymentVerifying(booking: PaymentState): boolean {
 /** A visit of a subscription: A08 changes, skips and cancels it (the API refuses the booking's own cancel and reschedule). */
 export function isSeriesVisit(booking: Partial<Pick<BookingRow, "kind" | "subscription">>): boolean {
   return (booking.subscription ?? null) !== null || (booking.kind !== undefined && booking.kind !== "single");
+}
+
+const SERIES_PAYMENT: Record<SeriesPeriodStatus, PaymentStatus> = {
+  paid: "captured",
+  closed: "captured",
+  refunded_partial: "partially_refunded",
+  refunded: "refunded",
+  pending_payment: "pending",
+  upcoming: "unpaid",
+  failed: "unpaid",
+  void: "voided",
+};
+
+/**
+ * A series visit's payment as its period tells it (P4-264): the visit's own payment_status stays captured (P4-38), so a
+ * visit whose period was refunded or is not paid yet read "Paid". Null for a single booking or a link without the
+ * period's status: the booking's own status stands.
+ */
+export function seriesPaymentStatus(link: BookingSubscriptionLink | null | undefined): PaymentStatus | null {
+  const status = link?.period_status;
+  return status ? (SERIES_PAYMENT[status] ?? null) : null;
 }
 
 export function availableActions(

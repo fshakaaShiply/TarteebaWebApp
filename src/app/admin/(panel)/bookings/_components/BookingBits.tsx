@@ -6,12 +6,12 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useCallback } from "react";
 import { StatusBadge } from "@/components/admin";
-import { minutesUntil } from "@/lib/admin/bookings/actions";
+import { minutesUntil, seriesPaymentStatus } from "@/lib/admin/bookings/actions";
 import { splitMinutes } from "@/lib/admin/dashboard";
 import { useNow } from "@/lib/admin/hooks";
 import { SUBSCRIPTIONS_READ, SUBSCRIPTIONS_PATH } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import type { BookingRow, BookingStatus, PaymentStatus, Translatable } from "@/lib/admin/types";
+import type { BookingRow, BookingStatus, BookingSubscriptionLink, PaymentStatus, Translatable } from "@/lib/admin/types";
 import { bookingTone, paymentTone, useBookingText } from "./bookingText";
 
 /** "2 hours 10 minutes" / "ساعتان و10 دقائق" for a duration in whole minutes. */
@@ -60,22 +60,30 @@ export function SeriesLabel({ booking, className }: { booking: Pick<BookingRow, 
   );
 }
 
-/** Booking status and payment status side by side: two separate states (spec §7, §16), each with its text. */
+/**
+ * Booking status and payment status side by side: two separate states (spec §7, §16), each with its text. A series
+ * visit (`series`) shows its period's payment (P4-264: refunded, not paid yet …), not its own always-captured one.
+ */
 export function BookingChips({
   status,
   statusLabel,
-  payment,
-  paymentLabel,
+  payment: own,
+  paymentLabel: ownLabel,
+  series,
   className,
 }: {
   status: BookingStatus;
   statusLabel?: Translatable | null;
   payment: PaymentStatus;
   paymentLabel?: Translatable | null;
+  series?: BookingSubscriptionLink | null;
   className?: string;
 }) {
   const t = useTranslations("admin.bookings");
   const text = useBookingText();
+  const period = seriesPaymentStatus(series);
+  const payment = period ?? own;
+  const paymentLabel = period ? null : ownLabel;
   return (
     <span className={clsx("flex flex-wrap items-center gap-1.5", className)}>
       <StatusBadge tone={bookingTone[status] ?? "neutral"}>

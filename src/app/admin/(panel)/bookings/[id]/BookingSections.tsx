@@ -164,15 +164,33 @@ export function RequestCard({ booking }: { booking: BookingDetail }) {
   );
 }
 
+/** Visits that will not take place, and bookings that ended without them. */
+const VISIT_OFF = ["cancelled", "missed_by_company"];
+const BOOKING_OFF = ["rejected", "cancelled", "expired"];
+
 /**
  * The worker a booking names. A single booking's preferred cleaner is asked for, never promised (spec §16). A series
- * visit's is the subscription's primary worker, whom A08 names for the series (a Live-out primary is booked for the whole
- * day), so it carries no "not promised" copy.
+ * visit's is the subscription's primary worker, whom A08 names for the series, so it carries no "not promised" copy. A
+ * Live-out primary is booked for the whole day, but only on a day she serves: when this visit's team is someone else
+ * (a substitute on her absence, a backup) the note says who serves it instead, and a visit that will not take place
+ * says neither.
  */
 export function PreferredWorkerFact({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("admin.bookings.detail");
   const series = booking.subscription;
-  const note = series ? (series.type === "live_out" ? t("seriesPrimaryNoteLiveOut") : t("seriesPrimaryNote")) : t("preferredNote");
+  const primaryId = booking.preferred_worker?.id ?? null;
+  const live = BOOKING_OFF.includes(booking.status) ? [] : booking.visits.filter((v) => !VISIT_OFF.includes(v.status));
+  const team = live.flatMap((v) => v.assignments);
+  const away = primaryId !== null && team.length > 0 && !team.some((a) => a.worker_id === primaryId);
+  const names = [...new Map(team.map((a) => [a.worker_id, isolate(a.display_name)])).values()].join(t("listSeparator"));
+  const liveOut = series?.type === "live_out";
+  const note = !series
+    ? t("preferredNote")
+    : away
+      ? t(liveOut ? "seriesPrimaryAwayLiveOut" : "seriesPrimaryAway", { names })
+      : liveOut && live.length > 0
+        ? t("seriesPrimaryNoteLiveOut")
+        : t("seriesPrimaryNote");
   return (
     <Fact label={series ? t("seriesPrimary") : t("preferredWorker")}>
       {booking.preferred_worker ? (
@@ -191,12 +209,28 @@ export function PreferredWorkerFact({ booking }: { booking: BookingDetail }) {
 
 /**
  * A series visit's money (P4-38: it has none of its own, every amount 0, payment_status captured): paid within its
- * subscription's period, named by number (P4-261).
+ * subscription's period, named by number (P4-261), as that period's status tells it (P4-264): refunded, partly
+ * refunded, not paid yet or never paid. A link without the period's status reads as paid.
  */
 export function SeriesPaid({ link }: { link: BookingSubscriptionLink }) {
   const t = useTranslations("admin.bookings.payment");
   const reference = isolate(link.reference, "ltr");
-  return <>{link.period_no ? t("series", { reference, n: link.period_no }) : t("seriesNoPeriod", { reference })}</>;
+  if (!link.period_no) return <>{t("seriesNoPeriod", { reference })}</>;
+  const values = { reference, n: link.period_no };
+  switch (link.period_status) {
+    case "refunded":
+      return <>{t("seriesRefunded", values)}</>;
+    case "refunded_partial":
+      return <>{t("seriesPartlyRefunded", values)}</>;
+    case "upcoming":
+    case "pending_payment":
+    case "failed":
+      return <>{t("seriesUnpaid", values)}</>;
+    case "void":
+      return <>{t("seriesVoid", values)}</>;
+    default:
+      return <>{t("series", values)}</>;
+  }
 }
 
 export function PriceCard({ booking }: { booking: BookingDetail }) {

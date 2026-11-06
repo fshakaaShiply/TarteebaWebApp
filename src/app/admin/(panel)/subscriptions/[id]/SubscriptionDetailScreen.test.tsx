@@ -108,6 +108,22 @@ describe("A08 subscription page", () => {
     expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
   });
 
+  it("says a closed subscription has no visits ahead, and keeps '…yet' for an open one (TRS-2FZEJE)", async () => {
+    const { unmount } = open(subscriptionDetail({ status: "cancelled", upcoming: [] }));
+    const next = (await screen.findByRole("heading", { name: "Next visits" })).closest("section") as HTMLElement;
+    expect(next).toHaveTextContent("No visits ahead.");
+    expect(next).not.toHaveTextContent("planned yet");
+    unmount();
+
+    const arabic = open(subscriptionDetail({ status: "ended", upcoming: [] }), MANAGER, "ar");
+    expect(await screen.findByText("لا زيارات قادمة.")).toBeInTheDocument();
+    expect(screen.queryByText("لم تُخطَّط زيارات بعد.")).not.toBeInTheDocument();
+    arabic.unmount();
+
+    open(pendingDetail({ upcoming: [] }));
+    expect(await screen.findByText("No visits are planned yet.")).toBeInTheDocument();
+  });
+
   it("offers a reader no action at all, but every tab", async () => {
     open(pendingDetail(), READER);
     await screen.findByText("Waiting for confirmation");

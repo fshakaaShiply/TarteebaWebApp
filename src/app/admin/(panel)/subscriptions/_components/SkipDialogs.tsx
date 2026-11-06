@@ -11,7 +11,7 @@ import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { SkipPreview, SubscriptionOccurrence } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
-import { ChangedNotice, DRY_RUN, ErrorNotice, PreviewBox, TermsChangedNotice, TermsRow, useDialogMutation, type SubscriptionDialogProps } from "./kit";
+import { ChangedNotice, DRY_RUN, ErrorNotice, PreviewBox, ShiftNote, TermsChangedNotice, TermsRow, useDialogMutation, type SubscriptionDialogProps } from "./kit";
 
 type VisitChoiceProps = SubscriptionDialogProps & {
   /** The visit the dialog was opened on (a row of the Visits tab); without it the dialog asks which one. */
@@ -125,6 +125,8 @@ export function SkipDialog({ subscription, visit, onClose, onStale, changed, ret
                 <TermsRow label={t("newEnd")} value={text.dateShort(terms.new_term_end_date)} changed={fresh?.changed.includes("term_end_date")} />
               )}
             </dl>
+            {/* A skip in the paid term with the next period open: both moves are said (P4-218). */}
+            <ShiftNote before={subscription.term_end_date} end={terms.new_term_end_date} added={[terms.appended_date]} />
             <p className="text-xs text-ink-600">{t("noMoney")}</p>
           </PreviewBox>
         ))}

@@ -40,7 +40,7 @@
       "in_progress": "In progress",
       "completed": "Completed",
       "no_show_customer": "Customer not available",
-      "missed_by_company": "Missed by company",
+      "missed_by_company": "Visit missed",
       "cancelled": "Cancelled"
     }
   },
@@ -2732,6 +2732,7 @@
       "caption": "Bookings",
       "noName": "No name yet",
       "workersCount": "{count, plural, one {# cleaner} other {# cleaners}}",
+      "totalInSubscription": "In the subscription",
       "open": "Open",
       "openLabel": "Open booking {reference}",
       "empty": "No bookings yet.",
@@ -3143,6 +3144,8 @@
         "seriesPrimary": "Subscription's primary worker",
         "seriesPrimaryNote": "Named for the subscription's visits; she is changed on the subscription page.",
         "seriesPrimaryNoteLiveOut": "Booked for the whole day.",
+        "seriesPrimaryAwayLiveOut": "Not serving this day; serving: {names}.",
+        "seriesPrimaryAway": "Not on this visit's team; serving: {names}.",
         "noSeriesPrimary": "No primary worker named yet"
       },
       "payment": {
@@ -3172,7 +3175,11 @@
         "refundStatusFinance": "Refund status from the payment provider is shown to finance.",
         "openInFinance": "Open in Payments & invoices",
         "series": "Paid within subscription {reference} (period {n}).",
-        "seriesNoPeriod": "Paid within subscription {reference}."
+        "seriesNoPeriod": "Paid within subscription {reference}.",
+        "seriesRefunded": "Refunded with subscription {reference} (period {n}).",
+        "seriesPartlyRefunded": "Paid within subscription {reference} (period {n}); part of the period was refunded.",
+        "seriesUnpaid": "Not paid yet: period {n} of subscription {reference}.",
+        "seriesVoid": "Not paid: period {n} of subscription {reference} was never paid."
       },
       "proposals": {
         "title": "Other times suggested",
@@ -3271,6 +3278,8 @@
         "count": "{assigned} of {required} assigned",
         "changeStatus": "Change visit status",
         "nobody": "No cleaner is assigned yet.",
+        "nobodyClosed": "No cleaner: this visit will not take place.",
+        "nobodyDone": "No cleaner was recorded for this visit.",
         "notAssignable": "Cleaners can be assigned while the request is pending or confirmed and the visit hasn't started.",
         "replace": "Replace",
         "replaceLabel": "Replace {name}",
@@ -4900,7 +4909,8 @@
         "discountRevoked": "Revoked",
         "upcoming": "Next visits",
         "allVisits": "All visits",
-        "noUpcoming": "No visits are planned yet."
+        "noUpcoming": "No visits are planned yet.",
+        "noUpcomingClosed": "No visits ahead."
       },
       "periods": {
         "empty": "No periods yet",
@@ -5074,8 +5084,8 @@
           },
           "visitStatus": {
             "completed": "Completed",
-            "no_show_customer": "Customer not home",
-            "missed_by_company": "Missed by the company",
+            "no_show_customer": "Customer not available",
+            "missed_by_company": "Visit missed",
             "cancelled": "Cancelled"
           },
           "autoRenew": {
@@ -5158,7 +5168,8 @@
         "changedBody": "It was updated while this window was open. What you send is still checked against the version you opened; if it changed in between, the system will ask you to reload.",
         "changedMark": "(changed)",
         "termsChangedTitle": "The terms changed",
-        "moreDates": "and {count} more"
+        "moreDates": "and {count} more",
+        "shiftNote": "The later dates move up: this term now ends on {end}, and the next period gains {dates} at its end."
       },
       "confirm": {
         "title": "Confirm {reference}",
@@ -5364,6 +5375,7 @@
         },
         "priceTitle": "Price of each new date",
         "dearer": "costs more",
+        "priceChange": "{from} → {to}",
         "priceBlocked": "A new date costs more than the one it replaces, so this edit cannot be made.",
         "priceHigherTitle": "A new date would cost more",
         "priceHigherBody": "{date}: {oldPrice} now, {newPrice} after the edit. The agreed price never rises through an edit.",
@@ -5577,6 +5589,7 @@
           "public_holiday": "Public holiday",
           "service": "Service"
         },
+        "beforeAfter": "{from} → <b>{to}</b>",
         "scope": "Applies to",
         "scopeThis": "This day only",
         "scopeFollowing": "This day and the following days",

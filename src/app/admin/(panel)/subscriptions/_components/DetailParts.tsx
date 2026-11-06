@@ -9,7 +9,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import { conflictReasonOf, pendingReview, renewalBusy } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscriptionEvents } from "@/lib/admin/subscriptions/endpoints";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
-import { RUNNING_STATUSES, occurrenceTone, periodTone, tone } from "@/lib/admin/subscriptions/status";
+import { OPEN_STATUSES, RUNNING_STATUSES, occurrenceTone, periodTone, tone } from "@/lib/admin/subscriptions/status";
 import type { AddonDetail, SubscriptionDetail } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { DeadlineCountdown } from "../../bookings/_components/BookingBits";
@@ -342,7 +342,8 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
         }
       >
         {(subscription.upcoming ?? []).length === 0 ? (
-          <p className="text-sm text-ink-600">{t("noUpcoming")}</p>
+          // "…yet" only while the subscription is open: an ended, cancelled, expired or declined one plans none.
+          <p className="text-sm text-ink-600">{OPEN_STATUSES.includes(subscription.status) ? t("noUpcoming") : t("noUpcomingClosed")}</p>
         ) : (
           <ul className="flex flex-col gap-1.5 text-sm">
             {subscription.upcoming.slice(0, 8).map((v) => (

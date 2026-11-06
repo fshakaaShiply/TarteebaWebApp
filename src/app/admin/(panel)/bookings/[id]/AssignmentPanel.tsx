@@ -54,6 +54,11 @@ const OPEN_VISIT = ["scheduled", "worker_assigned"];
 const CLEARABLE_VISIT = [...OPEN_VISIT, "cancelled", "missed_by_company"];
 /** Visits operations may still move on (D-01): not finished, missed or cancelled. */
 const LIVE_VISIT = [...OPEN_VISIT, "en_route", "arrived", "in_progress"];
+/** Visits that will not take place, and bookings that ended without them. */
+const OFF_VISIT = ["cancelled", "missed_by_company"];
+const OFF_BOOKING = ["rejected", "cancelled", "expired"];
+/** Visits that are over. */
+const DONE_VISIT = ["completed", "no_show_customer"];
 
 export function AssignmentPanel({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("admin.bookings.assignment");
@@ -164,7 +169,14 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-ink-600">{t("nobody")}</p>
+        // "…yet" only while a cleaner can still be named: a visit that will not take place, or one already over, says so.
+        <p className="text-sm text-ink-600">
+          {OFF_VISIT.includes(visit.status) || OFF_BOOKING.includes(booking.status)
+            ? t("nobodyClosed")
+            : DONE_VISIT.includes(visit.status) || booking.status === "completed"
+              ? t("nobodyDone")
+              : t("nobody")}
+        </p>
       )}
 
       {assignable && missing > 0 && canSeeCandidates && (
@@ -675,7 +687,8 @@ function ReplaceDialog({
           setNewWorker(e.target.value);
           setErrors((x) => ({ ...x, worker: undefined }));
         }}
-        options={options.map((o) => ({ value: String(o.worker.id), label: o.soft ? t("softOption", { name: isolate(o.worker.display_name) }) : o.worker.display_name }))}
+        // An <option> holds text only: the name is its own bidi run, so "Siti R." keeps its period in Arabic.
+        options={options.map((o) => ({ value: String(o.worker.id), label: o.soft ? t("softOption", { name: isolate(o.worker.display_name) }) : isolate(o.worker.display_name) }))}
         error={errors.worker}
       />
       {chosen?.soft && <Notice tone="warning">{t("softChosen")}</Notice>}

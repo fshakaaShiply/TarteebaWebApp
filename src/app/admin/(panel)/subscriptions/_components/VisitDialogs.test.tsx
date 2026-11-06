@@ -223,6 +223,18 @@ describe("A08 edit the following visits", () => {
     expect(box).not.toHaveTextContent(/workers|rule_closed|max_bookings/);
   });
 
+  it("draws a price change's arrow the way Arabic reads: the old price, then the new one", async () => {
+    // It was a hard-coded "→": drawn right to left, it pointed from the new price back to the old one.
+    api.previewFollowing.mockResolvedValue(diff({ price: { checks: [{ date: "2026-11-09", old_unit_fils: 15000, new_unit_fils: 12000 }], allowed: true } }));
+    renderWithProviders(<EditFollowingDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE, locale: "ar" });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("checkbox", { name: "الأربعاء" }));
+    await user.click(screen.getByRole("checkbox", { name: "الخميس" }));
+    const box = (await screen.findByRole("region", { name: "ما الذي يتغير" })) as HTMLElement;
+    expect(within(box).getByText("150.00 د.إ ← 120.00 د.إ")).toBeInTheDocument();
+    expect(box).not.toHaveTextContent("→");
+  });
+
   it("refuses to save a pattern whose price check fails, and shows 422 SERIES_PRICE_HIGHER with the date and prices", async () => {
     api.previewFollowing.mockResolvedValue(diff({ price: { checks: [{ date: "2026-11-09", old_unit_fils: 12000, new_unit_fils: 15000 }], allowed: false } }));
     const { user } = show((p) => <EditFollowingDialog subscription={sub} visit={visit} {...p} />);
@@ -332,6 +344,22 @@ describe("A08 skip and undo skip", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     // The write still sends back the end date the API gave.
     expect(api.skipVisit.mock.calls[0][2]).toBe("2026-11-28");
+  });
+
+  it("tells both moves of a skip in the paid term while the next period is open: the term's new end and the visit added after it (P4-218)", async () => {
+    // Period 2 is open from 29 Nov: the term takes its first visit (1 Dec) and the visit is added at its end (30 Dec).
+    api.previewSkip.mockResolvedValue(skipPreview({ appended_date: "2026-12-30", new_term_end_date: "2026-12-01" }));
+    const { unmount } = renderWithProviders(<SkipDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE });
+    expect(await screen.findByText("Wed, 30 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("Tue, 1 Dec 2026", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("The later dates move up: this term now ends on Tue, 1 Dec 2026, and the next period gains Wed, 30 Dec 2026 at its end.")).toBeInTheDocument();
+    unmount();
+
+    // The visit added is the term's new end itself: one move, nothing more to say.
+    api.previewSkip.mockResolvedValue(skipPreview());
+    show((p) => <SkipDialog subscription={sub} visit={visit} {...p} />);
+    expect((await screen.findAllByText("Sun, 29 Nov 2026", { selector: "dd" })).length).toBe(2);
+    expect(screen.queryByText(/The later dates move up/)).not.toBeInTheDocument();
   });
 
   it("asks which visit when opened from the header, offering the skippable upcoming ones", async () => {

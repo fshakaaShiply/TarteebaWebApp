@@ -72,7 +72,13 @@ function ReviewBody({ booking, onStale }: { booking: BookingDetail; onStale: () 
             <span className="sr-only">{d("titlePrefix")} </span>
             <Ltr>{booking.reference}</Ltr>
           </h3>
-          <BookingChips status={booking.status} statusLabel={booking.status_label} payment={booking.payment_status} paymentLabel={booking.payment_status_label} />
+          <BookingChips
+            status={booking.status}
+            statusLabel={booking.status_label}
+            payment={booking.payment_status}
+            paymentLabel={booking.payment_status_label}
+            series={booking.subscription}
+          />
         </div>
         {/* A series visit names its subscription and its place in it, with the link to A08 (as the booking page does). */}
         <SeriesLabel booking={booking} />
