@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CANCEL_REASONS } from "@/lib/admin/bookings/actions";
-import { DATE_REASONS, PAYMENT_HEALTHS, SUBSCRIPTION_STATUSES, type ConflictCode } from "@/lib/admin/subscriptions/types";
+import { CUSTOMER_CANCEL_REASONS, DATE_REASONS, PAYMENT_HEALTHS, SUBSCRIPTION_STATUSES, SYSTEM_CANCEL_REASONS, type ConflictCode } from "@/lib/admin/subscriptions/types";
 import ar from "@/messages/ar.json";
 import en from "@/messages/en.json";
 
@@ -48,7 +48,10 @@ describe("A08 messages", () => {
       for (const h of PAYMENT_HEALTHS) expect(get(locale, `admin.subscriptions.enums.health.${h}`), h).toBeTypeOf("string");
       for (const p of ["upcoming", "pending_payment", "paid", "failed", "refunded_partial", "refunded", "closed", "void"]) expect(get(locale, `admin.subscriptions.enums.period.${p}`), p).toBeTypeOf("string");
       for (const o of ["planned", "held", "materialized", "skipped", "frozen", "credited", "holiday", "replaced", "dropped", "cancelled"]) expect(get(locale, `admin.subscriptions.enums.occurrence.${o}`), o).toBeTypeOf("string");
-      for (const r of CANCEL_REASONS) expect(get(locale, `admin.subscriptions.enums.cancelReason.${r}`), r).toBeTypeOf("string");
+      // The staff's reasons, and the customer's and the system's (a customer cancellation showed "plans_changed").
+      for (const r of [...CANCEL_REASONS, ...CUSTOMER_CANCEL_REASONS, ...SYSTEM_CANCEL_REASONS]) {
+        expect(get(locale, `admin.subscriptions.enums.cancelReason.${r}`), r).toBeTypeOf("string");
+      }
     }
   });
 

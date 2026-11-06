@@ -135,3 +135,12 @@ export function formatDateTime(value: Input, locale: string): string {
     timeZone: BUSINESS_TIME_ZONE,
   }).format(date);
 }
+
+/**
+ * Text set into a translated sentence as its own bidi run: a first-strong isolate (U+2068 … U+2069) for names, a
+ * left-to-right isolate (U+2066) for codes and times. A Latin name ending in "." then keeps its period at its end in
+ * an Arabic sentence ("Maria S.", never ".Maria S"), and an Arabic name stays whole in English. Elements use <bdi>.
+ */
+export function isolate(text: string, dir: "auto" | "ltr" = "auto"): string {
+  return `${dir === "ltr" ? "\u2066" : "\u2068"}${text}\u2069`;
+}

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Checkbox, Dialog, Notice, TextField } from "@/components/admin";
-import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
+import { addDaysIso, businessToday, isIsoDate, isolate } from "@/lib/admin/format";
 import { notAssignableOf } from "@/lib/admin/subscriptions/actions";
 import { assignWorker } from "@/lib/admin/subscriptions/endpoints";
 import type { AssignResult, CandidateRole } from "@/lib/admin/subscriptions/types";
@@ -95,7 +95,7 @@ export function AssignWorkerDialog({ subscription, role, onClose, onStale, chang
         </div>
       ) : (
         <>
-          <p className="text-sm text-ink-900">{current ? t("currentIs", { name: current.name }) : t("currentNone")}</p>
+          <p className="text-sm text-ink-900">{current ? t("currentIs", { name: isolate(current.name) }) : t("currentNone")}</p>
           <WorkerPicker
             subscriptionId={subscription.id}
             role={role}

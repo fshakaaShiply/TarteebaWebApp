@@ -8,13 +8,13 @@ import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, Pagination,
 import { useAdminSession } from "@/lib/admin/session";
 import { conflictReasonOf, pendingReview, renewalBusy } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscriptionEvents } from "@/lib/admin/subscriptions/endpoints";
-import { payloadFacts } from "@/lib/admin/subscriptions/history";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { RUNNING_STATUSES, occurrenceTone, periodTone, tone } from "@/lib/admin/subscriptions/status";
 import type { AddonDetail, SubscriptionDetail } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { DeadlineCountdown } from "../../bookings/_components/BookingBits";
 import type { DialogRequest } from "./DialogHost";
+import { HistoryLine } from "./HistoryLine";
 import { HealthChip } from "./SubscriptionBits";
 import { decisionFromRequest } from "./VisitDecisionDialogs";
 import { Ltr } from "./kit";
@@ -32,6 +32,21 @@ export function Facts({ items, columns = 2 }: { items: { label: ReactNode; value
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Worker names in a list, each isolated (<bdi>) so a Latin name keeps its trailing period in Arabic. */
+export function WorkerNames({ workers, className }: { workers: readonly { id: number; name: string }[]; className?: string }) {
+  const text = useSubscriptionText();
+  return (
+    <span className={className}>
+      {workers.map((w, i) => (
+        <span key={w.id}>
+          {i > 0 && (text.locale === "ar" ? "، " : ", ")}
+          <bdi>{w.name}</bdi>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -285,8 +300,8 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
       >
         <Facts
           items={[
-            { label: t("primary"), value: subscription.workers.primary?.name ?? t("none") },
-            { label: t("backup"), value: subscription.workers.backup?.name ?? t("none") },
+            { label: t("primary"), value: subscription.workers.primary ? <bdi>{subscription.workers.primary.name}</bdi> : t("none") },
+            { label: t("backup"), value: subscription.workers.backup ? <bdi>{subscription.workers.backup.name}</bdi> : t("none") },
           ]}
         />
         <p className="text-xs text-ink-600">{liveOut ? t("workersNoteLiveOut") : t("workersNote")}</p>
@@ -335,7 +350,7 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
                 <Ltr>{text.dateShort(v.scheduled_date)}</Ltr>
                 <Ltr>{text.slot(v.slot)}</Ltr>
                 <StatusBadge tone={tone(occurrenceTone, v.state)}>{v.state_label || text.occurrence(v.state)}</StatusBadge>
-                <span className="text-ink-600">{v.workers.map((w) => w.name).join(text.locale === "ar" ? "، " : ", ")}</span>
+                <WorkerNames workers={v.workers} className="text-ink-600" />
               </li>
             ))}
           </ul>
@@ -406,10 +421,15 @@ export function PeriodsTab({ subscription }: { subscription: SubscriptionDetail 
               <td className="px-2 py-2.5">
                 <StatusBadge tone={tone(periodTone, p.status)}>{text.period(p.status)}</StatusBadge>
               </td>
-              <td className="px-2 py-2.5 font-latin whitespace-nowrap">
-                {text.moneyFixed(p.amount_fils)}
+              <td className="px-2 py-2.5 whitespace-nowrap">
+                {/* An upcoming period is priced at its renewal notice (notified_amount_fils): until then its 0 is no price. */}
+                {p.status === "upcoming" && p.notified_amount_fils === null ? (
+                  <span className="text-ink-600">{t("notPriced")}</span>
+                ) : (
+                  <span className="font-latin">{text.moneyFixed(p.amount_fils)}</span>
+                )}
                 {p.notified_amount_fils !== null && p.notified_amount_fils !== p.amount_fils && (
-                  <span className="block text-xs text-ink-600">{t("notified", { amount: text.moneyFixed(p.notified_amount_fils) })}</span>
+                  <span className="block font-latin text-xs text-ink-600">{t("notified", { amount: text.moneyFixed(p.notified_amount_fils) })}</span>
                 )}
               </td>
               <td className="px-2 py-2.5">
@@ -477,40 +497,14 @@ export function HistoryTab({ subscription }: { subscription: SubscriptionDetail 
             <p className="flex flex-wrap items-baseline gap-x-3">
               <span className="font-bold text-ink-900">{e.type_label || e.type}</span>
               <span className="text-xs text-ink-600">
-                {text.dateTime(e.created_at)} · {e.actor.name ?? t(`actors.${e.actor.type}`)}
+                {text.dateTime(e.created_at)} · {e.actor.name ? <bdi>{e.actor.name}</bdi> : t(`actors.${e.actor.type}`)}
               </span>
             </p>
-            <FactsLine payload={e.payload} />
+            <HistoryLine event={e} periods={subscription.periods} />
           </li>
         ))}
       </ol>
       <Pagination meta={query.data.meta} onPageChange={setPage} />
     </div>
-  );
-}
-
-function FactsLine({ payload }: { payload: Record<string, unknown> }) {
-  const t = useTranslations("admin.subscriptions.history");
-  const text = useSubscriptionText();
-  const facts = payloadFacts(payload);
-  if (facts.length === 0) return null;
-  const label = (key: string) => (t.has(`keys.${key}` as never) ? t(`keys.${key}` as never) : key.replaceAll("_", " "));
-  return (
-    <p className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-ink-600">
-      {facts.map((f) => (
-        <span key={f.key}>
-          {label(f.key)}:{" "}
-          <span className="font-latin text-ink-900">
-            {f.kind === "money"
-              ? text.moneyFixed(f.value as number)
-              : f.kind === "date"
-                ? text.dateShort(f.value as string)
-                : f.kind === "list"
-                  ? (f.value as string[]).map((v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? text.dateShort(v) : v)).join(", ")
-                  : String(f.value)}
-          </span>
-        </span>
-      ))}
-    </p>
   );
 }

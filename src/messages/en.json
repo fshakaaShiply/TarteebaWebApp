@@ -2864,7 +2864,15 @@
           "alternative_expired": "No answer to the other times",
           "payment_not_capturable": "Payment couldn't be completed",
           "rejected": "Request not confirmed",
-          "other": "Other reason"
+          "other": "Other reason",
+          "subscription_skip": "Skipped in the subscription",
+          "subscription_freeze": "Subscription frozen",
+          "subscription_unpaid": "Subscription renewal not paid",
+          "subscription_pattern_change": "Subscription days changed",
+          "subscription_cancelled": "Subscription cancelled",
+          "subscription_credit": "Credited in the subscription",
+          "subscription_holiday": "Public holiday in the subscription",
+          "subscription_late_capture": "Moved after a late payment"
         },
         "party": {
           "customer": "The customer",
@@ -3128,7 +3136,13 @@
         "refresh": "Refresh",
         "verifyingConfirm": "The payment provider is still checking this payment. Confirming becomes available once it answers.",
         "seriesVisit": "This visit belongs to a subscription. Move, skip or cancel its visits on the subscription page.",
-        "openSubscription": "Open subscription {reference}"
+        "openSubscription": "Open subscription {reference}",
+        "seriesPrice": "Included in subscription {reference}, period {n}: this visit has no price of its own.",
+        "seriesPriceNoPeriod": "Included in subscription {reference}: this visit has no price of its own.",
+        "seriesPrimary": "Subscription's primary worker",
+        "seriesPrimaryNote": "Named for the subscription's visits; she is changed on the subscription page.",
+        "seriesPrimaryNoteLiveOut": "Booked for the whole day.",
+        "noSeriesPrimary": "No primary worker named yet"
       },
       "payment": {
         "title": "Payment and refunds",
@@ -3155,7 +3169,9 @@
         "cancelRefund": "Refund recorded",
         "refundsTitle": "Refunds (status from the payment provider)",
         "refundStatusFinance": "Refund status from the payment provider is shown to finance.",
-        "openInFinance": "Open in Payments & invoices"
+        "openInFinance": "Open in Payments & invoices",
+        "series": "Paid within subscription {reference} (period {n}).",
+        "seriesNoPeriod": "Paid within subscription {reference}."
       },
       "proposals": {
         "title": "Other times suggested",
@@ -3234,12 +3250,17 @@
           "cancel_review_declined": "Cancellation request turned down",
           "visits_completed": "All visits completed",
           "auto_start": "Started automatically",
-          "auto_complete": "Completed automatically"
+          "auto_complete": "Completed automatically",
+          "series_primary": "Assigned from the subscription",
+          "series_backup": "Backup assigned from the subscription",
+          "series_substitute": "Substitute assigned for the day",
+          "series_primary_changed": "Subscription's primary changed",
+          "live_out_absence": "Live-out absence"
         }
       },
       "assignment": {
         "title": "Cleaners",
-        "preferred": "Preferred cleaner: {name}. We try to send her if she's available; it isn't promised to the customer.",
+        "preferred": "Preferred cleaner: {name} — we try to send her if she's available; it isn't promised to the customer.",
         "visit": "Visit {date}",
         "count": "{assigned} of {required} assigned",
         "changeStatus": "Change visit status",
@@ -3304,7 +3325,8 @@
           "live_out": "On a Live-out day",
           "busy": "Busy with another visit",
           "unknown": "A rule the system reported"
-        }
+        },
+        "seriesPrimary": "Subscription's primary worker: {name}"
       },
       "deliveries": {
         "title": "Notifications sent",
@@ -4681,7 +4703,12 @@
           "weather": "Weather",
           "duplicate": "Duplicate",
           "payment_issue": "Payment issue",
-          "other": "Other"
+          "other": "Other",
+          "plans_changed": "Plans changed",
+          "booked_by_mistake": "Booked by mistake",
+          "time_not_suitable": "The time no longer suits",
+          "sla_expired": "Not confirmed in time",
+          "unpaid": "Renewal not paid"
         },
         "rule": {
           "full_refund": "Full refund of the unused value",
@@ -4877,7 +4904,8 @@
         "invoice": "Invoice",
         "refunded": "Refunded",
         "refundable": "Can still give back: {amount}",
-        "paymentVoided": "Card hold released"
+        "paymentVoided": "Card hold released",
+        "notPriced": "Not priced yet"
       },
       "history": {
         "title": "History",
@@ -4887,27 +4915,164 @@
           "customer": "Customer",
           "system": "System"
         },
-        "keys": {
-          "from": "from",
-          "to": "to",
-          "date": "date",
-          "reason": "reason",
-          "status": "status",
-          "amount_fils": "amount",
-          "term_end_date": "term end",
-          "refund_fils": "refund",
-          "fee_fils": "fee",
-          "captured_fils": "captured",
-          "decision": "decision",
-          "role": "role",
-          "change": "change",
-          "dates": "dates",
-          "kept": "kept",
-          "replaced": "replaced",
-          "new": "new",
-          "appended_date": "added",
-          "credited": "credited",
-          "reason_code": "reason"
+        "change": "{from} → {to}",
+        "range": "{from} – {to}",
+        "rangeDays": "{from} – {to} ({days, plural, one {# day} other {# days}})",
+        "ratio": "{value} of {of}",
+        "workerNo": "Worker #{id}",
+        "nobody": "nobody",
+        "more": "+{count} more",
+        "attemptScheduled": "{n}, scheduled",
+        "attemptAsked": "{n}, asked now",
+        "facts": {
+          "status": "Status",
+          "stage": "Step",
+          "party": "Cancelled by",
+          "period": "Period",
+          "periodDates": "Dates",
+          "visits": "Visits",
+          "amount": "Amount",
+          "holdUntil": "Held until",
+          "moved": "Moved",
+          "dropped": "Dropped",
+          "captured": "Captured",
+          "primary": "Primary",
+          "backup": "Backup",
+          "reason": "Reason",
+          "payment": "Payment",
+          "refund": "Refund",
+          "fee": "Fee",
+          "clawback": "Discount clawback",
+          "waived": "Clawback waived",
+          "unpaid": "Unpaid",
+          "deadline": "Confirmation deadline",
+          "failure": "Failure",
+          "attempt": "Attempt",
+          "attempts": "Attempts",
+          "endDate": "Last day",
+          "renewalAt": "Renewal",
+          "termEnd": "End of the term",
+          "continuesFrom": "Visits continue from",
+          "refunded": "Refunded",
+          "visitsUsed": "Visits used",
+          "visit": "Visit",
+          "added": "Added",
+          "removed": "Taken off",
+          "from": "From",
+          "days": "Days",
+          "restDays": "Rest days",
+          "slot": "Time",
+          "replaced": "Replaced",
+          "new": "New dates",
+          "autoRenew": "Auto-renew",
+          "card": "Card",
+          "consent": "Consent version",
+          "conflict": "Problem",
+          "cause": "Cause",
+          "addedOn": "Added at the end",
+          "change": "Change",
+          "scope": "Applies to",
+          "substitute": "Substitute",
+          "credited": "Credited",
+          "notCovered": "Not covered",
+          "unusedValue": "Unused value",
+          "note": "Note",
+          "decision": "Decision",
+          "move": "Moved",
+          "frozen": "Frozen",
+          "frozenVisits": "Visits frozen",
+          "endedOn": "Ended early on",
+          "restored": "Visits back",
+          "stillFrozen": "Still frozen",
+          "removedFromEnd": "Removed from the end",
+          "overLimit": "Over the freeze limit",
+          "notMadeUp": "Not made up",
+          "override": "Rules overridden",
+          "outcome": "Outcome",
+          "visitStatus": "Visit status"
+        },
+        "values": {
+          "failure": {
+            "card_declined": "Card declined",
+            "insufficient_funds": "Insufficient funds",
+            "expired_card": "Card expired",
+            "authentication_failed": "3-D Secure not completed",
+            "gateway_unavailable": "Payment provider unreachable",
+            "token_revoked": "Saved card no longer usable",
+            "no_payment_method": "No card for the renewal",
+            "card_expired": "Renewal card expired",
+            "authentication_required": "The bank asked for an extra check",
+            "card_not_consented": "Card not confirmed for renewals",
+            "price_unavailable": "No price for the renewal",
+            "verifying_cutoff": "Payment still being checked at the cut-off",
+            "generic": "Payment failed"
+          },
+          "stage": {
+            "attempt": "Charge attempt",
+            "paid": "Renewal paid",
+            "refunded_before_paid": "Refunded before it applied",
+            "not_renewed": "Not renewed"
+          },
+          "party": {
+            "customer": "Customer",
+            "company": "Company",
+            "system": "System"
+          },
+          "paymentOutcome": {
+            "voided": "Hold released",
+            "deferred": "Release pending",
+            "kept": "Kept",
+            "none": "Nothing taken",
+            "captured": "Captured",
+            "retry": "To be retried",
+            "refused": "Refused by the payment provider",
+            "refunded": "Refunded"
+          },
+          "expiredCause": {
+            "hold_expired": "Payment not completed in time",
+            "payment_after_hold_expiry": "Paid after the hold expired",
+            "hold_not_extended": "The hold could not be extended"
+          },
+          "workerReason": {
+            "live_out_absence": "Live-out absence",
+            "series_primary": "Subscription's primary",
+            "series_backup": "Subscription's backup",
+            "series_substitute": "Substitute for the day",
+            "series_primary_changed": "New primary"
+          },
+          "creditCause": {
+            "missed_by_company": "Missed by the company",
+            "conflict": "Could not be scheduled",
+            "started_at_confirmation": "Started before confirmation",
+            "absence": "Absence without a substitute",
+            "holiday": "Public holiday"
+          },
+          "scope": {
+            "this": "This day only",
+            "following": "This day and the following days"
+          },
+          "decision": {
+            "approved": "Approved",
+            "declined": "Declined"
+          },
+          "outcome": {
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "none": "No change"
+          },
+          "visitStatus": {
+            "completed": "Completed",
+            "no_show_customer": "Customer not home",
+            "missed_by_company": "Missed by the company",
+            "cancelled": "Cancelled"
+          },
+          "autoRenew": {
+            "on": "On",
+            "off": "Off"
+          },
+          "autoRenewReason": {
+            "offer_withdrawn": "Plan no longer offered"
+          }
         }
       },
       "visits": {

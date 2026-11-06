@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import { renderWithProviders } from "@/test/render";
 import { candidate, liveOutDetail, pendingDetail, subscriptionDetail } from "@/test/subscriptionFixtures";
 import { AssignWorkerDialog } from "./AssignWorkerDialog";
@@ -279,7 +280,7 @@ describe("A08 Live-out day", () => {
     await waitFor(() => expect(within(substitute).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
     await user.selectOptions(substitute, "15");
     await waitFor(() => expect(api.previewLiveOutDay).toHaveBeenLastCalledWith(32, "2026-11-11", { change: "absence", scope: "this", substitute_worker_id: 15 }));
-    expect(await screen.findByText("Substitute: Rosa")).toBeInTheDocument();
+    expect(await screen.findByText(`Substitute: ${isolate("Rosa")}`)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const [id, date, body, version, key] = api.changeLiveOutDay.mock.calls[0];
@@ -310,6 +311,29 @@ describe("A08 Live-out day", () => {
     expect(screen.queryByLabelText("Substitute worker (optional)", { exact: false })).not.toBeInTheDocument();
   });
 
+  it("never calls the current term end new: a credit in a later period says only where its day is added", async () => {
+    // TRL-S2FB7Q: 16 Dec is in period 2 (not paid yet); the credit moves period 2's end, the term end (8 Dec) stays.
+    const contract = liveOutDetail({ term_end_date: "2026-12-08" });
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({ days: [{ date: "2026-12-16", before: "service", after: "absence", substitute: null, credited: true, appended_date: "2027-01-11" }], term_end_date: "2026-12-08" }),
+    );
+    const { unmount } = renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-12-16" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, {
+      permissions: MANAGER,
+    });
+    expect(await screen.findByText("added on Mon, 11 Jan 2027")).toBeInTheDocument();
+    expect(screen.queryByText("New end of the term")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tue, 8 Dec 2026")).not.toBeInTheDocument();
+    unmount();
+
+    // A change inside the paid term moves its end: that new end is shown.
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({ days: [{ date: "2026-11-18", before: "service", after: "absence", substitute: null, credited: true, appended_date: "2026-12-09" }], term_end_date: "2026-12-09" }),
+    );
+    renderWithProviders(<LiveOutDayDialog subscription={contract} date="2026-11-18" type="service" scope="this" onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER });
+    expect(await screen.findByText("New end of the term")).toBeInTheDocument();
+    expect(screen.getByText("Wed, 9 Dec 2026")).toBeInTheDocument();
+  });
+
   it("names each day's substitute as the API does, without looking her up among the candidates", async () => {
     // Back to service: the primary could not take the days back, so they stay absent with their substitutes.
     api.previewLiveOutDay.mockResolvedValue(
@@ -322,8 +346,8 @@ describe("A08 Live-out day", () => {
       }),
     );
     show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="absence" scope="following" {...p} />);
-    expect(await screen.findByText("Substitute: Lina")).toBeInTheDocument();
-    expect(screen.getByText("Substitute: Joy M.")).toBeInTheDocument();
+    expect(await screen.findByText(`Substitute: ${isolate("Lina")}`)).toBeInTheDocument();
+    expect(screen.getByText(`Substitute: ${isolate("Joy M.")}`)).toBeInTheDocument();
     expect(screen.queryByText(/worker no\./)).not.toBeInTheDocument();
     expect(api.fetchWorkerCandidates).not.toHaveBeenCalled();
   });
@@ -333,7 +357,7 @@ describe("A08 Live-out day", () => {
       apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, name: "Rosa", role: "substitute", reason: "leave", reasons: ["leave"] }] }),
     );
     const { user, onClose } = show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
-    await screen.findByText("Substitute: Rosa");
+    await screen.findByText(`Substitute: ${isolate("Rosa")}`);
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Substitute: Rosa · On leave", { selector: "li" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();

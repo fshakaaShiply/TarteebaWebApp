@@ -20,11 +20,12 @@ import {
 } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
+import { isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { INVOICES_PATH, PAYMENTS_PATH, SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { CAPACITY_OVERRIDE_PERMISSION } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
-import type { BookingDetail, BookingHistoryRow, RescheduleRequest } from "@/lib/admin/types";
+import type { BookingDetail, BookingHistoryRow, BookingSubscriptionLink, RescheduleRequest } from "@/lib/admin/types";
 import { FormErrorNotice } from "../../catalog/_components/CatalogFields";
 import { DeadlineCountdown, Ltr, SlotLabel } from "../_components/BookingBits";
 import { useBookingFocusFallback } from "../_components/focus";
@@ -129,16 +130,7 @@ export function RequestCard({ booking }: { booking: BookingDetail }) {
           {text.date(booking.service_date)} · <SlotLabel name={booking.slot.name} start={booking.slot.start} end={booking.slot.end} />
         </Fact>
         <Fact label={t("materials")}>{text.materials(booking.materials_by)}</Fact>
-        <Fact label={t("preferredWorker")}>
-          {booking.preferred_worker ? (
-            <span className="flex flex-col">
-              <span>{booking.preferred_worker.display_name}</span>
-              <span className="text-xs text-ink-600">{t("preferredNote")}</span>
-            </span>
-          ) : (
-            t("noPreference")
-          )}
-        </Fact>
+        <PreferredWorkerFact booking={booking} />
         <Fact label={t("priorities")}>{booking.priorities.length ? booking.priorities.map((p) => text.area(p)).join(t("listSeparator")) : "—"}</Fact>
         <Fact label={t("instructions")}>{booking.instructions ? <span className="whitespace-pre-line">{booking.instructions}</span> : "—"}</Fact>
         <Fact label={t("source")}>{text.source(booking.source, booking.source_label)}</Fact>
@@ -172,10 +164,57 @@ export function RequestCard({ booking }: { booking: BookingDetail }) {
   );
 }
 
+/**
+ * The worker a booking names. A single booking's preferred cleaner is asked for, never promised (spec §16). A series
+ * visit's is the subscription's primary worker, whom A08 names for the series (a Live-out primary is booked for the whole
+ * day), so it carries no "not promised" copy.
+ */
+export function PreferredWorkerFact({ booking }: { booking: BookingDetail }) {
+  const t = useTranslations("admin.bookings.detail");
+  const series = booking.subscription;
+  const note = series ? (series.type === "live_out" ? t("seriesPrimaryNoteLiveOut") : t("seriesPrimaryNote")) : t("preferredNote");
+  return (
+    <Fact label={series ? t("seriesPrimary") : t("preferredWorker")}>
+      {booking.preferred_worker ? (
+        <span className="flex flex-col">
+          <bdi>{booking.preferred_worker.display_name}</bdi>
+          <span className="text-xs text-ink-600">{note}</span>
+        </span>
+      ) : series ? (
+        t("noSeriesPrimary")
+      ) : (
+        t("noPreference")
+      )}
+    </Fact>
+  );
+}
+
+/**
+ * A series visit's money (P4-38: it has none of its own, every amount 0, payment_status captured): paid within its
+ * subscription's period, named by number (P4-261).
+ */
+export function SeriesPaid({ link }: { link: BookingSubscriptionLink }) {
+  const t = useTranslations("admin.bookings.payment");
+  const reference = isolate(link.reference, "ltr");
+  return <>{link.period_no ? t("series", { reference, n: link.period_no }) : t("seriesNoPeriod", { reference })}</>;
+}
+
 export function PriceCard({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("admin.bookings.detail");
   const text = useBookingText();
   const a = booking.amounts;
+  const series = booking.subscription;
+  if (series) {
+    return (
+      <Card title={t("priceTitle")}>
+        <p className="text-sm text-ink-900">
+          {series.period_no
+            ? t("seriesPrice", { reference: isolate(series.reference, "ltr"), n: series.period_no })
+            : t("seriesPriceNoPeriod", { reference: isolate(series.reference, "ltr") })}
+        </p>
+      </Card>
+    );
+  }
   return (
     <Card title={t("priceTitle")}>
       {booking.lines && booking.lines.length > 0 && (
@@ -228,7 +267,9 @@ export function PaymentCard({ booking }: { booking: BookingDetail }) {
   return (
     <Card title={t("title")}>
       {!p ? (
-        <p className="text-sm text-ink-600">{t("none")}</p>
+        <p className={clsx("text-sm", booking.subscription ? "text-ink-900" : "text-ink-600")}>
+          {booking.subscription ? <SeriesPaid link={booking.subscription} /> : t("none")}
+        </p>
       ) : (
         <dl className="flex flex-col gap-2">
           <Fact label={t("status")}>

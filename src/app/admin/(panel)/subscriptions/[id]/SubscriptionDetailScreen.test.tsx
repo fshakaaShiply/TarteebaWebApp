@@ -335,6 +335,46 @@ describe("A08 subscription page", () => {
     expect(screen.getByText("“No cleaner in the area”")).toBeInTheDocument();
   });
 
+  it("labels a customer's cancellation reason, on the banner and on a waiting review, in both languages", async () => {
+    const ended = { status: "cancelled", actions: { ...subscriptionDetail().actions, cancel: false, freeze: false, skip: false } } as const;
+    const cancelled = { at: "2026-11-06T10:54:00+00:00", by_type: "customer", by: null, reason_code: "plans_changed", reason: null };
+    const { unmount } = open(subscriptionDetail({ ...ended, cancelled }));
+    const banner = (await screen.findByText(/Cancelled on/)).closest("[role]") as HTMLElement;
+    expect(banner).toHaveTextContent("Plans changed");
+    expect(banner).not.toHaveTextContent("plans_changed");
+    unmount();
+
+    const arabic = open(subscriptionDetail({ ...ended, cancelled }), MANAGER, "ar");
+    const arBanner = (await screen.findByText(/أُلغي في/)).closest("[role]") as HTMLElement;
+    expect(arBanner).toHaveTextContent("تغيرت الخطط");
+    expect(arBanner).not.toHaveTextContent("plans_changed");
+    arabic.unmount();
+
+    const review = { requested_at: "2026-11-06T10:54:00+00:00", reason_code: "time_not_suitable", reason_text: null, party: "customer", decision: null };
+    open(subscriptionDetail({ cancel_review: review as never, actions: { ...subscriptionDetail().actions, resolve_review: true, cancel: false } }), ["subscriptions.manage", "refunds.create"]);
+    expect(await screen.findByText(/Reason: The time no longer suits/)).toBeInTheDocument();
+  });
+
+  it("calls an upcoming period not priced yet instead of AED 0.00, and shows the notified amount once priced", async () => {
+    const user = userEvent.setup();
+    const upcoming = { status: "upcoming", amount_fils: 0, payment: null, invoice: null, refundable_fils: 0 } as const;
+    open(
+      subscriptionDetail({
+        periods: [
+          subscriptionPeriod(),
+          subscriptionPeriod({ id: 202, sequence: 2, start: "2026-11-29", end: "2026-12-26", ...upcoming, notified_amount_fils: null }),
+          subscriptionPeriod({ id: 203, sequence: 3, start: "2026-12-27", end: "2027-01-23", ...upcoming, amount_fils: 96000, notified_amount_fils: 96000 }),
+        ],
+      }),
+    );
+    await screen.findByRole("heading", { name: /TRS-7K2M9Q/ });
+    await user.click(screen.getByRole("tab", { name: "Periods and payments" }));
+    const rows = within(await screen.findByRole("table", { name: "Periods and payments" })).getAllByRole("row");
+    expect(within(rows[2]).getByText("Not priced yet")).toBeInTheDocument();
+    expect(rows[2]).not.toHaveTextContent("AED 0.00");
+    expect(within(rows[3]).getByText("AED 960.00")).toBeInTheDocument();
+  });
+
   it("lists the periods with amounts, the payment and invoice links for finance readers", async () => {
     const user = userEvent.setup();
     open(subscriptionDetail({ periods: [subscriptionPeriod(), subscriptionPeriod({ id: 202, sequence: 2, status: "pending_payment", amount_fils: 99000, notified_amount_fils: 96000, payment: null, invoice: null, refundable_fils: 0 })] }));
@@ -356,6 +396,9 @@ describe("A08 subscription page", () => {
     const row = (await screen.findByText("Confirmed")).closest("li") as HTMLElement;
     expect(within(row).getByText(/Coordinator/)).toBeInTheDocument();
     expect(within(row).getByText("AED 960.00")).toBeInTheDocument();
+    // The primary by her name (the row's `workers`, P4-260), never "primary worker id: 14".
+    expect(row).toHaveTextContent("Primary: \u2068Maria S.\u2069");
+    expect(row).not.toHaveTextContent(/worker id|14/);
   });
 
   it("shows the Live-out calendar tab with the month", async () => {
@@ -363,7 +406,7 @@ describe("A08 subscription page", () => {
     open(liveOutDetail());
     await screen.findByRole("heading", { name: /TRS-L0NG01/ });
     await user.click(screen.getByRole("tab", { name: "Calendar" }));
-    expect(await screen.findByText(/Absent: Angela · Substitute: Rosa/)).toBeInTheDocument();
+    expect(await screen.findByText("Absent: \u2068Angela\u2069 · Substitute: \u2068Rosa\u2069")).toBeInTheDocument();
     expect(api.fetchSubscriptionCalendar).toHaveBeenCalledWith(32, "2026-11");
   });
 

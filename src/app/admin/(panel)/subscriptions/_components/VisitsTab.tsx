@@ -16,10 +16,14 @@ import type { SubscriptionDetail, SubscriptionOccurrence } from "@/lib/admin/sub
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { Ltr } from "./kit";
 import type { DialogRequest } from "./DialogHost";
+import { WorkerNames } from "./DetailParts";
 import { decisionFromOccurrence } from "./VisitDecisionDialogs";
 
 /** The visits list covers 31 days at a time (the API serves at most 92). */
 const WINDOW_DAYS = 30;
+
+/** States of a visit that will still take place: only these wait for a worker to be named. */
+const TO_SERVE: readonly string[] = ["planned", "held", "materialized"];
 
 /** Rows grouped by the period they belong to, in date order; replaced dates (the old pattern) are not shown. */
 export function groupByPeriod(rows: readonly SubscriptionOccurrence[]): { sequence: number | null; rows: SubscriptionOccurrence[] }[] {
@@ -141,7 +145,16 @@ function VisitRow({
       <td className="px-2 py-2.5">
         <StatusBadge tone={tone(occurrenceTone, row.state)}>{row.state_label || text.occurrence(row.state)}</StatusBadge>
       </td>
-      <td className="px-2 py-2.5">{row.workers.length > 0 ? row.workers.map((w) => w.name).join(text.locale === "ar" ? "، " : ", ") : <span className="text-ink-600">{t("noWorker")}</span>}</td>
+      <td className="px-2 py-2.5">
+        {/* A skipped, frozen, credited or cancelled visit will not take place: no worker is still to be named. */}
+        {row.workers.length > 0 ? (
+          <WorkerNames workers={row.workers} />
+        ) : TO_SERVE.includes(row.state) ? (
+          <span className="text-ink-600">{t("noWorker")}</span>
+        ) : (
+          <span className="text-ink-600">—</span>
+        )}
+      </td>
       <td className="px-2 py-2.5">
         <div className="flex flex-col gap-0.5">
           {row.visit?.is_exception && (

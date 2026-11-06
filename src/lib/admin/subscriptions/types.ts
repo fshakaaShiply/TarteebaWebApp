@@ -45,6 +45,14 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export const PAYMENT_HEALTHS = ["paid", "pending", "verifying", "renewal_failed", "suspended", "refunded", "none"] as const;
 export type PaymentHealth = (typeof PAYMENT_HEALTHS)[number];
 
+/**
+ * Cancellation reasons beside the staff list (bookings' CANCEL_REASONS) that a subscription's cancellation, cancel review
+ * or history can carry: the customer's (the API's config booking.customer_cancel_reasons) and the system's
+ * (SubscriptionCancelled::REASON_SLA_EXPIRED, REASON_UNPAID). Each has its label in enums.cancelReason.
+ */
+export const CUSTOMER_CANCEL_REASONS = ["plans_changed", "booked_by_mistake", "time_not_suitable", "other"] as const;
+export const SYSTEM_CANCEL_REASONS = ["sla_expired", "unpaid"] as const;
+
 export type SubscriptionPage = Ok<"admin.subscription.subscriptions.index">;
 export type VisitsPage = Ok<"admin.subscription.subscriptions.visits">;
 export type SubscriptionEvent = Schemas["SubscriptionEventResource"];

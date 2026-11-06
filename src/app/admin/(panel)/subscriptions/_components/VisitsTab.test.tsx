@@ -73,6 +73,33 @@ describe("A08 visits tab", () => {
     expect(within(first).getAllByRole("row")).toHaveLength(1 + 5);
   });
 
+  it("waits for a worker only on visits that will take place; a skipped, credited or cancelled one shows a dash", async () => {
+    const gone = { booking: null, visit: null, workers: [], editable: { this: false, following: false, skip: false, undo_skip: false } };
+    api.fetchSubscriptionVisits.mockResolvedValue({
+      data: [
+        occurrence({ id: 601, ulid: "01jocc61", scheduled_date: "2026-11-11", occurrence_date: "2026-11-11", state: "planned", state_label: "Planned", ...gone }),
+        occurrence({ id: 602, ulid: "01jocc62", scheduled_date: "2026-11-15", occurrence_date: "2026-11-15", state: "skipped", state_label: "Skipped", ...gone }),
+        occurrence({ id: 603, ulid: "01jocc63", scheduled_date: "2026-11-18", occurrence_date: "2026-11-18", state: "credited", state_label: "Credited", ...gone }),
+        occurrence({ id: 604, ulid: "01jocc64", scheduled_date: "2026-11-22", occurrence_date: "2026-11-22", state: "cancelled", state_label: "Cancelled", ...gone }),
+        occurrence({ id: 605, ulid: "01jocc65", scheduled_date: "2026-11-25", occurrence_date: "2026-11-25", workers: [{ id: 14, name: "Maria S." }] }),
+      ],
+      meta,
+    });
+    setup();
+    const workersOf = async (date: string) => {
+      const row = (await screen.findByText(date)).closest("tr") as HTMLElement;
+      return within(row).getAllByRole("cell")[3];
+    };
+    expect(await workersOf("Wed, 11 Nov 2026")).toHaveTextContent("Not named yet");
+    for (const date of ["Sun, 15 Nov 2026", "Wed, 18 Nov 2026", "Sun, 22 Nov 2026"]) {
+      const cell = await workersOf(date);
+      expect(cell, date).toHaveTextContent("—");
+      expect(cell, date).not.toHaveTextContent("Not named yet");
+    }
+    // A named worker is her own bidi run (<bdi>), so "Maria S." keeps its period in Arabic.
+    expect((await workersOf("Wed, 25 Nov 2026")).querySelector("bdi:not([dir])")).toHaveTextContent("Maria S.");
+  });
+
   it("gives each row two separate buttons, Edit this visit and Edit following visits", async () => {
     const { open, user } = setup();
     const row = (await screen.findByText("Wed, 4 Nov 2026")).closest("tr") as HTMLElement;

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, ErrorState, IconButton, LoadingBlock } from "@/components/admin";
-import { businessToday, formatMonth } from "@/lib/admin/format";
+import { businessToday, formatMonth, isolate } from "@/lib/admin/format";
 import { fetchSubscriptionCalendar } from "@/lib/admin/subscriptions/endpoints";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { CalendarDay, SubscriptionDetail } from "@/lib/admin/subscriptions/types";
@@ -23,6 +23,8 @@ const cellTone: Record<string, string> = {
   absence: "border-transparent bg-apricot-100 text-warning-700",
   dropped: "border-transparent bg-neutral-100 text-ink-600 line-through",
 };
+
+const plain = (value: string) => value;
 
 /**
  * The Live-out calendar (design AdminSubscriptions): W1's own month grid, Sunday first in both languages (the schedule's
@@ -61,12 +63,16 @@ export function LiveOutCalendar({
   const day = selected ? byDate.get(selected) : undefined;
   const canEdit = canManage && day !== undefined && EDITABLE_TYPES.includes(day.type);
 
-  const describeDay = (d: CalendarDay): string => {
+  // On screen each name is its own bidi run (isolate), so "Siti R." keeps its period in Arabic; the cell's accessible
+  // name reads the plain names.
+  const describeDay = (d: CalendarDay, name: (value: string) => string = isolate): string => {
     switch (d.type) {
       case "absence":
-        return d.substitute ? t("absentWith", { primary: d.worker?.name ?? primary, substitute: d.substitute.name }) : t("absentWithout", { primary: d.worker?.name ?? primary });
+        return d.substitute
+          ? t("absentWith", { primary: name(d.worker?.name ?? primary), substitute: name(d.substitute.name) })
+          : t("absentWithout", { primary: name(d.worker?.name ?? primary) });
       case "service":
-        return d.substitute ? t("serviceWith", { substitute: d.substitute.name }) : t("service");
+        return d.substitute ? t("serviceWith", { substitute: name(d.substitute.name) }) : t("service");
       default:
         return text.day(d.type);
     }
@@ -80,7 +86,7 @@ export function LiveOutCalendar({
             <Ltr>{subscription.reference}</Ltr> · {text.type("live_out")} · {formatMonth(first, text.locale)}
           </h3>
           <p className="text-sm text-ink-600">
-            {t("workers", { primary, backup: subscription.workers.backup?.name ?? t("noBackup") })}
+            {t("workers", { primary: isolate(primary), backup: isolate(subscription.workers.backup?.name ?? t("noBackup")) })}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -121,7 +127,7 @@ export function LiveOutCalendar({
                     key={date}
                     type="button"
                     aria-pressed={isSelected}
-                    aria-label={`${text.date(date)}: ${describeDay(d)}`}
+                    aria-label={`${text.date(date)}: ${describeDay(d, plain)}`}
                     onClick={() => setSelected(isSelected ? null : date)}
                     className={clsx(
                       "touch-target flex min-h-16 flex-col items-start gap-0.5 rounded-md border p-1.5 text-start text-xs transition-colors",

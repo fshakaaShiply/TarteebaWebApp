@@ -2864,7 +2864,15 @@
           "alternative_expired": "لم يرد العميل على المواعيد البديلة",
           "payment_not_capturable": "تعذر إتمام الدفع",
           "rejected": "لم يتم تأكيد الطلب",
-          "other": "سبب آخر"
+          "other": "سبب آخر",
+          "subscription_skip": "تُخطّيت ضمن الاشتراك",
+          "subscription_freeze": "جُمِّد الاشتراك",
+          "subscription_unpaid": "لم يُدفع تجديد الاشتراك",
+          "subscription_pattern_change": "تغيّرت أيام الاشتراك",
+          "subscription_cancelled": "أُلغي الاشتراك",
+          "subscription_credit": "عُوِّضت ضمن الاشتراك",
+          "subscription_holiday": "عطلة رسمية ضمن الاشتراك",
+          "subscription_late_capture": "نُقلت بعد دفع متأخر"
         },
         "party": {
           "customer": "العميل",
@@ -3128,7 +3136,13 @@
         "refresh": "تحديث",
         "verifyingConfirm": "ما زال مزود الدفع يتحقق من هذه الدفعة، ويصبح التأكيد متاحًا بعد وصول رده.",
         "seriesVisit": "هذه الزيارة جزء من اشتراك. تُغيَّر زياراته أو تُتخطى أو تُلغى من صفحة الاشتراك.",
-        "openSubscription": "فتح الاشتراك {reference}"
+        "openSubscription": "فتح الاشتراك {reference}",
+        "seriesPrice": "ضمن الاشتراك {reference}، الفترة {n}: لا سعر خاصًا بهذه الزيارة.",
+        "seriesPriceNoPeriod": "ضمن الاشتراك {reference}: لا سعر خاصًا بهذه الزيارة.",
+        "seriesPrimary": "العاملة الأساسية في الاشتراك",
+        "seriesPrimaryNote": "مُسمّاة لزيارات الاشتراك، وتُغيَّر من صفحة الاشتراك.",
+        "seriesPrimaryNoteLiveOut": "محجوزة طوال اليوم.",
+        "noSeriesPrimary": "لم تُسمَّ العاملة الأساسية بعد"
       },
       "payment": {
         "title": "الدفع والاسترداد",
@@ -3155,7 +3169,9 @@
         "cancelRefund": "المبلغ المسجل للاسترداد",
         "refundsTitle": "الاستردادات (الحالة من مزود الدفع)",
         "refundStatusFinance": "تظهر حالة الاسترداد من مزود الدفع لفريق المالية.",
-        "openInFinance": "فتح في المدفوعات والفواتير"
+        "openInFinance": "فتح في المدفوعات والفواتير",
+        "series": "مدفوعة ضمن الاشتراك {reference} (الفترة {n}).",
+        "seriesNoPeriod": "مدفوعة ضمن الاشتراك {reference}."
       },
       "proposals": {
         "title": "المواعيد البديلة المقترحة",
@@ -3234,12 +3250,17 @@
           "cancel_review_declined": "رُفض طلب الإلغاء",
           "visits_completed": "اكتملت كل الزيارات",
           "auto_start": "بدأت تلقائيًا",
-          "auto_complete": "اكتملت تلقائيًا"
+          "auto_complete": "اكتملت تلقائيًا",
+          "series_primary": "عُيّنت من الاشتراك",
+          "series_backup": "عُيّنت البديلة من الاشتراك",
+          "series_substitute": "عُيّنت بديلة لهذا اليوم",
+          "series_primary_changed": "تغيّرت العاملة الأساسية للاشتراك",
+          "live_out_absence": "غياب في Live-out"
         }
       },
       "assignment": {
         "title": "العاملات",
-        "preferred": "العاملة المفضلة: {name}. نحاول إرسالها إن كانت متاحة، دون وعد للعميل.",
+        "preferred": "العاملة المفضلة: {name} — نحاول إرسالها إن كانت متاحة، دون وعد للعميل.",
         "visit": "زيارة {date}",
         "count": "المعيّنات: {assigned} من {required}",
         "changeStatus": "تغيير حالة الزيارة",
@@ -3304,7 +3325,8 @@
           "live_out": "في يوم Live-out",
           "busy": "مشغولة بزيارة أخرى",
           "unknown": "قاعدة أبلغ عنها النظام"
-        }
+        },
+        "seriesPrimary": "العاملة الأساسية في الاشتراك: {name}"
       },
       "deliveries": {
         "title": "الإشعارات المرسلة",
@@ -4681,7 +4703,12 @@
           "weather": "الطقس",
           "duplicate": "مكرر",
           "payment_issue": "مشكلة في الدفع",
-          "other": "أخرى"
+          "other": "أخرى",
+          "plans_changed": "تغيرت الخطط",
+          "booked_by_mistake": "حُجز بالخطأ",
+          "time_not_suitable": "الموعد لم يعد مناسبًا",
+          "sla_expired": "لم يُؤكَّد في الوقت المحدد",
+          "unpaid": "لم يُدفع التجديد"
         },
         "rule": {
           "full_refund": "استرداد كامل للقيمة غير المستخدمة",
@@ -4877,7 +4904,8 @@
         "invoice": "الفاتورة",
         "refunded": "المسترد",
         "refundable": "يمكن ردّ: {amount}",
-        "paymentVoided": "أُلغي الحجز على البطاقة"
+        "paymentVoided": "أُلغي الحجز على البطاقة",
+        "notPriced": "لم يُسعَّر بعد"
       },
       "history": {
         "title": "السجل",
@@ -4887,27 +4915,164 @@
           "customer": "العميل",
           "system": "النظام"
         },
-        "keys": {
-          "from": "من",
-          "to": "إلى",
-          "date": "التاريخ",
-          "reason": "السبب",
+        "change": "{from} ← {to}",
+        "range": "{from} – {to}",
+        "rangeDays": "{from} – {to} ({days, plural, zero {# يوم} one {يوم واحد} two {يومان} few {# أيام} many {# يومًا} other {# يوم}})",
+        "ratio": "{value} من {of}",
+        "workerNo": "العاملة رقم {id}",
+        "nobody": "لا أحد",
+        "more": "و{count} غيرها",
+        "attemptScheduled": "{n}، مجدولة",
+        "attemptAsked": "{n}، بطلب فوري",
+        "facts": {
           "status": "الحالة",
-          "amount_fils": "المبلغ",
-          "term_end_date": "نهاية المدة",
-          "refund_fils": "الاسترداد",
-          "fee_fils": "الرسوم",
-          "captured_fils": "المخصوم",
-          "decision": "القرار",
-          "role": "الدور",
+          "stage": "المرحلة",
+          "party": "صاحب الإلغاء",
+          "period": "الفترة",
+          "periodDates": "التواريخ",
+          "visits": "الزيارات",
+          "amount": "المبلغ",
+          "holdUntil": "محجوز حتى",
+          "moved": "نُقلت",
+          "dropped": "أُسقطت",
+          "captured": "المحصَّل",
+          "primary": "الأساسية",
+          "backup": "البديلة",
+          "reason": "السبب",
+          "payment": "الدفعة",
+          "refund": "الاسترداد",
+          "fee": "الرسوم",
+          "clawback": "استرجاع الخصم",
+          "waived": "استرجاع مُعفى منه",
+          "unpaid": "غير المدفوع",
+          "deadline": "مهلة التأكيد",
+          "failure": "سبب الفشل",
+          "attempt": "المحاولة",
+          "attempts": "المحاولات",
+          "endDate": "آخر يوم",
+          "renewalAt": "التجديد",
+          "termEnd": "نهاية المدة",
+          "continuesFrom": "تُستأنف الزيارات من",
+          "refunded": "المسترد",
+          "visitsUsed": "الزيارات المستخدمة",
+          "visit": "الزيارة",
+          "added": "أُضيفت",
+          "removed": "أُزيلت",
+          "from": "اعتبارًا من",
+          "days": "الأيام",
+          "restDays": "أيام الراحة",
+          "slot": "الوقت",
+          "replaced": "استُبدلت",
+          "new": "التواريخ الجديدة",
+          "autoRenew": "التجديد التلقائي",
+          "card": "البطاقة",
+          "consent": "إصدار الموافقة",
+          "conflict": "المشكلة",
+          "cause": "السبب",
+          "addedOn": "أُضيفت في آخر المدة",
           "change": "التغيير",
-          "dates": "التواريخ",
-          "kept": "المبقاة",
-          "replaced": "المستبدلة",
-          "new": "الجديدة",
-          "appended_date": "المضافة",
-          "credited": "المعوَّضة",
-          "reason_code": "السبب"
+          "scope": "يسري على",
+          "substitute": "البديلة",
+          "credited": "عُوِّضت",
+          "notCovered": "دون تغطية",
+          "unusedValue": "القيمة غير المستخدمة",
+          "note": "الملاحظة",
+          "decision": "القرار",
+          "move": "النقل",
+          "frozen": "التجميد",
+          "frozenVisits": "الزيارات المجمدة",
+          "endedOn": "انتهى مبكرًا في",
+          "restored": "الزيارات المستعادة",
+          "stillFrozen": "ما زالت مجمدة",
+          "removedFromEnd": "أُزيلت من آخر المدة",
+          "overLimit": "تجاوز حد التجميد",
+          "notMadeUp": "دون تعويض",
+          "override": "تجاوز القواعد",
+          "outcome": "النتيجة",
+          "visitStatus": "حالة الزيارة"
+        },
+        "values": {
+          "failure": {
+            "card_declined": "رُفضت البطاقة",
+            "insufficient_funds": "رصيد غير كافٍ",
+            "expired_card": "البطاقة منتهية الصلاحية",
+            "authentication_failed": "لم يكتمل التحقق الإضافي (3-D Secure)",
+            "gateway_unavailable": "تعذّر الوصول إلى مزود الدفع",
+            "token_revoked": "البطاقة المحفوظة لم تعد صالحة",
+            "no_payment_method": "لا بطاقة للتجديد",
+            "card_expired": "بطاقة التجديد منتهية الصلاحية",
+            "authentication_required": "طلب البنك تحققًا إضافيًا",
+            "card_not_consented": "البطاقة غير مؤكدة للتجديدات",
+            "price_unavailable": "لا سعر للتجديد",
+            "verifying_cutoff": "الدفعة قيد التحقق عند الموعد النهائي",
+            "generic": "لم تنجح الدفعة"
+          },
+          "stage": {
+            "attempt": "محاولة خصم",
+            "paid": "دُفع التجديد",
+            "refunded_before_paid": "استُرد قبل أن يسري",
+            "not_renewed": "لم يُجدَّد"
+          },
+          "party": {
+            "customer": "العميل",
+            "company": "الشركة",
+            "system": "النظام"
+          },
+          "paymentOutcome": {
+            "voided": "أُلغي الحجز على البطاقة",
+            "deferred": "الإفراج عن المبلغ مؤجل",
+            "kept": "احتُفظ بالمبلغ",
+            "none": "لم يُخصم شيء",
+            "captured": "حُصِّل المبلغ",
+            "retry": "ستُعاد المحاولة",
+            "refused": "رفضه مزود الدفع",
+            "refunded": "استُرد المبلغ"
+          },
+          "expiredCause": {
+            "hold_expired": "لم يكتمل الدفع في الوقت المحدد",
+            "payment_after_hold_expiry": "دُفع بعد انتهاء الحجز",
+            "hold_not_extended": "تعذّر تمديد الحجز"
+          },
+          "workerReason": {
+            "live_out_absence": "غياب في Live-out",
+            "series_primary": "الأساسية في الاشتراك",
+            "series_backup": "البديلة في الاشتراك",
+            "series_substitute": "بديلة لهذا اليوم",
+            "series_primary_changed": "أساسية جديدة"
+          },
+          "creditCause": {
+            "missed_by_company": "فاتت بسبب الشركة",
+            "conflict": "تعذّرت جدولتها",
+            "started_at_confirmation": "بدأت قبل التأكيد",
+            "absence": "غياب دون بديلة",
+            "holiday": "عطلة رسمية"
+          },
+          "scope": {
+            "this": "هذا اليوم فقط",
+            "following": "هذا اليوم والأيام التالية"
+          },
+          "decision": {
+            "approved": "تمت الموافقة",
+            "declined": "رُفض"
+          },
+          "outcome": {
+            "completed": "اكتملت",
+            "cancelled": "أُلغيت",
+            "none": "دون تغيير"
+          },
+          "visitStatus": {
+            "completed": "مكتملة",
+            "no_show_customer": "العميل غير موجود",
+            "missed_by_company": "فاتت بسبب الشركة",
+            "cancelled": "ملغاة"
+          },
+          "autoRenew": {
+            "on": "مفعّل",
+            "off": "متوقف"
+          },
+          "autoRenewReason": {
+            "offer_withdrawn": "لم تعد الباقة معروضة"
+          }
         }
       },
       "visits": {

@@ -94,6 +94,14 @@ describe("A08 subscriptions list", () => {
     expect(within(pending).getByText("Payment being checked")).toBeInTheDocument();
   });
 
+  it("sets the workers' names as their own bidi runs, so a Latin name keeps its period in Arabic", async () => {
+    api.fetchSubscriptions.mockResolvedValue(subscriptionPage([subscriptionRow({ backup_worker: { id: 15, name: "Siti R." } })]));
+    renderWithProviders(<SubscriptionsScreen />, { permissions: READ, locale: "ar" });
+    const row = (await screen.findByRole("link", { name: "TRS-7K2M9Q" })).closest("tr") as HTMLElement;
+    expect(row.querySelector("bdi:not([dir])")).toHaveTextContent("Maria S.");
+    expect(within(row).getByText("البديلة: \u2068Siti R.\u2069")).toBeInTheDocument();
+  });
+
   it("shows the renewal and first-visit dates as Dubai dates, not the UTC instant's date", async () => {
     // renewal_time 02:00 on 29 Nov (Dubai) is 22:00 UTC on 28 Nov; the first visit at 01:00 on 1 Nov is 21:00 UTC on 31 Oct.
     api.fetchSubscriptions.mockResolvedValue(

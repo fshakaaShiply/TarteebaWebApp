@@ -935,7 +935,8 @@ export type BookingKind = "single" | "subscription_visit" | "live_out_trial" | "
 
 /**
  * The subscription a series visit belongs to and its place in the period (SeriesVisitLink::staff); A08 is addressed
- * by `id`. `visit_no` / `visits_total` are null while the visit has no place in the numbering.
+ * by `id`. `visit_no` / `visits_total` are null while the visit has no place in the numbering; `period_no` is the
+ * period's sequence (P4-261), null without a period.
  */
 export type BookingSubscriptionLink = {
   id: number;
@@ -944,6 +945,7 @@ export type BookingSubscriptionLink = {
   type: "recurring" | "live_out" | (string & {});
   visit_no: number | null;
   visits_total: number | null;
+  period_no: number | null;
 };
 
 export type BookingRow = {

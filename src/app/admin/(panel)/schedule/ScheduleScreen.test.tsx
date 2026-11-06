@@ -417,7 +417,7 @@ describe("A04 operations schedule", () => {
         status: "confirmed",
         payment_status: "captured",
         kind: "subscription_visit",
-        subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 },
+        subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 },
         visits: [{ ...bookingDetail().visits[0], id: 7, status: "worker_assigned" }],
       }),
     );
@@ -698,6 +698,35 @@ describe("A04 operations schedule", () => {
     await user.click(within(confirm).getByRole("button", { name: "Confirm and take payment" }));
     await waitFor(() => expect(api.confirmBooking).toHaveBeenCalledWith(4, 3, expect.any(String)));
     expect(await screen.findByText("TRB-R4RYSD is confirmed.")).toBeInTheDocument();
+  });
+
+  it("reviews a subscription visit as one: its subscription and link, paid within the period, the primary never 'not promised'", async () => {
+    const link = { id: 32, ulid: "01jc", reference: "TRL-S2FB7Q", type: "live_out", visit_no: 2, visits_total: 26, period_no: 1 };
+    api.fetchBooking.mockResolvedValue(
+      bookingDetail({ status: "confirmed", payment_status: "captured", kind: "live_out_day", payment: null, total_fils: 0, preferred_worker: { id: 1, display_name: "Maria S." }, subscription: link }),
+    );
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(0));
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Review TRB-R4RYSD" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Review booking" });
+    await within(drawer).findByRole("heading", { level: 3, name: /TRB-R4RYSD/ });
+    expect(drawer).toHaveTextContent("Live-out TRL-S2FB7Q · day 2 of 26");
+    expect(within(drawer).getByRole("link", { name: "Open subscription TRL-S2FB7Q" })).toHaveAttribute("href", "/admin/subscriptions/32");
+    expect((drawer.textContent ?? "").replace(/[\u2066-\u2069]/g, "")).toContain("Paid within subscription TRL-S2FB7Q (period 1).");
+    expect(drawer).not.toHaveTextContent("AED 0");
+    expect(drawer).toHaveTextContent("Subscription's primary worker");
+    expect(drawer).toHaveTextContent("Booked for the whole day.");
+    expect(drawer).not.toHaveTextContent(/not promised|isn't promised|Maria S\.\./);
+  });
+
+  it("sets the cleaners' names as their own bidi runs, so a Latin name keeps its period in Arabic", async () => {
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER, locale: "ar" });
+    await screen.findByRole("columnheader", { name: "الفترة الصباحية · 10:00–14:00" });
+    expect(screen.getByRole("rowheader", { name: /Maria S\./ }).querySelector("bdi:not([dir])")).toHaveTextContent(/^Maria S\.$/);
+    const card = cardIn(rowOf("Nirmala P."), "TRB-K2M9QX");
+    expect([...card.querySelectorAll("bdi:not([dir])")].map((b) => b.textContent)).toEqual(["Maria S.", "Nirmala P."]);
   });
 
   it("denies the page without schedule.view and shows a failed load with a retry", async () => {

@@ -4359,6 +4359,7 @@ export interface components {
                 type: string;
                 visit_no: number | null;
                 visits_total: number | null;
+                period_no: number | null;
                 visit_ulid: string | null;
             } | null;
             customer: {
@@ -4588,6 +4589,7 @@ export interface components {
                 type: string;
                 visit_no: number | null;
                 visits_total: number | null;
+                period_no: number | null;
                 visit_ulid: string | null;
             } | null;
             customer: {
@@ -8442,6 +8444,24 @@ export interface components {
             payload: {
                 [key: string]: unknown;
             };
+            /**
+             * @description DECISION (P4-260): every worker the payload names by id (primary_worker_id, backup_worker_id,
+             *     substitute_worker_id, a Live-out change's unfit[].worker_id, a worker change's from / to or added /
+             *     removed / workers), each with her display name (a removed worker's too), so A08 names her; [] when none.
+             */
+            workers: {
+                id: number;
+                name: string;
+            }[];
+            /**
+             * @description DECISION (P4-260): every slot the payload names by id (slot_template_id, a moved date's
+             *     new_slot_template_id, a pattern edit's before / after slot_template_id) with its local times; [] when none.
+             */
+            slots: {
+                id: number;
+                start: string;
+                end: string;
+            }[];
             occurrence_id: number | null;
             actor: {
                 type: string;

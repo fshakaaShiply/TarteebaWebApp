@@ -28,6 +28,7 @@ import { overrideRequiredOf } from "@/lib/admin/bookings/actions";
 import { VISIT_STATUS_TARGETS, assignmentReasonSchema, visitStatusSchema, type VisitStatusValues } from "@/lib/admin/bookings/forms";
 import { assignWorkers, fetchVisitCandidates, replaceWorker, setVisitStatus, unassignWorker } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
+import { isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX, readShortfalls } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
@@ -59,7 +60,10 @@ export function AssignmentPanel({ booking }: { booking: BookingDetail }) {
   if (booking.visits.length === 0) return null;
   return (
     <Card title={t("title")}>
-      {booking.preferred_worker && <Notice tone="info">{t("preferred", { name: booking.preferred_worker.display_name })}</Notice>}
+      {/* A series visit's worker is the subscription's primary (A08 names her for the series): no "not promised" copy. */}
+      {booking.preferred_worker && (
+        <Notice tone="info">{t(booking.subscription ? "seriesPrimary" : "preferred", { name: isolate(booking.preferred_worker.display_name) })}</Notice>
+      )}
       <div className="flex flex-col gap-5">
         {booking.visits.map((visit) => (
           <VisitTeam key={visit.id} booking={booking} visit={visit} />

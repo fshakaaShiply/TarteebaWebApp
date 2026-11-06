@@ -12,8 +12,8 @@ import type { BookingDetail } from "@/lib/admin/types";
 import { StaleDialog } from "../catalog/_components/CatalogFields";
 import { AssignmentPanel } from "../bookings/[id]/AssignmentPanel";
 import { BookingActionBar } from "../bookings/[id]/BookingActions";
-import { Fact, NotesCard } from "../bookings/[id]/BookingSections";
-import { BookingChips, DeadlineCountdown, Ltr, SlotLabel } from "../bookings/_components/BookingBits";
+import { Fact, NotesCard, PreferredWorkerFact, SeriesPaid } from "../bookings/[id]/BookingSections";
+import { BookingChips, DeadlineCountdown, Ltr, SeriesLabel, SlotLabel } from "../bookings/_components/BookingBits";
 import { useBookingText } from "../bookings/_components/bookingText";
 import { BookingFocusProvider, useFocusRescue } from "../bookings/_components/focus";
 
@@ -74,6 +74,8 @@ function ReviewBody({ booking, onStale }: { booking: BookingDetail; onStale: () 
           </h3>
           <BookingChips status={booking.status} statusLabel={booking.status_label} payment={booking.payment_status} paymentLabel={booking.payment_status_label} />
         </div>
+        {/* A series visit names its subscription and its place in it, with the link to A08 (as the booking page does). */}
+        <SeriesLabel booking={booking} />
         <dl className="flex flex-col gap-2">
           <Fact label={d("customerTitle")}>
             {booking.customer.name || d("noName")}
@@ -83,18 +85,15 @@ function ReviewBody({ booking, onStale }: { booking: BookingDetail; onStale: () 
             {text.dateShort(booking.service_date)} · <SlotLabel name={booking.slot.name} start={booking.slot.start} end={booking.slot.end} />
           </Fact>
           <Fact label={d("teamSize")}>{d("workers", { count: booking.workers_count })}</Fact>
-          <Fact label={d("preferredWorker")}>
-            {booking.preferred_worker ? (
-              <span className="flex flex-col">
-                <span>{booking.preferred_worker.display_name}</span>
-                <span className="text-xs text-ink-600">{d("preferredNote")}</span>
-              </span>
-            ) : (
-              d("noPreference")
-            )}
-          </Fact>
+          <PreferredWorkerFact booking={booking} />
           <Fact label={t("payment")}>
-            <span className="font-latin">{text.money(amount)}</span> · {text.payment(booking.payment_status, booking.payment_status_label)}
+            {booking.subscription ? (
+              <SeriesPaid link={booking.subscription} />
+            ) : (
+              <>
+                <span className="font-latin">{text.money(amount)}</span> · {text.payment(booking.payment_status, booking.payment_status_label)}
+              </>
+            )}
           </Fact>
           <Fact label={d("source")}>{text.source(booking.source, booking.source_label)}</Fact>
         </dl>

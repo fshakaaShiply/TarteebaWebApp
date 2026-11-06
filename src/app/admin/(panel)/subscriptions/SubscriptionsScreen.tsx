@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo } from "react";
 import { ButtonLink, Card, Checkbox, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, TextField, type Column } from "@/components/admin";
 import { fetchAllWorkers } from "@/lib/admin/endpoints";
+import { isolate } from "@/lib/admin/format";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import { SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
@@ -172,8 +173,8 @@ function SubscriptionsTable() {
       header: t("columns.workers"),
       cell: (s) => (
         <span className="flex flex-col text-sm">
-          <span>{s.primary_worker?.name ?? <span className="text-ink-600">{t("noWorker")}</span>}</span>
-          {s.backup_worker && <span className="text-xs text-ink-600">{t("backup", { name: s.backup_worker.name })}</span>}
+          <span>{s.primary_worker ? <bdi>{s.primary_worker.name}</bdi> : <span className="text-ink-600">{t("noWorker")}</span>}</span>
+          {s.backup_worker && <span className="text-xs text-ink-600">{t("backup", { name: isolate(s.backup_worker.name) })}</span>}
         </span>
       ),
     },

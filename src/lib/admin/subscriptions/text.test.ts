@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AdminApiError } from "../client";
 import { subscriptionErrorText } from "./errors";
-import { payloadFacts } from "./history";
+import { HISTORY_FACT_KEYS, HISTORY_LABELS, historyFacts } from "./history";
 import { healthToneOf, statusToneOf } from "./status";
 import { businessDateOf, daysInMonth, monthOf, shiftMonth, weekdayName, weekdayOf } from "./text";
 import ar from "@/messages/ar.json";
@@ -48,15 +48,78 @@ describe("A08 chip colours", () => {
 });
 
 describe("A08 history rows", () => {
-  it("summarises a payload without a JSON dump: money, dates, short lists; ids and objects left out", () => {
-    const facts = payloadFacts({ from: "2026-11-15", captured_fils: 96000, payment_id: 5, dates: ["2026-11-01", "2026-11-04"], before: { a: 1 }, reason: "Travel", empty: "", gone: null });
-    expect(facts).toEqual([
-      { key: "from", kind: "date", value: "2026-11-15" },
-      { key: "captured_fils", kind: "money", value: 96000 },
-      { key: "dates", kind: "list", value: ["2026-11-01", "2026-11-04"] },
-      { key: "reason", kind: "text", value: "Travel" },
+  // Payloads as the walk-through's stack wrote them (TRS-C7H810, TRL-S2FB7Q).
+  it("reads a cancellation, a failed renewal and a renewal notice as labelled facts, ids and zero amounts left out", () => {
+    expect(
+      historyFacts("cancel", {
+        to: "cancelled", from: "active", party: "customer", periods: [{ ulid: "01m6", refund_fils: 91201 }], fee_fils: 0, reason_code: "plans_changed", refund_fils: 182402, clawback_fils: 0,
+      }),
+    ).toEqual([
+      { key: "status", value: { kind: "labelChange", group: "status", from: "active", to: "cancelled" } },
+      { key: "party", value: { kind: "label", group: "party", value: "customer" } },
+      { key: "reason", value: { kind: "label", group: "cancelReason", value: "plans_changed" } },
+      { key: "refund", value: { kind: "money", fils: 182402 } },
     ]);
-    expect(payloadFacts(undefined)).toEqual([]);
+    expect(historyFacts("renewal_failed", { to: "renewal_failed", code: "card_declined", from: "active", period_id: 2, scheduled: true, attempt_no: 1, payment_id: 2 })).toEqual([
+      { key: "status", value: { kind: "labelChange", group: "status", from: "active", to: "renewal_failed" } },
+      { key: "failure", value: { kind: "label", group: "failure", value: "card_declined" } },
+      { key: "period", value: { kind: "period", id: 2 } },
+      { key: "attempt", value: { kind: "attempt", no: 1, scheduled: true } },
+    ]);
+    expect(historyFacts("renewal_priced", { period_id: 2, renewal_at: "2026-12-07T06:00:00+00:00", amount_fils: 91201 })).toEqual([
+      { key: "period", value: { kind: "period", id: 2 } },
+      { key: "amount", value: { kind: "money", fils: 91201 } },
+      { key: "renewalAt", value: { kind: "instant", at: "2026-12-07T06:00:00+00:00" } },
+    ]);
+    expect(historyFacts("renew", { stage: "attempt", period_id: 2, scheduled: false, attempt_no: 1, payment_id: 2, amount_fils: 91201, payment_attempt: 2 })[0]).toEqual({
+      key: "stage",
+      value: { kind: "label", group: "stage", value: "attempt" },
+      bare: true,
+    });
+  });
+
+  it("names workers by id for the screen, and leaves an unchanged term end out", () => {
+    expect(historyFacts("worker_changed", { date: "2026-11-17", added: [2], reason: "live_out_absence", removed: [1], workers: [2], visit_id: 33, booking_id: 33 })).toEqual([
+      { key: "visit", value: { kind: "date", date: "2026-11-17" } },
+      { key: "added", value: { kind: "workers", ids: [2] } },
+      { key: "removed", value: { kind: "workers", ids: [1] } },
+      { key: "reason", value: { kind: "label", group: "workerReason", value: "live_out_absence" } },
+    ]);
+    expect(historyFacts("worker_changed", { role: "backup", from: null, to: 5, apply_from: "2026-11-15" })).toEqual([
+      { key: "backup", value: { kind: "workerChange", from: null, to: 5 } },
+      { key: "from", value: { kind: "date", date: "2026-11-15" } },
+    ]);
+    expect(
+      historyFacts("live_out_day_changed", {
+        to: "2026-11-17", from: "2026-11-17", dates: ["2026-11-17"], scope: "this", unfit: [], change: "absence", appended: [], credited: [],
+        term_end_date: { to: "2026-12-07", from: "2026-12-07" }, substitute_worker_id: 2,
+      }),
+    ).toEqual([
+      { key: "change", value: { kind: "label", group: "day", value: "absence" } },
+      { key: "scope", value: { kind: "label", group: "scope", value: "this" } },
+      { key: "days", value: { kind: "dates", dates: ["2026-11-17"] } },
+      { key: "substitute", value: { kind: "workers", ids: [2] } },
+    ]);
+    // A forfeited skip: nothing added, the term end did not move.
+    expect(historyFacts("skip", { date: "2026-11-18", occurrence_date: "2026-11-18", appended_date: null, term_end_date: { from: "2026-12-05", to: "2026-12-05" } })).toEqual([
+      { key: "visit", value: { kind: "date", date: "2026-11-18" } },
+      { key: "notMadeUp", value: { kind: "flag" } },
+    ]);
+    // A staff reason written in words is quoted; a type this screen does not know shows its headline only.
+    expect(historyFacts("worker_changed", { date: "2026-11-17", added: [3], removed: [], reason: "Customer asked for Siti" }).at(-1)).toEqual({
+      key: "reason",
+      value: { kind: "quote", text: "Customer asked for Siti" },
+    });
+    expect(historyFacts("something_new", { code: "x", a_b: 1 })).toEqual([]);
+    expect(historyFacts("created", undefined)).toEqual([]);
+  });
+
+  it("has a label for every fact and every code it shows, in both languages", () => {
+    for (const messages of [en, ar]) {
+      const history = messages.admin.subscriptions.history as unknown as { facts: Record<string, string>; values: Record<string, Record<string, string>> };
+      for (const key of HISTORY_FACT_KEYS) expect(history.facts[key], key).toBeTypeOf("string");
+      for (const [group, codes] of Object.entries(HISTORY_LABELS)) for (const code of codes) expect(history.values[group]?.[code], `${group}.${code}`).toBeTypeOf("string");
+    }
   });
 });
 

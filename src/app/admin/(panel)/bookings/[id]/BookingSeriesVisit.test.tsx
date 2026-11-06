@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RescheduleRequest } from "@/lib/admin/types";
-import { bookingDetail, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
+import { bookingDetail, serviceOptions, visitCandidates, zoneOptions } from "@/test/bookingFixtures";
 import { renderWithProviders } from "@/test/render";
 import { BookingDetailScreen } from "./BookingDetailScreen";
 
@@ -15,7 +15,10 @@ vi.mock("@/lib/admin/endpoints", () => ({
 }));
 
 const STAFF = ["bookings.view", "bookings.confirm", "bookings.reschedule", "bookings.cancel", "schedule.view", "subscriptions.manage"];
-const link = { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 };
+const link = { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 };
+
+/** Text without the bidi isolates around names and references. */
+const plain = (el: Element) => (el.textContent ?? "").replace(/[\u2066-\u2069]/g, "");
 
 const seriesVisit = (over = {}) =>
   bookingDetail({ status: "confirmed", payment_status: "captured", kind: "subscription_visit", subscription: link, ...over });
@@ -67,6 +70,78 @@ describe("A03 booking page of a subscription visit", () => {
     expect(within(header).queryByRole("button", { name: /^Cancel/ })).not.toBeInTheDocument();
   });
 
+  it("says the visit is paid within its subscription's period, never 'No payment yet' and AED 0 (P4-38)", async () => {
+    // A series visit has no money of its own: payment null, every amount 0, payment_status captured.
+    const zero = { subtotal_fils: 0, addons_fils: 0, discount_fils: 0, net_fils: 0, vat_rate_bp: 500, vat_fils: 0, total_fils: 0, currency: "AED" };
+    api.fetchBooking.mockResolvedValue(seriesVisit({ payment: null, amounts: zero, lines: [], subscription: { ...link, type: "live_out", period_no: 1 } }));
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    const payment = (await screen.findByRole("heading", { name: "Payment and refunds" })).closest("section") as HTMLElement;
+    expect(plain(payment)).toContain("Paid within subscription TRS-7K2M9Q (period 1).");
+    expect(payment).not.toHaveTextContent("No payment yet");
+    const price = screen.getByRole("heading", { name: "Price" }).closest("section") as HTMLElement;
+    expect(plain(price)).toContain("Included in subscription TRS-7K2M9Q, period 1");
+    expect(price).not.toHaveTextContent("AED 0");
+    unmount();
+
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF, locale: "ar" });
+    const arabic = (await screen.findByRole("heading", { name: "الدفع والاسترداد" })).closest("section") as HTMLElement;
+    expect(arabic).toHaveTextContent("مدفوعة ضمن الاشتراك");
+    expect(arabic).toHaveTextContent("(الفترة 1)");
+  });
+
+  it("labels the reasons Phase 4 writes on a series visit: history, the Ended line and the cancellation reason", async () => {
+    const at = "2026-11-06T10:54:00+00:00";
+    const row = { visit_id: null, actor_id: null, meta: null };
+    api.fetchBooking.mockResolvedValue(
+      seriesVisit({
+        status: "cancelled",
+        payment: null,
+        cancelled_at: at,
+        cancel_reason_code: "subscription_cancelled",
+        cancelled_by_type: "customer",
+        cancellation: { party: "customer", cancelled_by_id: null, fee_fils: null, refund_fils: null, review_requested_at: null, review: null },
+        history: [
+          { ...row, id: 2, scope: "booking", from_status: "confirmed", to_status: "cancelled", actor_type: "customer", reason: "subscription_cancelled", created_at: at },
+          { ...row, id: 1, scope: "visit", visit_id: 4, from_status: "scheduled", to_status: "worker_assigned", actor_type: "system", reason: "series_primary", created_at: "2026-11-06T10:53:00+00:00" },
+        ],
+      }),
+    );
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    const header = (await screen.findByRole("heading", { level: 1 })).closest("section") as HTMLElement;
+    expect(header).toHaveTextContent("Ended: Subscription cancelled · 6 Nov 2026, 14:54");
+    const history = screen.getByRole("heading", { name: "History" }).closest("section") as HTMLElement;
+    expect(history).toHaveTextContent("System · Assigned from the subscription");
+    expect(history).toHaveTextContent("Subscription cancelled");
+    const payment = screen.getByRole("heading", { name: "Payment and refunds" }).closest("section") as HTMLElement;
+    expect(payment).toHaveTextContent("ReasonSubscription cancelled");
+    expect(document.body).not.toHaveTextContent(/subscription_cancelled|series_primary/);
+    unmount();
+
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF, locale: "ar" });
+    await screen.findByRole("heading", { level: 1 });
+    expect(document.body).toHaveTextContent("أُلغي الاشتراك");
+    expect(document.body).toHaveTextContent("عُيّنت من الاشتراك");
+    expect(document.body).not.toHaveTextContent(/subscription_cancelled|series_primary/);
+  });
+
+  it("calls the worker the subscription's primary, without the 'not promised' copy of a preferred cleaner", async () => {
+    const maria = { id: 14, display_name: "Maria S." };
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(0));
+    api.fetchBooking.mockResolvedValue(seriesVisit({ preferred_worker: maria, subscription: { ...link, type: "live_out" } }));
+    const { unmount } = renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    await screen.findByRole("heading", { level: 1 });
+    expect(await screen.findByText("Subscription's primary worker: \u2068Maria S.\u2069")).toBeInTheDocument();
+    expect(screen.getByText("Booked for the whole day.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/not promised|isn't promised|Maria S\.\./);
+    unmount();
+
+    // A single booking keeps the preferred cleaner's wording, and her name no longer ends a sentence ("Maria S..").
+    api.fetchBooking.mockResolvedValue(bookingDetail({ status: "confirmed", payment_status: "captured", preferred_worker: maria }));
+    renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
+    expect(await screen.findByText(/Preferred cleaner: \u2068Maria S\.\u2069 — we try/)).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("Maria S..");
+  });
+
   it("keeps cancel and reschedule on a single booking, with no subscription notice", async () => {
     api.fetchBooking.mockResolvedValue(bookingDetail({ status: "confirmed", payment_status: "captured" }));
     renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF });
@@ -106,7 +181,7 @@ describe("A03 booking page of a subscription visit", () => {
 
   it("names a Live-out day with the admin's own Arabic term (Live-out), as the design does", async () => {
     api.fetchBooking.mockResolvedValue(
-      seriesVisit({ kind: "live_out_day", subscription: { ...link, type: "live_out", visit_no: 5, visits_total: 26 } }),
+      seriesVisit({ kind: "live_out_day", subscription: { ...link, type: "live_out", visit_no: 5, visits_total: 26, period_no: 1 } }),
     );
     renderWithProviders(<BookingDetailScreen id="4" />, { permissions: STAFF, locale: "ar" });
     const header = (await screen.findByRole("heading", { level: 1 })).closest("section") as HTMLElement;

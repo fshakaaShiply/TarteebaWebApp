@@ -75,7 +75,7 @@ describe("A03 actions by status and permission", () => {
   });
 
   it("offers neither cancel nor reschedule on a visit of a subscription (A08 owns visit changes)", () => {
-    const link = { id: 31, ulid: "01JB", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 };
+    const link = { id: 31, ulid: "01JB", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 };
     const visit = booking({ status: "confirmed", payment_status: "captured", kind: "subscription_visit", subscription: link });
     expect(sorted(availableActions(visit, can(coordinator)))).toEqual(["addNote"]);
     // The kind alone is enough (a series visit whose block was not sent).

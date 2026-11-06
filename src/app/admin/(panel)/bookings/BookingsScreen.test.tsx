@@ -69,9 +69,9 @@ describe("A03 bookings list", () => {
           id: 9,
           reference: "TRB-V3V3V3",
           kind: "subscription_visit",
-          subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 },
+          subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 },
         }),
-        bookingRow({ id: 10, reference: "TRB-L1L1L1", kind: "live_out_trial", subscription: { id: 32, ulid: "01jc", reference: "TRS-TRIAL1", type: "live_out", visit_no: 1, visits_total: 1 } }),
+        bookingRow({ id: 10, reference: "TRB-L1L1L1", kind: "live_out_trial", subscription: { id: 32, ulid: "01jc", reference: "TRS-TRIAL1", type: "live_out", visit_no: 1, visits_total: 1, period_no: 1 } }),
         bookingRow({ id: 4 }),
       ]),
     );
@@ -88,7 +88,7 @@ describe("A03 bookings list", () => {
 
   it("shows the subscription label as text without a link for staff who cannot open A08", async () => {
     api.fetchBookings.mockResolvedValue(
-      page([bookingRow({ kind: "subscription_visit", subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 } })]),
+      page([bookingRow({ kind: "subscription_visit", subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8, period_no: 1 } })]),
     );
     renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
     const row = (await screen.findByRole("link", { name: "TRB-R4RYSD" })).closest("tr") as HTMLElement;

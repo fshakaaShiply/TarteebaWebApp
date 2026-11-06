@@ -372,7 +372,9 @@ function WorkerRow({
   return (
     <tr className="border-b border-line last:border-b-0">
       <th scope="row" className="px-3 py-3 text-start align-top">
-        <span className="block font-bold text-ink-900">{row.worker.display_name}</span>
+        <span className="block font-bold text-ink-900">
+          <bdi>{row.worker.display_name}</bdi>
+        </span>
         <span className="block text-xs font-normal text-ink-600">
           {zoneName(row.worker.home_zone_id)}
           {otherZone ? ` · ${t("grid.otherZone")}` : null}
@@ -523,7 +525,16 @@ function VisitCard({
         {t("team", { assigned: card.assigned_count, count: card.workers_count })}
         {card.missing > 0 && <span className="font-medium text-warning-700"> · {t("missing", { count: card.missing })}</span>}
       </span>
-      {card.workers.length > 0 && <span className="text-xs text-ink-600">{card.workers.map((w) => w.display_name).join(t("separator"))}</span>}
+      {card.workers.length > 0 && (
+        <span className="text-xs text-ink-600">
+          {card.workers.map((w, i) => (
+            <span key={w.id}>
+              {i > 0 && t("separator")}
+              <bdi>{w.display_name}</bdi>
+            </span>
+          ))}
+        </span>
+      )}
       {plate && (
         <span className="text-xs text-ink-600">
           {t("vehicle")} <Ltr>{plate}</Ltr>

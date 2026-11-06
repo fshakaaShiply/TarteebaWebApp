@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, ConfirmDialog, LoadingBlock, Notice, Select, TextField } from "@/components/admin";
-import { isIsoDate } from "@/lib/admin/format";
+import { isIsoDate, isolate } from "@/lib/admin/format";
 import { conflictEntries, notAssignableOf } from "@/lib/admin/subscriptions/actions";
 import { changeLiveOutDay, previewLiveOutDay, type LiveOutDayInput } from "@/lib/admin/subscriptions/endpoints";
 import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
@@ -177,15 +177,20 @@ export function LiveOutDayDialog({
                 <span className="text-ink-600">
                   {text.day(d.before)} → <span className="font-medium text-ink-900">{text.day(d.after)}</span>
                 </span>
-                {d.substitute !== null && <span>{t("substituteIs", { name: d.substitute.name })}</span>}
+                {d.substitute !== null && <span>{t("substituteIs", { name: isolate(d.substitute.name) })}</span>}
                 {d.credited && <span className="text-success-700">{t("credited")}</span>}
                 {d.appended_date && <span className="text-ink-600">{t("appended", { date: text.dateShort(d.appended_date) })}</span>}
               </li>
             ))}
           </ul>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <TermsRow label={t("newEnd")} value={terms.term_end_date ? text.dateShort(terms.term_end_date) : "—"} />
-          </dl>
+          {/* The API's term_end_date is the subscription's term end (the paid periods'); a change inside a later,
+              unpaid period moves that period's end (each day's "added on" says where), never this one. Shown only
+              when it moves. */}
+          {terms.term_end_date && terms.term_end_date !== subscription.term_end_date && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <TermsRow label={t("newEnd")} value={text.dateShort(terms.term_end_date)} />
+            </dl>
+          )}
           {terms.unfit.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="font-medium text-warning-700">{t("unfitTitle")}</p>

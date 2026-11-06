@@ -42,6 +42,26 @@ describe("A08 Live-out calendar", () => {
     expect(first.textContent).toBe("الأحد");
   });
 
+  it("sets each worker name in its own bidi run, so a Latin name keeps its period in Arabic", async () => {
+    const calendar = novemberCalendar();
+    calendar.days = calendar.days.map((d) =>
+      d.date === "2026-11-17"
+        ? calendarDay(d.date, { type: "absence", worker: { id: 14, name: "Maria S." }, substitute: { id: 15, name: "Siti R." }, flags: ["substitute"] })
+        : d.date === "2026-11-18"
+          ? calendarDay(d.date, { substitute: { id: 16, name: "Tigist B." } })
+          : d,
+    );
+    api.fetchSubscriptionCalendar.mockResolvedValue(calendar);
+    setup({ locale: "ar" });
+    const grid = await screen.findByRole("group", { name: /نوفمبر 2026/ });
+    const cells = within(grid).getAllByRole("button");
+    expect(cells.find((c) => c.textContent?.startsWith("17"))?.textContent).toContain("غياب: \u2068Maria S.\u2069 · البديلة: \u2068Siti R.\u2069");
+    expect(cells.find((c) => c.textContent?.startsWith("18"))?.textContent).toContain("البديلة: \u2068Tigist B.\u2069");
+    // The header's primary and backup, too; the cell's accessible name reads the plain names.
+    expect(screen.getByText("الأساسية: \u2068Angela\u2069 · البديلة: \u2068Rosa\u2069")).toBeInTheDocument();
+    expect(cells.find((c) => c.textContent?.startsWith("17"))).toHaveAccessibleName(/Maria S\. · البديلة: Siti R\.$/);
+  });
+
   it("shows service, rest, public holiday and absence cells, the absent worker with her substitute, and the footer counts", async () => {
     setup();
     await screen.findByRole("group", { name: "November 2026" });
