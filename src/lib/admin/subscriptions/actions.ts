@@ -1,0 +1,171 @@
+import { AdminApiError } from "../client";
+import { SUBSCRIPTIONS_READ } from "../nav";
+import type { CancelReviewBlock, SubscriptionDetail, SubscriptionOccurrence } from "./types";
+
+/*
+ * A08 actions (design §9.1, §8.4): which buttons a subscription offers. The API's own `actions` flags say what its state
+ * allows; the permission says who may: every write needs subscriptions.manage, resolving a cancellation review needs
+ * refunds.create on top of a read permission (P4-57), a custom cancel refund needs refunds.create. Hiding is for clarity
+ * only: the API checks the state, the version and the permission again (409 INVALID_STATE / STALE_VERSION, 403).
+ */
+
+export const MANAGE = "subscriptions.manage";
+export const REFUND_PERMISSION = "refunds.create";
+export const CAPACITY_OVERRIDE = "capacity.override";
+
+export type SubscriptionAction =
+  | "confirm"
+  | "reject"
+  | "freeze"
+  | "unfreeze"
+  | "skip"
+  | "undoSkip"
+  | "renew"
+  | "autoRenewOff"
+  | "cancel"
+  | "resolveReview"
+  | "declineReview"
+  | "assignPrimary"
+  | "assignBackup";
+
+/** Header order of the buttons. */
+export const ACTION_ORDER: readonly SubscriptionAction[] = [
+  "confirm",
+  "reject",
+  "renew",
+  "resolveReview",
+  "declineReview",
+  "freeze",
+  "unfreeze",
+  "skip",
+  "undoSkip",
+  "assignPrimary",
+  "assignBackup",
+  "autoRenewOff",
+  "cancel",
+];
+
+/** The cancellation review that waits for a decision, or null. */
+export function pendingReview(detail: Pick<SubscriptionDetail, "cancel_review">): CancelReviewBlock | null {
+  const review = detail.cancel_review as unknown as CancelReviewBlock | null;
+  if (!review || typeof review !== "object") return null;
+  return review.decision || review.resolved_at ? null : review;
+}
+
+export function availableActions(detail: SubscriptionDetail, can: (permission: string) => boolean): Set<SubscriptionAction> {
+  const out = new Set<SubscriptionAction>();
+  const a = detail.actions;
+  const manage = can(MANAGE);
+  const review = pendingReview(detail);
+  if (manage) {
+    if (a.confirm) out.add("confirm");
+    if (a.reject) out.add("reject");
+    if (a.renew) out.add("renew");
+    if (a.freeze) out.add("freeze");
+    if (a.unfreeze) out.add("unfreeze");
+    if (a.skip) out.add("skip");
+    if (a.undo_skip) out.add("undoSkip");
+    if (a.assign) {
+      out.add("assignPrimary");
+      out.add("assignBackup");
+    }
+    if (a.cancel) out.add("cancel");
+    if (review && a.resolve_review) out.add("declineReview");
+    if (detail.auto_renew && !review && ["active", "paused"].includes(detail.status)) out.add("autoRenewOff");
+  }
+  // Finance resolves a review with a refund: a read permission and refunds.create (the API checks both).
+  if (review && a.resolve_review && can(REFUND_PERMISSION) && (can(MANAGE) || can("subscriptions.view"))) out.add("resolveReview");
+  return out;
+}
+
+/** True for staff who may read A08 (the pages themselves wrap in RequirePermission with SUBSCRIPTIONS_READ). */
+export const READ_PERMISSIONS = SUBSCRIPTIONS_READ;
+
+/** Row-level buttons of the Visits tab. */
+export type VisitAction = "move" | "editFollowing" | "skip" | "undoSkip" | "cancelByCompany" | "decide";
+
+export function visitActions(
+  occurrence: SubscriptionOccurrence,
+  detail: Pick<SubscriptionDetail, "actions" | "type">,
+  can: (permission: string) => boolean,
+): Set<VisitAction> {
+  const out = new Set<VisitAction>();
+  if (!can(MANAGE)) return out;
+  const e = occurrence.editable;
+  if (e.this) out.add("move");
+  if (e.following && detail.actions.edit_following) out.add("editFollowing");
+  if (e.skip) out.add("skip");
+  if (e.undo_skip) out.add("undoSkip");
+  // The company's miss: a materialized visit that has not been served, while the series runs.
+  if (detail.actions.edit_following && occurrence.state === "materialized" && occurrence.booking !== null && ["scheduled", "worker_assigned", "en_route"].includes(occurrence.visit?.status ?? "")) {
+    out.add("cancelByCompany");
+  }
+  if (occurrence.reschedule_request) out.add("decide");
+  return out;
+}
+
+// ---- What an error says ---------------------------------------------------------------------------------------------
+
+const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((c): c is string => typeof c === "string") : []);
+
+/** 409 TERMS_CHANGED of a subscription route: `{preview, changed}`, the new terms replacing the shown ones. */
+export type TermsChanged<T> = { preview: T; changed: string[] };
+
+export function termsChangedOf<T>(error: unknown): TermsChanged<T> | null {
+  if (!(error instanceof AdminApiError) || error.code !== "TERMS_CHANGED") return null;
+  const preview = error.details.preview;
+  if (!preview || typeof preview !== "object" || Array.isArray(preview)) return null;
+  return { preview: preview as T, changed: stringList(error.details.changed) };
+}
+
+/** 422 SERIES_PRICE_HIGHER: the first new date that would cost more than the one it replaces. */
+export function seriesPriceHigherOf(error: unknown): { date: string; oldUnitFils: number; newUnitFils: number } | null {
+  if (!(error instanceof AdminApiError) || error.code !== "SERIES_PRICE_HIGHER") return null;
+  const d = error.details;
+  if (typeof d.date !== "string" || !isNumber(d.old_unit_fils) || !isNumber(d.new_unit_fils)) return null;
+  return { date: d.date, oldUnitFils: d.old_unit_fils, newUnitFils: d.new_unit_fils };
+}
+
+/** 422 REFUND_AMOUNT_INVALID: the most that can be refunded. */
+export function maxRefundOf(error: unknown): number | null {
+  if (!(error instanceof AdminApiError) || error.code !== "REFUND_AMOUNT_INVALID") return null;
+  const max = error.details.max_fils;
+  return isNumber(max) && max >= 0 ? max : null;
+}
+
+/** 422 WORKER_NOT_ASSIGNABLE: who cannot take the role and why (`not_active`, `not_eligible` and the fit reasons). */
+export function notAssignableOf(error: unknown): { workerId: number; reason: string; reasons: string[] }[] {
+  if (!(error instanceof AdminApiError) || error.code !== "WORKER_NOT_ASSIGNABLE") return [];
+  const list = Array.isArray(error.details.workers) ? error.details.workers : [];
+  return list
+    .filter((w): w is { worker_id: number; reason?: unknown; reasons?: unknown } => !!w && typeof w === "object" && isNumber((w as { worker_id?: unknown }).worker_id))
+    .map((w) => ({ workerId: w.worker_id, reason: typeof w.reason === "string" ? w.reason : "", reasons: stringList(w.reasons) }));
+}
+
+/** 409 CAPACITY_NOT_HELD: the dates whose capacity is no longer held. */
+export function capacityDatesOf(error: unknown): string[] {
+  return error instanceof AdminApiError && error.code === "CAPACITY_NOT_HELD" ? stringList(error.details.dates) : [];
+}
+
+/** 422 DAY_NOT_EDITABLE: why a Live-out day cannot change (not_in_contract, rest, dropped, past, started …). */
+export function dayNotEditableReason(error: unknown): string | null {
+  if (!(error instanceof AdminApiError) || error.code !== "DAY_NOT_EDITABLE") return null;
+  return typeof error.details.reason === "string" ? error.details.reason : "";
+}
+
+/** The conflict dates of an answer (`conflicts: {date: reason}`), ordered. */
+export function conflictEntries(conflicts: Record<string, string> | null | undefined): { date: string; reason: string }[] {
+  return Object.entries(conflicts ?? {})
+    .map(([date, reason]) => ({ date, reason: String(reason) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** True when an error means "the subscription changed under the dialog": reload instead of retrying. */
+export function isStale(error: unknown): boolean {
+  return error instanceof AdminApiError && error.code === "STALE_VERSION";
+}
+
+export function codeOf(error: unknown): string | null {
+  return error instanceof AdminApiError ? error.code : null;
+}
