@@ -9,7 +9,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Card, Notice, StatusBadge, TextField } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { useNow } from "@/lib/admin/hooks";
-import { DOCUMENTS_READ } from "@/lib/admin/nav";
+import { DOCUMENTS_READ, SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminPayment, DocumentUrl, RefundCreditNote, SupplierBlock } from "@/lib/admin/types";
 import { useFinanceText } from "./financeText";
@@ -54,22 +54,46 @@ export function Money({ fils, className }: { fils: number | null | undefined; cl
 
 /**
  * What a payment paid for: "Booking TRB-7K2Q9M" (the payable's own reference, else "#id"), a link to the booking page
- * for bookings.view.
+ * for bookings.view; "Subscription period TRS-7K2M9Q", a link to the subscription in A08 for subscriptions.view or
+ * subscriptions.manage (Phase 4; the payable's `subscription.id`).
  */
 export function PayableRef({ payable, className }: { payable: AdminPayment["payable"]; className?: string }) {
   const text = useFinanceText();
-  const { can } = useAdminSession();
+  const { can, canAny } = useAdminSession();
   const content = (
     <>
       {text.payable(payable.type)} <Code>{payable.reference ?? `#${payable.id}`}</Code>
     </>
   );
+  if (payable.type === "subscription_period" && payable.subscription && canAny([...SUBSCRIPTIONS_READ])) {
+    return (
+      <Link href={`${SUBSCRIPTIONS_PATH}/${payable.subscription.id}`} className={clsx("font-medium", className)}>
+        {content}
+      </Link>
+    );
+  }
   return payable.type === "booking" && can("bookings.view") ? (
     <Link href={`/admin/bookings/${payable.id}`} className={clsx("font-medium", className)}>
       {content}
     </Link>
   ) : (
     <span className={className}>{content}</span>
+  );
+}
+
+/**
+ * The subscription of a period invoice by its reference ("TRS-7K2M9Q"), linked to A08 for subscriptions.view or
+ * subscriptions.manage. The invoice carries the subscription's ULID, not the id A08 is addressed by, so the link opens
+ * the subscriptions list searched by this reference.
+ */
+export function SubscriptionRef({ reference, wrap }: { reference: string; wrap?: boolean }) {
+  const { canAny } = useAdminSession();
+  return canAny([...SUBSCRIPTIONS_READ]) ? (
+    <Link href={`${SUBSCRIPTIONS_PATH}?q=${encodeURIComponent(reference)}`} className="font-medium">
+      <Code wrap={wrap}>{reference}</Code>
+    </Link>
+  ) : (
+    <Code wrap={wrap}>{reference}</Code>
   );
 }
 

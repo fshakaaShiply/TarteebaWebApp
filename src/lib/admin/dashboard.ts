@@ -1,3 +1,4 @@
+import { SUBSCRIPTIONS_PATH } from "./nav";
 import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
 
 /*
@@ -41,6 +42,20 @@ const BOOKING_LINK_FILTERS = [
   "driver_id",
 ] as const;
 
+/** Filters the A08 list understands (the API's own names for GET /admin/subscriptions; `q` is its search). */
+const SUBSCRIPTION_LINK_FILTERS = [
+  "status",
+  "type",
+  "payment_health",
+  "renewal_from",
+  "renewal_to",
+  "zone_id",
+  "worker_id",
+  "conflicts",
+  "cancel_review",
+  "q",
+] as const;
+
 /** The numeric id at the end of an API path such as /api/v1/admin/bookings/12. */
 export function trailingId(path: string | null | undefined): number | null {
   const match = /\/(\d+)\/?$/.exec(path ?? "");
@@ -61,6 +76,15 @@ export function dashboardHref(link: DashboardLink | null | undefined): string | 
       const id = trailingId(link.path);
       return id === null ? null : `${BOOKINGS_PATH}/${id}`;
     }
+    case "subscriptions": {
+      const filters: Record<string, string | number | boolean> = {};
+      for (const key of SUBSCRIPTION_LINK_FILTERS) if (params[key] !== undefined) filters[key] = params[key];
+      return withQuery(SUBSCRIPTIONS_PATH, filters);
+    }
+    case "subscription": {
+      const id = trailingId(link.path);
+      return id === null ? null : `${SUBSCRIPTIONS_PATH}/${id}`;
+    }
     case "capacity":
       return withQuery(CAPACITY_PATH, { date: params.date, zone_id: params.zone_id });
     default:
@@ -78,6 +102,7 @@ export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity"
   const entity = alert.entity;
   if (!entity) return null;
   if (entity.type === "booking" && typeof entity.id === "number") return `${BOOKINGS_PATH}/${entity.id}`;
+  if (entity.type === "subscription" && typeof entity.id === "number") return `${SUBSCRIPTIONS_PATH}/${entity.id}`;
   if (typeof entity.booking_id === "number") return `${BOOKINGS_PATH}/${entity.booking_id}`;
   return null;
 }

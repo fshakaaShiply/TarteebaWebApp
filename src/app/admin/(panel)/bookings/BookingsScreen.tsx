@@ -21,6 +21,7 @@ import {
   type Column,
 } from "@/components/admin";
 import {
+  BOOKING_KINDS,
   BOOKING_SOURCES,
   BOOKING_STATUSES,
   PAYMENT_STATUSES,
@@ -40,7 +41,7 @@ import type { BookingRow } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useChoiceLabel, useChoiceOptions, useDriverPickList, useServiceChoices, useZoneChoices } from "../_ops/options";
-import { BookingChips, DeadlineCountdown, Ltr, SlotLabel } from "./_components/BookingBits";
+import { BookingChips, DeadlineCountdown, Ltr, SeriesLabel, SlotLabel } from "./_components/BookingBits";
 import { useSlotLabel, useSlotTemplatePickList } from "./_components/SlotSelect";
 import { useBookingText } from "./_components/bookingText";
 
@@ -178,9 +179,12 @@ function BookingsTable() {
       id: "reference",
       header: t("columns.reference"),
       cell: (b) => (
-        <Link href={`/admin/bookings/${b.id}`} className="font-bold">
-          <Ltr className="whitespace-nowrap">{b.reference}</Ltr>
-        </Link>
+        <span className="flex flex-col">
+          <Link href={`/admin/bookings/${b.id}`} className="font-bold">
+            <Ltr className="whitespace-nowrap">{b.reference}</Ltr>
+          </Link>
+          <SeriesLabel booking={b} className="text-xs" />
+        </span>
       ),
     },
     {
@@ -303,6 +307,14 @@ function BookingsTable() {
           onChange={(e) => setFilters({ source: e.target.value as BookingFilters["source"] })}
           options={BOOKING_SOURCES.map((s) => ({ value: s, label: text.source(s) }))}
           containerClassName="min-w-[150px]"
+        />
+        <Select
+          label={t("filters.kind")}
+          placeholder={t("filters.allKinds")}
+          value={filters.kind}
+          onChange={(e) => setFilters({ kind: e.target.value as BookingFilters["kind"] })}
+          options={BOOKING_KINDS.map((k) => ({ value: k, label: t(`kinds.${k}`) }))}
+          containerClassName="min-w-[170px]"
         />
         <Select
           label={t("filters.slot")}

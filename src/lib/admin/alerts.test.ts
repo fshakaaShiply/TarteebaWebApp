@@ -71,6 +71,9 @@ describe("alerts bell state (D-11 polling)", () => {
     expect(alertHref({ link: "/admin/bookings/12", entity: null })).toBe("/admin/bookings/12");
     expect(alertHref({ link: "/admin/payments/3", entity: { type: "payment", id: 3 } })).toBeNull();
     expect(alertHref({ link: "/admin/invoices/3", entity: { type: "booking", id: 9 } })).toBe("/admin/bookings/9");
+    // Phase 4: A08 pages are built.
+    expect(alertHref({ link: "/admin/subscriptions/31", entity: null })).toBe("/admin/subscriptions/31");
+    expect(alertHref({ link: "/admin/other", entity: { type: "subscription", id: 12 } })).toBe("/admin/subscriptions/12");
     expect(alertHref({ link: "https://evil.example/admin/bookings/1", entity: null })).toBeNull();
     expect(alertHref({ link: "//evil.example/admin/bookings/1", entity: null })).toBeNull();
   });

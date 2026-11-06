@@ -13,7 +13,7 @@ import { useAdminSession } from "@/lib/admin/session";
 import type { AdminInvoiceDetail, InvoiceLine } from "@/lib/admin/types";
 import { RequirePermission } from "../../../../_components/RequirePermission";
 import { paymentTone } from "../../../bookings/_components/bookingText";
-import { BackLink, Code, Fact, Facts, Money, PdfDownload, SupplierCard, TotalRow } from "../../_components/FinanceParts";
+import { BackLink, Code, Fact, Facts, Money, PdfDownload, SubscriptionRef, SupplierCard, TotalRow } from "../../_components/FinanceParts";
 import { invoiceTone, useFinanceText } from "../../_components/financeText";
 
 /**
@@ -105,7 +105,13 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
           <Card title={t("details")}>
             <Facts columns={1}>
               <Fact label={t("issueDate")}>{text.date(invoice.issue_date)}</Fact>
-              <Fact label={t("supplyDate")}>{text.date(invoice.supply_date)}</Fact>
+              {invoice.subscription ? (
+                <Fact label={t("supplyPeriod")}>
+                  {t("supplyPeriodValue", { from: text.date(invoice.subscription.period.start), to: text.date(invoice.subscription.period.end) })}
+                </Fact>
+              ) : (
+                <Fact label={t("supplyDate")}>{text.date(invoice.supply_date)}</Fact>
+              )}
               <Fact label={t("issuedAt")}>{text.dateTime(invoice.issued_at)}</Fact>
               <Fact label={t("customer")}>
                 <span className="flex flex-col">
@@ -118,6 +124,11 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
                   <Code wrap>{invoice.customer_trn}</Code>
                 </Fact>
               )}
+              {invoice.subscription ? (
+                <Fact label={t("subscription")}>
+                  <SubscriptionRef reference={invoice.subscription.reference} wrap />
+                </Fact>
+              ) : (
               <Fact label={t("booking")}>
                 {invoice.booking.reference ? (
                   invoice.booking.id !== null && can("bookings.view") ? (
@@ -131,6 +142,7 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
                   "—"
                 )}
               </Fact>
+              )}
               <Fact label={t("payment")}>
                 {/* A provider reference has no break opportunities: min-w-0 and wrap keep it inside the card. */}
                 <span className="flex min-w-0 flex-wrap items-center gap-1.5">

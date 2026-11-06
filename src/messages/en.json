@@ -492,7 +492,9 @@
         "cancellations": "Cancellations today",
         "cancellationsDetail": "Customer {customer} · Company {company} · System {system}",
         "rating": "Average rating",
-        "ratingDetail": "{count, plural, one {# rating} other {# ratings}}"
+        "ratingDetail": "{count, plural, one {# rating} other {# ratings}}",
+        "subscriptionsCancelled": "Subscriptions cancelled today",
+        "subscriptionsCancelledDetail": "Customer {customer} · Staff {staff} · System {system}"
       },
       "pending": {
         "title": "Requests pending confirmation",
@@ -511,7 +513,16 @@
           "action": "Action"
         }
       },
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "subscriptionRequests": {
+        "all": "All requests ({count})",
+        "empty": "No subscription request is waiting for confirmation.",
+        "deadline": "Next deadline: <ref>{reference}</ref>, in {time}",
+        "deadlinePassed": "The deadline of <ref>{reference}</ref> passed {time} ago",
+        "oldest": "Waiting longest: <ref>{reference}</ref>, for {time}",
+        "overdue": "{count, plural, one {# request} other {# requests}} past the deadline",
+        "openSubscription": "Open {reference}"
+      }
     },
     "twoFactor": {
       "title": "Account security",
@@ -590,7 +601,11 @@
         "jsonList": "A JSON list. Time ranges use start and end in 24-hour HH:MM format.",
         "json": "A JSON object or list.",
         "time": "24-hour time in Dubai time, for example 18:00.",
-        "bilingual": "Customers see the text in their app language, so enter both."
+        "bilingual": "Customers see the text in their app language, so enter both.",
+        "intRange": "A whole number from {min} to {max}.",
+        "timeQuarter": "24-hour time in Dubai time, on the quarter hour, for example 10:00 or 10:15.",
+        "intList": "Press Enter after each value. {min} to {max} hours, ascending, up to {count} values. Leave it empty for no retries.",
+        "weekdays": "Choose at least one day."
       },
       "errors": {
         "required": "Enter a value.",
@@ -615,7 +630,13 @@
         "date_format": "Enter a valid date.",
         "date_duplicate": "This date is already in the list.",
         "time": "Enter a time in 24-hour format, for example 18:00.",
-        "bilingual_required": "Enter the text in both Arabic and English."
+        "bilingual_required": "Enter the text in both Arabic and English.",
+        "int_range": "Enter a whole number from {min} to {max}.",
+        "int_list_item": "Each value is a whole number from {min} to {max}.",
+        "int_list_order": "Put the values in ascending order, without repeats.",
+        "int_list_count": "At most {count} values.",
+        "weekdays_empty": "Choose at least one day.",
+        "time_quarter": "Choose a time on the quarter hour (00, 15, 30 or 45)."
       },
       "groups": {
         "booking": "Booking",
@@ -648,6 +669,30 @@
         "paymentsMode": {
           "authorize_capture": "Hold, then charge on confirmation",
           "sale_then_refund": "Charge now, refund if needed"
+        },
+        "skipFreezeEffect": {
+          "extend_term": "Extend the term",
+          "forfeit": "Visits are forfeited"
+        },
+        "companyMissEffect": {
+          "extend_term": "Free visit at the end of the term",
+          "none": "Nothing (refund by hand)"
+        },
+        "absenceWithoutSubstitute": {
+          "credit_day": "Add a day at the end of the period",
+          "none": "Nothing"
+        },
+        "holdNextPeriod": {
+          "ahead": "Ahead, inside the horizon",
+          "after_payment": "After payment"
+        },
+        "publicHolidayEffect": {
+          "serve": "Visits are served",
+          "skip_extend": "Skipped and added at the end"
+        },
+        "dayNotifications": {
+          "quiet": "Quiet",
+          "all": "All notifications"
         }
       },
       "keys": {
@@ -691,6 +736,14 @@
           "window": {
             "label": "Live-out service window",
             "description": "Daily working window for Live-out cleaners, including the break."
+          },
+          "absence_without_substitute": {
+            "label": "Live-out absence without a substitute",
+            "description": "A day is added at the end of the period (credit a day), or nothing."
+          },
+          "day_notifications": {
+            "label": "Live-out day notifications",
+            "description": "Quiet: no reminders and no departed, arrived or completed notices (worker changes and delays are still sent), or all notifications."
           }
         },
         "booking": {
@@ -818,11 +871,51 @@
         "subscription": {
           "horizon_weeks": {
             "label": "Subscription planning horizon (weeks)",
-            "description": "Weeks of visits created ahead for each subscription."
+            "description": "Weeks of visits created ahead for each subscription, 4 to 26."
           },
           "renew_days_before": {
-            "label": "Renewal charge (days before)",
-            "description": "Days before the period ends to charge the renewal."
+            "label": "Renewal charge (days before the next period)",
+            "description": "Days before the next period starts to charge the renewal, 1 to 14."
+          },
+          "renewal_time": {
+            "label": "Renewal time",
+            "description": "When the renewal is charged and noticed, Dubai time, on the quarter hour."
+          },
+          "renewal_retry_hours": {
+            "label": "Renewal retry hours",
+            "description": "Hours after the renewal time to retry a failed charge, ascending (up to 5 values). The subscription is suspended after the last."
+          },
+          "renewal_notice_days": {
+            "label": "Renewal notice (days before the charge)",
+            "description": "Days before the charge to tell the customer the amount of the next period. 0 means no notice."
+          },
+          "suspended_cancel_days": {
+            "label": "Suspended subscription grace (days)",
+            "description": "Days an unpaid, suspended subscription waits before it is cancelled, 0 to 60."
+          },
+          "allowed_weekdays": {
+            "label": "Weekdays open to subscriptions",
+            "description": "The days a customer can choose for a weekly subscription."
+          },
+          "skip_freeze_effect": {
+            "label": "Effect of skipped and frozen visits",
+            "description": "Visits a customer skips or freezes are added at the end of the term, or forfeited."
+          },
+          "company_miss_effect": {
+            "label": "Effect of visits the company missed",
+            "description": "A free visit is added at the end of the term, or nothing and staff refund by hand."
+          },
+          "hold_next_period": {
+            "label": "Reserving the next term",
+            "description": "Reserve the next term of an auto-renewing subscription ahead (inside the horizon) or after payment."
+          },
+          "public_holiday_effect": {
+            "label": "Visits on public holidays",
+            "description": "Weekly subscription visits on a public holiday are served, or skipped and added at the end of the term."
+          },
+          "cancel_fee_counts_skipped": {
+            "label": "Cancellation fee counts skipped visits",
+            "description": "When on, the cancellation fee also considers skipped or frozen visits whose time has not come yet."
           }
         },
         "payments": {
@@ -1501,7 +1594,12 @@
         "policies": "Policies and display",
         "sortOrder": "Display order",
         "active": "Active",
-        "activeHint": "Inactive packages are hidden from customers."
+        "activeHint": "Inactive packages are hidden from customers.",
+        "notSellable": {
+          "badge": "Not sold as a subscription",
+          "termTooLong": "Customers can't buy this package as a subscription: its first period needs {visits, plural, one {# visit} other {# visits}} over {days, plural, one {# day} other {# days}}, above the subscription limit. Shorten the term or reduce the visits per week.",
+          "invalidTerm": "Customers can't buy this package as a subscription because its term isn't valid for one. Check the term and the visits per week."
+        }
       },
       "liveOut": {
         "title": "Live-out plans",
@@ -1517,7 +1615,8 @@
           "days": "Days",
           "window": "Window",
           "status": "Status",
-          "actions": "Actions"
+          "actions": "Actions",
+          "contracts": "Active contracts"
         },
         "noPrice": "Not set",
         "vatIncl": "incl. VAT",
@@ -1567,7 +1666,12 @@
         "maxContracts": "Active contract cap",
         "maxContractsHint": "Optional. Once reached, the plan shows as unavailable.",
         "active": "Active",
-        "activeHint": "Inactive plans are hidden from customers."
+        "activeHint": "Inactive plans are hidden from customers.",
+        "contractsNoCap": "Active contracts {count}",
+        "contractsOfCap": "Active contracts {count} / {cap}",
+        "capReached": "Contract cap reached",
+        "windowDiffers": "Window differs from the slot",
+        "windowSlotWarning": "This plan's window differs from the Live-out slot ({code}), which runs {start} to {end}. Visits follow the plan's window and the slot is only the capacity pool, so make sure the difference is intended."
       },
       "addons": {
         "title": "Add-ons",
@@ -2667,7 +2771,9 @@
         "from": "From",
         "to": "To",
         "rangeInvalid": "The end date is before the start date.",
-        "cancelReview": "Cancellation reviews only"
+        "cancelReview": "Cancellation reviews only",
+        "kind": "Kind",
+        "allKinds": "All kinds"
       },
       "chips": {
         "status": "Booking:",
@@ -3018,7 +3124,9 @@
         "total": "Total",
         "rescheduleFee": "Change fees kept",
         "refresh": "Refresh",
-        "verifyingConfirm": "The payment provider is still checking this payment. Confirming becomes available once it answers."
+        "verifyingConfirm": "The payment provider is still checking this payment. Confirming becomes available once it answers.",
+        "seriesVisit": "This visit belongs to a subscription. Move, skip or cancel its visits on the subscription page.",
+        "openSubscription": "Open subscription {reference}"
       },
       "payment": {
         "title": "Payment and refunds",
@@ -3256,6 +3364,21 @@
         "openBooking": "Open {reference}",
         "hintFinance": "Open a booking to resolve its cancellation with a refund.",
         "hintCoordinator": "Open a booking to keep it or cancel it."
+      },
+      "kinds": {
+        "single": "Single booking",
+        "series": "All subscription visits",
+        "subscription_visit": "Recurring subscription visit",
+        "live_out_day": "Live-out day",
+        "live_out_trial": "Live-out trial day"
+      },
+      "series": {
+        "recurringVisit": "Subscription <ref>{reference}</ref> · visit {no} of {total}",
+        "recurring": "Subscription <ref>{reference}</ref>",
+        "liveOutDay": "Live-out <ref>{reference}</ref> · day {no} of {total}",
+        "liveOut": "Live-out <ref>{reference}</ref>",
+        "liveOutTrial": "Live-out trial day <ref>{reference}</ref>",
+        "openLabel": "Open subscription {reference}"
       }
     },
     "manual": {
@@ -3480,7 +3603,9 @@
         "live_out": "Live-out day",
         "not_on_shift": "Not on shift",
         "not_active": "Not active",
-        "leaveOf": "On leave · {type}"
+        "leaveOf": "On leave · {type}",
+        "liveOutDay": "Live-out · <name>{who}</name>",
+        "liveOutDayWindow": "Live-out · <name>{who}</name> · <ltr>{start}–{end}</ltr>"
       },
       "card": {
         "noArea": "Area not given",
@@ -3949,7 +4074,7 @@
         "showAllPayments": "Show all payments",
         "onePayment": "Showing payment #{id} only.",
         "documentSearch": "Search",
-        "invoiceSearchPlaceholder": "Invoice number, booking reference or phone",
+        "invoiceSearchPlaceholder": "Invoice number, booking or subscription reference, or phone",
         "creditNoteSearchPlaceholder": "Credit note or invoice number",
         "showAllInvoices": "Show all invoices",
         "oneInvoice": "Showing the credit notes of invoice #{id} only.",
@@ -4170,7 +4295,7 @@
           "number": "Invoice",
           "issueDate": "Issue date",
           "customer": "Customer",
-          "booking": "Booking",
+          "booking": "Booking or subscription",
           "status": "Status",
           "net": "Net of VAT",
           "vat": "VAT",
@@ -4183,7 +4308,8 @@
         "openLabel": "Open invoice {number}",
         "empty": "No invoices yet.",
         "emptyBody": "Invoices appear here when payments are taken.",
-        "emptyFiltered": "No invoices match these filters."
+        "emptyFiltered": "No invoices match these filters.",
+        "supplyPeriod": "Supply period: {from} – {to}"
       },
       "invoice": {
         "back": "Tax invoices",
@@ -4226,7 +4352,10 @@
           "total": "Total (AED)",
           "credited": "Credited by credit notes"
         },
-        "creditNotes": "Credit notes"
+        "creditNotes": "Credit notes",
+        "supplyPeriod": "Supply period",
+        "supplyPeriodValue": "{from} – {to}",
+        "subscription": "Subscription"
       },
       "creditNotes": {
         "title": "Credit notes",

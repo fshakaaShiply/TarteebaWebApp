@@ -23,9 +23,11 @@ const invoice = (over: Partial<AdminInvoiceDetail> = {}): AdminInvoiceDetail => 
   issue_reason: "capture",
   issue_date: "2026-10-23",
   supply_date: "2026-10-25",
+  supply_date_to: null,
   issued_at: "2026-10-23T17:38:20+00:00",
   customer: { id: 2, name: "Omar Khalid", phone: "+971500000002" },
   booking: { id: 9, reference: "TRB-QHKXMS" },
+  subscription: null,
   payment: { id: 9, ulid: "01m5mxexxwvwpdgwypmp1b0f25", status: "partially_refunded", gateway_payment_ref: "fpay_0dc4e2ad", captured_fils: 12000, refunded_fils: 6000 },
   subtotal_fils: 11429,
   discount_fils: 0,
@@ -116,6 +118,31 @@ describe("InvoiceDetailScreen", () => {
     expect(screen.getByRole("link", { name: "TRB-QHKXMS" })).toHaveAttribute("href", "/admin/bookings/9");
     // Resending needs invoices.manage.
     expect(screen.queryByRole("button", { name: /Resend by email/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the subscription and the supply period of a period invoice instead of a booking", async () => {
+    api.fetchInvoice.mockResolvedValue(
+      invoice({
+        supply_date: "2026-11-01",
+        supply_date_to: "2026-11-28",
+        booking: { id: null, reference: null },
+        subscription: { ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
+      }),
+    );
+    renderWithProviders(<InvoiceDetailScreen id="4" />, { permissions: ["payments.view", "subscriptions.view"] });
+    const details = (await screen.findByRole("heading", { name: "Invoice details" })).closest("section")!;
+    expect(details).toHaveTextContent("Supply periodSun, 1 Nov 2026 – Sat, 28 Nov 2026");
+    expect(within(details).queryByText("Date of supply")).not.toBeInTheDocument();
+    expect(within(details).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions?q=TRS-7K2M9Q");
+    expect(within(details).queryByText("Booking")).not.toBeInTheDocument();
+  });
+
+  it("keeps the date of supply and the booking on a booking invoice", async () => {
+    renderWithProviders(<InvoiceDetailScreen id="4" />, { permissions: ["payments.view", "bookings.view"] });
+    const details = (await screen.findByRole("heading", { name: "Invoice details" })).closest("section")!;
+    expect(within(details).getByText("Date of supply")).toBeInTheDocument();
+    expect(within(details).getByRole("link", { name: "TRB-QHKXMS" })).toBeInTheDocument();
+    expect(within(details).queryByText("Subscription")).not.toBeInTheDocument();
   });
 
   it("lays the narrow side cards out in one column, and lets long references wrap", async () => {

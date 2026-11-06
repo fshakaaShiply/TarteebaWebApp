@@ -62,6 +62,53 @@ describe("A03 bookings list", () => {
     url.set("/admin/bookings");
   });
 
+  it("labels a subscription visit with its subscription and place, linked to A08", async () => {
+    api.fetchBookings.mockResolvedValue(
+      page([
+        bookingRow({
+          id: 9,
+          reference: "TRB-V3V3V3",
+          kind: "subscription_visit",
+          subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 },
+        }),
+        bookingRow({ id: 10, reference: "TRB-L1L1L1", kind: "live_out_trial", subscription: { id: 32, ulid: "01jc", reference: "TRS-TRIAL1", type: "live_out", visit_no: 1, visits_total: 1 } }),
+        bookingRow({ id: 4 }),
+      ]),
+    );
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    const row = (await screen.findByRole("link", { name: "TRB-V3V3V3" })).closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("Subscription TRS-7K2M9Q · visit 3 of 8");
+    expect(within(row).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    const trial = screen.getByRole("link", { name: "TRB-L1L1L1" }).closest("tr") as HTMLElement;
+    expect(trial).toHaveTextContent("Live-out trial day TRS-TRIAL1");
+    // A single booking has no label.
+    const single = screen.getByRole("link", { name: "TRB-R4RYSD" }).closest("tr") as HTMLElement;
+    expect(single).not.toHaveTextContent("Subscription");
+  });
+
+  it("shows the subscription label as text without a link for staff who cannot open A08", async () => {
+    api.fetchBookings.mockResolvedValue(
+      page([bookingRow({ kind: "subscription_visit", subscription: { id: 31, ulid: "01jb", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 } })]),
+    );
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    const row = (await screen.findByRole("link", { name: "TRB-R4RYSD" })).closest("tr") as HTMLElement;
+    expect(row).toHaveTextContent("Subscription TRS-7K2M9Q · visit 3 of 8");
+    expect(within(row).queryByRole("link", { name: /Open subscription/ })).not.toBeInTheDocument();
+  });
+
+  it("filters by kind through the URL parameter the API names", async () => {
+    url.set("/admin/bookings?kind=series");
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    await screen.findByRole("link", { name: "TRB-R4RYSD" });
+    expect(api.fetchBookings).toHaveBeenCalledWith(expect.objectContaining({ kind: "series" }));
+    const kind = screen.getByLabelText("Kind");
+    expect(kind).toHaveValue("series");
+    const user = userEvent.setup();
+    await user.selectOptions(kind, "Live-out day");
+    await waitFor(() => expect(url.get().get("kind")).toBe("live_out_day"));
+    await waitFor(() => expect(api.fetchBookings).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "live_out_day" })));
+  });
+
   it("applies the filters a KPI card links with", async () => {
     url.set("/admin/bookings?status=pending_confirmation&from=2026-10-23&to=2026-10-23");
     renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });

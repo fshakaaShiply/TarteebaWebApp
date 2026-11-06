@@ -32,13 +32,36 @@ export type EditorKind =
   /** reminder.day_before_time: one local wall-clock time "HH:MM" (a string setting). */
   | "time"
   /** refund.estimated_arrival_text: the same text in Arabic and English, {ar, en} (a json setting). */
-  | "bilingual";
+  | "bilingual"
+  /** subscription.renewal_retry_hours: a short ascending list of whole numbers (draft: strings, saved as numbers). */
+  | "int_list"
+  /** subscription.allowed_weekdays: a multi-select of weekdays 0 (Sunday) to 6 (Saturday) (draft: strings, saved as numbers). */
+  | "weekdays";
 
 /** List settings whose items are local dates (edited with a date picker, saved sorted without duplicates). */
 export const DATE_LIST_SETTINGS: readonly string[] = ["calendar.public_holidays"];
 
 /** String settings holding one 24-hour time (the API refuses anything but HH:MM for them). */
-export const TIME_SETTINGS: readonly string[] = ["reminder.day_before_time"];
+export const TIME_SETTINGS: readonly string[] = ["reminder.day_before_time", "subscription.renewal_time"];
+
+/** Time settings the API only accepts on the quarter hour (HH:00, :15, :30, :45). */
+export const QUARTER_HOUR_TIME_SETTINGS: readonly string[] = ["subscription.renewal_time"];
+
+/** Whole-number settings with the range the API enforces (SettingsController), inclusive. */
+export const INT_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+  "subscription.horizon_weeks": [4, 26],
+  "subscription.renew_days_before": [1, 14],
+  "subscription.renewal_notice_days": [0, 14],
+  "subscription.suspended_cancel_days": [0, 60],
+};
+
+/** List-of-whole-numbers settings: item range, at most `maxItems` items, strictly ascending (spec section 7.4). */
+export const INT_LIST_SETTINGS: Readonly<Record<string, { min: number; max: number; maxItems: number; allowEmpty: boolean }>> = {
+  "subscription.renewal_retry_hours": { min: 1, max: 336, maxItems: 5, allowEmpty: true },
+};
+
+/** List settings holding weekdays (0 = Sunday ... 6 = Saturday), at least one. */
+export const WEEKDAY_SETTINGS: readonly string[] = ["subscription.allowed_weekdays"];
 
 /** JSON settings holding one text in both languages (the API wants exactly {ar, en}, neither empty). */
 export const BILINGUAL_TEXT_SETTINGS: readonly string[] = ["refund.estimated_arrival_text"];
@@ -54,6 +77,13 @@ export const SETTING_OPTIONS: Readonly<Record<string, { messageKey: string; valu
   "digits.style": { messageKey: "digits", values: ["latin", "arabic"] },
   "live_out.block_scope": { messageKey: "blockScope", values: ["whole_day", "window"] },
   "payments.mode": { messageKey: "paymentsMode", values: ["authorize_capture", "sale_then_refund"] },
+  // Phase 4 (design section 8.3)
+  "subscription.skip_freeze_effect": { messageKey: "skipFreezeEffect", values: ["extend_term", "forfeit"] },
+  "subscription.company_miss_effect": { messageKey: "companyMissEffect", values: ["extend_term", "none"] },
+  "live_out.absence_without_substitute": { messageKey: "absenceWithoutSubstitute", values: ["credit_day", "none"] },
+  "subscription.hold_next_period": { messageKey: "holdNextPeriod", values: ["ahead", "after_payment"] },
+  "subscription.public_holiday_effect": { messageKey: "publicHolidayEffect", values: ["serve", "skip_extend"] },
+  "live_out.day_notifications": { messageKey: "dayNotifications", values: ["quiet", "all"] },
 };
 
 export type SettingDraft = string | boolean | string[] | WeeklyHoursDraft | BilingualDraft;
@@ -66,6 +96,12 @@ export type SettingDraftError =
   | "required"
   | "int"
   | "int_min"
+  | "int_range"
+  | "int_list_item"
+  | "int_list_order"
+  | "int_list_count"
+  | "weekdays_empty"
+  | "time_quarter"
   | "money"
   | "money_precision"
   | "money_negative"
@@ -103,6 +139,8 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
       if (TIME_SETTINGS.includes(setting.key)) return "time";
       return SETTING_OPTIONS[setting.key] ? "enum" : "string";
     case "list":
+      if (setting.key in INT_LIST_SETTINGS && isIntList(setting.value)) return "int_list";
+      if (WEEKDAY_SETTINGS.includes(setting.key) && isIntList(setting.value)) return "weekdays";
       if (DATE_LIST_SETTINGS.includes(setting.key) && isStringList(setting.value)) return "dates";
       return isStringList(setting.value) ? "chips" : "json-list";
     case "time_range":
@@ -114,6 +152,10 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
     default:
       return "json";
   }
+}
+
+export function isIntList(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((v) => typeof v === "number" && Number.isInteger(v));
 }
 
 export function isStringList(value: unknown): value is string[] {
@@ -131,6 +173,10 @@ export function toDraft(kind: EditorKind, value: unknown): SettingDraft {
       return typeof value === "number" ? filsToAedInput(value) : "";
     case "chips":
       return isStringList(value) ? [...value] : [];
+    case "int_list":
+      return isIntList(value) ? value.map(String) : [];
+    case "weekdays":
+      return isIntList(value) ? [...value].sort((a, b) => a - b).map(String) : [];
     case "dates":
       return isStringList(value) ? sortDates(value) : [];
     case "weekly_hours":
@@ -177,6 +223,10 @@ export type ParseOptions = {
   allowNull?: boolean;
   /** Values an enum editor may pick. */
   options?: readonly string[];
+  /** Inclusive bounds of a whole number (the API's own range for the key). */
+  range?: readonly [number, number];
+  /** The setting key: some keys carry rules of their own (quarter-hour time, int lists). */
+  key?: string;
 };
 
 /** Validates a draft and returns the JSON value to save. */
@@ -192,6 +242,7 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
       const n = Number(text);
       if (!Number.isSafeInteger(n)) return { ok: false, error: "int" };
       if (n < 0) return { ok: false, error: "int_min" };
+      if (opts.range && (n < opts.range[0] || n > opts.range[1])) return { ok: false, error: "int_range" };
       return { ok: true, value: n };
     }
 
@@ -218,7 +269,11 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
     case "time": {
       const value = normalizeDigits(String(draft)).trim();
       if (value === "") return { ok: false, error: "required" };
-      return TIME.test(value) ? { ok: true, value } : { ok: false, error: "time" };
+      if (!TIME.test(value)) return { ok: false, error: "time" };
+      if (opts.key && QUARTER_HOUR_TIME_SETTINGS.includes(opts.key) && Number(value.slice(3)) % 15 !== 0) {
+        return { ok: false, error: "time_quarter" };
+      }
+      return { ok: true, value };
     }
 
     case "bilingual": {
@@ -235,6 +290,29 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
       if (items.some((v) => v === "")) return { ok: false, error: "list_empty_item" };
       if (new Set(items).size !== items.length) return { ok: false, error: "list_duplicate" };
       return { ok: true, value: items };
+    }
+
+    case "int_list": {
+      const rule = (opts.key && INT_LIST_SETTINGS[opts.key]) || { min: 0, max: Number.MAX_SAFE_INTEGER, maxItems: 100, allowEmpty: true };
+      const raw = (Array.isArray(draft) ? draft : []).map((v) => normalizeDigits(v).trim());
+      if (raw.length === 0 && !rule.allowEmpty) return { ok: false, error: "required" };
+      if (raw.length > rule.maxItems) return { ok: false, error: "int_list_count" };
+      const numbers: number[] = [];
+      for (const item of raw) {
+        if (!/^[0-9]+$/.test(item)) return { ok: false, error: "int_list_item" };
+        const n = Number(item);
+        if (!Number.isSafeInteger(n) || n < rule.min || n > rule.max) return { ok: false, error: "int_list_item" };
+        numbers.push(n);
+      }
+      for (let i = 1; i < numbers.length; i += 1) if (numbers[i]! <= numbers[i - 1]!) return { ok: false, error: "int_list_order" };
+      return { ok: true, value: numbers };
+    }
+
+    case "weekdays": {
+      const days = (Array.isArray(draft) ? draft : []).map((v) => Number(v));
+      if (days.length === 0) return { ok: false, error: "weekdays_empty" };
+      if (days.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) return { ok: false, error: "int_list_item" };
+      return { ok: true, value: [...new Set(days)].sort((a, b) => a - b) };
     }
 
     case "dates": {

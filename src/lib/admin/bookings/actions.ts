@@ -1,5 +1,5 @@
 import { AdminApiError } from "../client";
-import type { AdminRefund, BookingDetail, BookingStatus, CancelPreview, PaymentStatus, ReschedulePreview, VisitStatus } from "../types";
+import type { AdminRefund, BookingDetail, BookingRow, BookingStatus, CancelPreview, PaymentStatus, ReschedulePreview, VisitStatus } from "../types";
 
 /*
  * A03 booking actions (spec §7.1, §10, §11.4, §14.3; Booking Actions): which ones a booking offers in its status, to a
@@ -55,13 +55,21 @@ export function paymentVerifying(booking: PaymentState): boolean {
   return booking.payment_status === "verifying" || booking.payment?.status === "verifying";
 }
 
+/** A visit of a subscription: A08 changes, skips and cancels it (the API refuses the booking's own cancel and reschedule). */
+export function isSeriesVisit(booking: Partial<Pick<BookingRow, "kind" | "subscription">>): boolean {
+  return (booking.subscription ?? null) !== null || (booking.kind !== undefined && booking.kind !== "single");
+}
+
 export function availableActions(
-  booking: Pick<BookingDetail, "status" | "payment_status" | "visits" | "capture_unknown_at" | "created_by_staff_id" | "cancellation"> & PaymentState,
+  booking: Pick<BookingDetail, "status" | "payment_status" | "visits" | "capture_unknown_at" | "created_by_staff_id" | "cancellation"> &
+    PaymentState &
+    Partial<Pick<BookingRow, "kind" | "subscription">>,
   can: (permission: string) => boolean,
 ): Set<BookingAction> {
   const out = new Set<BookingAction>();
   const status = booking.status;
   const visit = booking.visits[0];
+  const series = isSeriesVisit(booking);
 
   if (status === "pending_confirmation") {
     if (can("bookings.confirm") && !paymentVerifying(booking)) out.add("confirm");
@@ -74,8 +82,9 @@ export function availableActions(
       out.add("propose");
     }
   }
-  if (status === "confirmed" && can("bookings.reschedule") && (!visit || MOVABLE_VISIT.includes(visit.status))) out.add("reschedule");
-  if (CANCELLABLE.includes(status) && can("bookings.cancel")) out.add("cancel");
+  // Series visits: the subscription page owns visit changes (P4-48), so neither button is offered here.
+  if (!series && status === "confirmed" && can("bookings.reschedule") && (!visit || MOVABLE_VISIT.includes(visit.status))) out.add("reschedule");
+  if (!series && CANCELLABLE.includes(status) && can("bookings.cancel")) out.add("cancel");
   if (booking.cancellation.review_requested_at && can("bookings.cancel")) out.add("declineReview");
   // Finance (refunds.create without bookings.cancel) finishes a waiting review with a refund (POST …/cancel-review/
   // resolve); coordinators keep "keep the booking" and "cancel" (P3-38: finance stays read-only on operations).

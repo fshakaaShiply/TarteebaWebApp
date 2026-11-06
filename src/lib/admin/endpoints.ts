@@ -1240,6 +1240,8 @@ export type BookingListQuery = {
   workerId?: number | null;
   /** The driver (drivers.id) of a live drop-off or pickup stop of one of the booking's visits. */
   driverId?: number | null;
+  /** One booking kind, or `series` for every subscription visit (Phase 4). */
+  kind?: string;
 };
 
 export async function fetchBookings(q: BookingListQuery): Promise<Paginated<BookingRow>> {
@@ -1261,6 +1263,7 @@ export async function fetchBookings(q: BookingListQuery): Promise<Paginated<Book
           slot_template_id: q.slotTemplateId ?? undefined,
           worker_id: q.workerId ?? undefined,
           driver_id: q.driverId ?? undefined,
+          kind: q.kind || undefined,
         }) as never,
       },
     }),

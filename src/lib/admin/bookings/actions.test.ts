@@ -74,6 +74,16 @@ describe("A03 actions by status and permission", () => {
     expect(availableActions(booking({ status: "held" }), can(coordinator)).has("paymentLink")).toBe(false);
   });
 
+  it("offers neither cancel nor reschedule on a visit of a subscription (A08 owns visit changes)", () => {
+    const link = { id: 31, ulid: "01JB", reference: "TRS-7K2M9Q", type: "recurring", visit_no: 3, visits_total: 8 };
+    const visit = booking({ status: "confirmed", payment_status: "captured", kind: "subscription_visit", subscription: link });
+    expect(sorted(availableActions(visit, can(coordinator)))).toEqual(["addNote"]);
+    // The kind alone is enough (a series visit whose block was not sent).
+    expect(sorted(availableActions(booking({ status: "confirmed", kind: "live_out_day" }), can(coordinator)))).toEqual(["addNote"]);
+    // A single booking keeps both.
+    expect(sorted(availableActions(booking({ status: "confirmed", kind: "single", subscription: null }), can(coordinator)))).toEqual(["addNote", "cancel", "reschedule"]);
+  });
+
   it("offers to keep the booking while a cancellation review is open", () => {
     const review = booking({
       status: "confirmed",

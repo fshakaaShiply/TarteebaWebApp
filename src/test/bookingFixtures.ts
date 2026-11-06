@@ -24,6 +24,7 @@ export const bookingRow = (over: Partial<BookingRow> = {}): BookingRow => ({
   ulid: "01m5jxahxpamqgkzzygcxp2vjr",
   reference: "TRB-R4RYSD",
   kind: "single",
+  subscription: null,
   customer: { id: "01m5dtszzdhx5gtmwvj7bmbvm9", name: "Sara Ahmed", phone: "+971500000001" },
   service: { id: 1, code: "STANDARD_VISIT", name: { ar: "زيارة تنظيف", en: "Cleaning visit" } },
   service_date: "2026-10-24",
@@ -251,6 +252,8 @@ export const dashboardSummary = (over: Partial<DashboardSummary["cards"]> = {}):
     },
     // Null unless the viewer reads bookings and acts on reviews (bookings.cancel or refunds.create).
     cancellation_reviews: null,
+    // Null unless the viewer holds subscriptions.view or subscriptions.manage.
+    subscription_requests: null,
     ...over,
   },
   panels: {
@@ -276,6 +279,7 @@ export const dashboardSummary = (over: Partial<DashboardSummary["cards"]> = {}):
     sales: null,
     occupancy: { percent: 20, used_units: 4, available_units: 20 },
     cancellations: { total: 1, customer: 1, company: 0, system: 0 },
+    subscriptions_cancelled: { total: 0, customer: 0, staff: 0, system: 0 },
     rating: null,
   },
 });

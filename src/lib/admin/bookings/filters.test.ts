@@ -12,6 +12,16 @@ describe("A03 list filters in the URL", () => {
     expect(filters).toMatchObject({ slot_template_id: "2", worker_id: "14", driver_id: "3" });
   });
 
+  it("reads the kind filter by the API's own name and ignores another value", () => {
+    expect(filtersFromParams(new URLSearchParams("kind=series")).kind).toBe("series");
+    expect(filtersFromParams(new URLSearchParams("kind=live_out_day")).kind).toBe("live_out_day");
+    expect(filtersFromParams(new URLSearchParams("kind=weekly")).kind).toBe("");
+    expect(filtersToParams({ ...NO_BOOKING_FILTERS, kind: "subscription_visit" }).toString()).toBe("kind=subscription_visit");
+    expect(hasFilters({ ...NO_BOOKING_FILTERS, kind: "single" })).toBe(true);
+    expect(filtersToQuery({ ...NO_BOOKING_FILTERS, kind: "series" }, null, 25).kind).toBe("series");
+    expect(filtersToQuery(NO_BOOKING_FILTERS, null, 25).kind).toBeUndefined();
+  });
+
   it("ignores unknown or malformed values", () => {
     const filters = filtersFromParams(
       new URLSearchParams(

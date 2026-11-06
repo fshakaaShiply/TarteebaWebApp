@@ -58,6 +58,7 @@ describe("ADMIN_NAV", () => {
     expect(built("A03")).toEqual(["bookings:built"]);
     expect(built("A04")).toEqual(["schedule:built", "capacity:built"]);
     expect(built("A05")).toEqual(["workers:built"]);
+    expect(built("A08")).toEqual(["subscriptions:built"]);
     expect(built("A06")).toEqual(["vehicles:built", "drivers:built", "trips:built", "driverReports:built"]);
     const fleet = ADMIN_NAV.find((m) => m.code === "A06")!;
     expect(fleet.children!.map((c) => c.href)).toEqual(["/admin/fleet/vehicles", "/admin/fleet/drivers", "/admin/trips", "/admin/trips/reports"]);
@@ -106,6 +107,13 @@ describe("filterNav", () => {
       "reports",
       "users[staffUsers,audit]",
     ]);
+  });
+
+  it("shows A08 to subscriptions.view and to subscriptions.manage alone, and to nobody else", () => {
+    expect(ids(["subscriptions.view"])).toEqual(["access", "subscriptions"]);
+    expect(ids(["subscriptions.manage"])).toEqual(["access", "subscriptions"]);
+    expect(ids(["bookings.view", "payments.view"])).not.toContain("subscriptions");
+    expect(ids(["customers.view"])).not.toContain("subscriptions");
   });
 
   it("shows each operations role its pages", () => {
@@ -288,6 +296,17 @@ describe("A09 finance and A11 notification templates", () => {
     expect(activeNavHref(accountant, "/admin/finance/payments/9", "")).toBe("/admin/finance/payments");
     // A coordinator has no review entry: the filtered list stays under Bookings.
     expect(activeNavHref(filterNav(ADMIN_NAV, ["bookings.view"]), "/admin/bookings", "cancel_review=1")).toBe("/admin/bookings");
+  });
+
+  it("sends a subscriptions-only user to A08 and marks the filtered list under that entry", () => {
+    expect(firstAccessiblePath(["subscriptions.view"])).toBe("/admin/subscriptions");
+    expect(firstAccessiblePath(["subscriptions.manage"])).toBe("/admin/subscriptions");
+    // Finance and the overview still come first for roles that hold them.
+    expect(firstAccessiblePath(["subscriptions.view", "payments.view"])).toBe("/admin/finance");
+    expect(firstAccessiblePath(["subscriptions.view", "bookings.view"])).toBe("/admin/overview");
+    const nav = filterNav(ADMIN_NAV, ["subscriptions.view"]);
+    expect(activeNavHref(nav, "/admin/subscriptions/01JB", "")).toBe("/admin/subscriptions");
+    expect(activeNavHref(nav, "/admin/subscriptions", "status=pending_confirmation")).toBe("/admin/subscriptions");
   });
 
   it("opens the finance pages for finance-only roles and marks the template editor under its own entry", () => {

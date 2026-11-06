@@ -310,6 +310,104 @@ describe("A02 daily operations overview", () => {
     expect(screen.queryByText("Cancellations waiting for review")).not.toBeInTheDocument();
   });
 
+  const requestsCard = {
+    label: { ar: "طلبات الاشتراك", en: "Subscription requests" },
+    value: 2,
+    overdue: 1,
+    next_deadline: {
+      subscription_id: 31,
+      reference: "TRS-7K2M9Q",
+      deadline_at: "2026-10-23T12:00:00+00:00",
+      minutes_left: 90,
+      link: { list: "subscription", path: "/api/v1/admin/subscriptions/31", params: {} },
+    },
+    oldest_request: {
+      subscription_id: 29,
+      reference: "TRS-A1B2C3",
+      pending_since: "2026-10-23T05:00:00+00:00",
+      waiting_minutes: 300,
+      link: { list: "subscription", path: "/api/v1/admin/subscriptions/29", params: {} },
+    },
+    link: { list: "subscriptions", path: "/api/v1/admin/subscriptions", params: { status: "pending_confirmation", zone_id: 2 } },
+  };
+
+  it("shows the subscription requests card with links to A08 for holders of the subscription permissions", async () => {
+    api.fetchDashboardSummary.mockResolvedValue(dashboardSummary({ subscription_requests: requestsCard }));
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    const card = (await screen.findByRole("heading", { name: "Subscription requests" })).closest("section")!;
+    expect(within(card).getByRole("link", { name: "All requests (2)" })).toHaveAttribute("href", "/admin/subscriptions?status=pending_confirmation&zone_id=2");
+    expect(within(card).getByRole("link", { name: "Open TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(within(card).getByRole("link", { name: "Open TRS-A1B2C3" })).toHaveAttribute("href", "/admin/subscriptions/29");
+    expect(card).toHaveTextContent("Next deadline: TRS-7K2M9Q, in 1 hour 30 minutes");
+    expect(card).toHaveTextContent("Waiting longest: TRS-A1B2C3, for 5 hours");
+    expect(card).toHaveTextContent("1 request past the deadline");
+  });
+
+  it("says when a subscription deadline has passed and when none is waiting", async () => {
+    api.fetchDashboardSummary.mockResolvedValue(
+      dashboardSummary({ subscription_requests: { ...requestsCard, value: 1, overdue: 1, next_deadline: { ...requestsCard.next_deadline, minutes_left: -20 } } }),
+    );
+    const { unmount } = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.manage"] });
+    const card = (await screen.findByRole("heading", { name: "Subscription requests" })).closest("section")!;
+    expect(card).toHaveTextContent("The deadline of TRS-7K2M9Q passed 20 minutes ago");
+    unmount();
+    api.fetchDashboardSummary.mockResolvedValue(
+      dashboardSummary({ subscription_requests: { ...requestsCard, value: 0, overdue: 0, next_deadline: null, oldest_request: null } }),
+    );
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.manage"] });
+    expect(await screen.findByText("No subscription request is waiting for confirmation.")).toBeInTheDocument();
+  });
+
+  it("has no subscription card when the summary sends none", async () => {
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
+    await screen.findByRole("link", { name: /Today's bookings/ });
+    expect(screen.queryByText("Subscription requests")).not.toBeInTheDocument();
+  });
+
+  it("shows the subscriptions cancelled today next to the booking cancellations", async () => {
+    const base = dashboardSummary();
+    api.fetchDashboardSummary.mockResolvedValue({
+      ...base,
+      quick_stats: { ...base.quick_stats, subscriptions_cancelled: { total: 3, customer: 1, staff: 1, system: 1 } },
+    });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
+    const stat = (await screen.findByText("Subscriptions cancelled today")).parentElement!;
+    expect(stat).toHaveTextContent("3");
+    expect(stat).toHaveTextContent("Customer 1 · Staff 1 · System 1");
+    expect(screen.getByText("Cancellations today")).toBeInTheDocument();
+  });
+
+  it("opens a subscription alert in A08, from its link or its entity", async () => {
+    api.fetchDashboardAlerts.mockResolvedValue({
+      ...alerts,
+      data: [
+        {
+          type: "subscription_renewal_failed",
+          severity: "urgent",
+          at: "2026-10-23T08:00:00+00:00",
+          title: { ar: "فشل التجديد", en: "Renewal failed" },
+          message: { ar: "…", en: "TRS-7K2M9Q is suspended." },
+          entity: { type: "subscription", id: 31, reference: "TRS-7K2M9Q" },
+          link: { list: "subscription", path: "/api/v1/admin/subscriptions/31", params: {} },
+          details: {},
+        },
+        {
+          type: "subscription_conflict",
+          severity: "warning",
+          at: "2026-10-23T09:00:00+00:00",
+          title: { ar: "تعارض", en: "Visit conflict" },
+          message: { ar: "…", en: "A visit of TRS-A1B2C3 has a conflict." },
+          entity: { type: "subscription", id: 29, reference: "TRS-A1B2C3" },
+          link: null,
+          details: {},
+        },
+      ],
+    });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    expect(await screen.findByRole("link", { name: /Renewal failed/ })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(screen.getByRole("link", { name: /Visit conflict/ })).toHaveAttribute("href", "/admin/subscriptions/29");
+  });
+
   it("welcomes staff without bookings or schedule access instead of loading figures", () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["catalog.manage"] });
     expect(screen.getByText("Welcome to Tarteeba operations")).toBeInTheDocument();

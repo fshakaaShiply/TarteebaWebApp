@@ -14,7 +14,7 @@ import { BILLING_REFUSALS_PATH, DOCUMENTS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminInvoice, InvoiceStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
-import { Code, DateRangeFields, Money } from "../_components/FinanceParts";
+import { Code, DateRangeFields, Money, SubscriptionRef } from "../_components/FinanceParts";
 import { invoiceTone, useFinanceText } from "../_components/financeText";
 import { useUrlFilters } from "../_components/useUrlFilters";
 
@@ -102,7 +102,12 @@ function InvoicesTable() {
       id: "booking",
       header: t("columns.booking"),
       cell: (i) =>
-        i.booking.reference ? (
+        i.subscription ? (
+          <span className="flex flex-col">
+            <SubscriptionRef reference={i.subscription.reference} />
+            <span className="text-xs text-ink-600">{t("supplyPeriod", { from: text.date(i.subscription.period.start), to: text.date(i.subscription.period.end) })}</span>
+          </span>
+        ) : i.booking.reference ? (
           i.booking.id !== null && can("bookings.view") ? (
             <Link href={`/admin/bookings/${i.booking.id}`} className="font-medium">
               <Code>{i.booking.reference}</Code>

@@ -6,6 +6,20 @@ import type { DashboardLink } from "./types";
 const bookings = (params: DashboardLink["params"]): DashboardLink => ({ list: "bookings", path: "/api/v1/admin/bookings", params });
 
 describe("A02 links to admin pages", () => {
+  it("opens the A08 list with the card's filters and one subscription by its API path", () => {
+    expect(
+      dashboardHref({ list: "subscriptions", path: "/api/v1/admin/subscriptions", params: { status: "pending_confirmation", zone_id: 2 } }),
+    ).toBe("/admin/subscriptions?status=pending_confirmation&zone_id=2");
+    expect(dashboardHref({ list: "subscriptions", path: "/api/v1/admin/subscriptions", params: { cancel_review: 1, view: "x" } })).toBe(
+      "/admin/subscriptions?cancel_review=1",
+    );
+    expect(dashboardHref({ list: "subscriptions", path: "/api/v1/admin/subscriptions", params: {} })).toBe("/admin/subscriptions");
+    expect(dashboardHref({ list: "subscription", path: "/api/v1/admin/subscriptions/31", params: {} })).toBe("/admin/subscriptions/31");
+    expect(dashboardHref({ list: "subscription", path: "/api/v1/admin/subscriptions/x", params: {} })).toBeNull();
+    // A subscription alert without a usable link still opens its subscription through the entity.
+    expect(dashboardAlertHref({ link: null, entity: { type: "subscription", id: 29, reference: "TRS-A1B2C3" } })).toBe("/admin/subscriptions/29");
+  });
+
   it("opens the bookings list with the card's filters (the API's own names)", () => {
     expect(dashboardHref(bookings({ from: "2026-10-23", to: "2026-10-23", zone_id: 1 }))).toBe("/admin/bookings?from=2026-10-23&to=2026-10-23&zone_id=1");
     expect(dashboardHref(bookings({ status: "pending_confirmation" }))).toBe("/admin/bookings?status=pending_confirmation");

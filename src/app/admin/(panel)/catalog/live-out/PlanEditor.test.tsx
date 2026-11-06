@@ -1,8 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogService } from "@/lib/admin/types";
-import { trialPlan } from "@/test/catalogFixtures";
+import { trialPlan, weeklyPackage } from "@/test/catalogFixtures";
 import { renderWithProviders } from "@/test/render";
 import { PackageEditor } from "../packages/PackageEditor";
 import { LiveOutPlansScreen } from "./LiveOutPlansScreen";
@@ -127,5 +127,69 @@ describe("A11 Live-out plans and packages", () => {
       discount_value: 2500,
       reason: "New package",
     });
+  });
+
+  // Phase 4 (design section 9.1, A11).
+  const capped = { ...trialPlan, price_fils: 450000, max_active_contracts: 3, active_contracts: 3, unavailable_reason: "cap_reached" as const };
+
+  it("shows the active contracts against the cap and a cap-reached badge in the list", async () => {
+    api.fetchLiveOutPlans.mockResolvedValue({
+      data: [capped, { ...trialPlan, id: 2, code: "MONTHLY", price_fils: 450000, active_contracts: 1, unavailable_reason: null }],
+      meta: { current_page: 1, per_page: 25, total: 2, last_page: 1 },
+    });
+    renderWithProviders(<LiveOutPlansScreen />, { permissions: ["catalog.manage"] });
+    const cappedRow = (await screen.findByText("TRIAL_DAY")).closest("tr") as HTMLElement;
+    expect(within(cappedRow).getByText("3 / 3")).toBeInTheDocument();
+    expect(within(cappedRow).getByText("Contract cap reached")).toBeInTheDocument();
+    const openRow = screen.getByText("MONTHLY").closest("tr") as HTMLElement;
+    // No cap: just the count, no badge.
+    expect(within(openRow).getByText("1")).toBeInTheDocument();
+    expect(within(openRow).queryByText("Contract cap reached")).not.toBeInTheDocument();
+  });
+
+  it("flags a plan whose window differs from the Live-out slot", async () => {
+    api.fetchLiveOutPlans.mockResolvedValue({
+      data: [{ ...trialPlan, window_end: "17:00", window_matches_slot: false }],
+      meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
+    });
+    renderWithProviders(<LiveOutPlansScreen />, { permissions: ["catalog.manage"] });
+    expect(await screen.findByText("Window differs from the slot")).toBeInTheDocument();
+  });
+
+  it("editor: names the active contracts and the cap, and warns when the window leaves the slot's", async () => {
+    renderWithProviders(<PlanEditor plan={capped} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
+    expect(screen.getByTestId("active-contracts")).toHaveTextContent("Active contracts 3 / 3");
+    expect(screen.getByText("Contract cap reached")).toBeInTheDocument();
+    // The window equals the slot's: no warning.
+    expect(screen.queryByText(/differs from the Live-out slot/)).not.toBeInTheDocument();
+    const end = screen.getByLabelText(/Window ends/);
+    // A time input is set as a whole.
+    fireEvent.change(end, { target: { value: "17:00" } });
+    expect(
+      await screen.findByText(/differs from the Live-out slot [(]LIVE_OUT_DAY[)], which runs 09:00 to 18:00/),
+    ).toBeInTheDocument();
+  });
+
+  it("editor: a new plan has no slot to compare with and no contract line", () => {
+    renderWithProviders(<PlanEditor plan={null} serviceId={2} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
+    expect(screen.queryByTestId("active-contracts")).not.toBeInTheDocument();
+    expect(screen.queryByText(/differs from the Live-out slot/)).not.toBeInTheDocument();
+  });
+
+  it("package editor: warns that a package whose first period is too long is not sold as a subscription", () => {
+    const tooLong = {
+      ...weeklyPackage,
+      subscription_sellable: { ok: false, reason: "term_too_long" as const, visits_per_period: 52, span_days: 364 },
+    };
+    renderWithProviders(<PackageEditor pkg={tooLong} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
+    expect(screen.getByText(/can't buy this package as a subscription: its first period needs 52 visits over 364 days/)).toBeInTheDocument();
+  });
+
+  it("package editor: no warning for a package that can be sold, or when creating one", () => {
+    const { unmount } = renderWithProviders(<PackageEditor pkg={weeklyPackage} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
+    expect(screen.queryByText(/as a subscription/)).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(<PackageEditor pkg={null} serviceId={1} onClose={vi.fn()} />, { permissions: ["catalog.manage"] });
+    expect(screen.queryByText(/as a subscription/)).not.toBeInTheDocument();
   });
 });

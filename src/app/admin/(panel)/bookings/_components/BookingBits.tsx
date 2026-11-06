@@ -3,12 +3,15 @@
 import clsx from "clsx";
 import { Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useCallback } from "react";
 import { StatusBadge } from "@/components/admin";
 import { minutesUntil } from "@/lib/admin/bookings/actions";
 import { splitMinutes } from "@/lib/admin/dashboard";
 import { useNow } from "@/lib/admin/hooks";
-import type { BookingStatus, PaymentStatus, Translatable } from "@/lib/admin/types";
+import { SUBSCRIPTIONS_READ, SUBSCRIPTIONS_PATH } from "@/lib/admin/nav";
+import { useAdminSession } from "@/lib/admin/session";
+import type { BookingRow, BookingStatus, PaymentStatus, Translatable } from "@/lib/admin/types";
 import { bookingTone, paymentTone, useBookingText } from "./bookingText";
 
 /** "2 hours 10 minutes" / "ساعتان و10 دقائق" for a duration in whole minutes. */
@@ -22,6 +25,38 @@ export function useDurationText() {
       return t("hoursMinutes", { hours, minutes });
     },
     [t],
+  );
+}
+
+/**
+ * "Subscription TRS-7K2M9Q · visit 3 of 8" for a visit of a subscription (null for a single booking). The reference
+ * links to the subscription in A08 for holders of a subscription permission (the API checks again).
+ */
+export function SeriesLabel({ booking, className }: { booking: Pick<BookingRow, "kind" | "subscription">; className?: string }) {
+  const t = useTranslations("admin.bookings.series");
+  const { canAny } = useAdminSession();
+  const link = booking.subscription;
+  if (!link) return null;
+  const known = link.visit_no !== null && link.visits_total !== null;
+  const key =
+    booking.kind === "live_out_trial" ? "liveOutTrial" : link.type === "live_out" ? (known ? "liveOutDay" : "liveOut") : known ? "recurringVisit" : "recurring";
+  const href = canAny([...SUBSCRIPTIONS_READ]) ? `${SUBSCRIPTIONS_PATH}/${link.id}` : null;
+  return (
+    <span className={clsx("text-sm text-ink-600", className)}>
+      {t.rich(key, {
+        reference: link.reference,
+        no: link.visit_no ?? 0,
+        total: link.visits_total ?? 0,
+        ref: () =>
+          href ? (
+            <Link href={href} className="font-bold" aria-label={t("openLabel", { reference: link.reference })}>
+              <Ltr className="whitespace-nowrap">{link.reference}</Ltr>
+            </Link>
+          ) : (
+            <Ltr className="font-bold whitespace-nowrap">{link.reference}</Ltr>
+          ),
+      })}
+    </span>
   );
 }
 

@@ -10,11 +10,12 @@ import { BOOKING_REFRESH_MS, useBackgroundRefresh } from "@/lib/admin/background
 import { availableActions, paymentVerifying } from "@/lib/admin/bookings/actions";
 import { fetchBooking } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
+import { SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { BookingDetail } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
-import { BookingChips, DeadlineCountdown, Ltr, SlotLabel } from "../_components/BookingBits";
+import { BookingChips, DeadlineCountdown, Ltr, SeriesLabel, SlotLabel } from "../_components/BookingBits";
 import { useBookingText } from "../_components/bookingText";
 import { BookingFocusProvider, useFocusRescue } from "../_components/focus";
 import { AssignmentPanel } from "./AssignmentPanel";
@@ -117,7 +118,7 @@ function BookingDetailContent({ id }: { id: string }) {
 function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: () => void }) {
   const t = useTranslations("admin.bookings.detail");
   const text = useBookingText();
-  const { can } = useAdminSession();
+  const { can, canAny } = useAdminSession();
   const actions = availableActions(booking, can);
   // Where focus goes when an action removes its own button (see _components/focus).
   const [heading, setHeading] = useState<HTMLHeadingElement | null>(null);
@@ -137,6 +138,7 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
               {text.name(booking.service.name)} · {text.dateShort(booking.service_date)} · <SlotLabel name={booking.slot.name} start={booking.slot.start} end={booking.slot.end} /> ·{" "}
               {text.name(booking.zone.name)}
             </p>
+            <SeriesLabel booking={booking} />
             {booking.status === "pending_confirmation" && booking.confirmation_deadline_at && (
               <p className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-ink-600">{t("deadline", { time: text.dateTime(booking.confirmation_deadline_at) })}</span>
@@ -149,6 +151,18 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
           </div>
           <BookingActionBar booking={booking} actions={actions} onStale={onStale} />
         </div>
+        {booking.subscription && (
+          <Notice tone="info">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{t("seriesVisit")}</span>
+              {canAny([...SUBSCRIPTIONS_READ]) && (
+                <Link href={`${SUBSCRIPTIONS_PATH}/${booking.subscription.id}`} className="font-bold">
+                  {t("openSubscription", { reference: booking.subscription.reference })}
+                </Link>
+              )}
+            </span>
+          </Notice>
+        )}
         {booking.capture_unknown_at && <Notice tone="warning">{t("captureUnknown")}</Notice>}
         {paymentVerifying(booking) && (
           <Notice tone="info">{booking.status === "pending_confirmation" && can("bookings.confirm") ? t("verifyingConfirm") : t("verifying")}</Notice>

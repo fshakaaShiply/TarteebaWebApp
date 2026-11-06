@@ -50,6 +50,14 @@ export const DOCUMENTS_READ = ["invoices.manage", "payments.view"] as const;
  */
 export const CANCEL_REVIEWS_PATH = "/admin/bookings?cancel_review=1";
 
+/** A08 reads with either permission (design §8.4: subscriptions.view is read only, subscriptions.manage writes). */
+export const SUBSCRIPTIONS_READ = ["subscriptions.view", "subscriptions.manage"] as const;
+export const SUBSCRIPTIONS_PATH = "/admin/subscriptions";
+/** A08 list of subscriptions waiting for confirmation (the overview's request card and alerts). */
+export const SUBSCRIPTION_REQUESTS_PATH = "/admin/subscriptions?status=pending_confirmation";
+/** A08 list of subscriptions whose cancellation waits for review. */
+export const SUBSCRIPTION_CANCEL_REVIEWS_PATH = "/admin/subscriptions?cancel_review=1";
+
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
@@ -100,9 +108,9 @@ export const ADMIN_NAV: readonly NavModule[] = [
     id: "subscriptions",
     code: "A08",
     labelKey: "subscriptions",
-    href: "/admin/subscriptions",
-    anyOf: ["subscriptions.manage"],
-    built: false,
+    href: SUBSCRIPTIONS_PATH,
+    anyOf: SUBSCRIPTIONS_READ,
+    built: true,
   },
   {
     // A09: the period's summary cards (read like the documents), transactions and their refunds (payments.view; a refund
@@ -206,7 +214,7 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
  * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 summary (or the refunds
- * list for refunds.create alone), else the overview's welcome note.
+ * list for refunds.create alone), the A08 subscriptions, else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
@@ -218,6 +226,7 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("trips.manage")) return TRIPS_PATH;
   if (hasAnyPermission(permissions, DOCUMENTS_READ)) return FINANCE_SUMMARY_PATH;
   if (permissions.includes("refunds.create")) return REFUNDS_PATH;
+  if (hasAnyPermission(permissions, SUBSCRIPTIONS_READ)) return SUBSCRIPTIONS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 

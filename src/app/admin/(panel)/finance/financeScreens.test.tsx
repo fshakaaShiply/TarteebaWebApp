@@ -144,9 +144,11 @@ const invoiceRow: AdminInvoice = {
   issue_reason: "capture",
   issue_date: "2026-10-23",
   supply_date: "2026-10-25",
+  supply_date_to: null,
   issued_at: "2026-10-23T18:00:00+00:00",
   customer: { id: 2, name: "Omar Khalid", phone: "+971500000002" },
   booking: { id: 10, reference: "TRB-EBABPY" },
+  subscription: null,
   payment: { id: 9, ulid: "01P9", status: "partially_refunded", gateway_payment_ref: "fpay_1", captured_fils: 12000, refunded_fils: 3000 },
   subtotal_fils: 11429,
   discount_fils: 0,
@@ -282,6 +284,38 @@ describe("A09 payments list", () => {
     expect(within(row).getByRole("link", { name: "Booking TRB-EBABPY" })).toHaveAttribute("href", "/admin/bookings/9");
     expect(within(row).getByRole("link", { name: "INV-2026-000005" })).toHaveAttribute("href", "/admin/finance/invoices/5");
     expect(row).toHaveTextContent("Partially refunded (invoice)");
+  });
+
+  it("links a subscription period payment to its subscription in A08 for the subscription permissions", async () => {
+    const period = { type: "subscription_period", id: 77, public_id: null, reference: "TRS-7K2M9Q", subscription: { id: 31, reference: "TRS-7K2M9Q" } };
+    api.fetchPayments.mockResolvedValue(page([{ ...paymentRow, invoice: null, payable: period }]));
+    const { unmount } = renderWithProviders(<PaymentsScreen />, { permissions: ["payments.view", "subscriptions.view"] });
+    const row = (await screen.findByRole("link", { name: "fpay_0dc4e2ad" })).closest("tr")!;
+    expect(within(row).getByRole("link", { name: "Subscription period TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    unmount();
+    // Without a subscription permission the reference is plain text.
+    renderWithProviders(<PaymentsScreen />, { permissions: ["payments.view", "bookings.view"] });
+    const plain = (await screen.findByRole("link", { name: "fpay_0dc4e2ad" })).closest("tr")!;
+    expect(plain).toHaveTextContent("Subscription period TRS-7K2M9Q");
+    expect(within(plain).queryByRole("link", { name: /Subscription period/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the subscription reference and supply period on a period invoice row", async () => {
+    api.fetchInvoices.mockResolvedValue(
+      page([
+        {
+          ...invoiceRow,
+          supply_date: "2026-11-01",
+          supply_date_to: "2026-11-28",
+          booking: { id: null, reference: null },
+          subscription: { ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
+        },
+      ]),
+    );
+    renderWithProviders(<InvoicesScreen />, { permissions: ["payments.view", "subscriptions.manage"] });
+    const row = (await screen.findByRole("link", { name: "INV-2026-000005" })).closest("tr")!;
+    expect(row).toHaveTextContent("Supply period: Sun, 1 Nov 2026 – Sat, 28 Nov 2026");
+    expect(within(row).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions?q=TRS-7K2M9Q");
   });
 
   it("shows the booking's id without a reference, unlinked without bookings.view, and a dash before the invoice", async () => {

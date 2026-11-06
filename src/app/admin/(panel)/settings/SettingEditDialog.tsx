@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useId, useState, type FormEvent } from "react";
 import {
   Button,
+  Checkbox,
+  CheckboxGroup,
   ChipsInput,
   Dialog,
   MoneyField,
@@ -17,11 +19,16 @@ import {
 } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { updateSetting } from "@/lib/admin/endpoints";
+import { useOpsText } from "../_ops/opsText";
 import { useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
 import { adminKeys } from "@/lib/admin/keys";
 import { readShortfalls } from "@/lib/admin/ops/capacity";
 import { validateWeeklyDraft, type WeeklyHoursDraft, type WeeklyHoursError } from "@/lib/admin/ops/weeklyHours";
+import { WEEK_ORDER } from "@/lib/admin/ops/weeklyHours";
 import {
+  INT_LIST_SETTINGS,
+  INT_RANGES,
+  QUARTER_HOUR_TIME_SETTINGS,
   SETTING_OPTIONS,
   editorKind,
   isBilingualDraft,
@@ -93,12 +100,24 @@ export function SettingEditDialog({
     },
   });
 
-  const draftMessage = (error: SettingDraftError) => t(`errors.${error}`);
+  const range = INT_RANGES[setting.key];
+  const listRule = INT_LIST_SETTINGS[setting.key];
+  const draftMessage = (error: SettingDraftError) =>
+    t(`errors.${error}`, {
+      min: range?.[0] ?? listRule?.min ?? 0,
+      max: range?.[1] ?? listRule?.max ?? 0,
+      count: listRule?.maxItems ?? 0,
+    });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (kind === "weekly_hours") setDayErrors(validateWeeklyDraft(draft as WeeklyHoursDraft));
-    const parsed = parseDraft(kind, draft, { allowNull: setting.value === null, options: enumValues });
+    const parsed = parseDraft(kind, draft, {
+      allowNull: setting.value === null,
+      options: enumValues,
+      range,
+      key: setting.key,
+    });
     const trimmedReason = reason.trim();
     setValueError(parsed.ok ? null : draftMessage(parsed.error));
     setReasonError(trimmedReason === "" ? t("errors.reason") : trimmedReason.length > REASON_MAX ? t("errors.reasonLength") : null);
@@ -192,7 +211,10 @@ function ValueEditor({
 }) {
   const t = useTranslations("admin.settings");
   const text = useSettingText();
+  const days = useOpsText();
   const label = t("value");
+  const intRange = INT_RANGES[settingKey];
+  const listRule = INT_LIST_SETTINGS[settingKey];
 
   switch (kind) {
     case "weekly_hours":
@@ -225,7 +247,9 @@ function ValueEditor({
           className="text-start font-latin"
           value={String(draft)}
           onChange={(e) => onChange(e.target.value)}
-          hint={allowNull ? t("hints.intNullable") : t("hints.int")}
+          hint={
+            intRange ? t("hints.intRange", { min: intRange[0], max: intRange[1] }) : allowNull ? t("hints.intNullable") : t("hints.int")
+          }
           error={error}
         />
       );
@@ -263,7 +287,7 @@ function ValueEditor({
           className="text-start font-latin"
           value={String(draft)}
           onChange={(e) => onChange(e.target.value)}
-          hint={t("hints.time")}
+          hint={QUARTER_HOUR_TIME_SETTINGS.includes(settingKey) ? t("hints.timeQuarter") : t("hints.time")}
           error={error}
         />
       );
@@ -296,6 +320,36 @@ function ValueEditor({
             <p className="text-xs text-ink-600">{t("hints.bilingual")}</p>
           )}
         </fieldset>
+      );
+    }
+    case "int_list":
+      return (
+        <ChipsInput
+          label={label}
+          value={Array.isArray(draft) ? draft : []}
+          onChange={onChange}
+          valueDir="ltr"
+          hint={listRule ? t("hints.intList", { min: listRule.min, max: listRule.max, count: listRule.maxItems }) : t("hints.list")}
+          error={error}
+        />
+      );
+    case "weekdays": {
+      const chosen = Array.isArray(draft) ? draft : [];
+      return (
+        <CheckboxGroup legend={label} hint={t("hints.weekdays")} error={error}>
+          <div className="flex flex-wrap gap-x-5 gap-y-3">
+            {WEEK_ORDER.map((day) => (
+              <Checkbox
+                key={day}
+                label={days.weekday(day)}
+                checked={chosen.includes(String(day))}
+                onChange={(e) =>
+                  onChange(e.target.checked ? [...chosen, String(day)] : chosen.filter((d) => d !== String(day)))
+                }
+              />
+            ))}
+          </div>
+        </CheckboxGroup>
       );
     }
     case "chips":

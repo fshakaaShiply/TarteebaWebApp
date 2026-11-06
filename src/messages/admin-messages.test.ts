@@ -118,6 +118,19 @@ const SETTING_KEYS = [
   "visit.auto_complete_grace_minutes",
   "reminder.day_before_time",
   "notifications.sms_on_confirm",
+  // Phase 4 (design section 8.3)
+  "subscription.renewal_time",
+  "subscription.renewal_retry_hours",
+  "subscription.renewal_notice_days",
+  "subscription.suspended_cancel_days",
+  "subscription.allowed_weekdays",
+  "subscription.skip_freeze_effect",
+  "subscription.company_miss_effect",
+  "subscription.hold_next_period",
+  "subscription.public_holiday_effect",
+  "subscription.cancel_fee_counts_skipped",
+  "live_out.absence_without_substitute",
+  "live_out.day_notifications",
   "refund.estimated_arrival_text",
 ];
 
@@ -143,6 +156,12 @@ const DRAFT_ERRORS: SettingDraftError[] = [
   "date_duplicate",
   "time",
   "bilingual_required",
+  "int_range",
+  "int_list_item",
+  "int_list_order",
+  "int_list_count",
+  "weekdays_empty",
+  "time_quarter",
 ];
 
 describe.each([

@@ -34,6 +34,7 @@ import { BookingChips, DeadlineCountdown, Ltr, SlotLabel, useDurationText } from
 import { bookingTone, useBookingText } from "../bookings/_components/bookingText";
 import { CancelReviewQueue } from "../bookings/_components/CancelReviewQueue";
 import { useFocusRescue } from "../bookings/_components/focus";
+import { SubscriptionRequestsCard } from "./SubscriptionRequestsCard";
 
 /**
  * A02 daily operations overview (spec §14.3, §17; design AdminOverview.dc.html; bookings.view or schedule.view):
@@ -232,6 +233,8 @@ function OverviewBody({
       <QuickStats summary={summary} />
       {/* Customer cancellations waiting for review: finance resolves them, coordinators keep or cancel them. */}
       <CancelReviewQueue card={summary.cards.cancellation_reviews} />
+      {/* Subscription requests waiting for confirmation (A08): only for holders of the subscription permissions. */}
+      <SubscriptionRequestsCard card={summary.cards.subscription_requests} />
       {can("bookings.view") && <PendingQueue zoneId={zoneId} />}
     </>
   );
@@ -664,7 +667,7 @@ function Stat({ label, value, detail }: { label: string; value: ReactNode; detai
 function QuickStats({ summary }: { summary: DashboardSummary }) {
   const t = useTranslations("admin.overview.quick");
   const text = useBookingText();
-  const { sales, occupancy, cancellations, rating } = summary.quick_stats;
+  const { sales, occupancy, cancellations, subscriptions_cancelled: subscriptionsCancelled, rating } = summary.quick_stats;
   return (
     <Card title={t("title")}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -684,6 +687,15 @@ function QuickStats({ summary }: { summary: DashboardSummary }) {
           label={t("cancellations")}
           value={cancellations.total}
           detail={t("cancellationsDetail", { customer: cancellations.customer, company: cancellations.company, system: cancellations.system })}
+        />
+        <Stat
+          label={t("subscriptionsCancelled")}
+          value={subscriptionsCancelled.total}
+          detail={t("subscriptionsCancelledDetail", {
+            customer: subscriptionsCancelled.customer,
+            staff: subscriptionsCancelled.staff,
+            system: subscriptionsCancelled.system,
+          })}
         />
         {rating && <Stat label={t("rating")} value={rating.average.toFixed(1)} detail={t("ratingDetail", { count: rating.count })} />}
       </div>

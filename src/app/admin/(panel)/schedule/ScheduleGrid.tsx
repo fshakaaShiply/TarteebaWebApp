@@ -23,6 +23,7 @@ import {
   type DropPlace,
   type DropTarget,
 } from "@/lib/admin/schedule/board";
+import { SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { ScheduleGrid, ScheduleMarker, ScheduleRow, VisitSummary } from "@/lib/admin/types";
 import { useZoneName } from "../_ops/options";
@@ -414,7 +415,26 @@ export const markerTone: Record<string, StatusTone> = {
 function MarkerBadge({ marker }: { marker: ScheduleMarker }) {
   const t = useTranslations("admin.schedule.markers");
   const ops = useOpsText();
+  const { canAny } = useAdminSession();
   const label = t.has(marker.code) ? t(marker.code) : ops.name(marker.label);
+  if (marker.code === "live_out" && marker.subscription) {
+    // "Live-out · Sara Ahmed · 09:00–18:00": the customer (or the reference without a name) and the plan window, linking
+    // to the subscription in A08 for staff who can open it.
+    const who = marker.subscription.customer_name || marker.subscription.reference;
+    const tags = { name: (chunks: ReactNode) => <bdi dir="auto">{chunks}</bdi>, ltr: (chunks: ReactNode) => <bdi dir="ltr" className="font-latin">{chunks}</bdi> };
+    const text = marker.window ? t.rich("liveOutDayWindow", { who, start: marker.window.start, end: marker.window.end, ...tags }) : t.rich("liveOutDay", { who, ...tags });
+    const badge = <StatusBadge tone="success">{text}</StatusBadge>;
+    return canAny([...SUBSCRIPTIONS_READ]) ? (
+      <Link
+        href={`${SUBSCRIPTIONS_PATH}/${marker.subscription.id}`}
+        className="rounded-sm"
+      >
+        {badge}
+      </Link>
+    ) : (
+      badge
+    );
+  }
   return (
     <StatusBadge tone={markerTone[marker.code] ?? "neutral"}>
       {marker.code === "leave" && marker.leave_type ? t("leaveOf", { type: ops.leaveType(marker.leave_type) }) : label}

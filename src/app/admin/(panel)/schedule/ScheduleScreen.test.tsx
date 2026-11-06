@@ -455,6 +455,54 @@ describe("A04 operations schedule", () => {
     }
   });
 
+  it("words a Live-out day marker with the customer and the plan window, linked to A08", async () => {
+    const board = dayBoard();
+    board.rows = board.rows.map((r) =>
+      r.worker.id === 5
+        ? {
+            ...r,
+            days: r.days.map((d) => ({
+              ...d,
+              markers: [
+                {
+                  code: "live_out",
+                  label: { ar: "يوم إقامة", en: "Live-out day" },
+                  subscription: { id: 31, reference: "TRS-7K2M9Q", customer_name: "Sara Ahmed" },
+                  window: { start: "09:00", end: "18:00" },
+                },
+              ],
+            })),
+          }
+        : r,
+    );
+    api.fetchSchedule.mockResolvedValue(board);
+    renderWithProviders(<ScheduleScreen />, { permissions: [...MANAGER, "subscriptions.view"] });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    const marker = within(rowOf("Tigist B.")).getAllByText((_, el) => el?.textContent === "Live-out · Sara Ahmed · 09:00–18:00" && el.classList.contains("bg-sage-100"))[0];
+    expect(marker).toHaveClass("bg-sage-100");
+    expect(marker.closest("a")).toHaveAttribute("href", "/admin/subscriptions/31");
+  });
+
+  it("shows the Live-out marker as text without a link for staff who cannot open A08, and falls back to the reference", async () => {
+    const board = dayBoard();
+    board.rows = board.rows.map((r) =>
+      r.worker.id === 5
+        ? {
+            ...r,
+            days: r.days.map((d) => ({
+              ...d,
+              markers: [{ code: "live_out", label: { ar: "يوم إقامة", en: "Live-out day" }, subscription: { id: 31, reference: "TRS-7K2M9Q", customer_name: null }, window: null }],
+            })),
+          }
+        : r,
+    );
+    api.fetchSchedule.mockResolvedValue(board);
+    renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });
+    await screen.findByRole("columnheader", { name: "Morning · 10:00–14:00" });
+    const marker = within(rowOf("Tigist B.")).getAllByText((_, el) => el?.textContent === "Live-out · TRS-7K2M9Q" && el.classList.contains("bg-sage-100"))[0];
+    expect(marker.closest("a")).toBeNull();
+  });
+
   it("keeps the zone in the URL beside the filters, adopting a linked one and writing back a new choice", async () => {
     url.set("/admin/schedule?date=2026-10-24&zone_id=2");
     renderWithProviders(<ScheduleScreen />, { permissions: MANAGER });

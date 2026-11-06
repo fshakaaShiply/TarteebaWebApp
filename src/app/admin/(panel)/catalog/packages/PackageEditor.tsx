@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { MoneyField, Select, Switch, TextField, useToast } from "@/components/admin";
+import { MoneyField, Notice, Select, Switch, TextField, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { createPackage, updatePackage, type PackagePayload } from "@/lib/admin/endpoints";
 import { applyFieldErrors } from "@/lib/admin/errors";
@@ -187,6 +187,16 @@ export function PackageEditor({
             name="auto_renew_allowed"
             render={({ field }) => <Switch label={t("autoRenew")} checked={field.value} onCheckedChange={field.onChange} />}
           />
+          {pkg && pkg.subscription_sellable && !pkg.subscription_sellable.ok && (
+            <Notice tone="warning" className="sm:col-span-2">
+              {pkg.subscription_sellable.reason === "term_too_long"
+                ? t("notSellable.termTooLong", {
+                    visits: pkg.subscription_sellable.visits_per_period ?? 0,
+                    days: pkg.subscription_sellable.span_days ?? 0,
+                  })
+                : t("notSellable.invalidTerm")}
+            </Notice>
+          )}
           <TextField label={t("maxSkips")} hint={t("optionalHint")} error={fieldError(errors.max_skips_per_month)} {...numeric} {...register("max_skips_per_month")} />
           <TextField label={t("maxFreeze")} hint={t("optionalHint")} error={fieldError(errors.max_freeze_days)} {...numeric} {...register("max_freeze_days")} />
 

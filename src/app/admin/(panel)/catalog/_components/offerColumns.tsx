@@ -43,7 +43,19 @@ export function useOfferColumns() {
             ? p("percentValue", { value: pkg.discount_value })
             : p("fixedValue", { amount: formatAed(pkg.discount_value, locale) }),
     },
-    { id: "status", header: p("columns.status"), cell: (pkg) => <ActiveBadge active={pkg.is_active} /> },
+    {
+      id: "status",
+      header: p("columns.status"),
+      cell: (pkg) => (
+        <div className="flex flex-wrap gap-1.5">
+          <ActiveBadge active={pkg.is_active} />
+          {/* P4-47: a package whose first period is too long is not sold as a subscription. */}
+          {pkg.subscription_sellable && !pkg.subscription_sellable.ok && (
+            <StatusBadge tone="pending">{p("notSellable.badge")}</StatusBadge>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const planColumns: Column<LiveOutPlan>[] = [
@@ -77,6 +89,15 @@ export function useOfferColumns() {
       ),
     },
     {
+      id: "contracts",
+      header: l("columns.contracts"),
+      cell: (plan) => (
+        <bdi dir="ltr" className="font-latin">
+          {plan.max_active_contracts === null ? plan.active_contracts : `${plan.active_contracts} / ${plan.max_active_contracts}`}
+        </bdi>
+      ),
+    },
+    {
       id: "status",
       header: l("columns.status"),
       cell: (plan) => (
@@ -84,6 +105,8 @@ export function useOfferColumns() {
           {/* D-03: a plan without a price is hidden from customers until priced. */}
           <ActiveBadge active={plan.is_active} />
           {plan.price_fils === null && <StatusBadge tone="pending">{l("hiddenUntilPriced")}</StatusBadge>}
+          {plan.unavailable_reason === "cap_reached" && <StatusBadge tone="danger">{l("capReached")}</StatusBadge>}
+          {plan.window_matches_slot === false && <StatusBadge tone="pending">{l("windowDiffers")}</StatusBadge>}
         </div>
       ),
     },

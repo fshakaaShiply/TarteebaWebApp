@@ -71,7 +71,7 @@ export function markAllReadInState(state: AlertsState, at: string): AlertsState 
 }
 
 /** Admin pages built so far that an alert may open (payments, invoices and driver reports come in later phases). */
-const BUILT_PREFIXES = ["/admin/bookings/", "/admin/workers/", "/admin/capacity", "/admin/fleet/"];
+const BUILT_PREFIXES = ["/admin/bookings/", "/admin/workers/", "/admin/capacity", "/admin/fleet/", "/admin/subscriptions/"];
 
 /** The page an alert opens in this app, or null when its page is not built yet (the alert is still listed). */
 export function alertHref(alert: Pick<AdminAlert, "link" | "entity">): string | null {
@@ -79,6 +79,7 @@ export function alertHref(alert: Pick<AdminAlert, "link" | "entity">): string | 
   if (path && BUILT_PREFIXES.some((prefix) => path.startsWith(prefix))) return path;
   const entity = alert.entity;
   if (entity?.type === "booking" && typeof entity.id === "number") return `/admin/bookings/${entity.id}`;
+  if (entity?.type === "subscription" && typeof entity.id === "number") return `/admin/subscriptions/${entity.id}`;
   return null;
 }
 

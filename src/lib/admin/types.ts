@@ -127,10 +127,21 @@ export type CatalogPackage = {
   cancellation_policy_id: number | null;
   reschedule_policy_id: number | null;
   refund_policy_id: number | null;
+  /** Whether a customer can buy this package as a subscription (Phase 4, P4-47): `term_too_long` is A11's warning. */
+  subscription_sellable: PackageSellable;
   version: number;
   created_at: string | null;
   updated_at: string | null;
 };
+
+export type PackageSellable = {
+  ok: boolean;
+  reason: "term_too_long" | "invalid_term" | null;
+  visits_per_period: number | null;
+  span_days: number | null;
+};
+
+export type LiveOutUnavailableReason = "inactive" | "price_not_set" | "cap_reached";
 
 /** LiveOutPlanResource. A plan without a price is hidden from customers (D-03). */
 export type LiveOutPlan = {
@@ -147,8 +158,17 @@ export type LiveOutPlan = {
   window_start: string;
   window_end: string;
   price_fils: number | null;
+  /** The price is per month (monthly plan) or per day (trial day). */
+  price_unit: "per_month" | "per_day";
   vat_inclusive: boolean;
   max_active_contracts: number | null;
+  /** Contracts counted against the cap (a display read; the schema types it as a string). */
+  active_contracts: number;
+  unavailable_reason: LiveOutUnavailableReason | null;
+  /** The first active Live-out slot's window, null without one. */
+  slot_window: { slot_template_id: number; code: string; start: string; end: string } | null;
+  /** false: the plan window differs from the slot's (A11 warns, P4-07); null without a Live-out slot. */
+  window_matches_slot: boolean | null;
   is_active: boolean;
   sort_order: number;
   version: number;
@@ -675,7 +695,7 @@ export type LinkParams = Record<string, string | number | boolean>;
  * `params` its filters. Null when the viewer could not open the target (the figure stays visible).
  */
 export type DashboardLink = {
-  list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | (string & {});
+  list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | "subscriptions" | "subscription" | (string & {});
   path: string;
   params: LinkParams;
 };
@@ -736,6 +756,31 @@ export type DashboardSummary = {
       oldest_request: { booking_id: number; reference: string; requested_at: string; waiting_minutes: number; link: DashboardLink | null } | null;
       link: DashboardLink | null;
     } | null;
+    /**
+     * Subscription requests waiting for confirmation (Phase 4, A08): the list that `link` opens. Null unless the viewer
+     * holds subscriptions.view or subscriptions.manage.
+     */
+    subscription_requests: {
+      label: Translatable;
+      value: number;
+      /** Deadlines passed that the auto-cancel job has not acted on yet. */
+      overdue: number;
+      next_deadline: {
+        subscription_id: number;
+        reference: string;
+        deadline_at: string;
+        minutes_left: number;
+        link: DashboardLink | null;
+      } | null;
+      oldest_request: {
+        subscription_id: number;
+        reference: string;
+        pending_since: string;
+        waiting_minutes: number;
+        link: DashboardLink | null;
+      } | null;
+      link: DashboardLink | null;
+    } | null;
   };
   panels: {
     bookings_by_status: { status: BookingStatus; label: Translatable; bookings: number; link: DashboardLink | null }[];
@@ -770,6 +815,8 @@ export type DashboardSummary = {
     sales: { currency: string; captured_fils: number; payments: number; refunded_fils: number; refunds: number; net_fils: number } | null;
     occupancy: { percent: number | null; used_units: number; available_units: number };
     cancellations: { total: number; customer: number; company: number; system: number };
+    /** Subscriptions cancelled today, by who cancelled them (P4-68); single bookings stay in `cancellations`. */
+    subscriptions_cancelled: { total: number; customer: number; staff: number; system: number };
     /** Null until ratings exist (Phase 5). */
     rating: null | { average: number; count: number };
   };
@@ -784,7 +831,11 @@ export type DashboardAlertType =
   | "payment_failed"
   | "refund_failed"
   | "payment_review"
-  | "refund_review";
+  | "refund_review"
+  | "subscription_confirmation_due"
+  | "subscription_renewal_failed"
+  | "subscription_conflict"
+  | "subscription_cancel_review";
 
 /** GET /admin/dashboard/alerts: urgent first, then by type order, then by time. */
 export type DashboardAlert = {
@@ -793,6 +844,7 @@ export type DashboardAlert = {
   at: string;
   title: Translatable;
   message: Translatable;
+  /** A subscription alert names its subscription: {type: "subscription", id, reference} (A08 is addressed by id). */
   entity: { type: string; id: number; booking_id?: number; reference?: string; ulid?: string; payment_id?: number } | null;
   link: DashboardLink | null;
   details: Record<string, unknown>;
@@ -878,11 +930,29 @@ export type PropertyType = "villa" | "apartment" | "townhouse" | "office";
 export type CancelParty = "customer" | "company" | "system";
 
 /** AdminBookingResource: one row of the A03 table. Labels come in both languages. */
+/** What a booking is (Phase 4): one visit bought alone, or one visit of a subscription (recurring or Live-out). */
+export type BookingKind = "single" | "subscription_visit" | "live_out_trial" | "live_out_day";
+
+/**
+ * The subscription a series visit belongs to and its place in the period (SeriesVisitLink::staff); A08 is addressed
+ * by `id`. `visit_no` / `visits_total` are null while the visit has no place in the numbering.
+ */
+export type BookingSubscriptionLink = {
+  id: number;
+  ulid: string;
+  reference: string;
+  type: "recurring" | "live_out" | (string & {});
+  visit_no: number | null;
+  visits_total: number | null;
+};
+
 export type BookingRow = {
   id: number;
   ulid: string;
   reference: string;
-  kind: string;
+  kind: BookingKind | (string & {});
+  /** Null for a single booking. */
+  subscription: BookingSubscriptionLink | null;
   customer: { id: string; name: string | null; phone: string };
   service: { id: number; code: string; name: Translatable };
   service_date: string;
@@ -1327,7 +1397,15 @@ export type ScheduleView = "day" | "week" | "month";
 
 /** A worker row's day marker. `leave_type` only for viewers with leave.manage (P2-05). */
 export type ScheduleMarkerCode = "rest_day" | "leave" | "live_out" | "not_on_shift" | "not_active";
-export type ScheduleMarker = { code: ScheduleMarkerCode | (string & {}); label: Translatable; leave_type?: LeaveType };
+export type ScheduleMarker = {
+  code: ScheduleMarkerCode | (string & {});
+  label: Translatable;
+  leave_type?: LeaveType;
+  /** A `live_out` marker (Phase 4): the subscription whose Live-out day it is; null when no visit backs the block. */
+  subscription?: { id: number; reference: string; customer_name: string | null } | null;
+  /** A `live_out` marker: the plan window the day is served in, from the visit (P4-07). */
+  window?: { start: string; end: string } | null;
+};
 
 /** Candidates::worker() + employment_status. */
 export type ScheduleWorker = CandidateWorker & { employment_status: EmploymentStatus };
@@ -1600,7 +1678,14 @@ export type AdminPayment = {
    * `public_id` is the booking's ULID (A03 links use the numeric `id`); `reference` its human reference (TRB-XXXXXX),
    * null when the payable has none or no longer resolves.
    */
-  payable: { type: PayableType | (string & {}); id: number; public_id: string | null; reference: string | null };
+  payable: {
+    type: PayableType | (string & {});
+    id: number;
+    public_id: string | null;
+    reference: string | null;
+    /** A subscription period's subscription (A08 is addressed by `id`); null for other payables. */
+    subscription?: { id: number; reference: string } | null;
+  };
   gateway: string;
   gateway_payment_ref: string | null;
   method: string | null;
@@ -1713,10 +1798,16 @@ export type AdminInvoice = InvoiceTotals & {
   status_label: string;
   issue_reason: "capture" | (string & {});
   issue_date: string;
+  /** The date of supply; the first day of the supply period on a subscription period's invoice. */
   supply_date: string;
+  /** The last day of a subscription period's supply; null for a booking invoice. */
+  supply_date_to: string | null;
   issued_at: string;
   customer: { id: number; name: string | null; phone: string | null };
+  /** `reference` is null on a subscription period's invoice (it has no booking). */
   booking: { id: number | null; reference: string | null };
+  /** A subscription period's invoice: its subscription and supply period; null for a booking invoice (Phase 4). */
+  subscription: { ulid: string | null; reference: string; period: { start: string; end: string } } | null;
   payment: {
     id: number;
     ulid: string;

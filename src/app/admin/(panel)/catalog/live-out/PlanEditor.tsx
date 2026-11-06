@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { MoneyField, Notice, Select, Switch, TextField, useToast } from "@/components/admin";
+import { MoneyField, Notice, Select, StatusBadge, Switch, TextField, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { createLiveOutPlan, updateLiveOutPlan, type LiveOutPlanPayload } from "@/lib/admin/endpoints";
 import { applyFieldErrors } from "@/lib/admin/errors";
@@ -72,6 +72,13 @@ export function PlanEditor({ plan, serviceId, onClose }: { plan: LiveOutPlan | n
     defaultValues: planToFormValues(plan, serviceId),
   });
   const price = useWatch({ control, name: "price" });
+  const windowStart = useWatch({ control, name: "window_start" });
+  const windowEnd = useWatch({ control, name: "window_end" });
+  // P4-07: Live-out visits take their times from the plan window; the slot template is only the capacity pool, so a
+  // window that differs from the slot's is a warning, not an error. The API's own answer covers the saved plan; the
+  // watched fields cover what is being typed.
+  const slot = plan?.slot_window ?? null;
+  const windowDiffers = slot ? windowStart !== slot.start || windowEnd !== slot.end : false;
 
   const save = useMutation({
     mutationFn: ({ payload, reason }: { payload: LiveOutPlanPayload; reason: string }) =>
@@ -173,6 +180,11 @@ export function PlanEditor({ plan, serviceId, onClose }: { plan: LiveOutPlan | n
             {...register("window_end")}
           />
 
+          {slot && windowDiffers && (
+            <Notice tone="warning" className="sm:col-span-2">
+              {t("windowSlotWarning", { start: slot.start, end: slot.end, code: slot.code })}
+            </Notice>
+          )}
           <div className="sm:col-span-2">
             <SectionTitle>{t("pricing")}</SectionTitle>
           </div>
@@ -188,6 +200,20 @@ export function PlanEditor({ plan, serviceId, onClose }: { plan: LiveOutPlan | n
             <Notice tone="warning" className="sm:col-span-2">
               {t("unpricedNotice")}
             </Notice>
+          )}
+          {plan && (
+            <p className="text-sm text-ink-700 sm:col-span-2" data-testid="active-contracts">
+              <bdi dir="ltr" className="font-latin font-medium">
+                {plan.max_active_contracts === null
+                  ? t("contractsNoCap", { count: plan.active_contracts })
+                  : t("contractsOfCap", { count: plan.active_contracts, cap: plan.max_active_contracts })}
+              </bdi>
+              {plan.unavailable_reason === "cap_reached" && (
+                <StatusBadge tone="danger" className="ms-2">
+                  {t("capReached")}
+                </StatusBadge>
+              )}
+            </p>
           )}
           <TextField
             label={t("maxContracts")}

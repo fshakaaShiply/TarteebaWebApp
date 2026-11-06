@@ -37,6 +37,10 @@ export const PAYMENT_STATUSES = [
   "voided",
 ] as const satisfies readonly PaymentStatus[];
 
+/** `kind` of GET /admin/bookings: one kind, or `series` for the three subscription visit kinds (Phase 4). */
+export const BOOKING_KINDS = ["single", "series", "subscription_visit", "live_out_day", "live_out_trial"] as const;
+export type BookingKindFilter = (typeof BOOKING_KINDS)[number];
+
 export const BOOKING_SOURCES = ["app", "web", "phone", "whatsapp", "admin"] as const satisfies readonly BookingSource[];
 
 export type BookingFilters = {
@@ -47,6 +51,8 @@ export type BookingFilters = {
   /** Service code or numeric id. */
   service: string;
   source: BookingSource | "";
+  /** Booking kind ("" = any, `series` = every subscription visit). */
+  kind: BookingKindFilter | "";
   /** Slot template id ("" = any). */
   slot_template_id: string;
   /** Worker id ("" = any): named on one of the booking's visits now. */
@@ -67,6 +73,7 @@ export const NO_BOOKING_FILTERS: BookingFilters = {
   to: "",
   service: "",
   source: "",
+  kind: "",
   slot_template_id: "",
   worker_id: "",
   driver_id: "",
@@ -102,6 +109,7 @@ export function filtersFromParams(params: ParamsLike): BookingFilters {
     to: date("to"),
     service: /^[A-Za-z0-9_]{1,40}$/.test(service) ? service : "",
     source: oneOf(params.get("source"), BOOKING_SOURCES),
+    kind: oneOf(params.get("kind"), BOOKING_KINDS),
     slot_template_id: idParam(params.get("slot_template_id")),
     worker_id: idParam(params.get("worker_id")),
     driver_id: idParam(params.get("driver_id")),
@@ -120,6 +128,7 @@ export function filtersToParams(filters: BookingFilters): URLSearchParams {
   if (filters.to) out.set("to", filters.to);
   if (filters.service) out.set("service", filters.service);
   if (filters.source) out.set("source", filters.source);
+  if (filters.kind) out.set("kind", filters.kind);
   if (filters.slot_template_id) out.set("slot_template_id", filters.slot_template_id);
   if (filters.worker_id) out.set("worker_id", filters.worker_id);
   if (filters.driver_id) out.set("driver_id", filters.driver_id);
@@ -154,6 +163,7 @@ export function filtersToQuery(filters: BookingFilters, zoneId: number | null, p
     zoneId,
     service: filters.service || undefined,
     source: filters.source,
+    kind: filters.kind || undefined,
     search: filters.search.trim() || undefined,
     cancelReview: filters.cancel_review || undefined,
     slotTemplateId: idOrNull(filters.slot_template_id),
