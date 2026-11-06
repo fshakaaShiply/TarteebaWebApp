@@ -37,7 +37,8 @@ export const DRY_RUN = { retry: false, staleTime: 30_000, refetchOnWindowFocus: 
 
 /**
  * After an action: show the subscription the API answered with at once, then refresh the list, the detail's tabs and
- * what the change moves elsewhere (the overview's cards and alerts, the bookings, the schedule board, capacity, trips).
+ * what the change moves elsewhere (the overview's cards and alerts, the bookings, the schedule board, capacity, trips,
+ * and A09's payments, refunds, invoices and credit notes: a cancellation refunds, a renewal charges).
  */
 export function useSubscriptionRefresh() {
   const queryClient = useQueryClient();
@@ -45,6 +46,7 @@ export function useSubscriptionRefresh() {
     (detail?: SubscriptionDetail | null) => {
       if (detail) queryClient.setQueryData(subscriptionKeys.detail(detail.id), detail);
       void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.finance() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.dashboard() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.bookings() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.schedule() });

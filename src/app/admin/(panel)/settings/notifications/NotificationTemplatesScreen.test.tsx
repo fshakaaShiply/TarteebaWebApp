@@ -63,6 +63,26 @@ describe("NotificationTemplatesScreen", () => {
     expect(screen.getByText("4 templates, 3 switched on.")).toBeInTheDocument();
   });
 
+  it("heads the subscription templates with the group's name in both languages (P4-30), after payments", async () => {
+    // The API sends group "subscriptions" for every subscription.* event; its OpenAPI enum does not list it yet.
+    const subscriptions = "subscriptions" as NotificationTemplate["group"];
+    api.fetchNotificationTemplates.mockResolvedValue([
+      template({ event_key: "subscription.confirmed", event_label: "Subscription confirmed", group: subscriptions }),
+      template({ event_key: "payment.subscription_failed", event_label: "Subscription payment failed", group: "payments", channel: "in_app", channel_label: "In-app inbox" }),
+      template({ event_key: "visit.reminder_day_before", event_label: "Reminder the day before", group: "reminders" }),
+      template({}),
+    ]);
+    const { unmount } = renderWithProviders(<NotificationTemplatesScreen />, { permissions: ["settings.manage"] });
+    await screen.findByRole("table", { name: "Templates for Subscription confirmed" });
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Bookings", "Payments and refunds", "Subscriptions", "Reminders"]);
+    expect(screen.queryByRole("heading", { name: "subscriptions" })).not.toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<NotificationTemplatesScreen />, { permissions: ["settings.manage"], locale: "ar" });
+    expect(await screen.findByRole("heading", { name: "الاشتراكات" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "subscriptions" })).not.toBeInTheDocument();
+  });
+
   it("names the audience in each Edit link, so a customer and a staff template of one event never share a name", async () => {
     api.fetchNotificationTemplates.mockResolvedValue([
       template({ event_key: "booking.requested", event_label: "Booking requested", channel: "in_app", channel_label: "In-app inbox", locale: "ar" }),

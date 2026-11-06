@@ -36,7 +36,7 @@ const rows = () => [
     booking: null,
     visit: null,
     workers: [],
-    conflict: { code: "SLOT_FULL", details: {}, at: null },
+    conflict: { code: "SLOT_FULL", details: { reason: "max_bookings" }, at: null },
   }),
   occurrence({
     id: 505,
@@ -89,14 +89,15 @@ describe("A08 visits tab", () => {
     expect(open).toHaveBeenLastCalledWith({ kind: "companyMiss", visit: expect.objectContaining({ ulid: "01jocc2" }) });
   });
 
-  it("highlights blackout and conflict rows and names the conflict", async () => {
+  it("highlights blackout and conflict rows and names the conflict with its Scheduling reason (P4-245)", async () => {
     setup();
     const blackout = (await screen.findByText("Sun, 8 Nov 2026")).closest("tr") as HTMLElement;
     expect(blackout).toHaveAttribute("data-conflict", "blackout");
     expect(within(blackout).getByText("Blackout day")).toBeInTheDocument();
     const full = screen.getByText("Wed, 11 Nov 2026").closest("tr") as HTMLElement;
     expect(full).toHaveAttribute("data-conflict", "conflict");
-    expect(within(full).getByText(/Conflict · Slot is full/)).toBeInTheDocument();
+    expect(within(full).getByText("Conflict · Slot is full · booking limit reached")).toBeInTheDocument();
+    expect(full).not.toHaveTextContent("max_bookings");
     expect(screen.getByText("Wed, 4 Nov 2026").closest("tr")).not.toHaveAttribute("data-conflict");
   });
 
@@ -106,7 +107,10 @@ describe("A08 visits tab", () => {
     expect(within(row).getByText("Moved from Sun, 29 Nov 2026")).toBeInTheDocument();
     expect(within(row).getByText("Customer asks for Wed, 2 Dec 2026, 15:00–19:00")).toBeInTheDocument();
     await user.click(within(row).getByRole("button", { name: "Decide the request" }));
-    expect(open).toHaveBeenLastCalledWith({ kind: "decide", visit: expect.objectContaining({ ulid: "01jocc5" }) });
+    expect(open).toHaveBeenLastCalledWith({
+      kind: "decide",
+      request: { visit: "01jocc5", current: { date: "2026-11-30", slot: expect.objectContaining({ id: 1 }) }, requested: { date: "2026-12-02", slot: expect.objectContaining({ id: 2 }) } },
+    });
   });
 
   it("offers Undo skip on a skipped visit and nothing else", async () => {

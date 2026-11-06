@@ -13,7 +13,7 @@ import { RenewDialog } from "./RenewDialog";
 import { ResolveReviewDialog } from "./ResolveReviewDialog";
 import { SkipDialog, UndoSkipDialog } from "./SkipDialogs";
 import { AutoRenewOffDialog, DeclineReviewDialog, RejectSubscriptionDialog, UnfreezeDialog } from "./StatusDialogs";
-import { CancelVisitByCompanyDialog, RescheduleRequestDialog } from "./VisitDecisionDialogs";
+import { CancelVisitByCompanyDialog, RescheduleRequestDialog, type RescheduleDecision } from "./VisitDecisionDialogs";
 
 /** The dialogs the detail page opens; `visit` / `day` carry the row they were opened from. */
 export type DialogRequest =
@@ -30,10 +30,11 @@ export type DialogRequest =
   | { kind: "resolveReview" }
   | { kind: "declineReview" }
   | { kind: "assign"; role: "primary" | "backup" }
-  | { kind: "move"; visit: SubscriptionOccurrence }
+  /** `initial`: the date and time a card was dropped on in A04 (the board hands the move over to A08). */
+  | { kind: "move"; visit: SubscriptionOccurrence; initial?: { date: string; slotId: number | null } }
   | { kind: "following"; visit: SubscriptionOccurrence }
   | { kind: "companyMiss"; visit: SubscriptionOccurrence }
-  | { kind: "decide"; visit: SubscriptionOccurrence }
+  | { kind: "decide"; request: RescheduleDecision }
   | { kind: "day"; day: CalendarDay; scope: "this" | "following" };
 
 /**
@@ -92,7 +93,7 @@ export function useSubscriptionDialogs(subscription: SubscriptionDetail, onStale
       element = <AssignWorkerDialog {...props} role={r.role} />;
       break;
     case "move":
-      element = <MoveVisitDialog {...props} visit={r.visit} />;
+      element = <MoveVisitDialog {...props} visit={r.visit} initial={r.initial} />;
       break;
     case "following":
       element = <EditFollowingDialog {...props} visit={r.visit} />;
@@ -101,10 +102,10 @@ export function useSubscriptionDialogs(subscription: SubscriptionDetail, onStale
       element = <CancelVisitByCompanyDialog {...props} visit={r.visit} />;
       break;
     case "decide":
-      element = <RescheduleRequestDialog {...props} visit={r.visit} />;
+      element = <RescheduleRequestDialog {...props} request={r.request} />;
       break;
     case "day":
-      element = <LiveOutDayDialog {...props} date={r.day.date} type={r.day.type} scope={r.scope} daySubstitute={r.day.substitute} />;
+      element = <LiveOutDayDialog {...props} date={r.day.date} type={r.day.type} scope={r.scope} />;
       break;
   }
   return { open, element };

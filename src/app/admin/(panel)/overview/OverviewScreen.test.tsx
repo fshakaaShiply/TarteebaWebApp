@@ -237,10 +237,16 @@ describe("A02 daily operations overview", () => {
       await waitFor(() => expect(screen.queryByRole("link", { name: "Open: Confirmation due" })).not.toBeInTheDocument());
       expect(screen.getByRole("link", { name: "Open: Visit without a team" })).toHaveFocus();
 
-      // No alert link left: the card's title takes it.
+      // The failed payment (it opens A09's payment page) takes its place in turn.
       api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [failed] });
       await minutes(1);
       await waitFor(() => expect(screen.queryByRole("link", { name: "Open: Visit without a team" })).not.toBeInTheDocument());
+      expect(screen.getByRole("link", { name: "Open: Payment failed" })).toHaveFocus();
+
+      // No alert link left: the card's title takes it.
+      api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [] });
+      await minutes(1);
+      await waitFor(() => expect(screen.queryByRole("link", { name: "Open: Payment failed" })).not.toBeInTheDocument());
       expect(screen.getByText("Alerts that need action")).toHaveFocus();
     });
 
@@ -255,16 +261,15 @@ describe("A02 daily operations overview", () => {
     });
   });
 
-  it("lists the alerts, urgent ones marked, each linking to its booking when that page exists", async () => {
+  it("lists the alerts, urgent ones marked, each linking to its booking or A09 payment page", async () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "schedule.view"] });
     const card = (await screen.findByRole("heading", { name: "Alerts that need action" })).closest("section")!;
     expect(await within(card).findByText("Confirmation due")).toBeInTheDocument();
     expect(within(card).getByText("Urgent")).toBeInTheDocument();
     expect(within(card).getByText("2 alerts · 1 urgent")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: "Open: Confirmation due" })).toHaveAttribute("href", "/admin/bookings/4");
-    // Payment pages come with A09: the alert is listed without a link.
-    expect(within(card).getByText("Payment failed")).toBeInTheDocument();
-    expect(within(card).queryByRole("link", { name: "Open: Payment failed" })).not.toBeInTheDocument();
+    // The API sends a payment link only to payments.view holders; it opens the payment on A09.
+    expect(within(card).getByRole("link", { name: "Open: Payment failed" })).toHaveAttribute("href", "/admin/finance/payments/9");
   });
 
   it("shows the panels and the requests waiting for confirmation", async () => {
@@ -406,6 +411,47 @@ describe("A02 daily operations overview", () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
     expect(await screen.findByRole("link", { name: /Renewal failed/ })).toHaveAttribute("href", "/admin/subscriptions/31");
     expect(screen.getByRole("link", { name: /Visit conflict/ })).toHaveAttribute("href", "/admin/subscriptions/29");
+  });
+
+  it("opens a failed payment and refund on A09, and names a subscription period's with an A08 link (P4-68)", async () => {
+    const subscription = { id: 31, reference: "TRS-7K2M9Q", link: { list: "subscription", path: "/api/v1/admin/subscriptions/31", params: {} } };
+    const payment = (path: string) => ({ list: "payment", path, params: {} });
+    const data: DashboardAlerts["data"] = [
+      {
+        type: "payment_failed",
+        severity: "warning",
+        at: "2026-10-23T08:00:00+00:00",
+        title: { ar: "فشلت دفعة", en: "Payment failed" },
+        message: { ar: "…", en: "Payment failed for TRS-7K2M9Q · AED 960.00." },
+        entity: { type: "payment", id: 55, reference: "TRS-7K2M9Q" },
+        link: payment("/api/v1/admin/payments/55"),
+        details: { failure_code: "card_declined", payable_type: "subscription_period", subscription },
+      },
+      {
+        type: "refund_failed",
+        severity: "warning",
+        at: "2026-10-23T09:00:00+00:00",
+        title: { ar: "فشل استرداد", en: "Refund failed" },
+        message: { ar: "…", en: "Refund failed for TRB-K2M9QX · AED 120.00." },
+        entity: { type: "refund", id: 7, payment_id: 56, reference: "TRB-K2M9QX" },
+        link: payment("/api/v1/admin/payments/56"),
+        details: { failure_code: "refund_refused", subscription: null },
+      },
+    ];
+    api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data });
+    const { unmount } = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "payments.view", "subscriptions.view"] });
+    expect(await screen.findByRole("link", { name: "Open: Payment failed" })).toHaveAttribute("href", "/admin/finance/payments/55");
+    expect(screen.getByRole("link", { name: "Subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    // A booking's refund: the payment page, and no subscription.
+    expect(screen.getByRole("link", { name: "Open: Refund failed" })).toHaveAttribute("href", "/admin/finance/payments/56");
+    expect(screen.getAllByRole("link", { name: /^Subscription / })).toHaveLength(1);
+    unmount();
+
+    // A coordinator without payments.view gets no payment link from the API: the alert opens the subscription.
+    api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data: [{ ...data[0], link: null }] });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "subscriptions.view"] });
+    expect(await screen.findByRole("link", { name: "Open: Payment failed" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(screen.queryByRole("link", { name: /^Subscription / })).not.toBeInTheDocument();
   });
 
   it("opens A08's cancellation review queue beside the subscription_cancel_review alerts", async () => {

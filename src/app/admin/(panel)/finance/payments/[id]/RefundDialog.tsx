@@ -23,6 +23,7 @@ import {
 } from "@/lib/admin/finance/refund";
 import { keepsIdempotencyKey, type IdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
+import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { AdminPaymentDetail, AdminRefund, CreateRefundPayload } from "@/lib/admin/types";
 import { Code, Money } from "../../_components/FinanceParts";
 import { useFinanceText } from "../../_components/financeText";
@@ -85,8 +86,10 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: adminKeys.finance() });
-    // The booking page shows the payment status and its refunds; the overview counts refunds.
+    // The booking page shows the payment status and its refunds; A08 shows each period's refunded and refundable
+    // amounts (a subscription period's payment); the overview counts refunds.
     void queryClient.invalidateQueries({ queryKey: adminKeys.bookings() });
+    void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
     void queryClient.invalidateQueries({ queryKey: adminKeys.dashboard() });
   };
 

@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { occurrence, pendingDetail, subscriptionDetail } from "@/test/subscriptionFixtures";
 import { AdminApiError } from "../client";
-import { availableActions, capacityDatesOf, conflictEntries, dayNotEditableReason, maxRefundOf, notAssignableOf, pendingReview, seriesPriceHigherOf, termsChangedOf, visitActions } from "./actions";
+import {
+  availableActions,
+  capacityDatesOf,
+  conflictEntries,
+  conflictReasonOf,
+  dayNotEditableReason,
+  maxRefundOf,
+  notAssignableOf,
+  pendingReview,
+  renewalBusy,
+  seriesPriceHigherOf,
+  termsChangedOf,
+  visitActions,
+} from "./actions";
 
 const err = (status: number, code: string, details: Record<string, unknown> = {}) => new AdminApiError(status, { code, message: "", details });
 const holds = (...permissions: string[]) => (p: string) => permissions.includes(p);
@@ -95,16 +108,41 @@ describe("A08 error details", () => {
       newUnitFils: 15000,
     });
     expect(maxRefundOf(err(422, "REFUND_AMOUNT_INVALID", { max_fils: 4000 }))).toBe(4000);
-    expect(notAssignableOf(err(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 3, reason: "not_eligible", reasons: ["rest_day"] }] }))).toEqual([
-      { workerId: 3, reason: "not_eligible", reasons: ["rest_day"] },
+    // P4-242: each refused worker with her name and role (primary, backup or a Live-out substitute).
+    expect(
+      notAssignableOf(
+        err(422, "WORKER_NOT_ASSIGNABLE", {
+          workers: [
+            { worker_id: 3, name: "Ana P.", role: "substitute", reason: "not_eligible", reasons: ["rest_day"] },
+            { worker_id: 4, name: null, role: "cook", reason: "not_active" },
+          ],
+        }),
+      ),
+    ).toEqual([
+      { workerId: 3, name: "Ana P.", role: "substitute", reason: "not_eligible", reasons: ["rest_day"] },
+      { workerId: 4, name: null, role: null, reason: "not_active", reasons: [] },
     ]);
     expect(capacityDatesOf(err(409, "CAPACITY_NOT_HELD", { dates: ["2026-11-01"] }))).toEqual(["2026-11-01"]);
     expect(dayNotEditableReason(err(422, "DAY_NOT_EDITABLE", { reason: "rest" }))).toBe("rest");
     expect(maxRefundOf(new Error("x"))).toBeNull();
   });
 
-  it("orders conflict dates", () => {
-    expect(conflictEntries({ "2026-11-08": "BLACKOUT", "2026-11-01": "SLOT_FULL" }).map((c) => c.date)).toEqual(["2026-11-01", "2026-11-08"]);
+  it("orders conflict dates, and reads an occurrence conflict's Scheduling reason", () => {
+    expect(conflictEntries({ "2026-11-08": "blackout", "2026-11-01": "workers" })).toEqual([
+      { date: "2026-11-01", reason: "workers" },
+      { date: "2026-11-08", reason: "blackout" },
+    ]);
     expect(conflictEntries(undefined)).toEqual([]);
+    expect(conflictReasonOf(occurrence({ conflict: { code: "SLOT_FULL", details: { reason: "seats" }, at: null } }))).toBe("seats");
+    expect(conflictReasonOf(occurrence({ conflict: { code: "BLACKOUT", details: {}, at: null } }))).toBeNull();
+    expect(conflictReasonOf(occurrence())).toBeNull();
+  });
+
+  it("holds Renew now back while a renewal attempt is under way (P4-251)", () => {
+    const failing = subscriptionDetail({ status: "renewal_failed", actions: { ...subscriptionDetail().actions, renew: true } });
+    expect(renewalBusy({ renewal: { ...failing.renewal, attempt_under_way: true } })).toBe(true);
+    expect(renewalBusy(failing)).toBe(false);
+    // actions.renew stays the status rule: the button is offered, then disabled while the attempt runs.
+    expect(availableActions({ ...failing, renewal: { ...failing.renewal, attempt_under_way: true } }, holds("subscriptions.manage")).has("renew")).toBe(true);
   });
 });

@@ -57,9 +57,18 @@ export const FAILING_RENEWAL_STATUSES: readonly string[] = ["renewal_failed", "s
 
 /** The cancellation review that waits for a decision, or null. */
 export function pendingReview(detail: Pick<SubscriptionDetail, "cancel_review">): CancelReviewBlock | null {
-  const review = detail.cancel_review as unknown as CancelReviewBlock | null;
-  if (!review || typeof review !== "object") return null;
+  const review = detail.cancel_review;
+  if (!review) return null;
   return review.decision || review.resolved_at ? null : review;
+}
+
+/**
+ * A renewal attempt is under way on the renewal period (P4-251, `renewal.attempt_under_way`): a charge awaits its
+ * answer or is about to be claimed, so Renew now would answer 409 RENEWAL_IN_PROGRESS. `actions.renew` stays a status
+ * rule, so the button is offered but disabled until the attempt has its answer.
+ */
+export function renewalBusy(detail: Pick<SubscriptionDetail, "renewal">): boolean {
+  return detail.renewal.attempt_under_way;
 }
 
 export function availableActions(detail: SubscriptionDetail, can: (permission: string) => boolean): Set<SubscriptionAction> {
@@ -149,13 +158,27 @@ export function maxRefundOf(error: unknown): number | null {
   return isNumber(max) && max >= 0 ? max : null;
 }
 
-/** 422 WORKER_NOT_ASSIGNABLE: who cannot take the role and why (`not_active`, `not_eligible` and the fit reasons). */
-export function notAssignableOf(error: unknown): { workerId: number; reason: string; reasons: string[] }[] {
+export type RefusedRole = "primary" | "backup" | "substitute";
+export type RefusedWorker = { workerId: number; name: string | null; role: RefusedRole | null; reason: string; reasons: string[] };
+
+const REFUSED_ROLES: readonly string[] = ["primary", "backup", "substitute"];
+
+/**
+ * 422 WORKER_NOT_ASSIGNABLE (confirm, assign, a Live-out substitute): who cannot take which role and why. Since P4-242
+ * the API names each worker and her role (`details.workers[]: {worker_id, name, role, reason, reasons[]}`).
+ */
+export function notAssignableOf(error: unknown): RefusedWorker[] {
   if (!(error instanceof AdminApiError) || error.code !== "WORKER_NOT_ASSIGNABLE") return [];
   const list = Array.isArray(error.details.workers) ? error.details.workers : [];
   return list
-    .filter((w): w is { worker_id: number; reason?: unknown; reasons?: unknown } => !!w && typeof w === "object" && isNumber((w as { worker_id?: unknown }).worker_id))
-    .map((w) => ({ workerId: w.worker_id, reason: typeof w.reason === "string" ? w.reason : "", reasons: stringList(w.reasons) }));
+    .filter((w): w is { worker_id: number; name?: unknown; role?: unknown; reason?: unknown; reasons?: unknown } => !!w && typeof w === "object" && isNumber((w as { worker_id?: unknown }).worker_id))
+    .map((w) => ({
+      workerId: w.worker_id,
+      name: typeof w.name === "string" && w.name !== "" ? w.name : null,
+      role: typeof w.role === "string" && REFUSED_ROLES.includes(w.role) ? (w.role as RefusedRole) : null,
+      reason: typeof w.reason === "string" ? w.reason : "",
+      reasons: stringList(w.reasons),
+    }));
 }
 
 /** 409 CAPACITY_NOT_HELD: the dates whose capacity is no longer held. */
@@ -169,11 +192,17 @@ export function dayNotEditableReason(error: unknown): string | null {
   return typeof error.details.reason === "string" ? error.details.reason : "";
 }
 
-/** The conflict dates of an answer (`conflicts: {date: reason}`), ordered. */
-export function conflictEntries(conflicts: Record<string, string> | null | undefined): { date: string; reason: string }[] {
+/** The conflict dates of an answer (`conflicts: {date: reason}`, a reason of the closed list P4-245), ordered. */
+export function conflictEntries<R extends string>(conflicts: Record<string, R> | null | undefined): { date: string; reason: R }[] {
   return Object.entries(conflicts ?? {})
-    .map(([date, reason]) => ({ date, reason: String(reason) }))
+    .map(([date, reason]) => ({ date, reason: reason as R }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** The Scheduling reason an occurrence conflict carries (`conflict.details.reason`), or null. */
+export function conflictReasonOf(occurrence: Pick<SubscriptionOccurrence, "conflict">): string | null {
+  const reason = occurrence.conflict?.details?.reason;
+  return typeof reason === "string" && reason !== "" ? reason : null;
 }
 
 /** True when an error means "the subscription changed under the dialog": reload instead of retrying. */

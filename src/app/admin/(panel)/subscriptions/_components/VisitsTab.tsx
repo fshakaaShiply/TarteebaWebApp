@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button, EmptyState, ErrorState, LoadingBlock, StatusBadge, TextField } from "@/components/admin";
 import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
 import { useAdminSession } from "@/lib/admin/session";
-import { visitActions } from "@/lib/admin/subscriptions/actions";
+import { conflictReasonOf, visitActions } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscriptionVisits } from "@/lib/admin/subscriptions/endpoints";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { occurrenceTone, tone } from "@/lib/admin/subscriptions/status";
@@ -16,6 +16,7 @@ import type { SubscriptionDetail, SubscriptionOccurrence } from "@/lib/admin/sub
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { Ltr } from "./kit";
 import type { DialogRequest } from "./DialogHost";
+import { decisionFromOccurrence } from "./VisitDecisionDialogs";
 
 /** The visits list covers 31 days at a time (the API serves at most 92). */
 const WINDOW_DAYS = 30;
@@ -123,6 +124,7 @@ function VisitRow({
   const t = useTranslations("admin.subscriptions.visits");
   const text = useSubscriptionText();
   const actions = visitActions(row, subscription, can);
+  const decision = decisionFromOccurrence(row);
   const blackout = row.conflict?.code === "BLACKOUT";
   const conflict = row.conflict !== null;
   return (
@@ -148,7 +150,7 @@ function VisitRow({
           {row.origin !== "pattern" && <span className="text-ink-600">{text.origin(row.origin)}</span>}
           {conflict && (
             <span className={clsx("font-medium", blackout ? "text-warning-700" : "text-danger-700")}>
-              {blackout ? t("blackout") : `${t("conflict")} · ${text.conflict(row.conflict?.code ?? "")}`}
+              {blackout ? t("blackout") : `${t("conflict")} · ${text.conflictWithReason(row.conflict?.code ?? "", conflictReasonOf(row))}`}
             </span>
           )}
           {row.reschedule_request && (
@@ -181,8 +183,8 @@ function VisitRow({
               {liveOut ? t("editFollowingDays") : t("editFollowing")}
             </Button>
           )}
-          {actions.has("decide") && (
-            <Button size="sm" onClick={() => open({ kind: "decide", visit: row })}>
+          {actions.has("decide") && decision && (
+            <Button size="sm" onClick={() => open({ kind: "decide", request: decision })}>
               {t("decide")}
             </Button>
           )}

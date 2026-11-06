@@ -426,10 +426,11 @@ describe("A04 operations schedule", () => {
 
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(1, "2026-10-24", 1));
     const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
-    expect(await within(handoff).findByText("Open the subscription to move this visit to another day or time.")).toBeInTheDocument();
+    expect(await within(handoff).findByText("Open the subscription to move this visit: its move dialog opens with the day and time you dropped it on.")).toBeInTheDocument();
     expect(handoff).toHaveTextContent("This is a subscription visit.");
     expect(handoff).not.toHaveTextContent("Only a confirmed booking");
-    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    // Design §6.2: the link opens A08 on this visit (by its booking and served date) with the drop's date and slot.
+    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31?date=2026-10-24&move=9&on=2026-10-24&slot=1");
     expect(screen.queryByRole("dialog", { name: "Reschedule TRB-K2M9QX" })).not.toBeInTheDocument();
     expect(api.previewReschedule).not.toHaveBeenCalled();
     expect(api.validateMove).not.toHaveBeenCalled();
@@ -450,8 +451,8 @@ describe("A04 operations schedule", () => {
 
     dragTo(cardIn(rowOf("Maria S."), "TRB-K2M9QX"), cell(5, "2026-10-24", 2));
     const handoff = await screen.findByRole("dialog", { name: "Move TRB-K2M9QX to another day or time" });
-    expect(within(handoff).getByText("Open the subscription to move this visit to another day or time.")).toBeInTheDocument();
-    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(within(handoff).getByText("Open the subscription to move this visit: its move dialog opens with the day and time you dropped it on.")).toBeInTheDocument();
+    expect(within(handoff).getByRole("link", { name: "Open subscription TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31?date=2026-10-24&move=9&on=2026-10-24&slot=2");
     expect(within(handoff).queryByRole("link", { name: "Open the booking" })).not.toBeInTheDocument();
     expect(handoff).not.toHaveTextContent("can't reschedule bookings");
     expect(api.fetchBooking).not.toHaveBeenCalled();

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import ar from "@/messages/ar.json";
+import en from "@/messages/en.json";
 import type { NotificationTemplate } from "../types";
 import {
+  TEMPLATE_GROUPS,
   filterTemplates,
   groupTemplates,
   insertToken,
@@ -41,6 +44,21 @@ describe("notification template rules (A11)", () => {
     expect(insertToken("Booking  confirmed", "{{reference}}", 8, 8)).toEqual({ value: "Booking {{reference}} confirmed", caret: 21 });
     expect(insertToken("Booking XYZ", "{{reference}}", 8, 11)).toEqual({ value: "Booking {{reference}}", caret: 21 });
     expect(insertToken("Booking", " {{date}}", null, null)).toEqual({ value: "Booking {{date}}", caret: 16 });
+  });
+
+  it("has a label in both languages for every preference group the API sends, subscriptions included (P4-30)", () => {
+    expect(TEMPLATE_GROUPS).toContain("subscriptions");
+    for (const messages of [en, ar]) {
+      const labels = messages.admin.notificationTemplates.enums.group as Record<string, string>;
+      for (const group of TEMPLATE_GROUPS) expect(labels[group], group).toBeTypeOf("string");
+    }
+    const groups = groupTemplates([
+      template({ id: 1, event_key: "subscription.renewed", group: "subscriptions" as NotificationTemplate["group"] }),
+      template({ id: 2, event_key: "refund.subscription_failed", group: "payments" }),
+      template({ id: 3, event_key: "waitlist.slot_available", group: "waitlist" }),
+      template({ id: 4 }),
+    ]);
+    expect(groups.map((g) => g.group)).toEqual(["bookings", "payments", "subscriptions", "waitlist"]);
   });
 
   it("groups by preference group and event, Arabic and English side by side, customers before staff", () => {

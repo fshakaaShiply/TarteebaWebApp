@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CANCEL_REASONS } from "@/lib/admin/bookings/actions";
-import { PAYMENT_HEALTHS, SUBSCRIPTION_STATUSES } from "@/lib/admin/subscriptions/types";
+import { DATE_REASONS, PAYMENT_HEALTHS, SUBSCRIPTION_STATUSES, type ConflictCode } from "@/lib/admin/subscriptions/types";
 import ar from "@/messages/ar.json";
 import en from "@/messages/en.json";
 
@@ -49,6 +49,17 @@ describe("A08 messages", () => {
       for (const p of ["upcoming", "pending_payment", "paid", "failed", "refunded_partial", "refunded", "closed", "void"]) expect(get(locale, `admin.subscriptions.enums.period.${p}`), p).toBeTypeOf("string");
       for (const o of ["planned", "held", "materialized", "skipped", "frozen", "credited", "holiday", "replaced", "dropped", "cancelled"]) expect(get(locale, `admin.subscriptions.enums.occurrence.${o}`), o).toBeTypeOf("string");
       for (const r of CANCEL_REASONS) expect(get(locale, `admin.subscriptions.enums.cancelReason.${r}`), r).toBeTypeOf("string");
+    }
+  });
+
+  it("labels exactly the closed lists of conflict codes and date reasons (P4-245)", () => {
+    const codes: ConflictCode[] = ["SLOT_FULL", "SLOT_CLOSED", "BLACKOUT"];
+    for (const locale of [en, ar]) {
+      expect(Object.keys(get(locale, "admin.subscriptions.enums.conflict") as object).sort()).toEqual([...codes].sort());
+      expect(Object.keys(get(locale, "admin.subscriptions.enums.dateReason") as object).sort()).toEqual([...DATE_REASONS].sort());
+    }
+    for (const role of ["primary", "backup", "substitute"]) {
+      for (const locale of [en, ar]) expect(get(locale, `admin.subscriptions.refused.roles.${role}`), role).toBeTypeOf("string");
     }
   });
 

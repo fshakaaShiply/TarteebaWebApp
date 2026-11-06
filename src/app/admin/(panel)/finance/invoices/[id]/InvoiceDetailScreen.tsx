@@ -126,7 +126,7 @@ function InvoiceView({ invoice }: { invoice: AdminInvoiceDetail }) {
               )}
               {invoice.subscription ? (
                 <Fact label={t("subscription")}>
-                  <SubscriptionRef reference={invoice.subscription.reference} wrap />
+                  <SubscriptionRef subscription={invoice.subscription} wrap />
                 </Fact>
               ) : (
               <Fact label={t("booking")}>

@@ -5,19 +5,18 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, Pagination, StatusBadge } from "@/components/admin";
-import { fetchAddonOptions } from "@/lib/admin/endpoints";
-import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
-import { pendingReview } from "@/lib/admin/subscriptions/actions";
+import { conflictReasonOf, pendingReview, renewalBusy } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscriptionEvents } from "@/lib/admin/subscriptions/endpoints";
 import { payloadFacts } from "@/lib/admin/subscriptions/history";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { RUNNING_STATUSES, occurrenceTone, periodTone, tone } from "@/lib/admin/subscriptions/status";
-import type { SubscriptionDetail, SubscriptionOccurrence } from "@/lib/admin/subscriptions/types";
+import type { AddonDetail, SubscriptionDetail } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { DeadlineCountdown } from "../../bookings/_components/BookingBits";
 import type { DialogRequest } from "./DialogHost";
 import { HealthChip } from "./SubscriptionBits";
+import { decisionFromRequest } from "./VisitDecisionDialogs";
 import { Ltr } from "./kit";
 
 export type TabId = "overview" | "visits" | "calendar" | "periods" | "history";
@@ -36,17 +35,14 @@ export function Facts({ items, columns = 2 }: { items: { label: ReactNode; value
   );
 }
 
-/** The first visit still to come, from the detail's next visits. */
-export function firstVisitOf(subscription: SubscriptionDetail): SubscriptionOccurrence | null {
-  return (subscription.upcoming ?? []).find((v) => v.state !== "skipped" && v.state !== "frozen") ?? null;
-}
-
 // ---- Banners --------------------------------------------------------------------------------------------------------
 
 /**
  * What needs a decision or attention, above the tabs (design §9.1): a request waiting for confirmation with its
- * deadline and first visit, a capture whose result is unknown, conflicts, a failing renewal, a cancellation review,
- * the customers' moves waiting for an answer, a running freeze, and how a finished subscription ended.
+ * deadline and first visit (the API's `first_visit_at`, P4-244), a capture whose result is unknown, conflicts, a
+ * failing renewal (Renew now waits while an attempt is under way, P4-251), a cancellation review, the customers' moves
+ * waiting for an answer (each decided on its occurrence, `occurrence_ulid`), a running freeze, and how a finished
+ * subscription ended.
  */
 export function Banners({ subscription, open, goTo }: { subscription: SubscriptionDetail; open: (request: DialogRequest) => void; goTo: (tab: TabId) => void }) {
   const t = useTranslations("admin.subscriptions.banners");
@@ -55,8 +51,8 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
   const manage = can("subscriptions.manage");
   const a = subscription.actions;
   const review = pendingReview(subscription);
-  const first = firstVisitOf(subscription);
   const renewal = subscription.renewal;
+  const busy = renewalBusy(subscription);
   const failing = ["failed", "retrying", "suspended", "verifying"].includes(renewal.state);
   const requests = subscription.reschedule_requests ?? [];
 
@@ -71,7 +67,7 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
                 <DeadlineCountdown deadline={subscription.confirmation_deadline_at} />
               </>
             )}
-            {first && <span>{t("firstVisit", { date: text.dateShort(first.scheduled_date), slot: text.slot(first.slot) })}</span>}
+            {subscription.first_visit_at && <span>{t("firstVisit", { time: text.dateTime(subscription.first_visit_at) })}</span>}
           </span>
         </Notice>
       )}
@@ -103,7 +99,7 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
           <ul className="text-sm">
             {subscription.conflicts.slice(0, 4).map((c) => (
               <li key={c.id}>
-                <Ltr>{text.dateShort(c.scheduled_date)}</Ltr> · {text.conflict(c.conflict?.code ?? "")}
+                <Ltr>{text.dateShort(c.scheduled_date)}</Ltr> · {text.conflictWithReason(c.conflict?.code ?? "", conflictReasonOf(c))}
               </li>
             ))}
           </ul>
@@ -115,13 +111,14 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
           title={t(`renewal.${renewal.state}`)}
           action={
             manage && a.renew ? (
-              <Button size="sm" className="self-start" onClick={() => open({ kind: "renew" })}>
+              <Button size="sm" className="self-start" disabled={busy} onClick={() => open({ kind: "renew" })}>
                 {t("renewNow")}
               </Button>
             ) : undefined
           }
         >
           <span className="flex flex-col gap-0.5">
+            {busy && <span className="font-medium">{t("attemptUnderWay")}</span>}
             <span>{t("renewalAttempt", { n: renewal.attempt_no, max: renewal.max_attempts })}</span>
             {renewal.decline_message && <span>{text.name(renewal.decline_message)}</span>}
             {renewal.next_attempt_at && renewal.state === "retrying" && <span>{t("nextAttempt", { time: text.dateTime(renewal.next_attempt_at) })}</span>}
@@ -170,13 +167,13 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
           action={
             <span className="flex flex-wrap gap-2">
               {requests.map((r) => {
-                const occurrence = (subscription.upcoming ?? []).find((v) => v.reschedule_request?.id === r.id);
+                const decision = decisionFromRequest(r, subscription.upcoming ?? []);
                 return (
                   <span key={r.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span>{t("request", { from: text.dateShort(r.from_date), date: text.dateShort(r.date), slot: text.slot(r.slot) })}</span>
-                    {manage && (
-                      <Button size="sm" variant="secondary" onClick={() => (occurrence ? open({ kind: "decide", visit: occurrence }) : goTo("visits"))}>
-                        {occurrence ? t("decide") : t("openVisits")}
+                    <span>{t("request", { from: text.dateShort(r.occurrence_date ?? r.from_date), date: text.dateShort(r.date), slot: text.slot(r.slot) })}</span>
+                    {manage && decision && (
+                      <Button size="sm" variant="secondary" onClick={() => open({ kind: "decide", request: decision })}>
+                        {t("decide")}
                       </Button>
                     )}
                   </span>
@@ -241,7 +238,7 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
             { label: t("source"), value: text.source(subscription.source) },
             { label: t("materials"), value: text.materialsBy(subscription.materials_by) },
             { label: t("workersCount"), value: subscription.workers_count },
-            ...(subscription.addons.length > 0 ? [{ label: t("addons"), value: <AddonNames codes={subscription.addons} /> }] : []),
+            ...(subscription.addon_details.length > 0 ? [{ label: t("addons"), value: <AddonNames addons={subscription.addon_details} /> }] : []),
             ...(subscription.coupon?.code ? [{ label: t("coupon"), value: <Ltr>{subscription.coupon.code}</Ltr> }] : []),
           ]}
         />
@@ -348,30 +345,20 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
   );
 }
 
-/** Readers of GET /admin/addons/options (the add-on pick list with each code's name). */
-const ADDON_NAME_READERS = ["catalog.manage", "bookings.create_manual", "bookings.view"];
-
 /**
- * The detail sends add-on codes only: their names come from the add-on pick list for staff who may read it; anyone
- * else (or a code the list no longer has) sees the code itself, kept left to right.
+ * The contract's add-ons by name in the UI language (the detail's `addon_details`, P4-244, for every reader); a code
+ * the catalogue no longer names is shown as it is, kept left to right.
  */
-function AddonNames({ codes }: { codes: string[] }) {
+function AddonNames({ addons }: { addons: readonly AddonDetail[] }) {
   const text = useSubscriptionText();
-  const { canAny } = useAdminSession();
-  const readable = canAny(ADDON_NAME_READERS);
-  const query = useQuery({ queryKey: adminKeys.addonPickList(), queryFn: fetchAddonOptions, enabled: readable, staleTime: 5 * 60_000, retry: false });
-  const nameOf = (code: string) => {
-    const option = query.data?.find((a) => a.code === code);
-    return option ? text.name(option.name) : null;
-  };
   return (
     <span>
-      {codes.map((code, i) => {
-        const name = nameOf(code);
+      {addons.map((addon, i) => {
+        const name = addon.name ? text.name(addon.name) : "";
         return (
-          <span key={code}>
+          <span key={addon.code}>
             {i > 0 && (text.locale === "ar" ? "، " : ", ")}
-            {name ?? <Ltr>{code}</Ltr>}
+            {name || <Ltr>{addon.code}</Ltr>}
           </span>
         );
       })}

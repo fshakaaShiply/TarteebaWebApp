@@ -104,7 +104,7 @@ function InvoicesTable() {
       cell: (i) =>
         i.subscription ? (
           <span className="flex flex-col">
-            <SubscriptionRef reference={i.subscription.reference} />
+            <SubscriptionRef subscription={i.subscription} />
             <span className="text-xs text-ink-600">{t("supplyPeriod", { from: text.date(i.subscription.period.start), to: text.date(i.subscription.period.end) })}</span>
           </span>
         ) : i.booking.reference ? (

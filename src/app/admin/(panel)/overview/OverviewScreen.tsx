@@ -21,7 +21,7 @@ import {
   type Column,
 } from "@/components/admin";
 import { OVERVIEW_REFRESH_MS, useBackgroundRefresh } from "@/lib/admin/backgroundRefresh";
-import { BOOKINGS_PATH, dashboardAlertHref, dashboardHref, subscriptionCancelReviewsHref, withQuery } from "@/lib/admin/dashboard";
+import { BOOKINGS_PATH, alertSubscription, dashboardAlertHref, dashboardHref, subscriptionCancelReviewsHref, withQuery } from "@/lib/admin/dashboard";
 import { fetchBookings, fetchDashboardAlerts, fetchDashboardSummary } from "@/lib/admin/endpoints";
 import { addDaysIso, businessToday, formatDateTime, isIsoDate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
@@ -489,6 +489,9 @@ function AlertRow({ alert, position }: { alert: DashboardAlert; position: number
   const t = useTranslations("admin.overview.alerts");
   const text = useBookingText();
   const href = dashboardAlertHref(alert);
+  // A failed payment or refund of a subscription period names its subscription (P4-68): an A08 link beside the payment's.
+  const series = alertSubscription(alert);
+  const seriesHref = series?.href && series.href !== href ? series.href : null;
   const urgent = alert.severity === "urgent";
   const title = text.name(alert.title);
   return (
@@ -499,6 +502,11 @@ function AlertRow({ alert, position }: { alert: DashboardAlert; position: number
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="text-sm font-bold text-ink-900">{title}</p>
         <p className="text-sm/6 text-ink-600">{text.name(alert.message)}</p>
+        {series && seriesHref && (
+          <Link href={seriesHref} className="touch-target w-fit text-sm font-bold">
+            {t.rich("subscriptionLink", { reference: series.reference, ltr: (chunks) => <bdi dir="ltr" className="font-latin">{chunks}</bdi> })}
+          </Link>
+        )}
       </div>
       {href && (
         <Link href={href} aria-label={t("openLabel", { title })} data-alert-open={position} className="touch-target shrink-0 self-center rounded-sm px-2 py-1 text-sm font-bold text-petrol-700 hover:bg-petrol-50">

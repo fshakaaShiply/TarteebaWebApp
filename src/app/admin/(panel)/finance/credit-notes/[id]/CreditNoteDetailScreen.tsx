@@ -11,12 +11,13 @@ import { CREDIT_NOTES_PATH, DOCUMENTS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminCreditNoteDetail, CreditNoteLine } from "@/lib/admin/types";
 import { RequirePermission } from "../../../../_components/RequirePermission";
-import { BackLink, Code, Fact, Facts, Money, PdfDownload, SupplierCard, TotalRow } from "../../_components/FinanceParts";
+import { BackLink, Code, Fact, Facts, Money, PdfDownload, SubscriptionRef, SupplierCard, TotalRow } from "../../_components/FinanceParts";
 import { useFinanceText } from "../../_components/financeText";
 
 /**
- * A09 credit note page (spec §9.3; invoices.manage or payments.view): the invoice it credits, why (the refund's reason
- * from the closed list), the lines and totals, the supplier block, and Download PDF (signed URL).
+ * A09 credit note page (spec §9.3; invoices.manage or payments.view): the invoice it credits, the booking or, for a
+ * subscription period, the subscription (linked to A08, P4-254) and its supply period, why (the refund's reason from the
+ * closed list), the lines and totals, the supplier block, and Download PDF (signed URL).
  */
 export function CreditNoteDetailScreen({ id }: { id: string }) {
   return (
@@ -115,7 +116,16 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
               <Fact label={t("issueDate")}>{text.date(note.issue_date)}</Fact>
               <Fact label={t("issuedAt")}>{text.dateTime(note.issued_at)}</Fact>
               <Fact label={t("customer")}>{note.customer.name || t("noName")}</Fact>
-              <Fact label={t("booking")}>{note.booking_reference ? <Code wrap>{note.booking_reference}</Code> : "—"}</Fact>
+              {note.subscription && !note.booking_reference ? (
+                <>
+                  <Fact label={t("subscription")}>
+                    <SubscriptionRef subscription={note.subscription} wrap />
+                  </Fact>
+                  <Fact label={t("supplyPeriod")}>{t("supplyPeriodValue", { from: text.date(note.subscription.period.start), to: text.date(note.subscription.period.end) })}</Fact>
+                </>
+              ) : (
+                <Fact label={t("booking")}>{note.booking_reference ? <Code wrap>{note.booking_reference}</Code> : "—"}</Fact>
+              )}
               <Fact label={t("reason")}>
                 <span className="flex flex-col">
                   <span>{text.reason(note.reason_label)}</span>

@@ -1,15 +1,15 @@
 import type { components, operations } from "@/lib/api/schema";
-import type { PageMeta, Translatable } from "../types";
 
 /*
- * A08 subscriptions (spec §17; design §7.2): the shapes of GET/POST /admin/subscriptions/**. The row, the detail, an
- * occurrence, the Live-out day write come from the generated schema; the answers the schema types as a bare string or
- * an open map (the visit previews, the skip, freeze and cancel previews, a history row's payload, the calendar summary)
- * are narrowed here from the contracts (A5a, A5b, A6), as the shared admin types do for the same kind of loosely typed
- * answer. The Live-out day preview is the write's generated answer without `data` (the same code, rolled back).
+ * A08 subscriptions (spec §17; design §7.2): the shapes of GET/POST /admin/subscriptions/**, all from the generated
+ * schema (the API names its previews since P4-239: SkipPreview, FreezePreview, CancelPreview, StaffMovePreview,
+ * FollowingEditPreview, LiveOutDaysPreview; the calendar, the history and `cancel_review` are typed too). Nothing here
+ * is a hand-written copy of an API shape; only the closed lists the screens offer as filters are spelled out.
  */
 
 type Schemas = components["schemas"];
+/** The JSON body of an operation's 200 answer. */
+type Ok<Op extends keyof operations> = operations[Op] extends { responses: { 200: { content: { "application/json": infer Body } } } } ? Body : never;
 
 export type SubscriptionRow = Schemas["AdminSubscriptionResource"];
 export type SubscriptionDetail = Schemas["AdminSubscriptionDetailResource"];
@@ -18,18 +18,13 @@ export type SubscriptionPeriod = SubscriptionDetail["periods"][number];
 export type RescheduleRequestRow = SubscriptionDetail["reschedule_requests"][number];
 export type SubscriptionActions = SubscriptionDetail["actions"];
 export type RenewalBlock = SubscriptionDetail["renewal"];
-
-/** The detail's `cancel_review` object (the API's Scramble type says string; it is the review record). */
-export type CancelReviewBlock = {
-  requested_by?: unknown;
-  reason_code?: string | null;
-  reason_text?: string | null;
-  party?: "customer" | "company" | null;
-  preview?: unknown;
-  decision?: string | null;
-  resolved_at?: string | null;
-  requested_at?: string | null;
-};
+/** An add-on of the contract with its name (P4-244); `name` is null for a code the catalogue no longer has. */
+export type AddonDetail = SubscriptionDetail["addon_details"][number];
+/** The cancellation review as recorded (P4-243): `refundable_fils` / `refundable_periods` are what a resolve takes now. */
+export type CancelReviewBlock = NonNullable<SubscriptionDetail["cancel_review"]>;
+export type SlotRef = SubscriptionOccurrence["slot"];
+/** An occurrence's conflict code (P4-245): SLOT_FULL, SLOT_CLOSED or BLACKOUT. */
+export type ConflictCode = NonNullable<SubscriptionOccurrence["conflict"]>["code"];
 
 export type SubscriptionType = "recurring" | "live_out";
 export const SUBSCRIPTION_STATUSES = [
@@ -50,146 +45,63 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export const PAYMENT_HEALTHS = ["paid", "pending", "verifying", "renewal_failed", "suspended", "refunded", "none"] as const;
 export type PaymentHealth = (typeof PAYMENT_HEALTHS)[number];
 
-export type SubscriptionPage = {
-  data: SubscriptionRow[];
-  meta: PageMeta & { counts_by_status: Record<string, number> };
-};
+export type SubscriptionPage = Ok<"admin.subscription.subscriptions.index">;
+export type VisitsPage = Ok<"admin.subscription.subscriptions.visits">;
+export type SubscriptionEvent = Schemas["SubscriptionEventResource"];
+export type EventsPage = Ok<"admin.subscription.subscriptions.events">;
 
-export type VisitsPage = {
-  data: SubscriptionOccurrence[];
-  meta: PageMeta & { from?: string; to?: string };
-};
+export type SubscriptionCalendar = Ok<"admin.subscription.subscriptions.calendar">["data"];
+export type CalendarDay = SubscriptionCalendar["days"][number];
+export type CalendarDayType = CalendarDay["type"];
+export type CalendarSummary = SubscriptionCalendar["summary"];
 
-export type SubscriptionEvent = Omit<Schemas["SubscriptionEventResource"], "payload"> & { payload: Record<string, unknown> };
-export type EventsPage = { data: SubscriptionEvent[]; meta: PageMeta };
-
-export type CalendarDayType = "service" | "rest" | "public_holiday" | "absence" | "dropped";
-export type CalendarSummary = { service: number; rest: number; public_holiday: number; absence: number; dropped: number; credited: number };
-export type CalendarDay = {
-  date: string;
-  type: CalendarDayType | string;
-  worker: { id: number; name: string } | null;
-  substitute: { id: number; name: string } | null;
-  credited: boolean;
-  visit: { id: string | number; status: string } | null;
-  occurrence_state: string | null;
-  flags: string[];
-};
-export type SubscriptionCalendar = { month: string; days: CalendarDay[]; summary: CalendarSummary };
-
-export type WorkerCandidate = {
-  worker: { id: number; name: string; zone: { id: number; name: Translatable }; can_live_out: boolean; weekly_rest_day: number };
-  fits: number;
-  of: number;
-  reasons: string[];
-  current: boolean;
-};
+export type WorkerCandidate = Ok<"admin.subscription.subscriptions.worker-candidates">["data"][number];
 export type CandidateRole = "primary" | "backup";
 
-export type UnfitDay = { date: string; reasons: string[] };
-export type ConfirmPreviewSide = { worker_id: number | null; fits: number; of: number; unfit: UnfitDay[] };
-export type ConfirmPreview = {
-  primary: ConfirmPreviewSide | null;
-  backup: ConfirmPreviewSide | null;
-  started: { date: string }[];
-  payment: { status: string | null; amount_fils: number };
-};
+export type ConfirmPreview = Ok<"admin.subscription.subscriptions.confirm.preview">["data"];
+export type ConfirmPreviewSide = NonNullable<ConfirmPreview["primary"]>;
+export type UnfitDay = ConfirmPreviewSide["unfit"][number];
 
-export type RenewPreview = { amount_fils: number | null; card_label: string | null; period: { start: string; end: string }; attempt_no: number };
+export type RenewPreview = Ok<"admin.subscription.subscriptions.renew.preview">["data"];
 
-export type SlotRef = { id: number; code: string; start: string; end: string } | null;
-
-/** POST …/skip/preview (the customer's answer; staff have no monthly limit). */
-export type SkipPreview = {
-  allowed: boolean;
-  reason: string | null;
-  visit: { ulid: string; date: string; slot: SlotRef };
-  appended_date: string | null;
-  new_term_end_date: string | null;
-  fee_fils: number;
-  refund_fils: number;
-  discount_effect: string;
-  explanation: Translatable;
-};
-
-export type FreezePreview = {
-  allowed: boolean;
-  reason: string | null;
-  from: string;
-  to: string;
-  days: number;
-  affected: { ulid: string; date: string }[];
-  appended_dates: string[];
-  new_term_end_date: string | null;
-  fee_fils: number;
-  refund_fils: number;
-  freeze_days_used_this_period: number;
-  max_freeze_days: number | null;
-  explanation: Translatable;
-};
-
+/** POST …/skip/preview (staff have no monthly limit). */
+export type SkipPreview = Schemas["SkipPreview"];
+export type FreezePreview = Schemas["FreezePreview"];
 /** POST …/visits/{v}/preview with scope this: Booking's staff reschedule preview (every money key 0). */
-export type MovePreview = {
-  allowed: boolean;
-  blockers: string[];
-  requires_approval: boolean;
-  availability: { status: string; reason: string | null };
-  explanation: string;
-};
-
-export type FollowingPreview = {
-  from: string;
-  kept: { date: string }[];
-  replaced: { date: string }[];
-  new: { date: string; status: "available" | "unavailable" | "planned" | string; reason?: string }[];
-  price: { checks: { date: string; old_unit_fils: number; new_unit_fils: number }[]; allowed: boolean };
-  term_end_date: string | null;
-  conflicts: Record<string, string>;
-};
+export type MovePreview = Schemas["StaffMovePreview"];
+/** POST …/visits/{v}/preview with scope following, and the visit write's `edit`. */
+export type FollowingPreview = Schemas["FollowingEditPreview"];
 
 /**
- * POST …/live-out-days/{date}: the generated answer of the write (ChangeLiveOutDays). Each day's `substitute` is the
- * substitute worker's id (or null), not a name: the dialog finds the name among the workers it already holds.
+ * A date's reason (P4-245: Scheduling's ClosedReason ∪ FullReason), in the previews' `conflicts {date: reason}`, the new
+ * dates of a pattern edit, an occurrence conflict's details and a move preview's availability.
  */
-export type LiveOutDaysResult = operations["admin.subscription.subscriptions.live-out-days.update"]["responses"][200]["content"]["application/json"];
-/** POST …/live-out-days/{date}/preview: the same code rolled back, so the write's answer without the subscription. */
-export type LiveOutDaysPreview = Omit<LiveOutDaysResult, "data">;
+export type DateReason = FollowingPreview["conflicts"][string];
+export const DATE_REASONS = [
+  "lead_time",
+  "blackout",
+  "rule_closed",
+  "horizon",
+  "past",
+  "inactive",
+  "workers",
+  "seats",
+  "max_bookings",
+] as const satisfies readonly DateReason[];
+
+/** POST …/live-out-days/{date}/preview; each day's `substitute` is {id, name} (P4-241). */
+export type LiveOutDaysPreview = Schemas["LiveOutDaysPreview"];
+export type LiveOutDaysResult = Ok<"admin.subscription.subscriptions.live-out-days.update">;
 export type LiveOutDayRow = LiveOutDaysPreview["days"][number];
 
-export type CancelParty = "customer" | "company";
-export type CancelPlanPeriod = {
-  ulid: string;
-  start: string;
-  end: string;
-  paid_fils: number;
-  refundable_fils: number;
-  visits_planned: number;
-  visits_consumed: number;
-  visits_unused: number;
-  unused_value_fils: number;
-  fee_fils: number;
-  clawback_fils: number;
-  refund_fils: number;
-};
 /** POST …/cancel/preview: CancelPreview (+ rule_applied and compensation for the company). */
-export type CancelPlan = {
-  allowed: boolean;
-  blocked_reason: string | null;
-  review_required: boolean;
-  party: CancelParty;
-  periods: CancelPlanPeriod[];
-  totals: { paid_fils: number; unused_value_fils: number; fee_fils: number; clawback_fils: number; clawback_waived_fils: number; refund_fils: number };
-  discount: { eligible: boolean; min_visits_for_discount: number | null; consumed_visits: number; revoked: boolean };
-  fee_basis: { date: string; start: string; skipped: boolean; rule: string } | null;
-  unpaid: { action: string };
-  refund_to: { label: string } | null;
-  explanation: Translatable;
-  rule_applied?: string | null;
-  compensation?: string | null;
-};
+export type CancelPlan = Schemas["CancelPreview"];
+export type CancelPlanPeriod = CancelPlan["periods"][number];
+export type CancelParty = CancelPlan["party"];
 
-export type CancelResult = { data: SubscriptionDetail; refunds: { ulid: string; amount_fils: number; status: string }[]; review_requested: boolean };
-export type VisitWriteResult = { data: SubscriptionDetail; conflicts: Record<string, string>; edit?: FollowingPreview; credited?: { occurrence_id: number; date: string; new_date: string | null } | null };
-export type AssignResult = { data: SubscriptionDetail; assigned: string[]; kept: string[]; unfit: UnfitDay[] };
-export type UnfreezeResult = { data: SubscriptionDetail; restored: { date: string }[]; still_frozen: { date: string; reason: string }[] };
-export type RenewResult = { data: SubscriptionDetail; payment: { ulid: string; status: string } | null };
+export type CancelResult = Ok<"admin.subscription.subscriptions.cancel">;
+export type ResolveResult = Ok<"admin.subscription.subscriptions.cancel-review.resolve">;
+export type VisitWriteResult = Ok<"admin.subscription.subscriptions.visits.update">;
+export type AssignResult = Ok<"admin.subscription.subscriptions.assign-primary">;
+export type UnfreezeResult = Ok<"admin.subscription.subscriptions.unfreeze">;
+export type RenewResult = Ok<"admin.subscription.subscriptions.renew">;

@@ -168,7 +168,7 @@ export function EditFollowingDialog({ subscription, visit, onClose, onStale, cha
                     <Ltr>{text.dateShort(d.date)}</Ltr>
                     <span className={d.status === "unavailable" ? "text-danger-700" : "text-ink-600"}>
                       {t.has(`newStates.${d.status}` as never) ? t(`newStates.${d.status}` as never) : d.status}
-                      {d.reason ? ` · ${t.has(`newReasons.${d.reason}` as never) ? t(`newReasons.${d.reason}` as never) : d.reason}` : ""}
+                      {d.reason ? ` · ${text.dateReason(d.reason)}` : ""}
                     </span>
                   </li>
                 ))}
@@ -198,7 +198,7 @@ export function EditFollowingDialog({ subscription, visit, onClose, onStale, cha
               <ul className="text-sm">
                 {conflictEntries(terms.conflicts).map((c) => (
                   <li key={c.date}>
-                    <Ltr>{text.dateShort(c.date)}</Ltr> · {text.conflict(c.reason)}
+                    <Ltr>{text.dateShort(c.date)}</Ltr> · {text.dateReason(c.reason)}
                   </li>
                 ))}
               </ul>

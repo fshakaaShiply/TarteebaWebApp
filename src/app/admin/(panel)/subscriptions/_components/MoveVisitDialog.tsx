@@ -23,17 +23,26 @@ const OVERRIDE_REASON_MIN = 10;
  * a reason of at least 10 characters (P2-16). The preview (the same check, nothing kept) says whether the time fits.
  * The visit keeps its place in the series and is marked as an exception; the period follows the served dates. The
  * preview's blockers (Booking's codes policy, slot, price) are shown in our own words, with the API's explanation (in
- * the UI language: the request carries it).
+ * the UI language: the request carries it), and a full or closed time says why (the Scheduling reason, P4-245).
+ * `initial` is the date and time a card was dropped on in A04: the board hands a series visit's move over to here.
  */
-export function MoveVisitDialog({ subscription, visit, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps & { visit: SubscriptionOccurrence }) {
+export function MoveVisitDialog({
+  subscription,
+  visit,
+  initial,
+  onClose,
+  onStale,
+  changed,
+  returnFocusTo,
+}: SubscriptionDialogProps & { visit: SubscriptionOccurrence; initial?: { date: string; slotId: number | null } }) {
   const t = useTranslations("admin.subscriptions.move");
   const text = useSubscriptionText();
   const describe = useSubscriptionErrorMessage();
   const fieldError = useFieldError();
   const { can } = useAdminSession();
   const canOverride = can(CAPACITY_OVERRIDE);
-  const [date, setDate] = useState(visit.scheduled_date);
-  const [slotId, setSlotId] = useState(visit.slot ? String(visit.slot.id) : "");
+  const [date, setDate] = useState(initial?.date ?? visit.scheduled_date);
+  const [slotId, setSlotId] = useState(initial?.slotId ? String(initial.slotId) : visit.slot ? String(visit.slot.id) : "");
   const [reason, setReason] = useState("");
   const [override, setOverride] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
@@ -130,7 +139,13 @@ export function MoveVisitDialog({ subscription, visit, onClose, onStale, changed
       ) : (
         <PreviewBox title={t("previewTitle")}>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <TermsRow label={t("availability")} value={t.has(`availabilityStates.${availability?.status}` as never) ? t(`availabilityStates.${availability?.status}` as never) : (availability?.status ?? "—")} />
+            <TermsRow
+              label={t("availability")}
+              value={[
+                t.has(`availabilityStates.${availability?.status}` as never) ? t(`availabilityStates.${availability?.status}` as never) : (availability?.status ?? "—"),
+                ...(availability?.reason ? [text.dateReason(availability.reason)] : []),
+              ].join(" · ")}
+            />
           </dl>
           {full && !override && <p className="font-medium text-warning-700">{canOverride ? t("fullCanOverride") : t("fullNoOverride")}</p>}
           {blockers.length > 0 && (

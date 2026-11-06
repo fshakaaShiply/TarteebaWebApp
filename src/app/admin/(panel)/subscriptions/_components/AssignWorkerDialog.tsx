@@ -7,9 +7,8 @@ import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
 import { notAssignableOf } from "@/lib/admin/subscriptions/actions";
 import { assignWorker } from "@/lib/admin/subscriptions/endpoints";
 import type { AssignResult, CandidateRole } from "@/lib/admin/subscriptions/types";
-import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
-import { DateList, UnfitList } from "./SubscriptionBits";
-import { ChangedNotice, ErrorNotice, Ltr, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
+import { DateList, RefusedWorkers, UnfitList } from "./SubscriptionBits";
+import { ChangedNotice, ErrorNotice, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 import { WorkerPicker } from "./WorkerPicker";
 
 /**
@@ -20,7 +19,6 @@ import { WorkerPicker } from "./WorkerPicker";
  */
 export function AssignWorkerDialog({ subscription, role, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps & { role: CandidateRole }) {
   const t = useTranslations("admin.subscriptions.assign");
-  const text = useSubscriptionText();
   const fieldError = useFieldError();
   const current = role === "primary" ? subscription.workers.primary : subscription.workers.backup;
   const other = role === "primary" ? subscription.workers.backup : subscription.workers.primary;
@@ -129,15 +127,7 @@ export function AssignWorkerDialog({ subscription, role, onClose, onStale, chang
             </Notice>
           )}
           <ErrorNotice error={mutation.error} hideCodes={hasFieldErrors(mutation.error, ["apply_from"]) ? ["VALIDATION_FAILED"] : []} />
-          {refused.length > 0 && (
-            <ul className="list-disc ps-5 text-sm text-danger-700">
-              {refused.map((w) => (
-                <li key={w.workerId}>
-                  <Ltr>{String(w.workerId)}</Ltr> · {[w.reason, ...w.reasons].filter(Boolean).map((r) => text.unfit(r)).join(text.locale === "ar" ? "، " : ", ")}
-                </li>
-              ))}
-            </ul>
-          )}
+          <RefusedWorkers workers={refused} />
         </>
       )}
     </Dialog>

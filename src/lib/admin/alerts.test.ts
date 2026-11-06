@@ -69,13 +69,27 @@ describe("alerts bell state (D-11 polling)", () => {
 
   it("opens only admin pages that exist, never another origin", () => {
     expect(alertHref({ link: "/admin/bookings/12", entity: null })).toBe("/admin/bookings/12");
-    expect(alertHref({ link: "/admin/payments/3", entity: { type: "payment", id: 3 } })).toBeNull();
-    expect(alertHref({ link: "/admin/invoices/3", entity: { type: "booking", id: 9 } })).toBe("/admin/bookings/9");
+    // The API names A09 pages by their API path (PaymentIntents): this app serves them under /admin/finance.
+    expect(alertHref({ link: "/admin/payments/3", entity: { type: "payment", id: 3 } })).toBe("/admin/finance/payments/3");
+    expect(alertHref({ link: "/admin/invoices/3", entity: { type: "invoice", id: 3 } })).toBe("/admin/finance/invoices/3");
+    expect(alertHref({ link: "/admin/driver-reports/3", entity: { type: "booking", id: 9 } })).toBe("/admin/bookings/9");
     // Phase 4: A08 pages are built.
     expect(alertHref({ link: "/admin/subscriptions/31", entity: null })).toBe("/admin/subscriptions/31");
     expect(alertHref({ link: "/admin/other", entity: { type: "subscription", id: 12 } })).toBe("/admin/subscriptions/12");
     expect(alertHref({ link: "https://evil.example/admin/bookings/1", entity: null })).toBeNull();
     expect(alertHref({ link: "//evil.example/admin/bookings/1", entity: null })).toBeNull();
+  });
+
+  it("opens a subscription period's payment or refund alert on A09 only for staff who read it", () => {
+    // refund.subscription_failed (accountants, urgent): the payment page, where the refund is retried.
+    const refundFailed = { link: "/admin/payments/55", entity: { type: "refund", id: 7 } };
+    const can = (held: string[]) => (wanted: readonly string[]) => wanted.some((p) => held.includes(p));
+    expect(alertHref(refundFailed, can(["payments.view"]))).toBe("/admin/finance/payments/55");
+    expect(alertHref(refundFailed, can(["bookings.view"]))).toBeNull();
+    // invoice.subscription_issued: the invoice page (invoices.manage or payments.view).
+    expect(alertHref({ link: "/admin/invoices/8", entity: { type: "invoice", id: 8 } }, can(["invoices.manage"]))).toBe("/admin/finance/invoices/8");
+    expect(alertHref({ link: "/admin/invoices/8", entity: { type: "invoice", id: 8 } }, can(["subscriptions.view"]))).toBeNull();
+    expect(alertHref({ link: "/admin/payments/55/extra", entity: null }, can(["payments.view"]))).toBeNull();
   });
 
   it("caps the badge at 99+", () => {

@@ -6,9 +6,10 @@ import { Button, ButtonLink, Dialog, ErrorState, LoadingBlock, Notice, useToast,
 import { availableActions, isSeriesVisit } from "@/lib/admin/bookings/actions";
 import { fetchBooking } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
-import { SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
+import { SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import type { DragSource } from "@/lib/admin/schedule/board";
 import { useAdminSession } from "@/lib/admin/session";
+import { seriesMoveHref } from "@/lib/admin/subscriptions/handoff";
 import { RescheduleBookingDialog } from "../bookings/[id]/BookingActions";
 import type { SeriesLink } from "./moveFlow";
 
@@ -19,7 +20,8 @@ import type { SeriesLink } from "./moveFlow";
  * without bookings.reschedule, is told why and offered the booking page (with bookings.view).
  *
  * A subscription's visit (the booking's `subscription` block, or USE_RESCHEDULE details.subscription) moves only from
- * its subscription (P4-48, design §6.2): staff are told so and, with an A08 permission, offered the subscription page.
+ * its subscription (P4-48, design §6.2): staff are told so and, with an A08 permission, offered the subscription page
+ * opened on that visit's move dialog with the drop's date and time filled in (lib/admin/subscriptions/handoff.ts).
  *
  * A drop on another cleaner's row at another time names a cleaner too: the reschedule moves only the time, so the
  * dialog says that cleaner is not added (`dropWorkerName`).
@@ -73,7 +75,11 @@ export function RescheduleHandoff({
   }
 
   const canOpenSeries = canAny([...SUBSCRIPTIONS_READ]);
-  const seriesHref = seriesLink && canOpenSeries ? `${SUBSCRIPTIONS_PATH}/${seriesLink.id}` : null;
+  // A08 opens on this visit's move dialog, filled with the drop (a week-view cell keeps the card's own slot).
+  const seriesHref =
+    seriesLink && canOpenSeries
+      ? seriesMoveHref(seriesLink.id, { booking: bookingId, on: source.card.service_date, date, slotId: slotId ?? source.card.slot_template_id })
+      : null;
   // Not known yet whether it is a subscription's visit: no explanation until the booking is read.
   const checking = !series && readable && detail.isPending;
   const reason = series

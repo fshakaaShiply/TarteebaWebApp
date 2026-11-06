@@ -10,9 +10,9 @@ import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { ConfirmPreviewSide } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
-import { DateList, UnfitList } from "./SubscriptionBits";
+import { DateList, RefusedWorkers, UnfitList } from "./SubscriptionBits";
 import { ChangedNotice, DRY_RUN, ErrorNotice, PreviewBox, TermsRow, useDialogMutation, type SubscriptionDialogProps } from "./kit";
-import { WorkerPicker, candidateName, useWorkerCandidates } from "./WorkerPicker";
+import { WorkerPicker } from "./WorkerPicker";
 
 /**
  * Confirm a request (design §9.1): capture the held payment, activate, plan the visits and name the workers. The
@@ -20,7 +20,7 @@ import { WorkerPicker, candidateName, useWorkerCandidates } from "./WorkerPicker
  * confirmation credits. A Live-out contract needs its primary worker (P4-63). 502 PAYMENT_RESULT_UNKNOWN: the bank
  * did not answer; the request stays pending and confirming again is safe (the same intent, the same Idempotency-Key).
  * Confirming captures the customer's money, so nothing is sent before the preview of the current choice is on screen.
- * A 422 WORKER_NOT_ASSIGNABLE names each refused worker (the API sends only ids) by her role and name.
+ * A 422 WORKER_NOT_ASSIGNABLE names each refused worker by the role and name the API gives (P4-242).
  */
 export function ConfirmSubscriptionDialog({ subscription, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps) {
   const t = useTranslations("admin.subscriptions.confirm");
@@ -31,9 +31,6 @@ export function ConfirmSubscriptionDialog({ subscription, onClose, onStale, chan
   const [backup, setBackup] = useState(subscription.workers.backup ? String(subscription.workers.backup.id) : "");
   const [missingPrimary, setMissingPrimary] = useState(false);
   const [previewMissing, setPreviewMissing] = useState(false);
-  // The pickers' own lists (same keys), for the names of refused workers.
-  const primaries = useWorkerCandidates(subscription.id, "primary");
-  const backups = useWorkerCandidates(subscription.id, "backup");
 
   // Only what staff chose goes out; an empty choice leaves the customer's own (a Live-out primary stays required).
   const input: ConfirmInput = {
@@ -58,14 +55,6 @@ export function ConfirmSubscriptionDialog({ subscription, onClose, onStale, chan
   const heldDates = capacityDatesOf(mutation.error);
   // The write's refusal, else the preview's (it checks the same workers).
   const refused = mutation.error ? notAssignableOf(mutation.error) : notAssignableOf(preview.error);
-  const primaryId = primary ? Number(primary) : (subscription.workers.primary?.id ?? null);
-  const backupId = backup ? Number(backup) : (subscription.workers.backup?.id ?? null);
-  const refusedLabel = (id: number) => {
-    const known = [subscription.workers.primary, subscription.workers.backup].find((w) => w?.id === id);
-    const name = candidateName(id, primaries.data, backups.data) ?? known?.name ?? t("workerNo", { id });
-    const role = id === primaryId ? t("primarySide") : id === backupId ? t("backupSide") : null;
-    return role ? t("refusedRole", { role, name }) : name;
-  };
 
   const submit = () => {
     if (liveOut && !primary) {
@@ -176,15 +165,7 @@ export function ConfirmSubscriptionDialog({ subscription, onClose, onStale, chan
           {t("termsMissing")}
         </Notice>
       )}
-      {refused.length > 0 && (
-        <ul className="list-disc ps-5 text-sm text-danger-700">
-          {refused.map((w) => (
-            <li key={w.workerId}>
-              {refusedLabel(w.workerId)} · {text.list([...new Set([w.reason, ...w.reasons].filter(Boolean))].map((r) => text.unfit(r)))}
-            </li>
-          ))}
-        </ul>
-      )}
+      <RefusedWorkers workers={refused} />
     </ConfirmDialog>
   );
 }

@@ -5,14 +5,14 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, ConfirmDialog, LoadingBlock, Notice, Select, TextField } from "@/components/admin";
 import { isIsoDate } from "@/lib/admin/format";
-import { conflictEntries } from "@/lib/admin/subscriptions/actions";
+import { conflictEntries, notAssignableOf } from "@/lib/admin/subscriptions/actions";
 import { changeLiveOutDay, previewLiveOutDay, type LiveOutDayInput } from "@/lib/admin/subscriptions/endpoints";
 import { useSubscriptionErrorMessage } from "@/lib/admin/subscriptions/errors";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
-import { UnfitList } from "./SubscriptionBits";
-import { WorkerPicker, candidateName, useWorkerCandidates } from "./WorkerPicker";
+import { RefusedWorkers, UnfitList } from "./SubscriptionBits";
+import { WorkerPicker } from "./WorkerPicker";
 
 type Change = LiveOutDayInput["change"];
 
@@ -27,22 +27,19 @@ export function changesFor(type: string): Change[] {
  * credited days and the days the substitute could not cover (they are credited as without one); following days run
  * to the end of the period or to the date given. The primary worker is booked for the whole day, so nothing else is
  * checked on the client. The new end of the term is the API's. Nothing is sent before the preview of the current
- * choice is on screen.
- *
- * The API names each day's substitute by worker id only; the name comes from the substitute candidates the picker
- * loaded, the day the dialog was opened from (`daySubstitute`, from the calendar) or the subscription's workers.
+ * choice is on screen. Each day's substitute comes named (`{id, name}`, P4-241); a substitute the API refuses (422
+ * WORKER_NOT_ASSIGNABLE) is named with her role and why.
  */
 export function LiveOutDayDialog({
   subscription,
   date,
   type,
   scope: initialScope,
-  daySubstitute = null,
   onClose,
   onStale,
   changed,
   returnFocusTo,
-}: SubscriptionDialogProps & { date: string; type: string; scope: "this" | "following"; daySubstitute?: { id: number; name: string } | null }) {
+}: SubscriptionDialogProps & { date: string; type: string; scope: "this" | "following" }) {
   const t = useTranslations("admin.subscriptions.day");
   const text = useSubscriptionText();
   const describe = useSubscriptionErrorMessage();
@@ -54,16 +51,6 @@ export function LiveOutDayDialog({
   const [substitute, setSubstitute] = useState("");
   const [problem, setProblem] = useState(false);
   const primaryId = subscription.workers.primary?.id ?? null;
-  // The picker's own list (same key: loaded once), for the names of the substitutes the preview gives by id.
-  const candidates = useWorkerCandidates(subscription.id, "backup", date, change === "absence");
-  const substituteName = (id: number) => {
-    const known = [daySubstitute, subscription.workers.backup, subscription.workers.primary].find((w) => w?.id === id);
-    return candidateName(id, candidates.data) ?? known?.name ?? null;
-  };
-  const substituteLabel = (id: number) => {
-    const name = substituteName(id);
-    return name ? t("substituteIs", { name }) : t("substituteNo", { id });
-  };
 
   const input: LiveOutDayInput = {
     change,
@@ -94,6 +81,8 @@ export function LiveOutDayDialog({
   });
 
   const terms = untilInvalid ? undefined : preview.data;
+  // The write's refusal, else the preview's (it checks the same substitute).
+  const refused = mutation.error ? notAssignableOf(mutation.error) : notAssignableOf(preview.error);
   const submit = () => {
     // The preview first (§9.1): absences and credits over a range are applied only once its days are on screen.
     if (!terms) {
@@ -188,7 +177,7 @@ export function LiveOutDayDialog({
                 <span className="text-ink-600">
                   {text.day(d.before)} → <span className="font-medium text-ink-900">{text.day(d.after)}</span>
                 </span>
-                {d.substitute !== null && <span>{substituteLabel(d.substitute)}</span>}
+                {d.substitute !== null && <span>{t("substituteIs", { name: d.substitute.name })}</span>}
                 {d.credited && <span className="text-success-700">{t("credited")}</span>}
                 {d.appended_date && <span className="text-ink-600">{t("appended", { date: text.dateShort(d.appended_date) })}</span>}
               </li>
@@ -207,7 +196,7 @@ export function LiveOutDayDialog({
             <ul className="text-sm text-warning-700">
               {conflictEntries(terms.conflicts).map((c) => (
                 <li key={c.date}>
-                  <Ltr>{text.dateShort(c.date)}</Ltr> · {text.conflict(c.reason)}
+                  <Ltr>{text.dateShort(c.date)}</Ltr> · {text.dateReason(c.reason)}
                 </li>
               ))}
             </ul>
@@ -221,6 +210,7 @@ export function LiveOutDayDialog({
         </Notice>
       )}
       <ErrorNotice error={mutation.error} hideCodes={hasFieldErrors(mutation.error, ["until"]) ? ["VALIDATION_FAILED"] : []} />
+      <RefusedWorkers workers={refused} />
     </ConfirmDialog>
   );
 }

@@ -8,19 +8,26 @@ import { event, liveOutDetail, novemberCalendar, occurrence, pendingDetail, subs
 import { SubscriptionDetailScreen } from "./SubscriptionDetailScreen";
 
 const api = vi.hoisted(() => {
-  const names = ["fetchSubscription", "fetchSubscriptionVisits", "fetchSubscriptionCalendar", "fetchSubscriptionEvents", "fetchWorkerCandidates", "previewFreeze", "previewConfirm", "previewCancel"];
+  const names = [
+    "fetchSubscription",
+    "fetchSubscriptionVisits",
+    "fetchSubscriptionCalendar",
+    "fetchSubscriptionEvents",
+    "fetchWorkerCandidates",
+    "previewFreeze",
+    "previewConfirm",
+    "previewCancel",
+    "previewVisitMove",
+    "decideRescheduleRequest",
+  ];
   return Object.fromEntries(names.map((n) => [n, vi.fn()])) as Record<string, ReturnType<typeof vi.fn>>;
 });
-const shared = vi.hoisted(() => ({ fetchAddonOptions: vi.fn() }));
 vi.mock("@/lib/admin/subscriptions/endpoints", () => api);
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
   fetchSlotTemplateOptions: async () => slotTemplateOptions,
-  fetchAddonOptions: (...a: unknown[]) => shared.fetchAddonOptions(...a),
 }));
-
-const addonOption = (id: number, code: string, en: string, ar: string) => ({ id, code, name: { ar, en }, amount_fils: 1500, vat_inclusive: true, per: "visit", is_active: true, service_codes: ["STANDARD_VISIT"] });
 
 const MANAGER = ["subscriptions.manage", "bookings.view", "payments.view"];
 const READER = ["subscriptions.view"];
@@ -41,28 +48,34 @@ describe("A08 subscription page", () => {
     api.previewFreeze.mockReturnValue(new Promise(() => undefined));
     api.previewConfirm.mockReturnValue(new Promise(() => undefined));
     api.previewCancel.mockReturnValue(new Promise(() => undefined));
-    shared.fetchAddonOptions.mockReset();
-    shared.fetchAddonOptions.mockResolvedValue([addonOption(1, "IRONING", "Ironing", "الكيّ"), addonOption(2, "FRIDGE", "Fridge cleaning", "تنظيف الثلاجة")]);
+    api.previewVisitMove.mockResolvedValue({ allowed: true, blockers: [], requires_approval: false, availability: { status: "available", reason: null }, explanation: "" });
   });
 
   it("words the contract's source, materials and add-ons in the admin's language", async () => {
-    const detail = subscriptionDetail({ source: "app", materials_by: "company", addons: ["IRONING", "FRIDGE", "OLD_CODE"] });
+    const addons = {
+      addons: ["IRONING", "FRIDGE", "OLD_CODE"],
+      addon_details: [
+        { code: "IRONING", name: { ar: "الكيّ", en: "Ironing" } },
+        { code: "FRIDGE", name: { ar: "تنظيف الثلاجة", en: "Fridge cleaning" } },
+        { code: "OLD_CODE", name: null },
+      ],
+    };
+    const detail = subscriptionDetail({ source: "app", materials_by: "company", ...addons });
     const { unmount } = open(detail, MANAGER, "ar");
     const card = (await screen.findByText("العقد")).closest("section") ?? document.body;
     expect(within(card as HTMLElement).getByText("التطبيق")).toBeInTheDocument();
     expect(within(card as HTMLElement).getByText("الشركة تُحضر مواد التنظيف")).toBeInTheDocument();
-    // Names from the add-on list, joined with the Arabic comma; a code the list does not know stays as it is.
-    await waitFor(() => expect(within(card as HTMLElement).getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "الكيّ، تنظيف الثلاجة، OLD_CODE")).toBeInTheDocument());
+    // The detail's own names (P4-244), joined with the Arabic comma; a code the catalogue no longer names stays as it is.
+    expect(within(card as HTMLElement).getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "الكيّ، تنظيف الثلاجة، OLD_CODE")).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText("app")).not.toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText("company")).not.toBeInTheDocument();
     unmount();
 
-    // Without a permission that reads the add-on list, the codes are shown and the list is not asked for.
-    shared.fetchAddonOptions.mockClear();
-    open(subscriptionDetail({ addons: ["IRONING"] }), READER);
+    // A reader with subscriptions.view only (no add-on pick list) sees the names too.
+    open(subscriptionDetail(addons), READER);
     expect(await screen.findByText("Customer's own materials")).toBeInTheDocument();
-    expect(screen.getByText("IRONING")).toBeInTheDocument();
-    expect(shared.fetchAddonOptions).not.toHaveBeenCalled();
+    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "Ironing, Fridge cleaning, OLD_CODE")).toBeInTheDocument();
+    expect(screen.queryByText("IRONING")).not.toBeInTheDocument();
   });
 
   it("shows the reference, the chips, the facts and the tabs of a recurring subscription", async () => {
@@ -86,10 +99,11 @@ describe("A08 subscription page", () => {
   });
 
   it("shows a pending request's deadline and first visit, and Confirm and Reject to the coordinator only", async () => {
-    open(pendingDetail());
+    // The first visit is the API's first_visit_at (P4-244), not one of the next visits the detail lists.
+    open(pendingDetail({ first_visit_at: "2026-12-06T11:00:00+00:00", upcoming: [] }));
     expect(await screen.findByText("Waiting for confirmation")).toBeInTheDocument();
     expect(screen.getByText(/Decide by/)).toBeInTheDocument();
-    expect(screen.getByText(/First visit: Sun, 1 Nov 2026, 10:00–14:00\./)).toBeInTheDocument();
+    expect(screen.getByText("First visit: 6 Dec 2026, 15:00.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
   });
@@ -113,9 +127,18 @@ describe("A08 subscription page", () => {
 
   it("lists the conflicts and jumps to the visits", async () => {
     const user = userEvent.setup();
-    open(subscriptionDetail({ conflicts: [occurrence({ id: 9, ulid: "01jx", scheduled_date: "2026-11-08", conflict: { code: "BLACKOUT", details: {}, at: null } })] }));
-    expect(await screen.findByText("Visits with a conflict: 1")).toBeInTheDocument();
+    open(
+      subscriptionDetail({
+        conflicts: [
+          occurrence({ id: 9, ulid: "01jx", scheduled_date: "2026-11-08", conflict: { code: "BLACKOUT", details: {}, at: null } }),
+          occurrence({ id: 10, ulid: "01jy", scheduled_date: "2026-11-11", conflict: { code: "SLOT_FULL", details: { reason: "seats" }, at: null } }),
+        ],
+      }),
+    );
+    expect(await screen.findByText("Visits with a conflict: 2")).toBeInTheDocument();
     expect(screen.getByText(/Blackout day/)).toBeInTheDocument();
+    // The conflict code and the Scheduling reason it carries (P4-245), in words.
+    expect(screen.getByText(/Slot is full · not enough seats in the vans/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open the visits" }));
     await waitFor(() => expect(api.fetchSubscriptionVisits).toHaveBeenCalled());
     expect(screen.getByRole("tab", { name: "Visits" })).toHaveAttribute("aria-selected", "true");
@@ -144,6 +167,27 @@ describe("A08 subscription page", () => {
     expect(screen.getByText("The card was declined")).toBeInTheDocument();
     expect(screen.getByText(/cancelled on Mon, 7 Dec 2026/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Renew now" }).length).toBeGreaterThan(0);
+  });
+
+  it("waits with Renew now while a renewal attempt is under way (P4-251), and says why", async () => {
+    const failing = {
+      status: "renewal_failed",
+      payment_health: "renewal_failed",
+      actions: { ...subscriptionDetail().actions, renew: true, freeze: false, skip: false },
+    };
+    const { unmount } = open(subscriptionDetail({ ...failing, renewal: { ...subscriptionDetail().renewal, state: "failed", attempt_no: 2, attempt_under_way: true } }));
+    expect(await screen.findByText("The last renewal payment failed")).toBeInTheDocument();
+    expect(screen.getByText(/A renewal payment is being processed/)).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: "Renew now" });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) expect(button).toBeDisabled();
+    unmount();
+
+    // Once the attempt has its answer, Renew now is offered again.
+    open(subscriptionDetail({ ...failing, renewal: { ...subscriptionDetail().renewal, state: "failed", attempt_no: 2, attempt_under_way: false } }));
+    await screen.findByText("The last renewal payment failed");
+    expect(screen.queryByText(/A renewal payment is being processed/)).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole("button", { name: "Renew now" })) expect(button).toBeEnabled();
   });
 
   it("shows a cancellation review with Resolve for finance and Keep for the coordinator", async () => {
@@ -207,13 +251,66 @@ describe("A08 subscription page", () => {
         status: "paused",
         freeze: { from: "2026-11-15", to: "2026-11-21", running: true },
         actions: { ...subscriptionDetail().actions, freeze: false, unfreeze: true },
-        reschedule_requests: [{ id: 5, booking_id: 90, from_date: "2026-11-01", date: "2026-11-02", slot: { id: 2, code: "EVENING", start: "15:00", end: "19:00" }, requested_at: null }],
+        reschedule_requests: [
+          { id: 5, booking_id: 90, occurrence_ulid: "01jocc0000000000000000501", occurrence_date: "2026-11-01", from_date: "2026-11-01", date: "2026-11-02", slot: { id: 2, code: "EVENING", start: "15:00", end: "19:00" }, requested_at: null },
+        ],
       }),
     );
     expect(await screen.findByText("Customer requests to move a visit: 1")).toBeInTheDocument();
     expect(screen.getByText("Frozen from Sun, 15 Nov 2026 to Sat, 21 Nov 2026")).toBeInTheDocument();
     expect(screen.getAllByText(/Frozen until Sat, 21 Nov 2026/).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Unfreeze" }).length).toBeGreaterThan(0);
+  });
+
+  it("decides a customer's request on its occurrence, also for a visit past the next 14 (P4-244)", async () => {
+    const user = userEvent.setup();
+    api.decideRescheduleRequest.mockResolvedValue(subscriptionDetail());
+    const far = { id: 6, booking_id: 140, occurrence_ulid: "01joccFAR", occurrence_date: "2027-01-10", from_date: "2027-01-10", date: "2027-01-12", slot: { id: 2, code: "EVENING", start: "15:00", end: "19:00" }, requested_at: null };
+    const lost = { ...far, id: 7, booking_id: 141, occurrence_ulid: null, occurrence_date: null };
+    open(subscriptionDetail({ reschedule_requests: [far, lost] }));
+    const banner = (await screen.findByText("Customer requests to move a visit: 2")).closest("[role]") as HTMLElement;
+    // Only a request with an occurrence can be decided; nothing sends staff to look for it in the Visits tab.
+    const decide = within(banner).getAllByRole("button", { name: "Decide" });
+    expect(decide).toHaveLength(1);
+    expect(within(banner).queryByRole("button", { name: "Open the visits" })).not.toBeInTheDocument();
+    await user.click(decide[0]);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Sun, 10 Jan 2027");
+    expect(dialog).toHaveTextContent("Tue, 12 Jan 2027 · 15:00–19:00");
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(api.decideRescheduleRequest).toHaveBeenCalled());
+    expect(api.decideRescheduleRequest.mock.calls[0].slice(0, 4)).toEqual([31, "01joccFAR", { decision: "approve" }, 7]);
+  });
+
+  it("opens the move dialog of a visit the A04 board handed over, filled with where it was dropped", async () => {
+    const dropped = occurrence({ id: 507, ulid: "01jocc0000000000000000507", scheduled_date: "2026-11-11", occurrence_date: "2026-11-11", booking: { id: 95, reference: "TRB-DROP01", status: "confirmed" } });
+    api.fetchSubscriptionVisits.mockImplementation(async (_id: number, q: { from?: string; to?: string }) =>
+      q.from === "2026-11-11" && q.to === "2026-11-11" ? { data: [occurrence({ id: 506, booking: { id: 94, reference: "TRB-OTHER1", status: "confirmed" } }), dropped], meta } : { data: [occurrence()], meta },
+    );
+    api.fetchSubscription.mockResolvedValue(subscriptionDetail());
+    renderWithProviders(<SubscriptionDetailScreen id="31" handoff={{ booking: 95, on: "2026-11-11", date: "2026-11-12", slotId: 2 }} />, { permissions: MANAGER });
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Edit the visit of Wed, 11 Nov 2026");
+    expect(within(dialog).getByLabelText("New date", { exact: false })).toHaveValue("2026-11-12");
+    await waitFor(() => expect(within(dialog).getByLabelText("New time", { exact: false })).toHaveValue("2"));
+    await waitFor(() => expect(api.previewVisitMove).toHaveBeenCalledWith(31, "01jocc0000000000000000507", { scope: "this", date: "2026-11-12", slot_template_id: 2 }));
+    // Behind the dialog, the page is on its Visits tab.
+    expect(screen.getByRole("tab", { name: "Visits", hidden: true })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("says so when the handed-over visit is not there or cannot be moved, and opens no dialog", async () => {
+    api.fetchSubscriptionVisits.mockResolvedValue({ data: [occurrence()], meta });
+    api.fetchSubscription.mockResolvedValue(subscriptionDetail());
+    const { unmount } = renderWithProviders(<SubscriptionDetailScreen id="31" handoff={{ booking: 95, on: "2026-11-11", date: "2026-11-12", slotId: 2 }} />, { permissions: MANAGER });
+    expect(await screen.findByText(/is not among this subscription's visits of Wed, 11 Nov 2026/)).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    unmount();
+
+    // A reader may not move it: the visit is there, but no dialog opens.
+    api.fetchSubscriptionVisits.mockResolvedValue({ data: [occurrence({ booking: { id: 95, reference: "TRB-DROP01", status: "confirmed" } })], meta });
+    renderWithProviders(<SubscriptionDetailScreen id="31" handoff={{ booking: 95, on: "2026-11-01", date: "2026-11-02", slotId: null }} />, { permissions: READER });
+    expect(await screen.findByText(/can't be moved now/)).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
   it("shows how a cancelled subscription ended", async () => {

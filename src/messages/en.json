@@ -457,6 +457,7 @@
         "warning": "Attention",
         "open": "Open",
         "openLabel": "Open: {title}",
+        "subscriptionLink": "Subscription <ltr>{reference}</ltr>",
         "showAll": "Show all {count}",
         "showFewer": "Show fewer",
         "uncoveredTitle": "Uncovered visits today, all zones",
@@ -3666,7 +3667,7 @@
         "close": "Close",
         "openBooking": "Open the booking",
         "seriesBody": "This is a subscription visit. Its day and time are changed from its subscription, not from the booking.",
-        "seriesMove": "Open the subscription to move this visit to another day or time.",
+        "seriesMove": "Open the subscription to move this visit: its move dialog opens with the day and time you dropped it on.",
         "seriesNoAccess": "Your role can't open subscriptions. A coordinator who manages subscriptions can move this visit from its subscription.",
         "openSubscription": "Open subscription {reference}",
         "openSubscriptionPlain": "Open the subscription"
@@ -4083,7 +4084,7 @@
         "onePayment": "Showing payment #{id} only.",
         "documentSearch": "Search",
         "invoiceSearchPlaceholder": "Invoice number, booking or subscription reference, or phone",
-        "creditNoteSearchPlaceholder": "Credit note or invoice number",
+        "creditNoteSearchPlaceholder": "Credit note or invoice number, or booking or subscription reference",
         "showAllInvoices": "Show all invoices",
         "oneInvoice": "Showing the credit notes of invoice #{id} only.",
         "onePaymentInvoices": "Showing the invoices of payment #{id} only.",
@@ -4374,13 +4375,14 @@
           "issueDate": "Issue date",
           "invoice": "Invoice",
           "customer": "Customer",
-          "booking": "Booking",
+          "booking": "Booking or subscription",
           "reason": "Reason",
           "vat": "VAT",
           "total": "Total",
           "open": "Open"
         },
         "noName": "No name",
+        "supplyPeriod": "Supply period: {from} – {to}",
         "open": "Open",
         "openLabel": "Open credit note {number}",
         "empty": "No credit notes yet.",
@@ -4401,6 +4403,9 @@
         "customer": "Customer",
         "noName": "No name",
         "booking": "Booking",
+        "subscription": "Subscription",
+        "supplyPeriod": "Supply period",
+        "supplyPeriodValue": "{from} – {to}",
         "reason": "Reason",
         "refund": "Refunded payment",
         "openPayment": "Open the payment",
@@ -4503,6 +4508,7 @@
         "group": {
           "bookings": "Bookings",
           "payments": "Payments and refunds",
+          "subscriptions": "Subscriptions",
           "reminders": "Reminders",
           "visit_progress": "Visit progress",
           "waitlist": "Waitlist",
@@ -4702,9 +4708,18 @@
         "conflict": {
           "BLACKOUT": "Blackout day",
           "SLOT_FULL": "Slot is full",
-          "SLOT_CLOSED": "Slot is closed",
-          "CAPACITY_SHORTFALL": "Not enough capacity",
-          "NO_CAPACITY": "No capacity"
+          "SLOT_CLOSED": "Slot is closed"
+        },
+        "dateReason": {
+          "lead_time": "too soon to book",
+          "blackout": "blackout day",
+          "rule_closed": "closed by a rule",
+          "horizon": "beyond the booking horizon",
+          "past": "in the past",
+          "inactive": "slot not offered for this service",
+          "workers": "not enough workers",
+          "seats": "not enough seats in the vans",
+          "max_bookings": "booking limit reached"
         },
         "source": {
           "app": "App",
@@ -4753,7 +4768,7 @@
       "banners": {
         "pendingTitle": "Waiting for confirmation",
         "deadline": "Decide by {time}.",
-        "firstVisit": "First visit: {date}, {slot}.",
+        "firstVisit": "First visit: {time}.",
         "captureUnknownTitle": "Capture result unknown",
         "captureUnknownBody": "The bank did not answer when this request was confirmed at {time}. The request is still pending; confirm again to settle it.",
         "captureUnknownAction": "Confirm again",
@@ -4770,6 +4785,7 @@
         "cancelsOn": "Unless it is paid, the subscription is cancelled on {date}.",
         "unreservedFrom": "Visits from {date} are no longer reserved (visits: {count}).",
         "renewNow": "Renew now",
+        "attemptUnderWay": "A renewal payment is being processed. Renew now is offered again once it has its answer.",
         "reviewTitle": "A cancellation waits for review",
         "reviewBody": "Asked {time} by the {party}. Reason: {reason}.",
         "party": {
@@ -4782,7 +4798,6 @@
         "requestsTitle": "Customer requests to move a visit: {count}",
         "request": "From {from} to {date}, {slot}.",
         "decide": "Decide",
-        "openVisits": "Open the visits",
         "freezeTitle": "Frozen from {from} to {to}",
         "unfreeze": "Unfreeze",
         "expiring": "Auto-renew is off: the subscription ends on {date}.",
@@ -5000,8 +5015,6 @@
         "notHeldTitle": "Capacity is no longer held for these dates",
         "retryPreview": "Try again",
         "termsMissing": "Wait for the preview before confirming. If it could not be loaded, try it again.",
-        "refusedRole": "{role}: {name}",
-        "workerNo": "worker no. {id}",
         "submit": "Confirm",
         "retry": "Confirm again",
         "unknownTitle": "Capture result unknown",
@@ -5134,7 +5147,7 @@
           "price": "That time costs more than the visit's agreed price.",
           "other": "This move cannot be made now."
         },
-        "seriesNote":"No fee and no approval. The visit keeps its place in the series and is marked as moved.",
+        "seriesNote": "No fee and no approval. The visit keeps its place in the series and is marked as moved.",
         "override": "Go over the capacity limit",
         "overrideHint": "Needs a written reason; it is audited.",
         "overrideReason": "Reason for the override",
@@ -5171,11 +5184,6 @@
           "available": "Available",
           "unavailable": "Not available",
           "planned": "Planned"
-        },
-        "newReasons": {
-          "BLACKOUT": "blackout day",
-          "SLOT_FULL": "slot is full",
-          "SLOT_CLOSED": "slot is closed"
         },
         "priceTitle": "Price of each new date",
         "dearer": "costs more",
@@ -5325,7 +5333,7 @@
         "periodDates": "{start} to {end}",
         "noPaidPeriod": "No paid period can give money back.",
         "capTotal": "At most {max} in total.",
-        "capNote": "These are the figures recorded with the review. The amount is checked again when you confirm.",
+        "capNote": "What each paid period can give back now. The amount is checked again when you confirm.",
         "refund": "Total refund",
         "refundHint": "The policy's figure is filled in. You may change it.",
         "refundInvalid": "Enter a valid amount.",
@@ -5366,6 +5374,22 @@
         "resultCounts": "Visits changed: {assigned}. Visits left as they were: {kept}.",
         "resultUnfit": "Days she cannot cover: {count}"
       },
+      "refused": {
+        "title": "Workers who cannot take the role",
+        "line": "{role}: {name}",
+        "workerNo": "worker no. {id}",
+        "roles": {
+          "primary": "Primary worker",
+          "backup": "Backup worker",
+          "substitute": "Substitute"
+        }
+      },
+      "handoff": {
+        "notFound": "The visit dropped on the schedule is not among this subscription's visits of {date}. Find it in the list below.",
+        "notMovable": "The visit of {date} dropped on the schedule can't be moved now: it has started, or your role can't change it.",
+        "loadError": "The visit of {date} dropped on the schedule could not be loaded.",
+        "retry": "Try again"
+      },
       "day": {
         "titleThis": "Edit {date}",
         "titleFollowing": "Edit {date} and the following days",
@@ -5387,7 +5411,6 @@
         "substituteHint": "Without a substitute the day is credited and added at the end of the term.",
         "previewTitle": "What changes",
         "substituteIs": "Substitute: {name}",
-        "substituteNo": "Substitute: worker no. {id}",
         "credited": "credited",
         "appended": "added on {date}",
         "newEnd": "New end of the term",

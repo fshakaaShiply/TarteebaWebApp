@@ -1,4 +1,4 @@
-import { safeAdminNext } from "./nav";
+import { DOCUMENTS_READ, INVOICES_PATH, PAYMENTS_PATH, safeAdminNext } from "./nav";
 import type { AdminAlert, AlertsPage } from "./types";
 
 /*
@@ -70,13 +70,29 @@ export function markAllReadInState(state: AlertsState, at: string): AlertsState 
   return { ...state, items: state.items.map((a) => (a.read ? a : { ...a, read: true, read_at: at })), unreadCount: 0 };
 }
 
-/** Admin pages built so far that an alert may open (payments, invoices and driver reports come in later phases). */
+/** Admin pages that an alert may open as the API names them (driver reports have no page by id yet). */
 const BUILT_PREFIXES = ["/admin/bookings/", "/admin/workers/", "/admin/capacity", "/admin/fleet/", "/admin/subscriptions/"];
 
-/** The page an alert opens in this app, or null when its page is not built yet (the alert is still listed). */
-export function alertHref(alert: Pick<AdminAlert, "link" | "entity">): string | null {
+/**
+ * Pages the API names by their API path (PaymentIntents: a payment or refund alert, booking or subscription period,
+ * links /admin/payments/{id}; an issued invoice /admin/invoices/{id}) that this app serves under A09's finance section.
+ */
+const FINANCE_PAGES: readonly { pattern: RegExp; base: string; anyOf: readonly string[] }[] = [
+  { pattern: /^\/admin\/payments\/(\d+)$/, base: PAYMENTS_PATH, anyOf: ["payments.view"] },
+  { pattern: /^\/admin\/invoices\/(\d+)$/, base: INVOICES_PATH, anyOf: DOCUMENTS_READ },
+];
+
+/**
+ * The page an alert opens in this app, or null when its page is not built yet or the user may not open it (the alert is
+ * still listed). `canAny` is the session's check: a finance page needs its read permission.
+ */
+export function alertHref(alert: Pick<AdminAlert, "link" | "entity">, canAny: (permissions: readonly string[]) => boolean = () => true): string | null {
   const path = safeAdminNext(alert.link);
   if (path && BUILT_PREFIXES.some((prefix) => path.startsWith(prefix))) return path;
+  for (const page of FINANCE_PAGES) {
+    const match = path ? page.pattern.exec(path) : null;
+    if (match && canAny(page.anyOf)) return `${page.base}/${match[1]}`;
+  }
   const entity = alert.entity;
   if (entity?.type === "booking" && typeof entity.id === "number") return `/admin/bookings/${entity.id}`;
   if (entity?.type === "subscription" && typeof entity.id === "number") return `/admin/subscriptions/${entity.id}`;

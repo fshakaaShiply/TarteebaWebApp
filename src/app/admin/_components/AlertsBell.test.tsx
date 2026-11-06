@@ -106,6 +106,28 @@ describe("alerts bell (D-11: polled every 20 s)", () => {
     expect(screen.queryByRole("button", { name: /^Mark read/ })).not.toBeInTheDocument();
   });
 
+  it("opens a subscription period's failed refund on A09's payment page for staff who read payments", async () => {
+    const refundFailed = alert("CCCCC1", {
+      event: "refund.subscription_failed",
+      urgent: true,
+      title: "Refund failed for TRS-7K2M9Q",
+      link: "/admin/payments/55",
+      entity: { type: "refund", id: 7, reference: "TRS-7K2M9Q" },
+    });
+    api.fetchAlerts.mockResolvedValue({ data: [refundFailed], meta: { unread_count: 1, server_time: "2026-10-23T10:00:05Z", poll_seconds: 20 } });
+    const { unmount } = renderWithProviders(<AlertsBell />, { permissions: ["payments.view"] });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole("button", { name: "Alerts, 1 unread" }));
+    expect(await screen.findByRole("link", { name: "Refund failed for TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/finance/payments/55");
+    unmount();
+
+    // Without payments.view the payment page would only deny: the alert is listed without a link.
+    renderWithProviders(<AlertsBell />, { permissions: ["subscriptions.view"] });
+    await user.click(await screen.findByRole("button", { name: "Alerts, 1 unread" }));
+    expect(await screen.findByText("Refund failed for TRS-7K2M9Q")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Refund failed for TRS-7K2M9Q" })).not.toBeInTheDocument();
+  });
+
   it("closes with Escape and gives focus back to the bell", async () => {
     api.fetchAlerts.mockResolvedValue({ data: [], meta: { unread_count: 0, server_time: "2026-10-23T10:00:05Z", poll_seconds: 20 } });
     renderWithProviders(<AlertsBell />, { permissions: [] });

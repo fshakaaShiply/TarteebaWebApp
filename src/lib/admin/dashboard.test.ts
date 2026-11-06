@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardAlertHref, dashboardHref, linkParams, splitMinutes, subscriptionCancelReviewsHref, trailingId, withQuery } from "./dashboard";
+import { alertSubscription, dashboardAlertHref, dashboardHref, linkParams, splitMinutes, subscriptionCancelReviewsHref, trailingId, withQuery } from "./dashboard";
 import type { DashboardLink } from "./types";
 
 // Links as GET /admin/dashboard/summary and /alerts send them (Reporting Support\Links).
@@ -50,8 +50,8 @@ describe("A02 links to admin pages", () => {
     );
   });
 
-  it("has no route yet for the A04 board, rounds, driver reports or payments, and none without a link", () => {
-    for (const list of ["schedule", "rounds", "driver_reports", "payment"]) {
+  it("has no route from here for the A04 board, rounds or driver reports, and none without a link", () => {
+    for (const list of ["schedule", "rounds", "driver_reports"]) {
       expect(dashboardHref({ list, path: "/api/v1/admin/x", params: { date: "2026-10-23" } })).toBeNull();
     }
     expect(dashboardHref(null)).toBeNull();
@@ -66,6 +66,28 @@ describe("A02 links to admin pages", () => {
       dashboardAlertHref({ link: { list: "schedule", path: "/api/v1/admin/schedule", params: {} }, entity: { type: "visit", id: 9, booking_id: 7 } }),
     ).toBe("/admin/bookings/7");
     expect(dashboardAlertHref({ link: null, entity: { type: "payment", id: 3 } })).toBeNull();
+  });
+
+  it("opens A09's payment page from a payment link (payments.view: the API sends it only then)", () => {
+    expect(dashboardHref({ list: "payment", path: "/api/v1/admin/payments/55", params: {} })).toBe("/admin/finance/payments/55");
+    expect(dashboardHref({ list: "payment", path: "/api/v1/admin/payments/x", params: {} })).toBeNull();
+  });
+
+  it("links a failed payment or refund of a subscription period to the payment, else to the subscription it names (P4-68)", () => {
+    const subscription = { id: 31, reference: "TRS-7K2M9Q", link: { list: "subscription", path: "/api/v1/admin/subscriptions/31", params: {} } };
+    const payment = { list: "payment", path: "/api/v1/admin/payments/55", params: {} };
+    // An accountant (payments.view): the payment page, where a refund is retried; the subscription beside it.
+    const failed = { link: payment, entity: { type: "payment", id: 55 }, details: { failure_code: "card_declined", subscription } };
+    expect(dashboardAlertHref(failed)).toBe("/admin/finance/payments/55");
+    expect(alertSubscription(failed)).toEqual({ id: 31, reference: "TRS-7K2M9Q", href: "/admin/subscriptions/31" });
+    // A coordinator without payments.view (the API leaves the payment link out): the subscription.
+    const refund = { link: null, entity: { type: "refund", id: 7, payment_id: 55 }, details: { subscription } };
+    expect(dashboardAlertHref(refund)).toBe("/admin/subscriptions/31");
+    // Without an A08 permission the API sends no subscription link: the reference only.
+    expect(alertSubscription({ details: { subscription: { ...subscription, link: null } } })).toEqual({ id: 31, reference: "TRS-7K2M9Q", href: null });
+    expect(dashboardAlertHref({ link: null, entity: { type: "refund", id: 7 }, details: { subscription: { ...subscription, link: null } } })).toBeNull();
+    // A booking's payment names no subscription.
+    expect(alertSubscription({ details: { subscription: null } })).toBeNull();
   });
 
   it("builds query strings in a stable order without empty values", () => {

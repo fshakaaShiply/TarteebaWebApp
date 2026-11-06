@@ -21,6 +21,7 @@ import { fetchAlerts, markAlertRead, markAllAlertsRead } from "@/lib/admin/endpo
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { formatDateTime } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
+import { useAdminSession } from "@/lib/admin/session";
 import type { AdminAlert } from "@/lib/admin/types";
 
 /**
@@ -204,7 +205,8 @@ function AlertsPanel({
 function AlertItem({ alert, onRead, reading, onNavigate }: { alert: AdminAlert; onRead: () => void; reading: boolean; onNavigate: () => void }) {
   const t = useTranslations("admin.alerts");
   const locale = useLocale();
-  const href = alertHref(alert);
+  const { canAny } = useAdminSession();
+  const href = alertHref(alert, canAny);
   return (
     <li className={clsx("flex gap-3 border-t border-line px-4 py-3 first:border-t-0", !alert.read && "bg-petrol-50/50")}>
       <span

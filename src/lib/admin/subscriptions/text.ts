@@ -84,7 +84,12 @@ export function useSubscriptionText() {
       cancelRule: (value: string | null | undefined) => (value ? own("rule", value) : ""),
       compensation: (value: string | null | undefined) => (value ? own("compensation", value) : ""),
       unfit: (value: string) => own("unfit", value),
+      /** An occurrence's conflict code (P4-245: SLOT_FULL, SLOT_CLOSED, BLACKOUT). */
       conflict: (value: string) => own("conflict", value),
+      /** Why a date cannot be held (P4-245: Scheduling's closed and full reasons, lead_time … max_bookings). */
+      dateReason: (value: string) => own("dateReason", value),
+      /** An occurrence conflict: its code, and the date's reason when the API gives one ("Slot is full · not enough workers"). */
+      conflictWithReason: (code: string, reason: string | null) => (reason ? `${own("conflict", code)} · ${own("dateReason", reason)}` : own("conflict", code)),
       /** Where the subscription was bought (app, web, phone, whatsapp, admin). */
       source: (value: string) => own("source", value),
       /** Who brings the cleaning materials (customer, company). */

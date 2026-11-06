@@ -109,8 +109,10 @@ describe("A08 confirm dialog", () => {
     expect(api.confirmSubscription).not.toHaveBeenCalled();
   });
 
-  it("names a refused worker by role and name, not by database id", async () => {
-    api.confirmSubscription.mockRejectedValue(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, reason: "not_eligible", reasons: ["not_eligible"] }] }));
+  it("names a refused worker by the role and name the API gives (P4-242), not by database id", async () => {
+    api.confirmSubscription.mockRejectedValue(
+      apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, name: "Rosa", role: "backup", reason: "not_eligible", reasons: ["not_eligible"] }] }),
+    );
     const { user } = setup();
     await pick(user, "Backup worker", "15");
     await waitFor(() => expect(api.previewConfirm).toHaveBeenLastCalledWith(31, { backup_worker_id: 15 }));
@@ -119,10 +121,18 @@ describe("A08 confirm dialog", () => {
     expect(screen.queryByText(/^15 ·/)).not.toBeInTheDocument();
   });
 
-  it("names the refused worker from the preview's own answer, and falls back to her number", async () => {
-    api.previewConfirm.mockRejectedValue(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 77, reason: "not_active", reasons: [] }] }));
+  it("names refused workers from the preview's own answer, also one no candidate list holds, and her number only without a name", async () => {
+    api.previewConfirm.mockRejectedValue(
+      apiError(422, "WORKER_NOT_ASSIGNABLE", {
+        workers: [
+          { worker_id: 31, name: "Ana P.", role: "primary", reason: "not_eligible", reasons: ["not_eligible"] },
+          { worker_id: 77, name: null, role: "backup", reason: "not_active", reasons: [] },
+        ],
+      }),
+    );
     setup();
-    expect(await screen.findByText("worker no. 77 · Not an active worker")).toBeInTheDocument();
+    expect(await screen.findByText("Primary worker: Ana P. · Not eligible for this service")).toBeInTheDocument();
+    expect(screen.getByText("Backup worker: worker no. 77 · Not an active worker")).toBeInTheDocument();
   });
 
   it("answers 502 PAYMENT_RESULT_UNKNOWN with 'capture result unknown, confirm again' and the same key on the retry", async () => {

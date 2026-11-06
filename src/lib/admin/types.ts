@@ -1789,6 +1789,9 @@ export type InvoiceTotals = {
   total_text: string;
 };
 
+/** The subscription block of a period invoice and of its credit notes (AdminInvoiceResource, AdminCreditNoteResource). */
+export type InvoiceSubscription = NonNullable<components["schemas"]["AdminInvoiceResource"]["subscription"]>;
+
 /** AdminInvoiceResource: an A09 invoice row (labels in the request language). */
 export type AdminInvoice = InvoiceTotals & {
   id: number;
@@ -1806,8 +1809,11 @@ export type AdminInvoice = InvoiceTotals & {
   customer: { id: number; name: string | null; phone: string | null };
   /** `reference` is null on a subscription period's invoice (it has no booking). */
   booking: { id: number | null; reference: string | null };
-  /** A subscription period's invoice: its subscription and supply period; null for a booking invoice (Phase 4). */
-  subscription: { ulid: string | null; reference: string; period: { start: string; end: string } } | null;
+  /**
+   * A subscription period's invoice: its subscription (`id` addresses A08, P4-248; null only when the API no longer
+   * knows it) and supply period; null for a booking invoice (Phase 4).
+   */
+  subscription: InvoiceSubscription | null;
   payment: {
     id: number;
     ulid: string;
@@ -1876,6 +1882,8 @@ export type AdminCreditNote = {
   payment_id: number;
   customer: { id: number; name: string | null };
   booking_reference: string | null;
+  /** The corrected invoice's subscription block when it is a period invoice (P4-254), null for a booking's credit note. */
+  subscription: InvoiceSubscription | null;
   reason_code: string | null;
   /** The refund reason in both languages, as its refund's A09 row reads it ("Other" without a known code); never null. */
   reason_label: Translatable;

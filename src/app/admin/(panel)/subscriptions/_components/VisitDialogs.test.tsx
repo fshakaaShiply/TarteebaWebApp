@@ -9,7 +9,7 @@ import { occurrence, subscriptionDetail } from "@/test/subscriptionFixtures";
 import { EditFollowingDialog } from "./EditFollowingDialog";
 import { MoveVisitDialog } from "./MoveVisitDialog";
 import { SkipDialog, UndoSkipDialog } from "./SkipDialogs";
-import { CancelVisitByCompanyDialog, RescheduleRequestDialog } from "./VisitDecisionDialogs";
+import { CancelVisitByCompanyDialog, RescheduleRequestDialog, decisionFromOccurrence, decisionFromRequest } from "./VisitDecisionDialogs";
 
 const api = vi.hoisted(() => {
   const names = ["previewVisitMove", "previewFollowing", "writeVisit", "previewSkip", "skipVisit", "undoSkip", "decideRescheduleRequest", "fetchSubscriptionVisits"];
@@ -45,7 +45,7 @@ async function chooseSlot(user: ReturnType<typeof userEvent.setup>, value: strin
   await waitFor(() => expect(within(select).getByRole("option", { name: /Evening/ })).toBeInTheDocument());
   await user.selectOptions(select, value);
 }
-const move = (status = "available") => ({ allowed: true, blockers: [], requires_approval: false, availability: { status, reason: null }, explanation: "" });
+const move = (status = "available", reason: string | null = null) => ({ allowed: true, blockers: [], requires_approval: false, availability: { status, reason }, explanation: "" });
 
 describe("A08 move one visit", () => {
   beforeEach(() => {
@@ -95,6 +95,26 @@ describe("A08 move one visit", () => {
     await chooseSlot(user, "2");
     expect(await screen.findByText(/moving there needs the capacity override permission/)).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /Go over the capacity limit/ })).not.toBeInTheDocument();
+  });
+
+  it("says why a time is full or closed with the Scheduling reason (P4-245), never its code", async () => {
+    api.previewVisitMove.mockResolvedValueOnce(move("full", "workers")).mockResolvedValueOnce(move("closed", "lead_time"));
+    const { user } = show((p) => <MoveVisitDialog subscription={sub} visit={visit} {...p} />);
+    await chooseSlot(user, "2");
+    expect(await screen.findByText("Full · not enough workers")).toBeInTheDocument();
+    const date = screen.getByLabelText("New date", { exact: false });
+    await user.clear(date);
+    await user.type(date, "2026-11-05");
+    expect(await screen.findByText("Closed · too soon to book")).toBeInTheDocument();
+    expect(screen.queryByText(/lead_time/)).not.toBeInTheDocument();
+  });
+
+  it("starts from the date and time a card was dropped on in A04, and checks them at once", async () => {
+    show((p) => <MoveVisitDialog subscription={sub} visit={visit} initial={{ date: "2026-11-05", slotId: 2 }} {...p} />);
+    expect(await screen.findByLabelText("New date", { exact: false })).toHaveValue("2026-11-05");
+    await waitFor(() => expect(screen.getByLabelText("New time", { exact: false })).toHaveValue("2"));
+    await waitFor(() => expect(api.previewVisitMove).toHaveBeenCalledWith(31, "01jocc2", { scope: "this", date: "2026-11-05", slot_template_id: 2 }));
+    expect(await screen.findByText("Available")).toBeInTheDocument();
   });
 
   it("maps SERIES_DATE_TAKEN and VISIT_LOCKED to clear messages and keeps the dialog open", async () => {
@@ -148,11 +168,11 @@ const diff = (over: Record<string, unknown> = {}) => ({
   replaced: [{ date: "2026-11-08" }, { date: "2026-11-11" }],
   new: [
     { date: "2026-11-09", status: "available" },
-    { date: "2026-11-12", status: "unavailable", reason: "BLACKOUT" },
+    { date: "2026-11-12", status: "unavailable", reason: "blackout" },
   ],
   price: { checks: [{ date: "2026-11-09", old_unit_fils: 12000, new_unit_fils: 12000 }, { date: "2026-11-12", old_unit_fils: 12000, new_unit_fils: 12000 }], allowed: true },
   term_end_date: "2026-11-30",
-  conflicts: { "2026-11-12": "BLACKOUT" },
+  conflicts: { "2026-11-12": "blackout" },
   ...over,
 });
 
@@ -180,6 +200,27 @@ describe("A08 edit the following visits", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(api.writeVisit.mock.calls[0][2]).toEqual({ scope: "following", days_of_week: [1, 4], expected_term_end_date: "2026-11-30", action: "edit" });
     expect(api.writeVisit.mock.calls[0][3]).toBe(7);
+  });
+
+  it("words every date reason of the closed list (P4-245) on the new dates and the conflicts, in both languages", async () => {
+    api.previewFollowing.mockResolvedValue(
+      diff({
+        new: [
+          { date: "2026-11-09", status: "unavailable", reason: "workers" },
+          { date: "2026-11-12", status: "unavailable", reason: "rule_closed" },
+        ],
+        conflicts: { "2026-11-09": "workers", "2026-11-12": "max_bookings" },
+      }),
+    );
+    renderWithProviders(<EditFollowingDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE, locale: "ar" });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("checkbox", { name: "الأربعاء" }));
+    await user.click(screen.getByRole("checkbox", { name: "الخميس" }));
+    const box = (await screen.findByRole("region", { name: "ما الذي يتغير" })) as HTMLElement;
+    expect(within(box).getByText("غير متاحة · لا يكفي عدد العاملات")).toBeInTheDocument();
+    expect(within(box).getByText("غير متاحة · مغلق بقاعدة")).toBeInTheDocument();
+    expect(box).toHaveTextContent("اكتمل حد الحجوزات");
+    expect(box).not.toHaveTextContent(/workers|rule_closed|max_bookings/);
   });
 
   it("refuses to save a pattern whose price check fails, and shows 422 SERIES_PRICE_HIGHER with the date and prices", async () => {
@@ -313,22 +354,39 @@ describe("A08 skip and undo skip", () => {
 
 describe("A08 customer requests and the company's miss", () => {
   const withRequest = occurrence({ ulid: "01jocc5", reschedule_request: { id: 5, date: "2026-12-02", slot: { id: 2, code: "EVENING", start: "15:00", end: "19:00" } } });
+  const request = decisionFromOccurrence(withRequest)!;
   beforeEach(() => {
     for (const fn of Object.values(api)) fn.mockReset();
   });
 
   it("approves a customer's request and declines another with a note", async () => {
     api.decideRescheduleRequest.mockResolvedValue(sub);
-    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} visit={withRequest} {...p} />);
+    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} request={request} {...p} />);
     expect(await screen.findByText("Wed, 2 Dec 2026 · 15:00–19:00")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(api.decideRescheduleRequest.mock.calls[0].slice(0, 4)).toEqual([31, "01jocc5", { decision: "approve" }, 7]);
   });
 
+  it("decides a request of the detail on its occurrence (P4-244), wherever the visit is in the series", async () => {
+    api.decideRescheduleRequest.mockResolvedValue(sub);
+    const row = { id: 9, booking_id: 95, occurrence_ulid: "01joccFAR", occurrence_date: "2027-01-10", from_date: "2027-01-10", date: "2027-01-12", slot: { id: 2, code: "EVENING", start: "15:00", end: "19:00" }, requested_at: null };
+    // Not among the detail's next 14 visits: the date it is served on comes from the request, without a time.
+    const far = decisionFromRequest(row, sub.upcoming)!;
+    expect(far).toEqual({ visit: "01joccFAR", current: { date: "2027-01-10", slot: null }, requested: { date: "2027-01-12", slot: row.slot } });
+    expect(decisionFromRequest({ ...row, occurrence_ulid: null }, sub.upcoming)).toBeNull();
+    // Among them: its time too.
+    expect(decisionFromRequest({ ...row, occurrence_ulid: "01jocc0000000000000000501" }, sub.upcoming)?.current.slot).toEqual(sub.upcoming[0].slot);
+    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} request={far} {...p} />);
+    expect(await screen.findByText("Sun, 10 Jan 2027")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.decideRescheduleRequest.mock.calls[0].slice(0, 3)).toEqual([31, "01joccFAR", { decision: "approve" }]);
+  });
+
   it("declines with a reason", async () => {
     api.decideRescheduleRequest.mockResolvedValue(sub);
-    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} visit={withRequest} {...p} />);
+    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} request={request} {...p} />);
     await user.click(await screen.findByRole("radio", { name: "Decline" }));
     await user.type(screen.getByLabelText("Note to the customer"), "That day is full");
     await user.click(screen.getByRole("button", { name: "Decline" }));
@@ -338,7 +396,7 @@ describe("A08 customer requests and the company's miss", () => {
 
   it("keeps the request pending when approving meets a full slot", async () => {
     api.decideRescheduleRequest.mockRejectedValue(apiError(409, "SLOT_FULL", { date: "2026-12-02", slot_template_id: 2 }));
-    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} visit={withRequest} {...p} />);
+    const { user, onClose } = show((p) => <RescheduleRequestDialog subscription={sub} request={request} {...p} />);
     await user.click(await screen.findByRole("button", { name: "Approve" }));
     expect(await screen.findByText("That time is full.")).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();

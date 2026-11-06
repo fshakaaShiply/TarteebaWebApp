@@ -239,22 +239,26 @@ describe("A08 assign a worker", () => {
     expect(screen.queryByRole("checkbox", { name: /^Clear the role/ })).not.toBeInTheDocument();
   });
 
-  it("maps WORKER_NOT_ASSIGNABLE and SAME_WORKER", async () => {
-    api.assignWorker.mockRejectedValueOnce(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, reason: "not_eligible", reasons: [] }] })).mockRejectedValueOnce(apiError(422, "SAME_WORKER"));
+  it("maps WORKER_NOT_ASSIGNABLE (the worker by the role and name the API gives, P4-242) and SAME_WORKER", async () => {
+    api.assignWorker
+      .mockRejectedValueOnce(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, name: "Rosa", role: "backup", reason: "not_eligible", reasons: ["not_eligible"] }] }))
+      .mockRejectedValueOnce(apiError(422, "SAME_WORKER"));
     const { user } = show((p) => <AssignWorkerDialog subscription={sub} role="backup" {...p} />);
     const select = await screen.findByRole("combobox", { name: /^Worker/ });
     await waitFor(() => expect(within(select).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
     await user.selectOptions(select, "15");
     await user.click(screen.getByRole("button", { name: "Assign" }));
     expect(await screen.findByText(/cannot take the role/)).toBeInTheDocument();
+    expect(screen.getByText("Backup worker: Rosa · Not eligible for this service")).toBeInTheDocument();
+    expect(screen.queryByText(/^15 ·/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Assign" }));
     expect(await screen.findByText("The primary and the backup must be different workers.")).toBeInTheDocument();
   });
 });
 
-/** As the API answers it: each day's substitute is the worker's id (ChangeLiveOutDays), never a name. */
+/** As the API answers it: each day's substitute named, {id, name} (P4-241). */
 const dayPreview = (over: Record<string, unknown> = {}) => ({
-  days: [{ date: "2026-11-11", before: "service", after: "absence", substitute: 15, credited: false }],
+  days: [{ date: "2026-11-11", before: "service", after: "absence", substitute: { id: 15, name: "Rosa" }, credited: false }],
   term_end_date: "2026-11-28",
   conflicts: {},
   unfit: [],
@@ -275,7 +279,6 @@ describe("A08 Live-out day", () => {
     await waitFor(() => expect(within(substitute).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
     await user.selectOptions(substitute, "15");
     await waitFor(() => expect(api.previewLiveOutDay).toHaveBeenLastCalledWith(32, "2026-11-11", { change: "absence", scope: "this", substitute_worker_id: 15 }));
-    // The preview names her by id (15): the dialog shows the name from the candidates it loaded.
     expect(await screen.findByText("Substitute: Rosa")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -307,23 +310,33 @@ describe("A08 Live-out day", () => {
     expect(screen.queryByLabelText("Substitute worker (optional)", { exact: false })).not.toBeInTheDocument();
   });
 
-  it("names a substitute the preview keeps on a day going back to service from the day itself, else by number", async () => {
-    // Back to service: the primary could not take the day back, so it stays absent with its substitute (id 21).
+  it("names each day's substitute as the API does, without looking her up among the candidates", async () => {
+    // Back to service: the primary could not take the days back, so they stay absent with their substitutes.
     api.previewLiveOutDay.mockResolvedValue(
       dayPreview({
         days: [
-          { date: "2026-11-11", before: "absence", after: "absence", substitute: 21, credited: false },
-          { date: "2026-11-12", before: "absence", after: "absence", substitute: 99, credited: false },
+          { date: "2026-11-11", before: "absence", after: "absence", substitute: { id: 21, name: "Lina" }, credited: false },
+          { date: "2026-11-12", before: "absence", after: "absence", substitute: { id: 99, name: "Joy M." }, credited: false },
         ],
         unfit: [{ date: "2026-11-11", worker_id: 14, reasons: ["leave"] }],
       }),
     );
-    show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="absence" scope="following" daySubstitute={{ id: 21, name: "Lina" }} {...p} />);
+    show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="absence" scope="following" {...p} />);
     expect(await screen.findByText("Substitute: Lina")).toBeInTheDocument();
-    expect(screen.getByText("Substitute: worker no. 99")).toBeInTheDocument();
-    expect(screen.queryByText(/Substitute: $/)).not.toBeInTheDocument();
-    // No absence is chosen here, so the substitute list is not asked for.
+    expect(screen.getByText("Substitute: Joy M.")).toBeInTheDocument();
+    expect(screen.queryByText(/worker no\./)).not.toBeInTheDocument();
     expect(api.fetchWorkerCandidates).not.toHaveBeenCalled();
+  });
+
+  it("names a refused substitute with her role and why (422 WORKER_NOT_ASSIGNABLE)", async () => {
+    api.changeLiveOutDay.mockRejectedValue(
+      apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, name: "Rosa", role: "substitute", reason: "leave", reasons: ["leave"] }] }),
+    );
+    const { user, onClose } = show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
+    await screen.findByText("Substitute: Rosa");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Substitute: Rosa · On leave", { selector: "li" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("saves nothing before the preview of the days is on screen", async () => {

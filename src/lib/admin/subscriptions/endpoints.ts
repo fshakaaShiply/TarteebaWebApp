@@ -2,7 +2,6 @@ import { adminApi, backgroundPoll, unwrap, type ReadOptions } from "../client";
 import type { DataEnvelope } from "../types";
 import type {
   AssignResult,
-  CalendarSummary,
   CancelParty,
   CancelPlan,
   CancelResult,
@@ -16,6 +15,7 @@ import type {
   MovePreview,
   RenewPreview,
   RenewResult,
+  ResolveResult,
   SkipPreview,
   SubscriptionCalendar,
   SubscriptionDetail,
@@ -107,7 +107,7 @@ export async function fetchSubscriptionVisits(id: number, q: VisitsQuery = {}): 
 }
 
 export async function fetchSubscriptionCalendar(id: number, month: string): Promise<SubscriptionCalendar> {
-  const body = await unwrap<DataEnvelope<SubscriptionCalendar & { summary: CalendarSummary }>>(
+  const body = await unwrap<DataEnvelope<SubscriptionCalendar>>(
     adminApi.GET("/v1/admin/subscriptions/{subscription}/calendar", { params: { ...sub(id), query: { month } as never } }),
   );
   return body.data;
@@ -329,8 +329,8 @@ export async function cancelSubscription(id: number, input: CancelInput, version
 }
 
 /** refunds.create: finishes the customer's cancellation waiting for review with a refund (capped per period). */
-export async function resolveCancelReview(id: number, input: { refund_fils: number; note: string }, version: number | null, key: string): Promise<CancelResult> {
-  return unwrap<CancelResult>(
+export async function resolveCancelReview(id: number, input: { refund_fils: number; note: string }, version: number | null, key: string): Promise<ResolveResult> {
+  return unwrap<ResolveResult>(
     adminApi.POST("/v1/admin/subscriptions/{subscription}/cancel-review/resolve", {
       params: sub(id),
       body: input,

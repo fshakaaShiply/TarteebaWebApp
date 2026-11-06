@@ -289,12 +289,17 @@ describe("A08 renew dialog", () => {
 });
 
 const review = {
+  requested_by: { type: "customer", id: 11 },
   requested_at: "2026-10-23T10:00:00+00:00",
   reason_code: "customer_request",
   reason_text: "Moving abroad",
   party: "customer",
   decision: null,
+  resolved_at: null,
   preview: cancelPlan(),
+  // What a resolve accepts now (P4-243): period 1's payment, as when the review was asked for.
+  refundable_fils: 96000,
+  refundable_periods: [{ ulid: "01jper0000000000000000201", start: "2026-11-01", end: "2026-11-28", refundable_fils: 96000 }],
 };
 const periods = [subscriptionPeriod(), subscriptionPeriod({ id: 202, ulid: "01jper2", sequence: 2, start: "2026-11-29", end: "2026-12-26", refundable_fils: 40000, refunded_fils: 56000 })];
 const reviewing = subscriptionDetail({ cancel_review: review as never, periods, actions: { ...sub.actions, resolve_review: true } });
@@ -315,32 +320,33 @@ describe("A08 resolve review dialog", () => {
     expect(screen.getByLabelText("Total refund", { exact: false })).toHaveValue("828.00");
   });
 
-  it("never counts a closed period: the cap is what the API's review lines can give back", async () => {
-    // Period 1 was served in full and closed; period 2 is paid. Each payment could still give back 960.00, but the
-    // API resolves only from paid periods (PlanCancellation), so its cap is 960.00, not 1,920.00.
-    const line2 = { ...cancelPlan().periods[0], ulid: "01jper2", start: "2026-11-29", end: "2026-12-26", refundable_fils: 96000, refund_fils: 82800 };
-    const renewed = subscriptionDetail({
-      periods: [subscriptionPeriod({ status: "closed", refundable_fils: 96000 }), subscriptionPeriod({ id: 202, ulid: "01jper2", sequence: 2, start: "2026-11-29", end: "2026-12-26", refundable_fils: 96000 })],
-      cancel_review: { ...review, preview: cancelPlan({ periods: [line2] }) } as never,
+  it("caps and lists what the API says a resolve takes now (P4-243), not the figures recorded with the review", async () => {
+    // The review was asked for with period 1's 960.00; an A09 refund of 560.00 was made meanwhile, so the API's cap is
+    // now 400.00 while the recorded preview still says 960.00.
+    const meanwhile = subscriptionDetail({
+      periods: [subscriptionPeriod({ refunded_fils: 56000, refundable_fils: 40000 })],
+      cancel_review: { ...review, refundable_fils: 40000, refundable_periods: [{ ...review.refundable_periods[0], refundable_fils: 40000 }] } as never,
       actions: { ...sub.actions, resolve_review: true },
     });
-    api.resolveCancelReview.mockResolvedValue({ data: sub, refunds: [], review_requested: false });
-    const { user, onClose } = show((p) => <ResolveReviewDialog subscription={renewed} {...p} />, ["subscriptions.view", "refunds.create"]);
-    expect(await screen.findByText("At most AED 960.00 in total.")).toBeInTheDocument();
-    expect(screen.getByText("Period 2: Sun, 29 Nov 2026 to Sat, 26 Dec 2026")).toBeInTheDocument();
-    expect(screen.queryByText(/^Period 1:/)).not.toBeInTheDocument();
+    api.resolveCancelReview.mockResolvedValue({ data: sub, refunds: [] });
+    const { user, onClose } = show((p) => <ResolveReviewDialog subscription={meanwhile} {...p} />, ["subscriptions.view", "refunds.create"]);
+    expect(await screen.findByText("At most AED 400.00 in total.")).toBeInTheDocument();
+    const line = screen.getByText("Period 1: Sun, 1 Nov 2026 to Sat, 28 Nov 2026").closest("li") as HTMLElement;
+    expect(line).toHaveTextContent("AED 400.00");
+    // The policy's 828.00 is more than can go back now: the amount starts at the cap.
     const refund = screen.getByLabelText("Total refund", { exact: false });
+    expect(refund).toHaveValue("400.00");
     await user.clear(refund);
-    await user.type(refund, "1500");
+    await user.type(refund, "500");
     await user.type(screen.getByLabelText("Note (kept with the refund)", { exact: false }), "Agreed with the customer");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
-    expect(await screen.findByText("The periods can give back at most AED 960.00.")).toBeInTheDocument();
+    expect(await screen.findByText("The periods can give back at most AED 400.00.")).toBeInTheDocument();
     expect(api.resolveCancelReview).not.toHaveBeenCalled();
     await user.clear(refund);
-    await user.type(refund, "960");
+    await user.type(refund, "400");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(api.resolveCancelReview.mock.calls[0][1]).toEqual({ refund_fils: 96000, note: "Agreed with the customer" });
+    expect(api.resolveCancelReview.mock.calls[0][1]).toEqual({ refund_fils: 40000, note: "Agreed with the customer" });
   });
 
   it("caps the refund by the review's lines and needs a note", async () => {

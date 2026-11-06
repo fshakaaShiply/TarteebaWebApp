@@ -13,7 +13,7 @@ import { adminKeys } from "@/lib/admin/keys";
 import { DOCUMENTS_READ } from "@/lib/admin/nav";
 import type { AdminCreditNote } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
-import { Code, DateRangeFields, Money } from "../_components/FinanceParts";
+import { Code, DateRangeFields, Money, SubscriptionRef } from "../_components/FinanceParts";
 import { useFinanceText } from "../_components/financeText";
 import { useUrlFilters } from "../_components/useUrlFilters";
 
@@ -21,7 +21,8 @@ const PER_PAGE = 25;
 
 /**
  * A09 credit notes (spec §9.3 "refund → credit note referencing the original invoice", §14.3; invoices.manage or
- * payments.view): number, date, the invoice it credits, customer, reason and amounts.
+ * payments.view): number, date, the invoice it credits, customer, the booking or subscription, reason and amounts. The
+ * search takes a credit note or invoice number and a booking or subscription reference (TRS-/TRL-, P4-254).
  */
 export function CreditNotesScreen() {
   const t = useTranslations("admin.finance.creditNotes");
@@ -82,7 +83,22 @@ function CreditNotesTable() {
       ),
     },
     { id: "customer", header: t("columns.customer"), cell: (n) => n.customer.name || t("noName") },
-    { id: "booking", header: t("columns.booking"), cell: (n) => (n.booking_reference ? <Code>{n.booking_reference}</Code> : "—") },
+    {
+      id: "booking",
+      header: t("columns.booking"),
+      // A booking's credit note names the booking; a subscription period's names its subscription (P4-254), linked to A08.
+      cell: (n) =>
+        n.booking_reference ? (
+          <Code>{n.booking_reference}</Code>
+        ) : n.subscription ? (
+          <span className="flex flex-col">
+            <SubscriptionRef subscription={n.subscription} />
+            <span className="text-xs text-ink-600">{t("supplyPeriod", { from: text.date(n.subscription.period.start), to: text.date(n.subscription.period.end) })}</span>
+          </span>
+        ) : (
+          "—"
+        ),
+    },
     { id: "reason", header: t("columns.reason"), cell: (n) => text.reason(n.reason_label) },
     { id: "vat", header: t("columns.vat"), cell: (n) => <Money fils={n.vat_fils} /> },
     { id: "total", header: t("columns.total"), cell: (n) => <Money fils={n.total_fils} className="font-bold text-ink-900" /> },

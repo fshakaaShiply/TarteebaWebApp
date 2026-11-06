@@ -8,8 +8,9 @@ import { useState, type ReactNode } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, TabPanel, Tabs, type TabItem } from "@/components/admin";
 import { SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import { ACTION_ORDER, availableActions, type SubscriptionAction } from "@/lib/admin/subscriptions/actions";
+import { ACTION_ORDER, availableActions, renewalBusy, type SubscriptionAction } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscription } from "@/lib/admin/subscriptions/endpoints";
+import type { SeriesMoveHandoff } from "@/lib/admin/subscriptions/handoff";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { SubscriptionDetail } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
@@ -17,6 +18,7 @@ import { RequirePermission } from "../../../_components/RequirePermission";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { Banners, HistoryTab, OverviewTab, PeriodsTab, type TabId } from "../_components/DetailParts";
 import { useSubscriptionDialogs, type DialogRequest } from "../_components/DialogHost";
+import { useMoveHandoff } from "../_components/MoveHandoff";
 import { HealthChip, StatusChip } from "../_components/SubscriptionBits";
 import { LiveOutCalendar } from "../_components/LiveOutCalendar";
 import { Ltr } from "../_components/kit";
@@ -29,17 +31,18 @@ const TAB_ID = "subscription-tabs";
  * reference, status and payment chips and the actions the subscription and the user's permissions allow; the banners that
  * need a decision (pending confirmation with its deadline and first visit, a capture whose result is unknown, conflicts,
  * a failing renewal, a cancellation review, customers' moves waiting); and the tabs Overview, Visits, Calendar
- * (Live-out only), Periods & payments and History.
+ * (Live-out only), Periods & payments and History. `handoff`: a visit the A04 board sent here to be moved (its Visits
+ * tab and move dialog open, filled with where it was dropped).
  */
-export function SubscriptionDetailScreen({ id }: { id: string }) {
+export function SubscriptionDetailScreen({ id, handoff = null }: { id: string; handoff?: SeriesMoveHandoff | null }) {
   return (
     <RequirePermission anyOf={[...SUBSCRIPTIONS_READ]}>
-      <SubscriptionDetailContent id={id} />
+      <SubscriptionDetailContent id={id} handoff={handoff} />
     </RequirePermission>
   );
 }
 
-function SubscriptionDetailContent({ id }: { id: string }) {
+function SubscriptionDetailContent({ id, handoff }: { id: string; handoff: SeriesMoveHandoff | null }) {
   const t = useTranslations("admin.subscriptions.detail");
   const numericId = /^\d{1,10}$/.test(id) ? Number(id) : null;
   const query = useQuery({
@@ -74,7 +77,7 @@ function SubscriptionDetailContent({ id }: { id: string }) {
           <ErrorState error={query.error} onRetry={() => void query.refetch()} />
         </Card>
       ) : (
-        <SubscriptionView subscription={query.data} onStale={() => setStale(true)} />
+        <SubscriptionView subscription={query.data} handoff={handoff} onStale={() => setStale(true)} />
       )}
       <StaleDialog
         open={stale}
@@ -122,13 +125,16 @@ const REQUESTS: Record<SubscriptionAction, DialogRequest> = {
   assignBackup: { kind: "assign", role: "backup" },
 };
 
-function SubscriptionView({ subscription, onStale }: { subscription: SubscriptionDetail; onStale: () => void }) {
+function SubscriptionView({ subscription, handoff, onStale }: { subscription: SubscriptionDetail; handoff: SeriesMoveHandoff | null; onStale: () => void }) {
   const t = useTranslations("admin.subscriptions.detail");
   const text = useSubscriptionText();
   const { can } = useAdminSession();
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setTab] = useState<TabId>(handoff ? "visits" : "overview");
   const { open, element } = useSubscriptionDialogs(subscription, onStale);
+  const handoffNotice = useMoveHandoff(subscription, handoff, open);
   const actions = availableActions(subscription, can);
+  // Renew now waits while a renewal attempt is under way (it would answer 409 RENEWAL_IN_PROGRESS); the banner says why.
+  const renewBusy = renewalBusy(subscription);
   const liveOut = subscription.type === "live_out";
   const canManage = can("subscriptions.manage");
   const shown = ACTION_ORDER.filter((a) => actions.has(a));
@@ -170,6 +176,7 @@ function SubscriptionView({ subscription, onStale }: { subscription: Subscriptio
                   key={a}
                   variant={a === "confirm" || a === "renew" || a === "resolveReview" ? "primary" : a === "cancel" || a === "cancelAsCompany" || a === "reject" ? "outline" : "secondary"}
                   className={a === "cancel" || a === "cancelAsCompany" ? "text-danger-700" : undefined}
+                  disabled={a === "renew" && renewBusy}
                   onClick={() => open(REQUESTS[a])}
                   icon={ACTION_ICONS[a]}
                 >
@@ -180,6 +187,7 @@ function SubscriptionView({ subscription, onStale }: { subscription: Subscriptio
           )}
         </div>
         <Banners subscription={subscription} open={open} goTo={setTab} />
+        {handoffNotice}
       </section>
 
       <Tabs id={TAB_ID} label={t("tabsLabel")} items={items} value={tab} onValueChange={(v) => setTab(v as TabId)} />

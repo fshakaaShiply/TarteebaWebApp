@@ -6,30 +6,16 @@ import type { ReactNode } from "react";
 import { Select } from "@/components/admin";
 import { fetchWorkerCandidates } from "@/lib/admin/subscriptions/endpoints";
 import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
-import type { CandidateRole, WorkerCandidate } from "@/lib/admin/subscriptions/types";
+import type { CandidateRole } from "@/lib/admin/subscriptions/types";
 
-/**
- * GET …/worker-candidates?role=&from= with the picker's own key, so a dialog that needs a worker's name (an answer that
- * gives only her id) reads the list the picker already loaded instead of asking again.
- */
-export function useWorkerCandidates(subscriptionId: number, role: CandidateRole, from?: string, enabled = true) {
+/** GET …/worker-candidates?role=&from=, one list per role and start date. */
+function useWorkerCandidates(subscriptionId: number, role: CandidateRole, from?: string) {
   return useQuery({
     queryKey: subscriptionKeys.candidates(subscriptionId, role, from ?? ""),
     queryFn: () => fetchWorkerCandidates(subscriptionId, role, from),
     staleTime: 30_000,
     retry: false,
-    enabled,
   });
-}
-
-/** The name of a worker id among loaded candidate lists, or null. */
-export function candidateName(id: number | null | undefined, ...lists: (readonly WorkerCandidate[] | undefined)[]): string | null {
-  if (id === null || id === undefined) return null;
-  for (const list of lists) {
-    const found = list?.find((c) => c.worker.id === id);
-    if (found) return found.worker.name;
-  }
-  return null;
 }
 
 /**

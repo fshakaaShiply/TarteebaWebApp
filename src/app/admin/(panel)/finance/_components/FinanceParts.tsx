@@ -82,18 +82,20 @@ export function PayableRef({ payable, className }: { payable: AdminPayment["paya
 }
 
 /**
- * The subscription of a period invoice by its reference ("TRS-7K2M9Q"), linked to A08 for subscriptions.view or
- * subscriptions.manage. The invoice carries the subscription's ULID, not the id A08 is addressed by, so the link opens
- * the subscriptions list searched by this reference.
+ * The subscription of a period invoice or of its credit note by its reference ("TRS-7K2M9Q"), linked to the
+ * subscription in A08 by the numeric id the API sends with it (P4-248, P4-254) for subscriptions.view or
+ * subscriptions.manage. Should the API not know the id (a subscription no longer there), the link opens the A08 list
+ * searched by the reference.
  */
-export function SubscriptionRef({ reference, wrap }: { reference: string; wrap?: boolean }) {
+export function SubscriptionRef({ subscription, wrap }: { subscription: { id: number | null; reference: string }; wrap?: boolean }) {
   const { canAny } = useAdminSession();
+  const href = subscription.id !== null ? `${SUBSCRIPTIONS_PATH}/${subscription.id}` : `${SUBSCRIPTIONS_PATH}?q=${encodeURIComponent(subscription.reference)}`;
   return canAny([...SUBSCRIPTIONS_READ]) ? (
-    <Link href={`${SUBSCRIPTIONS_PATH}?q=${encodeURIComponent(reference)}`} className="font-medium">
-      <Code wrap={wrap}>{reference}</Code>
+    <Link href={href} className="font-medium">
+      <Code wrap={wrap}>{subscription.reference}</Code>
     </Link>
   ) : (
-    <Code wrap={wrap}>{reference}</Code>
+    <Code wrap={wrap}>{subscription.reference}</Code>
   );
 }
 

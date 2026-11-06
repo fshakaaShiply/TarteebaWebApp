@@ -11,8 +11,14 @@ import type { NotificationAudience, NotificationChannel, NotificationTemplate } 
 
 export const CHANNELS = ["push", "in_app", "sms", "email", "whatsapp_future"] as const satisfies readonly NotificationChannel[];
 export const AUDIENCES = ["customer", "staff"] as const satisfies readonly NotificationAudience[];
-/** Preference groups (screen 28) in the app's order; staff-only events share their booking or payment group. */
-export const TEMPLATE_GROUPS = ["bookings", "payments", "reminders", "visit_progress", "waitlist"] as const;
+/**
+ * Preference groups (screen 28): the transactional ones first (bookings, payments, then Phase 4's subscriptions, P4-30:
+ * every subscription.* event), then the optional ones. Staff-only events share their booking or payment group; the
+ * period payment, refund and invoice copies (payment.subscription_*, refund.subscription_*, invoice.subscription_issued,
+ * P4-231, P4-250) sit with payments, like the booking ones. The API may send "subscriptions" although its OpenAPI enum
+ * of NotificationTemplateResource.group does not list it yet.
+ */
+export const TEMPLATE_GROUPS = ["bookings", "payments", "subscriptions", "reminders", "visit_progress", "waitlist"] as const;
 export const LOCALES = ["ar", "en"] as const;
 
 /** config notification.limits. */

@@ -176,6 +176,7 @@ const creditNote: AdminCreditNoteDetail = {
   payment_id: 9,
   customer: { id: 2, name: "Omar Khalid" },
   booking_reference: "TRB-EBABPY",
+  subscription: null,
   // A reason configured on the API (refund reasons are a config list): the page shows the API's label, both languages.
   reason_code: "loyalty_credit",
   reason_label: { ar: "رصيد ولاء", en: "Loyalty credit" },
@@ -300,7 +301,7 @@ describe("A09 payments list", () => {
     expect(within(plain).queryByRole("link", { name: /Subscription period/ })).not.toBeInTheDocument();
   });
 
-  it("shows the subscription reference and supply period on a period invoice row", async () => {
+  it("shows the subscription reference and supply period on a period invoice row, linked to the subscription itself", async () => {
     api.fetchInvoices.mockResolvedValue(
       page([
         {
@@ -308,14 +309,15 @@ describe("A09 payments list", () => {
           supply_date: "2026-11-01",
           supply_date_to: "2026-11-28",
           booking: { id: null, reference: null },
-          subscription: { ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
+          subscription: { id: 31, ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
         },
       ]),
     );
     renderWithProviders(<InvoicesScreen />, { permissions: ["payments.view", "subscriptions.manage"] });
     const row = (await screen.findByRole("link", { name: "INV-2026-000005" })).closest("tr")!;
     expect(row).toHaveTextContent("Supply period: Sun, 1 Nov 2026 – Sat, 28 Nov 2026");
-    expect(within(row).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions?q=TRS-7K2M9Q");
+    // P4-248: the invoice names A08's numeric id, so the link opens the subscription, not a search of the list.
+    expect(within(row).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
   });
 
   it("shows the booking's id without a reference, unlinked without bookings.view, and a dash before the invoice", async () => {
@@ -467,6 +469,36 @@ describe("A09 invoices and credit notes", () => {
     renderWithProviders(<CreditNotesScreen />, { permissions: ["payments.view"], locale: "ar" });
     const row = (await screen.findByRole("link", { name: "CN-2026-000003" })).closest("tr")!;
     expect(row).toHaveTextContent("رصيد ولاء");
+  });
+
+  it("names a subscription period's credit note by its subscription (linked to A08) and supply period, and searches by TRS-", async () => {
+    const periodNote: AdminCreditNoteDetail = {
+      ...creditNote,
+      booking_reference: null,
+      subscription: { id: 31, ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-29", end: "2026-12-26" } },
+    };
+    api.fetchCreditNotes.mockResolvedValue(page([periodNote]));
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<CreditNotesScreen />, { permissions: ["payments.view", "subscriptions.view"] });
+    expect(screen.getByRole("columnheader", { name: "Booking or subscription" })).toBeInTheDocument();
+    const row = (await screen.findByRole("link", { name: "CN-2026-000003" })).closest("tr")!;
+    expect(within(row).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
+    expect(row).toHaveTextContent("Supply period: Sun, 29 Nov 2026 – Sat, 26 Dec 2026");
+    // The search takes a subscription reference (the API matches TRS-/TRL- since P4-254).
+    const search = screen.getByRole("searchbox", { name: "Search" });
+    expect(search).toHaveAttribute("placeholder", "Credit note or invoice number, or booking or subscription reference");
+    await user.type(search, "TRS-7K2M9Q");
+    await waitFor(() => expect(api.fetchCreditNotes).toHaveBeenLastCalledWith(expect.objectContaining({ search: "TRS-7K2M9Q" })));
+    unmount();
+
+    // The page: the subscription and its supply period instead of a booking; plain text without an A08 permission.
+    api.fetchCreditNote.mockResolvedValue(periodNote);
+    renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["payments.view"] });
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("CN-2026-000003");
+    expect(screen.getByText("Subscription").nextSibling).toHaveTextContent("TRS-7K2M9Q");
+    expect(screen.queryByRole("link", { name: "TRS-7K2M9Q" })).not.toBeInTheDocument();
+    expect(screen.getByText("Supply period").nextSibling).toHaveTextContent("Sun, 29 Nov 2026 – Sat, 26 Dec 2026");
+    expect(screen.queryByText("Booking")).not.toBeInTheDocument();
   });
 
   it("shows a credit note's lines, totals, supplier block and PDF download", async () => {

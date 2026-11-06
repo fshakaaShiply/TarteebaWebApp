@@ -1,10 +1,11 @@
-import { SUBSCRIPTIONS_PATH } from "./nav";
+import { PAYMENTS_PATH, SUBSCRIPTIONS_PATH } from "./nav";
 import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
 
 /*
  * A02 links (spec §17: every KPI opens a filtered list, every alert links to its entity). The API names the target
- * page and its filters ({list, path, params}); this turns that into an admin web route. Pages of later phases (the
- * A04 board, rounds, driver reports, payments) have no route yet: those links are null unless a fallback is given.
+ * page and its filters ({list, path, params}); this turns that into an admin web route. A link the API gives only to
+ * staff who may open it (a payment needs payments.view, Reporting Support\Links) is null otherwise. The A04 board,
+ * rounds and driver reports have no route from here yet: those links are null unless a fallback is given.
  */
 
 export const BOOKINGS_PATH = "/admin/bookings";
@@ -87,18 +88,40 @@ export function dashboardHref(link: DashboardLink | null | undefined): string | 
     }
     case "capacity":
       return withQuery(CAPACITY_PATH, { date: params.date, zone_id: params.zone_id });
+    case "payment": {
+      // A09's payment page (/api/v1/admin/payments/{id} → /admin/finance/payments/{id}), where a refund is retried.
+      const id = trailingId(link.path);
+      return id === null ? null : `${PAYMENTS_PATH}/${id}`;
+    }
     default:
       return null;
   }
 }
 
 /**
- * Where an alert of the overview leads: its own link when that page exists, else the booking it is about (a visit
- * alert names its booking), else nothing.
+ * The subscription a payment_failed or refund_failed alert of a subscription period names (design §8.2 P4-68:
+ * `details.subscription {id, reference, link}`), with its A08 page when the viewer may open it (the API's link is null
+ * otherwise); null for a booking's payment.
  */
-export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity">): string | null {
+export function alertSubscription(alert: Partial<Pick<DashboardAlert, "details">>): { id: number; reference: string; href: string | null } | null {
+  const block = alert.details?.subscription;
+  if (!block || typeof block !== "object") return null;
+  const { id, reference, link } = block as { id?: unknown; reference?: unknown; link?: unknown };
+  if (typeof id !== "number" || typeof reference !== "string") return null;
+  const href = link && typeof link === "object" ? dashboardHref(link as DashboardLink) : null;
+  return { id, reference, href };
+}
+
+/**
+ * Where an alert of the overview leads: its own link when that page exists (a failed payment or refund opens the
+ * payment), else the subscription a period payment's alert names, else the booking it is about (a visit alert names
+ * its booking), else nothing.
+ */
+export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity"> & Partial<Pick<DashboardAlert, "details">>): string | null {
   const direct = dashboardHref(alert.link);
   if (direct) return direct;
+  const series = alertSubscription(alert)?.href;
+  if (series) return series;
   const entity = alert.entity;
   if (!entity) return null;
   if (entity.type === "booking" && typeof entity.id === "number") return `${BOOKINGS_PATH}/${entity.id}`;

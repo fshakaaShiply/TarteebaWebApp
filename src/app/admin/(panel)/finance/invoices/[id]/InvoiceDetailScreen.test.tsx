@@ -120,21 +120,33 @@ describe("InvoiceDetailScreen", () => {
     expect(screen.queryByRole("button", { name: /Resend by email/ })).not.toBeInTheDocument();
   });
 
-  it("shows the subscription and the supply period of a period invoice instead of a booking", async () => {
+  it("shows the subscription (linked to A08 by its id) and the supply period of a period invoice instead of a booking", async () => {
     api.fetchInvoice.mockResolvedValue(
       invoice({
         supply_date: "2026-11-01",
         supply_date_to: "2026-11-28",
         booking: { id: null, reference: null },
-        subscription: { ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
+        subscription: { id: 31, ulid: "01JBSUB", reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
       }),
     );
     renderWithProviders(<InvoiceDetailScreen id="4" />, { permissions: ["payments.view", "subscriptions.view"] });
     const details = (await screen.findByRole("heading", { name: "Invoice details" })).closest("section")!;
     expect(details).toHaveTextContent("Supply periodSun, 1 Nov 2026 – Sat, 28 Nov 2026");
     expect(within(details).queryByText("Date of supply")).not.toBeInTheDocument();
-    expect(within(details).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions?q=TRS-7K2M9Q");
+    expect(within(details).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions/31");
     expect(within(details).queryByText("Booking")).not.toBeInTheDocument();
+  });
+
+  it("opens the A08 list searched by the reference only when the API has no id for the subscription", async () => {
+    api.fetchInvoice.mockResolvedValue(
+      invoice({
+        booking: { id: null, reference: null },
+        subscription: { id: null, ulid: null, reference: "TRS-7K2M9Q", period: { start: "2026-11-01", end: "2026-11-28" } },
+      }),
+    );
+    renderWithProviders(<InvoiceDetailScreen id="4" />, { permissions: ["payments.view", "subscriptions.view"] });
+    const details = (await screen.findByRole("heading", { name: "Invoice details" })).closest("section")!;
+    expect(within(details).getByRole("link", { name: "TRS-7K2M9Q" })).toHaveAttribute("href", "/admin/subscriptions?q=TRS-7K2M9Q");
   });
 
   it("keeps the date of supply and the booking on a booking invoice", async () => {

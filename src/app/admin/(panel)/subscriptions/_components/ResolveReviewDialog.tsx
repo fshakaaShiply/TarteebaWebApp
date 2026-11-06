@@ -5,38 +5,30 @@ import { useState } from "react";
 import { ConfirmDialog, MoneyField, Notice, TextArea } from "@/components/admin";
 import { maxRefundOf, pendingReview } from "@/lib/admin/subscriptions/actions";
 import { resolveCancelReview } from "@/lib/admin/subscriptions/endpoints";
-import type { CancelPlan } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { filsToAedInput, parseAedToFils } from "@/lib/money";
 import { PeriodsTable } from "./PlanTable";
 import { ChangedNotice, ErrorNotice, PreviewBox, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 
-/** The review's stored preview (the API's CancelPlan when the review was asked for), or null. */
-function storedReviewPlan(review: { preview?: unknown } | null): CancelPlan | null {
-  const preview = review?.preview;
-  return preview && typeof preview === "object" && Array.isArray((preview as CancelPlan).periods) && typeof (preview as CancelPlan).totals === "object" ? (preview as CancelPlan) : null;
-}
-
 /**
  * Finish a cancellation that waits for review (refunds.create plus a read permission, P4-57): the total refund and a
- * note that becomes the refund's note and the audit reason. What each period can give back is the API's own list of
- * refund lines, stored with the review (`cancel_review.preview.periods`: the paid and partly refunded periods only, never
- * a closed or void one, P4-57 / PlanCancellation), so the cap shown is the API's figure, not a sum of the detail's
- * periods. The API checks the amount again when it resolves (oldest period first; more → 422 REFUND_AMOUNT_INVALID
- * {max_fils}), and from then on its max_fils is the cap. The stored preview's refund (what the policy would have
- * given) fills the amount. A fresh cancel preview cannot replace it: the API refuses a customer's preview while the
- * review is open (409 CANCEL_REVIEW_PENDING).
+ * note that becomes the refund's note and the audit reason. The review shows the figures recorded when it was asked
+ * for (`cancel_review.preview`); what each paid period can give back and the cap are the API's figures as they are now
+ * (`refundable_periods`, `refundable_fils`, P4-243: they follow A09 refunds made meanwhile), never a sum of the
+ * detail's periods. The API checks the amount again when it resolves (oldest period first; more → 422
+ * REFUND_AMOUNT_INVALID {max_fils}), and from then on its max_fils is the cap. The recorded preview's refund (what the
+ * policy would have given), within the cap, fills the amount.
  */
 export function ResolveReviewDialog({ subscription, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps) {
   const t = useTranslations("admin.subscriptions.resolve");
   const text = useSubscriptionText();
   const fieldError = useFieldError();
   const review = pendingReview(subscription);
-  const stored = storedReviewPlan(review);
-  const lines = stored?.periods ?? [];
-  const storedCap = stored ? lines.reduce((sum, p) => sum + p.refundable_fils, 0) : null;
+  const stored = review?.preview ?? null;
+  const lines = review?.refundable_periods ?? [];
+  const reviewCap = review?.refundable_fils ?? null;
   const sequenceOf = (ulid: string) => subscription.periods.find((p) => p.ulid === ulid)?.sequence ?? null;
-  const [refund, setRefund] = useState(stored ? filsToAedInput(Math.min(stored.totals.refund_fils, storedCap ?? stored.totals.refund_fils)) : "");
+  const [refund, setRefund] = useState(stored ? filsToAedInput(reviewCap === null ? stored.totals.refund_fils : Math.min(stored.totals.refund_fils, reviewCap)) : "");
   const [note, setNote] = useState("");
   const [problems, setProblems] = useState<{ refund?: string; note?: string }>({});
   // 422 REFUND_AMOUNT_INVALID {max_fils}: the API's latest cap wins over the figures stored with the review.
@@ -58,7 +50,7 @@ export function ResolveReviewDialog({ subscription, onClose, onStale, changed, r
     },
   });
   const maxFromError = maxRefundOf(mutation.error);
-  const cap = apiCap ?? storedCap;
+  const cap = apiCap ?? reviewCap;
 
   const submit = () => {
     const next: typeof problems = {};
@@ -96,7 +88,7 @@ export function ResolveReviewDialog({ subscription, onClose, onStale, changed, r
           {stored && <PeriodsTable plan={stored} />}
         </PreviewBox>
       )}
-      {stored && (
+      {review && review.refundable_periods !== null && (
         <PreviewBox title={t("capTitle")}>
           {lines.length === 0 ? (
             <p className="text-ink-600">{t("noPaidPeriod")}</p>

@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import { IdempotencyKeys, newIdempotencyKey } from "@/lib/admin/idempotency";
+import { adminKeys } from "@/lib/admin/keys";
+import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { AdminPaymentDetail, AdminRefund, RefundReason } from "@/lib/admin/types";
 import { renderWithProviders } from "@/test/render";
 import { PaymentDetailScreen } from "./PaymentDetailScreen";
@@ -181,6 +183,22 @@ describe("RefundDialog", () => {
     // The toast states the provider's status, not "refunded", and a refund still processing is not a success yet.
     const toast = await screen.findByText("Refund of AED 180.00 sent. Provider status: Processing.");
     expect(toast.parentElement).toHaveClass("bg-info-50");
+  });
+
+  it("marks A08 (a period's refunded and refundable amounts) and the bookings stale after a refund", async () => {
+    api.createRefund.mockResolvedValue(refund());
+    const onClose = vi.fn();
+    const keys = new IdempotencyKeys(newIdempotencyKey, { holdAfterUnknown: true });
+    const { queryClient } = renderWithProviders(<RefundDialog payment={payment()} keys={keys} onClose={onClose} />, { permissions: ["payments.view", "refunds.create"] });
+    // A subscription page loaded a moment ago (the app-wide staleTime is 30 s): it must not come back from the cache.
+    queryClient.setQueryData(subscriptionKeys.detail(31), { id: 31 });
+    queryClient.setQueryData(adminKeys.booking(9), { id: 9 });
+    const user = userEvent.setup();
+    await fillAndReview(user, "180");
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(queryClient.getQueryState(subscriptionKeys.detail(31))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(adminKeys.booking(9))?.isInvalidated).toBe(true);
   });
 
   it("uses the success tone only when the provider reports the refund done", async () => {

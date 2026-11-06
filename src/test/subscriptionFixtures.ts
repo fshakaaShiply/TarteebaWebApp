@@ -10,7 +10,7 @@ import type {
   WorkerCandidate,
 } from "@/lib/admin/subscriptions/types";
 
-// Shapes as the Phase 4 API answers them (A5a, A5b, A6 contracts). "Now" in tests is Fri 23 Oct 2026 (TEST_NOW); a
+// Shapes as the Phase 4 API answers them (A5a, A5b, A6 and A8 contracts; the generated schema types every one). "Now" in tests is Fri 23 Oct 2026 (TEST_NOW); a
 // subscription starts Sun 1 Nov 2026, the first period runs 1 Nov to 28 Nov.
 
 export const morning = { id: 1, code: "MORNING", start: "10:00", end: "14:00" };
@@ -108,6 +108,7 @@ export const subscriptionDetail = (over: Partial<SubscriptionDetail> = {}): Subs
   workers_count: 1,
   visits_per_period: 8,
   confirmation_deadline_at: null,
+  first_visit_at: "2026-11-01T06:00:00+00:00",
   confirmed_at: "2026-10-23T08:00:00+00:00",
   confirmed_by: { id: 2, name: "Coordinator" },
   rejected_reason: null,
@@ -115,6 +116,7 @@ export const subscriptionDetail = (over: Partial<SubscriptionDetail> = {}): Subs
   terms: {},
   pattern: { days_of_week: [0, 3], rest_weekdays: null, slot: morning, pattern_from: "2026-11-01" },
   addons: [],
+  addon_details: [],
   materials_by: "customer",
   instructions: "Please ring twice",
   priorities: null,
@@ -129,6 +131,7 @@ export const subscriptionDetail = (over: Partial<SubscriptionDetail> = {}): Subs
   freeze: null,
   renewal: {
     state: "scheduled",
+    attempt_under_way: false,
     attempt_no: 0,
     max_attempts: 3,
     failed_at: null,

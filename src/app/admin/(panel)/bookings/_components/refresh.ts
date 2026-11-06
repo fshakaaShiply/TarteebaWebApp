@@ -4,11 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { AdminApiError } from "@/lib/admin/client";
 import { adminKeys } from "@/lib/admin/keys";
+import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { BookingDetail } from "@/lib/admin/types";
 
 /**
  * After a booking action: show the booking the API answered with at once, then refresh the lists, the overview, the
- * capacity figures, the schedule board and the trip planner it moves. The dry runs (adminKeys.manualPreview …) sit
+ * capacity figures, the schedule board and the trip planner it moves, and A08 (a series visit's team, its state and its
+ * period's payment show on its subscription). The dry runs (adminKeys.manualPreview …) sit
  * outside these keys and are not sent again; the wizard's customer lookups (rate limited) are only marked stale, so a
  * number typed again later is looked up afresh (the customer just created) without a request now.
  */
@@ -23,6 +25,7 @@ export function useBookingRefresh() {
       void queryClient.invalidateQueries({ queryKey: adminKeys.capacity() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.schedule() });
       void queryClient.invalidateQueries({ queryKey: adminKeys.rounds() });
+      void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
     },
     [queryClient],
   );

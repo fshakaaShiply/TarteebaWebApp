@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { StatusBadge } from "@/components/admin";
+import type { RefusedWorker } from "@/lib/admin/subscriptions/actions";
 import { healthToneOf, statusToneOf } from "@/lib/admin/subscriptions/status";
 import type { UnfitDay } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
@@ -45,6 +46,26 @@ export function UnfitList({ days, limit = 8 }: { days: readonly UnfitDay[]; limi
         </li>
       ))}
       {days.length > limit && <li className="text-ink-600">{t("unfitMore", { count: days.length - limit })}</li>}
+    </ul>
+  );
+}
+
+/**
+ * 422 WORKER_NOT_ASSIGNABLE: each refused worker by her role and name, as the API names them (P4-242: primary, backup
+ * or a Live-out day's substitute), and why; "worker no. {id}" only when the API has no name for her.
+ */
+export function RefusedWorkers({ workers }: { workers: readonly RefusedWorker[] }) {
+  const t = useTranslations("admin.subscriptions.refused");
+  const text = useSubscriptionText();
+  if (workers.length === 0) return null;
+  return (
+    <ul className="list-disc ps-5 text-sm text-danger-700" aria-label={t("title")}>
+      {workers.map((w) => {
+        const name = w.name ?? t("workerNo", { id: w.workerId });
+        const who = w.role ? t("line", { role: t(`roles.${w.role}`), name }) : name;
+        const reasons = [...new Set([w.reason, ...w.reasons].filter(Boolean))].map((r) => text.unfit(r));
+        return <li key={`${w.role ?? "worker"}-${w.workerId}`}>{reasons.length > 0 ? `${who} · ${text.list(reasons)}` : who}</li>;
+      })}
     </ul>
   );
 }

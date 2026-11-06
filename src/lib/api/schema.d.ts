@@ -1740,8 +1740,10 @@ export interface paths {
         };
         /**
          * GET /customer/live-out/plans: {data: [plan], service: {code, name, includes[], excludes[]}, rest_weekday_default:
-         *     5}. DECISION (D-03, P4-25): a plan without an approved price (the trial day until A11 prices it) is left out;
-         *     an inactive plan is listed as unavailable (`inactive`), a full one as `cap_reached` (display read)
+         *     5, start_date_min, start_date_max}. DECISION (D-03, P4-25): a plan without an approved price (the trial day until
+         *     A11 prices it) is left out; an inactive plan is listed as unavailable (`inactive`), a full one as `cap_reached`
+         *     (display read). P4-247: the start dates POST /customer/live-out/preview accepts (PlanSubscription::startDateRange;
+         *     outside them 422 DATE_OUT_OF_RANGE), local dates, both included
          */
         get: operations["customer.subscription.live-out.plans"];
         put?: never;
@@ -1778,7 +1780,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/subscriptions/{id}/live-out-days/{date}/preview */
+        /** POST /admin/subscriptions/{id}/live-out-days/{date}/preview: {data: LiveOutDaysPreview} */
         post: operations["admin.subscription.subscriptions.live-out-days.preview"];
         delete?: never;
         options?: never;
@@ -3097,7 +3099,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST …/visits/{visit}/skip/preview: {data: {allowed, reason, visit, appended_date, new_term_end_date, …}} */
+        /** POST …/visits/{visit}/skip/preview: {data: SkipPreview {allowed, reason, visit, appended_date, new_term_end_date, …}} */
         post: operations["customer.subscription.subscriptions.visits.skip.preview"];
         delete?: never;
         options?: never;
@@ -3114,7 +3116,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST …/visits/{visit}/reschedule/preview {date, slot_template_id}: Booking's reschedule preview + unit_fils */
+        /**
+         * POST …/visits/{visit}/reschedule/preview {date, slot_template_id}: {data: Booking's reschedule preview + unit_fils,
+         *     reschedules_used, blocked_message}
+         */
         post: operations["customer.subscription.subscriptions.visits.reschedule.preview"];
         delete?: never;
         options?: never;
@@ -3131,7 +3136,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST …/freeze/preview {from, to} */
+        /** POST …/freeze/preview {from, to}: {data: FreezePreview} */
         post: operations["customer.subscription.subscriptions.freeze.preview"];
         delete?: never;
         options?: never;
@@ -3254,8 +3259,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * POST /admin/subscriptions/{id}/visits/{visit}/preview: scope this → Booking's staff reschedule preview; scope
-         *     following → {from, kept, replaced, new, price {checks, allowed}, term_end_date, conflicts}
+         * POST /admin/subscriptions/{id}/visits/{visit}/preview: scope this → {data: StaffMovePreview} (Booking's staff
+         *     reschedule preview); scope following → {data: FollowingEditPreview} {from, kept, replaced, new, price {checks,
+         *     allowed}, term_end_date, conflicts}
          */
         post: operations["admin.subscription.subscriptions.visits.preview"];
         delete?: never;
@@ -3273,7 +3279,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/subscriptions/{id}/skip/preview {visit_id}: as the customer's, without the monthly limit */
+        /** POST /admin/subscriptions/{id}/skip/preview {visit_id}: {data: SkipPreview}, as the customer's, without the monthly limit */
         post: operations["admin.subscription.subscriptions.skip.preview"];
         delete?: never;
         options?: never;
@@ -3290,7 +3296,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/subscriptions/{id}/freeze/preview {from, to, reason?} */
+        /** POST /admin/subscriptions/{id}/freeze/preview {from, to, reason?}: {data: FreezePreview} */
         post: operations["admin.subscription.subscriptions.freeze.preview"];
         delete?: never;
         options?: never;
@@ -3521,7 +3527,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST …/cancel/preview {reason_code?}: {data: CancelPreview} (design §7.1, §4.7) */
+        /**
+         * POST …/cancel/preview {reason_code?}: {data: CancelPreview} (design §7.1, §4.7), with the reasons POST …/cancel
+         *     takes, {code, label} in the request's language as the booking cancel preview lists them (P4-238)
+         */
         post: operations["customer.subscription.subscriptions.cancel.preview"];
         delete?: never;
         options?: never;
@@ -4350,6 +4359,7 @@ export interface components {
                 type: string;
                 visit_no: number | null;
                 visits_total: number | null;
+                visit_ulid: string | null;
             } | null;
             customer: {
                 id: string;
@@ -4578,6 +4588,7 @@ export interface components {
                 type: string;
                 visit_no: number | null;
                 visits_total: number | null;
+                visit_ulid: string | null;
             } | null;
             customer: {
                 id: string;
@@ -4681,6 +4692,16 @@ export interface components {
                 name: string | null;
             };
             booking_reference: string | null;
+            /** @description The corrected invoice's subscription when it is a period invoice (P4-254: `id` is A08's numeric id), else null. */
+            subscription: {
+                id: number | null;
+                ulid: string | null;
+                reference: string;
+                period: {
+                    start: string;
+                    end: string;
+                };
+            } | null;
             reason_code: string | null;
             reason_label: {
                 ar: string;
@@ -4734,6 +4755,16 @@ export interface components {
                 name: string | null;
             };
             booking_reference: string | null;
+            /** @description The corrected invoice's subscription when it is a period invoice (P4-254: `id` is A08's numeric id), else null. */
+            subscription: {
+                id: number | null;
+                ulid: string | null;
+                reference: string;
+                period: {
+                    start: string;
+                    end: string;
+                };
+            } | null;
             reason_code: string | null;
             reason_label: {
                 ar: string;
@@ -4769,8 +4800,9 @@ export interface components {
                 id: number | null;
                 reference: string | null;
             };
-            /** @description A subscription period's invoice (design §4.4), for the A08 link; null for a booking invoice. */
+            /** @description A subscription period's invoice (design §4.4), for the A08 link (`id`: A08's numeric id, P4-248); null for a booking invoice. */
             subscription: {
+                id: number | null;
                 ulid: string | null;
                 reference: string;
                 period: {
@@ -4862,8 +4894,9 @@ export interface components {
                 id: number | null;
                 reference: string | null;
             };
-            /** @description A subscription period's invoice (design §4.4), for the A08 link; null for a booking invoice. */
+            /** @description A subscription period's invoice (design §4.4), for the A08 link (`id`: A08's numeric id, P4-248); null for a booking invoice. */
             subscription: {
+                id: number | null;
                 ulid: string | null;
                 reference: string;
                 period: {
@@ -4910,7 +4943,13 @@ export interface components {
             state_label: string;
             origin: string;
             conflict: {
-                code: string | null;
+                /**
+                 * @description P4-245, a closed list: SLOT_FULL / SLOT_CLOSED (the date's reservation was refused, OccurrenceReserver::
+                 *     CONFLICT_CODES; details.reason is the Scheduling reason) or BLACKOUT (a blackout added on a held date,
+                 *     FlagBlackoutConflicts).
+                 * @enum {string}
+                 */
+                code: "SLOT_FULL" | "SLOT_CLOSED" | "BLACKOUT";
                 /** @description An object (empty when there are none). */
                 details: {
                     [key: string]: unknown;
@@ -5318,6 +5357,8 @@ export interface components {
             workers_count: number;
             visits_per_period: number;
             confirmation_deadline_at: string | null;
+            /** @description P4-244: the start of the first counting visit still to come, as the list row has it (AdminSubscriptionResource); null when none is ahead. */
+            first_visit_at: string | null;
             confirmed_at: string | null;
             confirmed_by: {
                 id: number;
@@ -5347,6 +5388,14 @@ export interface components {
                 pattern_from: string;
             };
             addons: string[];
+            /** @description P4-244: the add-ons with their names (a subscriptions.view reader cannot call GET /admin/addons/options); `addons` keeps the codes. */
+            addon_details: {
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                } | null;
+            }[];
             materials_by: string;
             instructions: string | null;
             priorities: string[] | null;
@@ -5399,10 +5448,12 @@ export interface components {
             upcoming: components["schemas"]["AdminOccurrenceResource"][];
             /** @description The counting visits with a conflict. */
             conflicts: components["schemas"]["AdminOccurrenceResource"][];
-            /** @description The customers' moves waiting for a decision. */
+            /** @description The customers' moves waiting for a decision; occurrence_ulid / occurrence_date (P4-244): the visit's occurrence ({visit} of POST …/visits/{visit}/reschedule-request) and the date it is served on now. */
             reschedule_requests: {
                 id: number;
                 booking_id: number;
+                occurrence_ulid: string | null;
+                occurrence_date: string | null;
                 from_date: string;
                 date: string;
                 slot: {
@@ -5421,6 +5472,7 @@ export interface components {
             renewal: {
                 /** @enum {string} */
                 state: "suspended" | "verifying" | "retrying" | "failed" | "scheduled" | "none";
+                attempt_under_way: boolean;
                 attempt_no: number;
                 max_attempts: number;
                 failed_at: string | null;
@@ -5460,7 +5512,41 @@ export interface components {
                 id: number | null;
                 code: string | null;
             } | null;
-            cancel_review: string | null;
+            /**
+             * @description The cancellation review as recorded (P4-15, P4-57): who asked, the reason, the party, the preview kept when
+             *     it was asked, the decision once made; requested_at while it is open. P4-243: refundable_fils, the most a
+             *     resolve accepts now (the 422 REFUND_AMOUNT_INVALID {max_fils} cap, PlanCancellation::reviewRefundable), and
+             *     refundable_periods, what each paid period's payment can still give back now; both null once decided.
+             */
+            cancel_review: {
+                requested_by: {
+                    type: string;
+                    id: number | null;
+                };
+                reason_code: string;
+                reason_text: string | null;
+                /** @enum {string} */
+                party: "customer" | "company";
+                preview: components["schemas"]["CancelPreview"];
+                /** @enum {string|null} */
+                decision: "declined" | "resolved" | "superseded" | null;
+                resolved_at: string | null;
+                resolved_by?: number | null;
+                refund_fils?: number;
+                note?: string;
+                renewal_on_hold?: {
+                    next_renewal_at: string | null;
+                    next_notice_at: string | null;
+                };
+                requested_at: string | null;
+                refundable_fils: number | null;
+                refundable_periods: {
+                    ulid: string;
+                    start: string;
+                    end: string;
+                    refundable_fils: number;
+                }[] | null;
+            } | null;
             capture_unknown_at: string | null;
             actions: {
                 confirm: boolean;
@@ -5528,7 +5614,8 @@ export interface components {
                 name: string;
             } | null;
             confirmation_deadline_at: string | null;
-            first_visit_at: string;
+            /** @description Null when no counting visit is ahead. */
+            first_visit_at: string | null;
         };
         /**
          * AdminVisitRequest
@@ -5741,7 +5828,7 @@ export interface components {
             kind: "single" | "subscription_visit" | "live_out_trial" | "live_out_day";
             /**
              * @description A subscription visit's subscription and its place in the period ("Visit 3 of 8"); null for a single
-             *     booking. Cancel and reschedule happen there (P4-48).
+             *     booking. Cancel and reschedule happen there (P4-48), on the occurrence visit_ulid (P4-246).
              */
             subscription: {
                 ulid: string;
@@ -5749,6 +5836,7 @@ export interface components {
                 type: string;
                 visit_no: number | null;
                 visits_total: number | null;
+                visit_ulid: string | null;
             } | null;
             status: string;
             status_label: string;
@@ -5923,6 +6011,66 @@ export interface components {
             reason_text?: string | null;
             expected_fee_fils?: number | null;
             expected_refund_fils?: number | null;
+        };
+        /** CancelPreview */
+        CancelPreview: {
+            allowed: boolean;
+            /** @enum {string|null} */
+            blocked_reason: "visit_in_progress" | "payment_verifying" | null;
+            review_required: boolean;
+            /** @enum {string} */
+            party: "customer" | "company";
+            periods: {
+                ulid: string;
+                start: string;
+                end: string;
+                paid_fils: number;
+                refundable_fils: number;
+                visits_planned: number;
+                visits_consumed: number;
+                visits_unused: number;
+                unused_value_fils: number;
+                fee_fils: number;
+                clawback_fils: number;
+                refund_fils: number;
+            }[];
+            totals: {
+                paid_fils: number;
+                unused_value_fils: number;
+                fee_fils: number;
+                clawback_fils: number;
+                clawback_waived_fils: number;
+                refund_fils: number;
+            };
+            discount: {
+                eligible: boolean;
+                min_visits_for_discount: number | null;
+                consumed_visits: number;
+                revoked: boolean;
+            };
+            fee_basis: {
+                date: string;
+                start: string;
+                skipped: boolean;
+                rule: string;
+            } | null;
+            unpaid: {
+                /** @enum {string} */
+                action: "void" | "wait" | "none";
+            };
+            refund_to: {
+                label: string;
+            } | null;
+            explanation: {
+                ar: string;
+                en: string;
+            };
+            rule_applied?: string | null;
+            compensation?: string | null;
+            reasons?: {
+                code: string;
+                label: string;
+            }[];
         };
         /**
          * CancelPreviewRequest
@@ -6376,6 +6524,35 @@ export interface components {
             scenario: "approve" | "approve_3ds" | "decline" | "timeout_then_approved" | "timeout_then_declined" | "fail_3ds" | "visa_4242" | "mastercard_5454" | "visa_3ds_3220" | "visa_decline_0002" | "visa_verify_9995";
             token: string;
         };
+        /** FollowingEditPreview */
+        FollowingEditPreview: {
+            from: string;
+            kept: {
+                date: string;
+            }[];
+            replaced: {
+                date: string;
+            }[];
+            new: {
+                date: string;
+                /** @enum {string} */
+                status: "available" | "unavailable" | "planned";
+                /** @enum {string} */
+                reason?: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
+            }[];
+            price: {
+                checks: {
+                    date: string;
+                    old_unit_fils: number;
+                    new_unit_fils: number;
+                }[];
+                allowed: boolean;
+            };
+            term_end_date: string;
+            conflicts: {
+                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
+            };
+        };
         /**
          * ForgotPasswordRequest
          * @description POST /admin/auth/forgot.
@@ -6383,6 +6560,37 @@ export interface components {
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
+        };
+        /** FreezePreview */
+        FreezePreview: {
+            allowed: boolean;
+            reason: string | null;
+            from: string;
+            to: string;
+            days: number;
+            affected: {
+                ulid: string;
+                date: string;
+            }[];
+            appended_dates: string[];
+            new_term_end_date: string;
+            fee_fils: number;
+            refund_fils: number;
+            /** @constant */
+            discount_effect: "kept";
+            freeze_days_used_this_period: number;
+            max_freeze_days: number | null;
+            /** @enum {string} */
+            status: "active" | "paused" | "expiring";
+            capacity: {
+                released: number;
+                appended_reserved: number;
+                appended_unreserved: number;
+            };
+            explanation: {
+                ar: string;
+                en: string;
+            };
         };
         /**
          * FreezeRequest
@@ -6605,6 +6813,31 @@ export interface components {
             /** Format: date */
             until?: string | null;
             substitute_worker_id?: number | null;
+        };
+        /** LiveOutDaysPreview */
+        LiveOutDaysPreview: {
+            days: {
+                date: string;
+                /** @enum {string} */
+                before: "service" | "rest" | "public_holiday" | "absence" | "dropped";
+                /** @enum {string} */
+                after: "service" | "rest" | "public_holiday" | "absence" | "dropped";
+                substitute: {
+                    id: number;
+                    name: string;
+                } | null;
+                credited: boolean;
+                appended_date?: string | null;
+            }[];
+            term_end_date: string;
+            conflicts: {
+                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
+            };
+            unfit: {
+                date: string;
+                worker_id: number | null;
+                reasons: string[];
+            }[];
         };
         /**
          * LiveOutPlanKind
@@ -6904,10 +7137,13 @@ export interface components {
             exp_year: number;
             expired: boolean;
             is_default: boolean;
-            /** @description The open subscriptions renewed on this card (P4-41). */
+            /** @description The open subscriptions renewed on this card (P4-41), with their status and whether the renewal card can be changed now (P4-237). */
             used_for_subscriptions: {
                 ulid: string;
                 reference: string;
+                /** @enum {string} */
+                status: "pending_payment" | "pending_confirmation" | "active" | "paused" | "expiring" | "renewal_failed" | "suspended";
+                card_changeable: boolean;
             }[];
             created_at: string | null;
         };
@@ -7473,6 +7709,39 @@ export interface components {
             is_active: boolean;
             version: number;
         };
+        /** SkipPreview */
+        SkipPreview: {
+            allowed: boolean;
+            /** @enum {string|null} */
+            reason: "visit_locked" | "skip_limit_reached" | "skip_not_allowed" | null;
+            visit: {
+                ulid: string;
+                date: string;
+                slot: {
+                    id: number;
+                    code: string;
+                    start: string;
+                    end: string;
+                } | null;
+            };
+            appended_date: string | null;
+            new_term_end_date: string;
+            fee_fils: number;
+            refund_fils: number;
+            /** @constant */
+            discount_effect: "kept";
+            month: string;
+            skips_used_this_month: number;
+            max_skips_per_month: number | null;
+            capacity: {
+                released: boolean;
+                appended_reserved: boolean;
+            };
+            explanation: {
+                ar: string;
+                en: string;
+            };
+        };
         /**
          * SkipRequest
          * @description The customer's POST …/visits/{visit}/skip {expected_term_end_date?} and staff's POST /admin/subscriptions/{id}/skip
@@ -7624,6 +7893,31 @@ export interface components {
             two_factor_required: boolean;
             /** @description While true, every other admin endpoint answers 403 TWO_FACTOR_SETUP_REQUIRED (Http\Middleware\EnsureAdminAccess). */
             two_factor_setup_required: boolean;
+        };
+        /** StaffMovePreview */
+        StaffMovePreview: {
+            allowed: boolean;
+            blockers: "slot"[];
+            requires_approval: boolean;
+            fee_fils: number;
+            price_diff_fils: number;
+            new_total_fils: number;
+            refund_fils: number;
+            paid_fils: number;
+            kept_fees_fils: number;
+            currency: string;
+            availability: {
+                /** @enum {string} */
+                status: "available" | "limited" | "full" | "closed";
+                /** @enum {string|null} */
+                reason: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings" | null;
+            };
+            rule_applied: string;
+            explanation: string;
+            unit_fils: {
+                current: number | null;
+                new: number | null;
+            };
         };
         /**
          * StaffRenewRequest
@@ -7973,6 +8267,30 @@ export interface components {
                     number: string;
                 } | null;
             }[];
+            /** @description P4-257: the refunds of the subscription's period payments, one entry per payment with a refund, shaped as screen 18 reads a booking's `refunds` (paid, refunded, card, every refund with its provider status and credit note); empty when none. */
+            refunds: {
+                payment: {
+                    ulid: string;
+                    status: components["schemas"]["PaymentStatus"];
+                };
+                period: {
+                    ulid: string;
+                    sequence: number;
+                    start: string;
+                    end: string;
+                };
+                paid_fils: number;
+                refunded_fils: number;
+                currency: string;
+                card: {
+                    brand: string | null;
+                    brand_label: string;
+                    last4: string;
+                    label: string;
+                    payment_method_id: string | null;
+                } | null;
+                items: components["schemas"]["RefundResource"][];
+            }[];
             next_period: {
                 start: string;
                 end: string;
@@ -7984,6 +8302,7 @@ export interface components {
             renewal: {
                 /** @enum {string} */
                 state: "suspended" | "verifying" | "retrying" | "failed" | "scheduled" | "none";
+                attempt_under_way: boolean;
                 attempt_no: number;
                 max_attempts: number;
                 failed_at: string | null;
@@ -8027,6 +8346,11 @@ export interface components {
                 max_skips_per_month: number | null;
                 freeze_days_used_this_period: number;
                 max_freeze_days: number | null;
+                freeze_days_left_this_period: number | null;
+                freeze_earliest_from: string | null;
+                next_period_start: string | null;
+                /** @enum {string|null} */
+                skip_freeze_effect: "forfeit" | "extend_term" | null;
             };
             /** @description The next counting visits by scheduled date; worker display names only (spec §17 A05). */
             upcoming: {
@@ -8085,7 +8409,7 @@ export interface components {
                 credited: boolean;
             }[] | null;
             actions: {
-                /** @description An ended range (paused_to before today) is history, not a freeze (SubscriptionView::freeze()). */
+                /** @description P4-234: a freeze starting on limits.freeze_earliest_from would be accepted (SubscriptionView::freezeOffer); an ended range is history, not a freeze. */
                 can_freeze: boolean;
                 can_unfreeze: boolean;
                 can_skip: boolean;
@@ -8093,15 +8417,31 @@ export interface components {
                 can_retry_renewal: boolean;
                 can_toggle_auto_renew: boolean;
                 can_change_payment_method: boolean;
+                /**
+                 * @description Why can_freeze is false (null when it is true; P4-234): live_out, not_running, cancel_review_pending,
+                 *     freeze_exists, not_included (the package allows no freeze), used_up (no freeze day left in the period of
+                 *     the earliest start; they count again from limits.next_period_start), no_visits (no visit left to freeze).
+                 * @enum {string|null}
+                 */
+                freeze_blocked_reason: "live_out" | "not_running" | "cancel_review_pending" | "freeze_exists" | "not_included" | "used_up" | "no_visits" | null;
             };
             version: number;
         };
         /** SubscriptionEventResource */
         SubscriptionEventResource: {
             id: number;
-            type: string;
+            /** @enum {string} */
+            type: "skip" | "reschedule_visit" | "freeze" | "unfreeze" | "renew" | "renewal_failed" | "cancel" | "discount_revoked" | "worker_changed" | "created" | "confirmed" | "rejected" | "expired" | "suspended" | "reactivated" | "ended" | "series_edited" | "auto_renew_changed" | "payment_method_changed" | "conflict" | "credited" | "live_out_day_changed" | "cancel_review_requested" | "cancel_review_declined" | "cancel_review_resolved" | "unskip" | "renewal_priced" | "late_capture" | "reschedule_requested" | "reschedule_decided" | "settled";
             type_label: string;
-            payload: string;
+            /**
+             * @description DECISION (P4-249): the history row's own facts, a JSON object whose keys depend on `type` (31 types written
+             *     by the actions; e.g. freeze {from, to, days, frozen[], appended[], term_end_date {from, to}}, skip {date,
+             *     occurrence_date, appended_date, term_end_date {from, to}}, conflict {code, reason, date, slot_template_id}),
+             *     typed as an object of JSON values rather than one schema per type; `{}` when it has none.
+             */
+            payload: {
+                [key: string]: unknown;
+            };
             occurrence_id: number | null;
             actor: {
                 type: string;
@@ -8496,6 +8836,36 @@ export interface components {
             phone: string;
             code: string;
             device_name?: string | null;
+        };
+        /** VisitReschedulePreview */
+        VisitReschedulePreview: {
+            allowed: boolean;
+            blockers: "slot"[];
+            requires_approval: boolean;
+            fee_fils: number;
+            price_diff_fils: number;
+            new_total_fils: number;
+            refund_fils: number;
+            paid_fils: number;
+            kept_fees_fils: number;
+            currency: string;
+            availability: {
+                /** @enum {string} */
+                status: "available" | "limited" | "full" | "closed";
+                /** @enum {string|null} */
+                reason: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings" | null;
+            };
+            rule_applied: string;
+            explanation: string;
+            unit_fils: {
+                current: number | null;
+                new: number | null;
+            };
+            reschedules_used: number;
+            blocked_message: {
+                ar: string;
+                en: string;
+            } | null;
         };
         /**
          * VisitStatusRequest
@@ -10953,6 +11323,9 @@ export interface operations {
                                         auto_renew_allowed: boolean;
                                         max_skips_per_month: number | null;
                                         max_freeze_days: number | null;
+                                        subscription_sellable: boolean;
+                                        /** @enum {string|null} */
+                                        subscription_unavailable_reason: "term_too_long" | "invalid_term" | null;
                                     }[];
                                     live_out_plans: unknown[][];
                                 };
@@ -10988,6 +11361,9 @@ export interface operations {
                                         auto_renew_allowed: boolean;
                                         max_skips_per_month: number | null;
                                         max_freeze_days: number | null;
+                                        subscription_sellable: boolean;
+                                        /** @enum {string|null} */
+                                        subscription_unavailable_reason: "term_too_long" | "invalid_term" | null;
                                     }[];
                                     live_out_plans: unknown[][];
                                 };
@@ -13781,6 +14157,8 @@ export interface operations {
                             }[];
                         } | null;
                         rest_weekday_default: number;
+                        start_date_min: string;
+                        start_date_max: string;
                     };
                 };
             };
@@ -13846,12 +14224,13 @@ export interface operations {
                                 date: string;
                                 /** @enum {string} */
                                 status: "available" | "limited" | "substitute" | "unavailable" | "dropped";
-                                reason?: string;
+                                /** @enum {string} */
+                                reason?: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                                 remaining?: number;
                             }[];
-                            /** @description The dates that cannot be served, with the reason (an object). */
+                            /** @description The dates that cannot be served, with the Scheduling reason (an object; a closed list, P4-245). */
                             conflicts: {
-                                [key: string]: string;
+                                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                             };
                             totals: {
                                 /** @constant */
@@ -13941,7 +14320,8 @@ export interface operations {
                                 } | null;
                                 /** @enum {string} */
                                 status: "available" | "limited" | "substitute" | "unavailable" | "dropped" | "moved";
-                                reason?: string;
+                                /** @enum {string} */
+                                reason?: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                                 remaining?: number;
                                 /** @enum {string} */
                                 preferred: "available" | "unavailable" | "none";
@@ -13958,9 +14338,9 @@ export interface operations {
                                 };
                                 unit_fils: number | null;
                             }[];
-                            /** @description The dates that cannot be served, with the reason (an object). */
+                            /** @description The dates that cannot be served, with the Scheduling reason (an object; a closed list, P4-245). */
                             conflicts: {
-                                [key: string]: string;
+                                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                             };
                             addons: {
                                 code: string;
@@ -14058,7 +14438,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: string;
+                        data: components["schemas"]["LiveOutDaysPreview"];
                     };
                 };
             };
@@ -14091,15 +14471,20 @@ export interface operations {
                         data: components["schemas"]["AdminSubscriptionDetailResource"];
                         days: {
                             date: string;
-                            before: string;
-                            after: string;
-                            substitute: number | null;
+                            /** @enum {string} */
+                            before: "service" | "rest" | "public_holiday" | "absence" | "dropped";
+                            /** @enum {string} */
+                            after: "service" | "rest" | "public_holiday" | "absence" | "dropped";
+                            substitute: {
+                                id: number;
+                                name: string;
+                            } | null;
                             credited: boolean;
                             appended_date?: string | null;
                         }[];
                         term_end_date: string;
                         conflicts: {
-                            [key: string]: string;
+                            [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                         };
                         unfit: {
                             date: string;
@@ -14337,7 +14722,7 @@ export interface operations {
     "admin.notification.templates.index": {
         parameters: {
             query?: {
-                event_key?: "booking.requested" | "booking.confirmed" | "booking.alternative_proposed" | "booking.alternatives_expiring" | "booking.rejected" | "booking.cancelled" | "booking.auto_cancelled_sla" | "booking.rescheduled" | "booking.reschedule_requested" | "booking.reschedule_declined" | "booking.cancellation_review_requested" | "booking.cancellation_review_declined" | "booking.payment_link" | "visit.reminder_day_before" | "visit.reminder_before_arrival" | "round.departed" | "visit.arrived" | "visit.started" | "visit.completed" | "visit.worker_changed" | "visit.delayed" | "visit.missed" | "payment.failed" | "payment.verifying_resolved" | "payment.needs_review" | "refund.succeeded" | "refund.failed" | "invoice.issued" | "waitlist.slot_available" | "driver.report_submitted" | "subscription.requested" | "subscription.confirmed" | "subscription.rejected" | "subscription.cancelled" | "subscription.cancelled_unpaid" | "subscription.renewal_upcoming" | "subscription.not_renewing" | "subscription.renewed" | "subscription.renewal_failed" | "subscription.suspended" | "subscription.ended" | "subscription.frozen" | "subscription.visit_credited" | "subscription.holiday_credited" | "subscription.worker_changed" | "subscription.conflict";
+                event_key?: "booking.requested" | "booking.confirmed" | "booking.alternative_proposed" | "booking.alternatives_expiring" | "booking.rejected" | "booking.cancelled" | "booking.auto_cancelled_sla" | "booking.rescheduled" | "booking.reschedule_requested" | "booking.reschedule_declined" | "booking.cancellation_review_requested" | "booking.cancellation_review_declined" | "booking.payment_link" | "visit.reminder_day_before" | "visit.reminder_before_arrival" | "round.departed" | "visit.arrived" | "visit.started" | "visit.completed" | "visit.worker_changed" | "visit.delayed" | "visit.missed" | "payment.failed" | "payment.verifying_resolved" | "payment.needs_review" | "refund.succeeded" | "refund.failed" | "refund.subscription_succeeded" | "refund.subscription_failed" | "invoice.issued" | "payment.subscription_failed" | "payment.subscription_verifying_resolved" | "invoice.subscription_issued" | "waitlist.slot_available" | "driver.report_submitted" | "subscription.requested" | "subscription.confirmed" | "subscription.rejected" | "subscription.cancelled" | "subscription.cancelled_unpaid" | "subscription.renewal_upcoming" | "subscription.not_renewing" | "subscription.renewed" | "subscription.renewal_failed" | "subscription.suspended" | "subscription.ended" | "subscription.frozen" | "subscription.visit_credited" | "subscription.holiday_credited" | "subscription.worker_changed" | "subscription.conflict";
                 audience?: "customer" | "staff";
                 channel?: "push" | "sms" | "email" | "in_app" | "whatsapp_future";
                 locale?: "ar" | "en";
@@ -19677,9 +20062,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: {
-                            [key: string]: unknown;
-                        };
+                        data: components["schemas"]["SkipPreview"];
                     };
                 };
             };
@@ -19708,7 +20091,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: string;
+                        data: components["schemas"]["VisitReschedulePreview"];
                     };
                 };
             };
@@ -19737,7 +20120,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: string;
+                        data: components["schemas"]["FreezePreview"];
                     };
                 };
             };
@@ -19894,7 +20277,8 @@ export interface operations {
                             month: string;
                             days: {
                                 date: string;
-                                type: string;
+                                /** @enum {string} */
+                                type: "service" | "rest" | "public_holiday" | "absence" | "dropped";
                                 worker: {
                                     id: number;
                                     name: string;
@@ -19905,25 +20289,20 @@ export interface operations {
                                 } | null;
                                 credited: boolean;
                                 visit: {
-                                    id: string;
+                                    id: number;
                                     status: string;
                                 } | null;
-                                occurrence_state: string | null;
+                                /** @enum {string|null} */
+                                occurrence_state: "planned" | "held" | "materialized" | "skipped" | "frozen" | "credited" | "holiday" | "replaced" | "dropped" | "cancelled" | null;
                                 flags: ("conflict" | "uncovered" | "substitute" | "credited")[];
                             }[];
                             summary: {
-                                /** @constant */
-                                service: 0;
-                                /** @constant */
-                                rest: 0;
-                                /** @constant */
-                                public_holiday: 0;
-                                /** @constant */
-                                absence: 0;
-                                /** @constant */
-                                dropped: 0;
-                                /** @constant */
-                                credited: 0;
+                                service: number;
+                                rest: number;
+                                public_holiday: number;
+                                absence: number;
+                                dropped: number;
+                                credited: number;
                             };
                         };
                     };
@@ -20001,7 +20380,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: string;
+                        data: components["schemas"]["StaffMovePreview"];
+                    } | {
+                        data: components["schemas"]["FollowingEditPreview"];
                     };
                 };
             };
@@ -20031,9 +20412,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: {
-                            [key: string]: unknown;
-                        };
+                        data: components["schemas"]["SkipPreview"];
                     };
                 };
             };
@@ -20062,7 +20441,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: string;
+                        data: components["schemas"]["FreezePreview"];
                     };
                 };
             };
@@ -20094,11 +20473,9 @@ export interface operations {
                     "application/json": {
                         data: components["schemas"]["AdminSubscriptionDetailResource"];
                         conflicts: {
-                            [key: string]: string;
+                            [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                         };
-                        edit?: {
-                            [key: string]: unknown;
-                        };
+                        edit?: components["schemas"]["FollowingEditPreview"];
                         credited?: {
                             occurrence_id: number;
                             date: string;
@@ -20520,12 +20897,13 @@ export interface operations {
                                 date: string;
                                 /** @enum {string} */
                                 status: "available" | "limited" | "substitute" | "unavailable" | "dropped";
-                                reason?: string;
+                                /** @enum {string} */
+                                reason?: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                                 remaining?: number;
                             }[];
-                            /** @description The dates that cannot be served, with the reason (an object). */
+                            /** @description The dates that cannot be served, with the Scheduling reason (an object; a closed list, P4-245). */
                             conflicts: {
-                                [key: string]: string;
+                                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                             };
                             totals: {
                                 /** @constant */
@@ -20615,7 +20993,8 @@ export interface operations {
                                 } | null;
                                 /** @enum {string} */
                                 status: "available" | "limited" | "substitute" | "unavailable" | "dropped" | "moved";
-                                reason?: string;
+                                /** @enum {string} */
+                                reason?: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                                 remaining?: number;
                                 /** @enum {string} */
                                 preferred: "available" | "unavailable" | "none";
@@ -20632,9 +21011,9 @@ export interface operations {
                                 };
                                 unit_fils: number | null;
                             }[];
-                            /** @description The dates that cannot be served, with the reason (an object). */
+                            /** @description The dates that cannot be served, with the Scheduling reason (an object; a closed list, P4-245). */
                             conflicts: {
-                                [key: string]: string;
+                                [key: string]: "lead_time" | "blackout" | "rule_closed" | "horizon" | "past" | "inactive" | "workers" | "seats" | "max_bookings";
                             };
                             addons: {
                                 code: string;
@@ -20731,110 +21110,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: {
-                            allowed: boolean;
-                            /** @constant */
-                            blocked_reason: "visit_in_progress";
-                            review_required: boolean;
-                            /** @constant */
-                            party: "customer";
-                            periods: {
-                                ulid: string;
-                                start: string;
-                                end: string;
-                                paid_fils: number;
-                                refundable_fils: number;
-                                visits_planned: number;
-                                visits_consumed: number;
-                                visits_unused: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                refund_fils: number;
-                            }[];
-                            totals: {
-                                paid_fils: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                /** @constant */
-                                clawback_waived_fils: 0;
-                                refund_fils: number;
-                            };
-                            discount: {
-                                eligible: boolean;
-                                min_visits_for_discount: number | null;
-                                consumed_visits: number;
-                                revoked: boolean;
-                            };
-                            fee_basis: null;
-                            unpaid: {
-                                /** @enum {string} */
-                                action: "wait" | "none" | "void";
-                            };
-                            refund_to: {
-                                label: null;
-                            } | null;
-                            explanation: {
-                                ar: string;
-                                en: string;
-                            };
-                            rule_applied: string | ("review_required" | "cancellation.after_start" | "reschedule.free" | "reschedule.fee_after" | "reschedule.max_per_booking" | "reschedule.after_start");
-                            compensation: string | null;
-                        } | {
-                            allowed: boolean;
-                            /** @constant */
-                            blocked_reason: "payment_verifying";
-                            review_required: boolean;
-                            /** @constant */
-                            party: "customer";
-                            periods: {
-                                ulid: string;
-                                start: string;
-                                end: string;
-                                paid_fils: number;
-                                refundable_fils: number;
-                                visits_planned: number;
-                                visits_consumed: number;
-                                visits_unused: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                refund_fils: number;
-                            }[];
-                            totals: {
-                                paid_fils: number;
-                                unused_value_fils: number;
-                                /** @constant */
-                                fee_fils: 0;
-                                /** @constant */
-                                clawback_fils: 0;
-                                /** @constant */
-                                clawback_waived_fils: 0;
-                                refund_fils: number;
-                            };
-                            discount: {
-                                eligible: boolean;
-                                min_visits_for_discount: number | null;
-                                /** @constant */
-                                consumed_visits: 0;
-                                revoked: boolean;
-                            };
-                            fee_basis: null;
-                            unpaid: {
-                                /** @enum {string} */
-                                action: "wait" | "void";
-                            };
-                            refund_to: {
-                                label: string | null;
-                            } | null;
-                            explanation: {
-                                ar: string;
-                                en: string;
-                            };
-                            rule_applied: null;
-                            compensation: null;
-                        };
+                        data: components["schemas"]["CancelPreview"];
                     };
                 };
             };
@@ -21224,109 +21500,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: {
-                            allowed: boolean;
-                            /** @constant */
-                            blocked_reason: "visit_in_progress";
-                            review_required: boolean;
-                            party: string;
-                            periods: {
-                                ulid: string;
-                                start: string;
-                                end: string;
-                                paid_fils: number;
-                                refundable_fils: number;
-                                visits_planned: number;
-                                visits_consumed: number;
-                                visits_unused: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                refund_fils: number;
-                            }[];
-                            totals: {
-                                paid_fils: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                /** @constant */
-                                clawback_waived_fils: 0;
-                                refund_fils: number;
-                            };
-                            discount: {
-                                eligible: boolean;
-                                min_visits_for_discount: number | null;
-                                consumed_visits: number;
-                                revoked: boolean;
-                            };
-                            fee_basis: null;
-                            unpaid: {
-                                /** @enum {string} */
-                                action: "wait" | "none" | "void";
-                            };
-                            refund_to: {
-                                label: null;
-                            } | null;
-                            explanation: {
-                                ar: string;
-                                en: string;
-                            };
-                            rule_applied: string | ("review_required" | "cancellation.after_start" | "reschedule.free" | "reschedule.fee_after" | "reschedule.max_per_booking" | "reschedule.after_start");
-                            compensation: string | null;
-                        } | {
-                            allowed: boolean;
-                            /** @constant */
-                            blocked_reason: "payment_verifying";
-                            review_required: boolean;
-                            /** @constant */
-                            party: "customer";
-                            periods: {
-                                ulid: string;
-                                start: string;
-                                end: string;
-                                paid_fils: number;
-                                refundable_fils: number;
-                                visits_planned: number;
-                                visits_consumed: number;
-                                visits_unused: number;
-                                unused_value_fils: number;
-                                fee_fils: number;
-                                clawback_fils: number;
-                                refund_fils: number;
-                            }[];
-                            totals: {
-                                paid_fils: number;
-                                unused_value_fils: number;
-                                /** @constant */
-                                fee_fils: 0;
-                                /** @constant */
-                                clawback_fils: 0;
-                                /** @constant */
-                                clawback_waived_fils: 0;
-                                refund_fils: number;
-                            };
-                            discount: {
-                                eligible: boolean;
-                                min_visits_for_discount: number | null;
-                                /** @constant */
-                                consumed_visits: 0;
-                                revoked: boolean;
-                            };
-                            fee_basis: null;
-                            unpaid: {
-                                /** @enum {string} */
-                                action: "wait" | "void";
-                            };
-                            refund_to: {
-                                label: string | null;
-                            } | null;
-                            explanation: {
-                                ar: string;
-                                en: string;
-                            };
-                            rule_applied: null;
-                            compensation: null;
-                        };
+                        data: components["schemas"]["CancelPreview"];
                     };
                 };
             };
