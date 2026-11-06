@@ -11,23 +11,36 @@ import { filsToAedInput, parseAedToFils } from "@/lib/money";
 import { PeriodsTable } from "./PlanTable";
 import { ChangedNotice, ErrorNotice, PreviewBox, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 
+/** The review's stored preview (the API's CancelPlan when the review was asked for), or null. */
+function storedReviewPlan(review: { preview?: unknown } | null): CancelPlan | null {
+  const preview = review?.preview;
+  return preview && typeof preview === "object" && Array.isArray((preview as CancelPlan).periods) && typeof (preview as CancelPlan).totals === "object" ? (preview as CancelPlan) : null;
+}
+
 /**
- * Finish a cancellation that waits for review (refunds.create plus a read permission, P4-57): the total refund, capped
- * by what each paid period can still give back (the API allocates it oldest period first and refuses more with 422
- * REFUND_AMOUNT_INVALID {max_fils}), and a note that becomes the refund's note and the audit reason. The review's own
- * preview (what the policy would have given) fills the amount.
+ * Finish a cancellation that waits for review (refunds.create plus a read permission, P4-57): the total refund and a
+ * note that becomes the refund's note and the audit reason. What each period can give back is the API's own list of
+ * refund lines, stored with the review (`cancel_review.preview.periods`: the paid and partly refunded periods only, never
+ * a closed or void one, P4-57 / PlanCancellation), so the cap shown is the API's figure, not a sum of the detail's
+ * periods. The API checks the amount again when it resolves (oldest period first; more → 422 REFUND_AMOUNT_INVALID
+ * {max_fils}), and from then on its max_fils is the cap. The stored preview's refund (what the policy would have
+ * given) fills the amount. A fresh cancel preview cannot replace it: the API refuses a customer's preview while the
+ * review is open (409 CANCEL_REVIEW_PENDING).
  */
 export function ResolveReviewDialog({ subscription, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps) {
   const t = useTranslations("admin.subscriptions.resolve");
   const text = useSubscriptionText();
   const fieldError = useFieldError();
   const review = pendingReview(subscription);
-  const stored = review?.preview && typeof review.preview === "object" && Array.isArray((review.preview as CancelPlan).periods) ? (review.preview as CancelPlan) : null;
-  const periods = subscription.periods.filter((p) => p.refundable_fils > 0 || p.refunded_fils > 0);
-  const cap = periods.reduce((sum, p) => sum + p.refundable_fils, 0);
-  const [refund, setRefund] = useState(stored ? filsToAedInput(Math.min(stored.totals.refund_fils, cap)) : "");
+  const stored = storedReviewPlan(review);
+  const lines = stored?.periods ?? [];
+  const storedCap = stored ? lines.reduce((sum, p) => sum + p.refundable_fils, 0) : null;
+  const sequenceOf = (ulid: string) => subscription.periods.find((p) => p.ulid === ulid)?.sequence ?? null;
+  const [refund, setRefund] = useState(stored ? filsToAedInput(Math.min(stored.totals.refund_fils, storedCap ?? stored.totals.refund_fils)) : "");
   const [note, setNote] = useState("");
   const [problems, setProblems] = useState<{ refund?: string; note?: string }>({});
+  // 422 REFUND_AMOUNT_INVALID {max_fils}: the API's latest cap wins over the figures stored with the review.
+  const [apiCap, setApiCap] = useState<number | null>(null);
 
   const mutation = useDialogMutation({
     subscription,
@@ -39,14 +52,19 @@ export function ResolveReviewDialog({ subscription, onClose, onStale, changed, r
       detail: result.data,
       message: input.refund_fils > 0 ? t("doneRefund", { reference: subscription.reference, amount: text.moneyFixed(input.refund_fils) }) : t("done", { reference: subscription.reference }),
     }),
+    onError: (error) => {
+      const max = maxRefundOf(error);
+      if (max !== null) setApiCap(max);
+    },
   });
   const maxFromError = maxRefundOf(mutation.error);
+  const cap = apiCap ?? storedCap;
 
   const submit = () => {
     const next: typeof problems = {};
     const parsed = parseAedToFils(refund);
     if (!parsed.ok) next.refund = t("refundInvalid");
-    else if (parsed.fils > cap) next.refund = t("refundTooHigh", { max: text.moneyFixed(cap) });
+    else if (cap !== null && parsed.fils > cap) next.refund = t("refundTooHigh", { max: text.moneyFixed(cap) });
     if (note.trim().length < 3) next.note = t("noteShort");
     setProblems(next);
     if (Object.keys(next).length > 0 || !parsed.ok) return;
@@ -78,17 +96,28 @@ export function ResolveReviewDialog({ subscription, onClose, onStale, changed, r
           {stored && <PeriodsTable plan={stored} />}
         </PreviewBox>
       )}
-      <PreviewBox title={t("capTitle")}>
-        <ul className="flex flex-col gap-0.5">
-          {periods.map((p) => (
-            <li key={p.id} className="flex flex-wrap justify-between gap-x-4">
-              <span>{t("period", { n: p.sequence, start: text.dateShort(p.start), end: text.dateShort(p.end) })}</span>
-              <span className="font-latin">{text.moneyFixed(p.refundable_fils)}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="font-bold text-ink-900">{t("capTotal", { max: text.moneyFixed(cap) })}</p>
-      </PreviewBox>
+      {stored && (
+        <PreviewBox title={t("capTitle")}>
+          {lines.length === 0 ? (
+            <p className="text-ink-600">{t("noPaidPeriod")}</p>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {lines.map((p) => {
+                const n = sequenceOf(p.ulid);
+                const dates = { start: text.dateShort(p.start), end: text.dateShort(p.end) };
+                return (
+                  <li key={p.ulid} className="flex flex-wrap justify-between gap-x-4">
+                    <span>{n !== null ? t("period", { n, ...dates }) : t("periodDates", dates)}</span>
+                    <span className="font-latin">{text.moneyFixed(p.refundable_fils)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {cap !== null && <p className="font-bold text-ink-900">{t("capTotal", { max: text.moneyFixed(cap) })}</p>}
+          <p className="text-xs text-ink-600">{t("capNote")}</p>
+        </PreviewBox>
+      )}
       <MoneyField
         label={t("refund")}
         required

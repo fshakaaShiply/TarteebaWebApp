@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { pickText } from "../catalog/fields";
-import { formatDateTime, formatIsoDate } from "../format";
+import { businessToday, formatDateTime, formatIsoDate } from "../format";
 import type { Translatable } from "../types";
 import { formatAed } from "@/lib/money";
 
@@ -43,6 +43,16 @@ export function daysInMonth(month: string): number {
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
+/**
+ * The Asia/Dubai calendar date "YYYY-MM-DD" of an API instant (the API answers instants in UTC, e.g. a renewal at 02:00
+ * local on 29 Nov is "2026-11-28T22:00:00+00:00"), or "" when it is not one. Never the instant's first 10 characters.
+ */
+export function businessDateOf(instant: string | null | undefined): string {
+  if (!instant) return "";
+  const date = new Date(instant);
+  return Number.isNaN(date.getTime()) ? "" : businessToday(date);
+}
+
 export function useSubscriptionText() {
   const locale = useLocale();
   const t = useTranslations("admin.subscriptions.enums");
@@ -75,12 +85,20 @@ export function useSubscriptionText() {
       compensation: (value: string | null | undefined) => (value ? own("compensation", value) : ""),
       unfit: (value: string) => own("unfit", value),
       conflict: (value: string) => own("conflict", value),
+      /** Where the subscription was bought (app, web, phone, whatsapp, admin). */
+      source: (value: string) => own("source", value),
+      /** Who brings the cleaning materials (customer, company). */
+      materialsBy: (value: string) => own("materialsBy", value),
+      /** Items joined with the UI language's list separator. */
+      list: (items: readonly string[]) => items.join(locale === "ar" ? "، " : ", "),
       weekday: (n: number, style: "long" | "short" = "long") => weekdayName(n, locale, style),
       weekdays: (days: readonly number[] | null | undefined, style: "long" | "short" = "short") =>
         [...(days ?? [])].sort((a, b) => a - b).map((n) => weekdayName(n, locale, style)).join(locale === "ar" ? "، " : ", "),
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "long"),
       dateShort: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
+      /** The Dubai date of an instant, short ("Sun, 29 Nov 2026"). */
+      instantDate: (iso: string | null | undefined) => formatIsoDate(businessDateOf(iso), locale, "short"),
       money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale)),
       /** Cancellation money always shows two decimals like the printed documents (P2-35). */
       moneyFixed: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale, { fixed: true })),

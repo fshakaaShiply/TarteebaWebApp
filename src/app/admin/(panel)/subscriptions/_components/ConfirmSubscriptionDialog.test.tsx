@@ -35,6 +35,12 @@ function setup(subscription = pendingDetail()) {
   return { onClose, onStale, user: userEvent.setup() };
 }
 
+/** Confirm is pressed once the preview (the amount to capture) is on screen. */
+async function confirmAfterPreview(user: ReturnType<typeof userEvent.setup>, name = "Confirm") {
+  await screen.findByText("AED 960.00");
+  await user.click(screen.getByRole("button", { name }));
+}
+
 describe("A08 confirm dialog", () => {
   beforeEach(() => {
     for (const fn of Object.values(api)) fn.mockReset();
@@ -68,7 +74,8 @@ describe("A08 confirm dialog", () => {
     const { user, onClose } = setup();
     await pick(user, "Primary worker", "14");
     await pick(user, "Backup worker", "15");
-    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(api.previewConfirm).toHaveBeenLastCalledWith(31, { primary_worker_id: 14, backup_worker_id: 15 }));
+    await confirmAfterPreview(user);
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(api.confirmSubscription).toHaveBeenCalledTimes(1);
     const [id, body, version, key] = api.confirmSubscription.mock.calls[0];
@@ -79,15 +86,49 @@ describe("A08 confirm dialog", () => {
   it("keeps the customer's choice when staff name nobody", async () => {
     api.confirmSubscription.mockResolvedValue(pendingDetail());
     const { user } = setup();
-    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    await confirmAfterPreview(user);
     await waitFor(() => expect(api.confirmSubscription).toHaveBeenCalled());
     expect(api.confirmSubscription.mock.calls[0][1]).toEqual({});
+  });
+
+  it("captures nothing before its preview is on screen", async () => {
+    api.previewConfirm.mockReturnValue(new Promise(() => undefined));
+    const { user } = setup();
+    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText("Wait for the preview before confirming. If it could not be loaded, try it again.")).toBeInTheDocument();
+    expect(api.confirmSubscription).not.toHaveBeenCalled();
+  });
+
+  it("captures nothing when the preview failed", async () => {
+    api.previewConfirm.mockRejectedValue(apiError(500, "SERVER_ERROR"));
+    const { user } = setup();
+    await screen.findByRole("button", { name: "Try again" });
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    const notice = await screen.findByText(/Wait for the preview before confirming/);
+    expect(notice.closest("[role=alert]")).not.toBeNull();
+    expect(api.confirmSubscription).not.toHaveBeenCalled();
+  });
+
+  it("names a refused worker by role and name, not by database id", async () => {
+    api.confirmSubscription.mockRejectedValue(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 15, reason: "not_eligible", reasons: ["not_eligible"] }] }));
+    const { user } = setup();
+    await pick(user, "Backup worker", "15");
+    await waitFor(() => expect(api.previewConfirm).toHaveBeenLastCalledWith(31, { backup_worker_id: 15 }));
+    await confirmAfterPreview(user);
+    expect(await screen.findByText("Backup worker: Rosa · Not eligible for this service")).toBeInTheDocument();
+    expect(screen.queryByText(/^15 ·/)).not.toBeInTheDocument();
+  });
+
+  it("names the refused worker from the preview's own answer, and falls back to her number", async () => {
+    api.previewConfirm.mockRejectedValue(apiError(422, "WORKER_NOT_ASSIGNABLE", { workers: [{ worker_id: 77, reason: "not_active", reasons: [] }] }));
+    setup();
+    expect(await screen.findByText("worker no. 77 · Not an active worker")).toBeInTheDocument();
   });
 
   it("answers 502 PAYMENT_RESULT_UNKNOWN with 'capture result unknown, confirm again' and the same key on the retry", async () => {
     api.confirmSubscription.mockRejectedValueOnce(apiError(502, "PAYMENT_RESULT_UNKNOWN")).mockResolvedValue(pendingDetail({ status: "active" }));
     const { user, onClose } = setup();
-    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    await confirmAfterPreview(user);
     expect(await screen.findByText("Capture result unknown")).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Confirm again" }));
@@ -98,7 +139,7 @@ describe("A08 confirm dialog", () => {
   it("names the dates whose capacity is no longer held", async () => {
     api.confirmSubscription.mockRejectedValue(apiError(409, "CAPACITY_NOT_HELD", { dates: ["2026-11-01", "2026-11-04"] }));
     const { user } = setup();
-    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    await confirmAfterPreview(user);
     const box = (await screen.findByText("Capacity is no longer held for these dates")).closest("div") as HTMLElement;
     expect(within(box).getByText("Sun, 1 Nov 2026")).toBeInTheDocument();
     expect(within(box).getByText("Wed, 4 Nov 2026")).toBeInTheDocument();
@@ -108,7 +149,7 @@ describe("A08 confirm dialog", () => {
     let reject: (e: unknown) => void = () => undefined;
     api.confirmSubscription.mockReturnValue(new Promise((_, r) => (reject = r)));
     const { user, onStale, onClose } = setup();
-    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    await confirmAfterPreview(user);
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled());
     reject(apiError(409, "STALE_VERSION", { current_version: 8 }));
     await waitFor(() => expect(onStale).toHaveBeenCalled());

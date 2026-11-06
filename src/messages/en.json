@@ -4705,6 +4705,17 @@
           "SLOT_CLOSED": "Slot is closed",
           "CAPACITY_SHORTFALL": "Not enough capacity",
           "NO_CAPACITY": "No capacity"
+        },
+        "source": {
+          "app": "App",
+          "web": "Website",
+          "phone": "Phone",
+          "whatsapp": "WhatsApp",
+          "admin": "Admin panel"
+        },
+        "materialsBy": {
+          "customer": "Customer's own materials",
+          "company": "Company brings the materials"
         }
       },
       "detail": {
@@ -4732,6 +4743,7 @@
           "renew": "Renew now",
           "autoRenewOff": "Turn auto-renew off",
           "cancel": "Cancel subscription",
+          "cancelAsCompany": "Cancel as the company",
           "resolveReview": "Resolve the review",
           "declineReview": "Keep the subscription",
           "assignPrimary": "Primary worker",
@@ -4766,6 +4778,7 @@
         },
         "resolve": "Resolve with a refund",
         "decline": "Keep the subscription",
+        "cancelAsCompany": "Cancel as the company",
         "requestsTitle": "Customer requests to move a visit: {count}",
         "request": "From {from} to {date}, {slot}.",
         "decide": "Decide",
@@ -4848,7 +4861,8 @@
         "payment": "Payment",
         "invoice": "Invoice",
         "refunded": "Refunded",
-        "refundable": "Can still give back: {amount}"
+        "refundable": "Can still give back: {amount}",
+        "paymentVoided": "Card hold released"
       },
       "history": {
         "title": "History",
@@ -4985,6 +4999,9 @@
         "startedBody": "They are credited and added at the end of the term.",
         "notHeldTitle": "Capacity is no longer held for these dates",
         "retryPreview": "Try again",
+        "termsMissing": "Wait for the preview before confirming. If it could not be loaded, try it again.",
+        "refusedRole": "{role}: {name}",
+        "workerNo": "worker no. {id}",
         "submit": "Confirm",
         "retry": "Confirm again",
         "unknownTitle": "Capture result unknown",
@@ -5006,6 +5023,9 @@
         "title": "Turn auto-renew off for {reference}",
         "body": "Only on the customer's request. Switching it on again is the customer's own consent.",
         "effect": "The next period's visits are released and the subscription ends at the end of this term.",
+        "effectFailing": "The failed renewal is given up: no more attempts charge the card, and the unpaid period and its visits are cancelled.",
+        "effectEndsOn": "The subscription runs until {date}, the end of the paid term, and then ends.",
+        "effectEndsNow": "The paid term is already over, so the subscription ends now.",
         "label": "Why (for the record)",
         "reasonShort": "Write a reason of at least 3 characters.",
         "reasonInvalid": "This reason is not accepted.",
@@ -5108,7 +5128,13 @@
         },
         "fullCanOverride": "That time is full or closed. You may go over the limit with a reason.",
         "fullNoOverride": "That time is full or closed, and moving there needs the capacity override permission.",
-        "seriesNote": "No fee and no approval. The visit keeps its place in the series and is marked as moved.",
+        "blockers": {
+          "policy": "The rules do not allow moving this visit to that time.",
+          "slot": "That time cannot take the visit.",
+          "price": "That time costs more than the visit's agreed price.",
+          "other": "This move cannot be made now."
+        },
+        "seriesNote":"No fee and no approval. The visit keeps its place in the series and is marked as moved.",
         "override": "Go over the capacity limit",
         "overrideHint": "Needs a written reason; it is audited.",
         "overrideReason": "Reason for the override",
@@ -5255,6 +5281,8 @@
         "refundHint": "Leave empty to apply the rule. At most {max}.",
         "refundInvalid": "Enter a valid amount.",
         "refundTooHigh": "The periods can give back at most {max}.",
+        "customRefundNote": "With your own amount, no fee and no package discount are taken: the customer gets back exactly the amount typed.",
+        "companyDuringReview": "The cancellation waiting for review is closed by this one (recorded as replaced by the company's cancellation).",
         "retryPreview": "Try again",
         "termsChangedBody": "The fee or refund changed while you were deciding. The new figures are marked; confirm again to cancel with them.",
         "unknownTitle": "The bank result is not known yet",
@@ -5294,7 +5322,10 @@
         "reason": "Reason",
         "capTitle": "What each period can give back",
         "period": "Period {n}: {start} to {end}",
+        "periodDates": "{start} to {end}",
+        "noPaidPeriod": "No paid period can give money back.",
         "capTotal": "At most {max} in total.",
+        "capNote": "These are the figures recorded with the review. The amount is checked again when you confirm.",
         "refund": "Total refund",
         "refundHint": "The policy's figure is filled in. You may change it.",
         "refundInvalid": "Enter a valid amount.",
@@ -5356,12 +5387,14 @@
         "substituteHint": "Without a substitute the day is credited and added at the end of the term.",
         "previewTitle": "What changes",
         "substituteIs": "Substitute: {name}",
+        "substituteNo": "Substitute: worker no. {id}",
         "credited": "credited",
         "appended": "added on {date}",
         "newEnd": "New end of the term",
         "unfitTitle": "Days the substitute cannot cover (credited instead)",
         "noMoney": "No fee and no refund.",
         "retryPreview": "Try again",
+        "termsMissing": "Wait for the preview before saving. If it could not be loaded, try it again.",
         "submit": "Save",
         "done": "Days updated.",
         "doneUnfit": "Days updated. Days the substitute could not cover: {count}."

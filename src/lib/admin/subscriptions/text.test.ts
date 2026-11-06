@@ -3,7 +3,7 @@ import { AdminApiError } from "../client";
 import { subscriptionErrorText } from "./errors";
 import { payloadFacts } from "./history";
 import { healthToneOf, statusToneOf } from "./status";
-import { daysInMonth, monthOf, shiftMonth, weekdayName, weekdayOf } from "./text";
+import { businessDateOf, daysInMonth, monthOf, shiftMonth, weekdayName, weekdayOf } from "./text";
 import ar from "@/messages/ar.json";
 import en from "@/messages/en.json";
 
@@ -22,6 +22,15 @@ describe("A08 calendar and weekday helpers", () => {
     expect(daysInMonth("2026-02")).toBe(28);
     expect(daysInMonth("2026-11")).toBe(30);
     expect(monthOf("2026-11-09")).toBe("2026-11");
+  });
+
+  it("reads the Dubai date of an API instant, not the first 10 characters of its UTC form", () => {
+    // A renewal at 02:00 local on 29 Nov is 22:00 UTC on 28 Nov.
+    expect(businessDateOf("2026-11-28T22:00:00+00:00")).toBe("2026-11-29");
+    expect(businessDateOf("2026-11-28T19:59:00+00:00")).toBe("2026-11-28");
+    expect(businessDateOf("2026-11-29T02:00:00+04:00")).toBe("2026-11-29");
+    expect(businessDateOf(null)).toBe("");
+    expect(businessDateOf("not a date")).toBe("");
   });
 });
 

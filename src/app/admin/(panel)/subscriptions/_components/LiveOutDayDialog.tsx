@@ -12,7 +12,7 @@ import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { ChangedNotice, DRY_RUN, ErrorNotice, Ltr, PreviewBox, TermsRow, hasFieldErrors, useDialogMutation, useFieldError, type SubscriptionDialogProps } from "./kit";
 import { UnfitList } from "./SubscriptionBits";
-import { WorkerPicker } from "./WorkerPicker";
+import { WorkerPicker, candidateName, useWorkerCandidates } from "./WorkerPicker";
 
 type Change = LiveOutDayInput["change"];
 
@@ -26,18 +26,23 @@ export function changesFor(type: string): Change[] {
  * credited), a public holiday, or back to service. The preview lists each day before and after, the substitute, the
  * credited days and the days the substitute could not cover (they are credited as without one); following days run
  * to the end of the period or to the date given. The primary worker is booked for the whole day, so nothing else is
- * checked on the client. The new end of the term is the API's.
+ * checked on the client. The new end of the term is the API's. Nothing is sent before the preview of the current
+ * choice is on screen.
+ *
+ * The API names each day's substitute by worker id only; the name comes from the substitute candidates the picker
+ * loaded, the day the dialog was opened from (`daySubstitute`, from the calendar) or the subscription's workers.
  */
 export function LiveOutDayDialog({
   subscription,
   date,
   type,
   scope: initialScope,
+  daySubstitute = null,
   onClose,
   onStale,
   changed,
   returnFocusTo,
-}: SubscriptionDialogProps & { date: string; type: string; scope: "this" | "following" }) {
+}: SubscriptionDialogProps & { date: string; type: string; scope: "this" | "following"; daySubstitute?: { id: number; name: string } | null }) {
   const t = useTranslations("admin.subscriptions.day");
   const text = useSubscriptionText();
   const describe = useSubscriptionErrorMessage();
@@ -47,7 +52,18 @@ export function LiveOutDayDialog({
   const [scope, setScope] = useState<"this" | "following">(initialScope);
   const [until, setUntil] = useState("");
   const [substitute, setSubstitute] = useState("");
+  const [problem, setProblem] = useState(false);
   const primaryId = subscription.workers.primary?.id ?? null;
+  // The picker's own list (same key: loaded once), for the names of the substitutes the preview gives by id.
+  const candidates = useWorkerCandidates(subscription.id, "backup", date, change === "absence");
+  const substituteName = (id: number) => {
+    const known = [daySubstitute, subscription.workers.backup, subscription.workers.primary].find((w) => w?.id === id);
+    return candidateName(id, candidates.data) ?? known?.name ?? null;
+  };
+  const substituteLabel = (id: number) => {
+    const name = substituteName(id);
+    return name ? t("substituteIs", { name }) : t("substituteNo", { id });
+  };
 
   const input: LiveOutDayInput = {
     change,
@@ -77,8 +93,16 @@ export function LiveOutDayDialog({
     }),
   });
 
-  const terms = preview.data;
-  const submit = () => mutation.mutate(input);
+  const terms = untilInvalid ? undefined : preview.data;
+  const submit = () => {
+    // The preview first (§9.1): absences and credits over a range are applied only once its days are on screen.
+    if (!terms) {
+      setProblem(true);
+      return;
+    }
+    setProblem(false);
+    mutation.mutate(input);
+  };
 
   return (
     <ConfirmDialog
@@ -164,7 +188,7 @@ export function LiveOutDayDialog({
                 <span className="text-ink-600">
                   {text.day(d.before)} → <span className="font-medium text-ink-900">{text.day(d.after)}</span>
                 </span>
-                {d.substitute && <span>{t("substituteIs", { name: d.substitute.name })}</span>}
+                {d.substitute !== null && <span>{substituteLabel(d.substitute)}</span>}
                 {d.credited && <span className="text-success-700">{t("credited")}</span>}
                 {d.appended_date && <span className="text-ink-600">{t("appended", { date: text.dateShort(d.appended_date) })}</span>}
               </li>
@@ -190,6 +214,11 @@ export function LiveOutDayDialog({
           )}
           <p className="text-xs text-ink-600">{t("noMoney")}</p>
         </PreviewBox>
+      )}
+      {problem && !terms && (
+        <Notice tone="warning" role="alert">
+          {t("termsMissing")}
+        </Notice>
       )}
       <ErrorNotice error={mutation.error} hideCodes={hasFieldErrors(mutation.error, ["until"]) ? ["VALIDATION_FAILED"] : []} />
     </ConfirmDialog>

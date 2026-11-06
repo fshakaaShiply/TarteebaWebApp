@@ -94,6 +94,29 @@ describe("A08 subscriptions list", () => {
     expect(within(pending).getByText("Payment being checked")).toBeInTheDocument();
   });
 
+  it("shows the renewal and first-visit dates as Dubai dates, not the UTC instant's date", async () => {
+    // renewal_time 02:00 on 29 Nov (Dubai) is 22:00 UTC on 28 Nov; the first visit at 01:00 on 1 Nov is 21:00 UTC on 31 Oct.
+    api.fetchSubscriptions.mockResolvedValue(
+      subscriptionPage([
+        subscriptionRow({ next_renewal_at: "2026-11-28T22:00:00+00:00" }),
+        subscriptionRow({
+          id: 34,
+          reference: "TRS-PEND01",
+          status: "pending_confirmation",
+          next_renewal_at: null,
+          first_visit_at: "2026-10-31T21:00:00+00:00",
+          confirmation_deadline_at: "2099-10-23T08:00:00+00:00",
+        }),
+      ]),
+    );
+    renderWithProviders(<SubscriptionsScreen />, { permissions: READ });
+    const row = (await screen.findByRole("link", { name: "TRS-7K2M9Q" })).closest("tr") as HTMLElement;
+    expect(within(row).getByText("Sun, 29 Nov 2026")).toBeInTheDocument();
+    expect(within(row).queryByText("Sat, 28 Nov 2026")).not.toBeInTheDocument();
+    const pending = screen.getByRole("link", { name: "TRS-PEND01" }).closest("tr") as HTMLElement;
+    expect(within(pending).getByText("First visit Sun, 1 Nov 2026")).toBeInTheDocument();
+  });
+
   it("marks conflicts and a cancellation review on the row", async () => {
     api.fetchSubscriptions.mockResolvedValue(subscriptionPage([subscriptionRow({ conflicts_count: 2, cancel_review_requested_at: "2026-10-23T10:00:00+00:00" })]));
     renderWithProviders(<SubscriptionsScreen />, { permissions: READ });

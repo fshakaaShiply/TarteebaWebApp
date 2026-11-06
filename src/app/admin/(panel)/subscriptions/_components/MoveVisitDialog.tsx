@@ -21,7 +21,9 @@ const OVERRIDE_REASON_MIN = 10;
  * "Edit this visit": move one visit to another date and time (scope this). Booking's staff rules: no fee, no approval,
  * no weekly limit; the capacity decides, and "full" or "closed" can be passed only by staff with capacity.override, with
  * a reason of at least 10 characters (P2-16). The preview (the same check, nothing kept) says whether the time fits.
- * The visit keeps its place in the series and is marked as an exception; the period follows the served dates.
+ * The visit keeps its place in the series and is marked as an exception; the period follows the served dates. The
+ * preview's blockers (Booking's codes policy, slot, price) are shown in our own words, with the API's explanation (in
+ * the UI language: the request carries it).
  */
 export function MoveVisitDialog({ subscription, visit, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps & { visit: SubscriptionOccurrence }) {
   const t = useTranslations("admin.subscriptions.move");
@@ -60,6 +62,8 @@ export function MoveVisitDialog({ subscription, visit, onClose, onStale, changed
 
   const availability = preview.data?.availability;
   const full = availability?.status === "full" || availability?.status === "closed";
+  // Booking's blocker codes (policy | slot | price) in our own words; "slot" is already said by the full/closed line.
+  const blockers = [...new Set(preview.data?.blockers ?? [])].filter((b) => !(b === "slot" && full && !override));
   const code = codeOf(mutation.error);
   const slotUnavailable = code === "SLOT_FULL" || code === "SLOT_CLOSED";
 
@@ -129,7 +133,14 @@ export function MoveVisitDialog({ subscription, visit, onClose, onStale, changed
             <TermsRow label={t("availability")} value={t.has(`availabilityStates.${availability?.status}` as never) ? t(`availabilityStates.${availability?.status}` as never) : (availability?.status ?? "—")} />
           </dl>
           {full && !override && <p className="font-medium text-warning-700">{canOverride ? t("fullCanOverride") : t("fullNoOverride")}</p>}
-          {preview.data.blockers.length > 0 && <p className="font-medium text-danger-700">{preview.data.blockers.join(", ")}</p>}
+          {blockers.length > 0 && (
+            <ul className="flex flex-col gap-0.5 font-medium text-danger-700">
+              {blockers.map((b) => (
+                <li key={b}>{t.has(`blockers.${b}` as never) ? t(`blockers.${b}` as never) : t("blockers.other")}</li>
+              ))}
+            </ul>
+          )}
+          {preview.data.explanation && <p className="text-ink-900">{preview.data.explanation}</p>}
           <p className="text-xs text-ink-600">{t("seriesNote")}</p>
         </PreviewBox>
       )}

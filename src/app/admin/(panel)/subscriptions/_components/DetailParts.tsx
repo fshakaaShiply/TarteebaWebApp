@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, Pagination, StatusBadge } from "@/components/admin";
+import { fetchAddonOptions } from "@/lib/admin/endpoints";
+import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
 import { pendingReview } from "@/lib/admin/subscriptions/actions";
 import { fetchSubscriptionEvents } from "@/lib/admin/subscriptions/endpoints";
@@ -144,6 +146,12 @@ export function Banners({ subscription, open, goTo }: { subscription: Subscripti
                   {t("decline")}
                 </Button>
               )}
+              {/* §4.7: coordinators may instead cancel as the company; the API closes the review as superseded. */}
+              {manage && a.resolve_review && (
+                <Button variant="outline" size="sm" className="text-danger-700" onClick={() => open({ kind: "cancel", party: "company" })}>
+                  {t("cancelAsCompany")}
+                </Button>
+              )}
             </span>
           }
         >
@@ -230,10 +238,10 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
             { label: t("term"), value: `${text.dateShort(subscription.start_date)} – ${text.dateShort(subscription.term_end_date)}` },
             { label: t("visitsPerPeriod"), value: subscription.visits_per_period },
             { label: t("autoRenew"), value: subscription.auto_renew ? t("on") : subscription.auto_renew_allowed ? t("off") : t("notAllowed") },
-            { label: t("source"), value: subscription.source },
-            { label: t("materials"), value: subscription.materials_by },
+            { label: t("source"), value: text.source(subscription.source) },
+            { label: t("materials"), value: text.materialsBy(subscription.materials_by) },
             { label: t("workersCount"), value: subscription.workers_count },
-            ...(subscription.addons.length > 0 ? [{ label: t("addons"), value: subscription.addons.join(", ") }] : []),
+            ...(subscription.addons.length > 0 ? [{ label: t("addons"), value: <AddonNames codes={subscription.addons} /> }] : []),
             ...(subscription.coupon?.code ? [{ label: t("coupon"), value: <Ltr>{subscription.coupon.code}</Ltr> }] : []),
           ]}
         />
@@ -340,6 +348,37 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
   );
 }
 
+/** Readers of GET /admin/addons/options (the add-on pick list with each code's name). */
+const ADDON_NAME_READERS = ["catalog.manage", "bookings.create_manual", "bookings.view"];
+
+/**
+ * The detail sends add-on codes only: their names come from the add-on pick list for staff who may read it; anyone
+ * else (or a code the list no longer has) sees the code itself, kept left to right.
+ */
+function AddonNames({ codes }: { codes: string[] }) {
+  const text = useSubscriptionText();
+  const { canAny } = useAdminSession();
+  const readable = canAny(ADDON_NAME_READERS);
+  const query = useQuery({ queryKey: adminKeys.addonPickList(), queryFn: fetchAddonOptions, enabled: readable, staleTime: 5 * 60_000, retry: false });
+  const nameOf = (code: string) => {
+    const option = query.data?.find((a) => a.code === code);
+    return option ? text.name(option.name) : null;
+  };
+  return (
+    <span>
+      {codes.map((code, i) => {
+        const name = nameOf(code);
+        return (
+          <span key={code}>
+            {i > 0 && (text.locale === "ar" ? "، " : ", ")}
+            {name ?? <Ltr>{code}</Ltr>}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 // ---- Periods and payments -------------------------------------------------------------------------------------------
 
 /** Every period with its dates, visits, state, amount and what its payment and invoice are (A09 links for finance readers). */
@@ -350,6 +389,8 @@ export function PeriodsTab({ subscription }: { subscription: SubscriptionDetail 
   const payments = canAny(["payments.view"]);
   const invoices = canAny(["payments.view", "invoices.manage"]);
   if (subscription.periods.length === 0) return <EmptyState title={t("empty")} />;
+  // A voided authorization (a request rejected or cancelled before confirmation) took no money: never "failed".
+  const paymentLabel = (status: string) => (status === "voided" ? t("paymentVoided") : text.health(paymentHealthOf(status)));
   const th = "px-2 py-2 text-start font-medium";
   return (
     <div className="overflow-x-auto">
@@ -389,10 +430,10 @@ export function PeriodsTab({ subscription }: { subscription: SubscriptionDetail 
                   <span className="flex flex-col">
                     {payments ? (
                       <Link href={`/admin/finance/payments/${p.payment.id}`} className="font-medium">
-                        {text.health(paymentHealthOf(p.payment.status))}
+                        {paymentLabel(p.payment.status)}
                       </Link>
                     ) : (
-                      <span>{text.health(paymentHealthOf(p.payment.status))}</span>
+                      <span>{paymentLabel(p.payment.status)}</span>
                     )}
                     {p.payment.card_label && <span className="text-xs text-ink-600">{p.payment.card_label}</span>}
                   </span>
@@ -415,12 +456,15 @@ export function PeriodsTab({ subscription }: { subscription: SubscriptionDetail 
   );
 }
 
-/** A payment's own status as the provider reports it, mapped to the health words staff know (never "paid" before capture). */
+/**
+ * A payment's own status as the provider reports it, mapped to the health words staff know (never "paid" before
+ * capture). `voided` has its own label (PeriodsTab), as nothing failed there.
+ */
 function paymentHealthOf(status: string): string {
   if (status === "captured" || status === "partially_refunded") return "paid";
   if (status === "refunded") return "refunded";
   if (status === "verifying") return "verifying";
-  if (status === "failed" || status === "voided") return "renewal_failed";
+  if (status === "failed") return "renewal_failed";
   return "pending";
 }
 

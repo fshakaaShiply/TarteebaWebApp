@@ -159,11 +159,11 @@ function SubscriptionsTable() {
       cell: (s) =>
         s.next_renewal_at ? (
           <span className="flex flex-col">
-            <span>{text.dateShort(s.next_renewal_at.slice(0, 10))}</span>
+            <span>{text.instantDate(s.next_renewal_at)}</span>
             {s.renewal_attempts > 0 && <span className="text-xs text-warning-700">{t("attempts", { count: s.renewal_attempts })}</span>}
           </span>
         ) : (
-          <span className="text-ink-600">{s.status === "pending_confirmation" && s.first_visit_at ? t("firstVisit", { date: text.dateShort(s.first_visit_at.slice(0, 10)) }) : "—"}</span>
+          <span className="text-ink-600">{s.status === "pending_confirmation" && s.first_visit_at ? t("firstVisit", { date: text.instantDate(s.first_visit_at) }) : "—"}</span>
         ),
     },
     { id: "payment", header: t("columns.payment"), cell: (s) => <HealthChip health={s.payment_health} /> },

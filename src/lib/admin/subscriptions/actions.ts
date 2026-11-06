@@ -23,6 +23,7 @@ export type SubscriptionAction =
   | "renew"
   | "autoRenewOff"
   | "cancel"
+  | "cancelAsCompany"
   | "resolveReview"
   | "declineReview"
   | "assignPrimary"
@@ -43,7 +44,16 @@ export const ACTION_ORDER: readonly SubscriptionAction[] = [
   "assignBackup",
   "autoRenewOff",
   "cancel",
+  "cancelAsCompany",
 ];
+
+/**
+ * Where staff may switch auto-renew off (ToggleAutoRenew): active and paused (the next period is released and the term
+ * runs out), and renewal_failed and suspended (the failed renewal is given up: no more attempts charge the card, and
+ * the subscription runs to the end of its paid term, or ends at once when that is past).
+ */
+export const AUTO_RENEW_OFF_STATUSES: readonly string[] = ["active", "paused", "renewal_failed", "suspended"];
+export const FAILING_RENEWAL_STATUSES: readonly string[] = ["renewal_failed", "suspended"];
 
 /** The cancellation review that waits for a decision, or null. */
 export function pendingReview(detail: Pick<SubscriptionDetail, "cancel_review">): CancelReviewBlock | null {
@@ -70,8 +80,13 @@ export function availableActions(detail: SubscriptionDetail, can: (permission: s
       out.add("assignBackup");
     }
     if (a.cancel) out.add("cancel");
-    if (review && a.resolve_review) out.add("declineReview");
-    if (detail.auto_renew && !review && ["active", "paused"].includes(detail.status)) out.add("autoRenewOff");
+    if (review && a.resolve_review) {
+      out.add("declineReview");
+      // §4.7: while a review waits, coordinators may instead cancel as the company (the API closes the review as
+      // superseded); `actions.cancel` is false then because the customer's own cancellation is what waits.
+      out.add("cancelAsCompany");
+    }
+    if (detail.auto_renew && !review && AUTO_RENEW_OFF_STATUSES.includes(detail.status)) out.add("autoRenewOff");
   }
   // Finance resolves a review with a refund: a read permission and refunds.create (the API checks both).
   if (review && a.resolve_review && can(REFUND_PERMISSION) && (can(MANAGE) || can("subscriptions.view"))) out.add("resolveReview");

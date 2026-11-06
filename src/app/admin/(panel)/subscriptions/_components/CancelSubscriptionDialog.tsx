@@ -23,15 +23,21 @@ import { ChangedNotice, DRY_RUN, ErrorNotice, PreviewBox, TermsChangedNotice, Te
  * the API. Only someone with refunds.create may type a custom total refund; a preview that needs a review sends the
  * cancellation to the finance review queue. The fee, refund and clawback the preview showed go back as expected_*; when
  * they moved (409 TERMS_CHANGED) the new ones are on screen, the changes marked, and a fresh confirm sends them.
+ *
+ * A custom amount replaces the policy's figures (PlanCancellation: no fee, no clawback, exactly that refund), so with
+ * one the terms confirmed are fee 0, clawback 0 and refund = the amount typed, which the dialog says under the field.
+ *
+ * `companyOnly`: while a cancellation waits for review, a coordinator may still cancel as the company (§4.7); the API
+ * closes the review as superseded. The party is fixed and the dialog says so.
  */
-export function CancelSubscriptionDialog({ subscription, onClose, onStale, changed, returnFocusTo }: SubscriptionDialogProps) {
+export function CancelSubscriptionDialog({ subscription, onClose, onStale, changed, returnFocusTo, companyOnly = false }: SubscriptionDialogProps & { companyOnly?: boolean }) {
   const t = useTranslations("admin.subscriptions.cancel");
   const text = useSubscriptionText();
   const describe = useSubscriptionErrorMessage();
   const fieldError = useFieldError();
   const { can } = useAdminSession();
   const mayRefund = can(REFUND_PERMISSION);
-  const [party, setParty] = useState<CancelParty>("customer");
+  const [party, setParty] = useState<CancelParty>(companyOnly ? "company" : "customer");
   const [reasonCode, setReasonCode] = useState("");
   const [reasonText, setReasonText] = useState("");
   const [refund, setRefund] = useState("");
@@ -89,12 +95,13 @@ export function CancelSubscriptionDialog({ subscription, onClose, onStale, chang
       party,
       reason_code: reasonCode,
       ...(reasonText.trim() ? { reason_text: reasonText.trim() } : {}),
-      ...(refundFils !== undefined ? { refund_fils: refundFils } : {}),
-      expected_fee_fils: plan.totals.fee_fils,
-      expected_refund_fils: plan.totals.refund_fils,
-      expected_clawback_fils: plan.totals.clawback_fils,
+      ...(refundFils !== undefined
+        ? // The API plans a custom amount with no fee and no clawback, refunding exactly that amount.
+          { refund_fils: refundFils, expected_fee_fils: 0, expected_refund_fils: refundFils, expected_clawback_fils: 0 }
+        : { expected_fee_fils: plan.totals.fee_fils, expected_refund_fils: plan.totals.refund_fils, expected_clawback_fils: plan.totals.clawback_fils }),
     });
   };
+  const customTyped = mayRefund && refund.trim() !== "";
 
   const moved = (field: string) => fresh?.changed.includes(field) ?? false;
   const unknown = codeOf(mutation.error) === "PAYMENT_RESULT_UNKNOWN";
@@ -113,29 +120,35 @@ export function CancelSubscriptionDialog({ subscription, onClose, onStale, chang
       returnFocusTo={returnFocusTo}
     >
       <ChangedNotice changed={changed} />
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-sm font-medium text-ink-900">{t("party")}</legend>
-        <div className="flex flex-wrap gap-4">
-          {CANCEL_PARTIES.map((p) => (
-            <label key={p} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="cancel-party"
-                value={p}
-                checked={party === p}
-                onChange={() => {
-                  setParty(p);
-                  setRefund("");
-                  setProblems({});
-                  mutation.reset();
-                }}
-                className="size-4 accent-petrol-700"
-              />
-              {t(`parties.${p}`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {companyOnly ? (
+        <Notice tone="info" title={`${t("party")}: ${t("parties.company")}`}>
+          {t("companyDuringReview")}
+        </Notice>
+      ) : (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-medium text-ink-900">{t("party")}</legend>
+          <div className="flex flex-wrap gap-4">
+            {CANCEL_PARTIES.map((p) => (
+              <label key={p} className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="cancel-party"
+                  value={p}
+                  checked={party === p}
+                  onChange={() => {
+                    setParty(p);
+                    setRefund("");
+                    setProblems({});
+                    mutation.reset();
+                  }}
+                  className="size-4 accent-petrol-700"
+                />
+                {t(`parties.${p}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {preview.isPending && !fresh ? (
         <LoadingBlock lines={5} />
@@ -203,6 +216,7 @@ export function CancelSubscriptionDialog({ subscription, onClose, onStale, chang
           error={refundError}
         />
       )}
+      {customTyped && <p className="text-sm font-medium text-ink-900">{t("customRefundNote")}</p>}
       {unknown ? (
         <Notice tone="warning" title={t("unknownTitle")}>
           {t("unknownBody")}

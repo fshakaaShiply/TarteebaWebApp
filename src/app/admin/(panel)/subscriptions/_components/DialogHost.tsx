@@ -25,7 +25,8 @@ export type DialogRequest =
   | { kind: "undoSkip"; visit?: SubscriptionOccurrence }
   | { kind: "renew" }
   | { kind: "autoRenewOff" }
-  | { kind: "cancel" }
+  /** `party: "company"`: the company's cancellation while a review waits (the party is fixed). */
+  | { kind: "cancel"; party?: "company" }
   | { kind: "resolveReview" }
   | { kind: "declineReview" }
   | { kind: "assign"; role: "primary" | "backup" }
@@ -79,7 +80,7 @@ export function useSubscriptionDialogs(subscription: SubscriptionDetail, onStale
       element = <AutoRenewOffDialog {...props} />;
       break;
     case "cancel":
-      element = <CancelSubscriptionDialog {...props} />;
+      element = <CancelSubscriptionDialog {...props} companyOnly={r.party === "company"} />;
       break;
     case "resolveReview":
       element = <ResolveReviewDialog {...props} />;
@@ -103,7 +104,7 @@ export function useSubscriptionDialogs(subscription: SubscriptionDetail, onStale
       element = <RescheduleRequestDialog {...props} visit={r.visit} />;
       break;
     case "day":
-      element = <LiveOutDayDialog {...props} date={r.day.date} type={r.day.type} scope={r.scope} />;
+      element = <LiveOutDayDialog {...props} date={r.day.date} type={r.day.type} scope={r.scope} daySubstitute={r.day.substitute} />;
       break;
   }
   return { open, element };

@@ -98,6 +98,7 @@ const ACTION_ICONS: Record<SubscriptionAction, ReactNode> = {
   renew: <CreditCard aria-hidden className="size-4" />,
   autoRenewOff: <Ban aria-hidden className="size-4" />,
   cancel: <Ban aria-hidden className="size-4" />,
+  cancelAsCompany: <Ban aria-hidden className="size-4" />,
   resolveReview: <Check aria-hidden className="size-4" />,
   declineReview: <X aria-hidden className="size-4" />,
   assignPrimary: <UserRoundCog aria-hidden className="size-4" />,
@@ -114,6 +115,7 @@ const REQUESTS: Record<SubscriptionAction, DialogRequest> = {
   renew: { kind: "renew" },
   autoRenewOff: { kind: "autoRenewOff" },
   cancel: { kind: "cancel" },
+  cancelAsCompany: { kind: "cancel", party: "company" },
   resolveReview: { kind: "resolveReview" },
   declineReview: { kind: "declineReview" },
   assignPrimary: { kind: "assign", role: "primary" },
@@ -166,8 +168,8 @@ function SubscriptionView({ subscription, onStale }: { subscription: Subscriptio
               {headerActions.map((a) => (
                 <Button
                   key={a}
-                  variant={a === "confirm" || a === "renew" || a === "resolveReview" ? "primary" : a === "cancel" || a === "reject" ? "outline" : "secondary"}
-                  className={a === "cancel" ? "text-danger-700" : undefined}
+                  variant={a === "confirm" || a === "renew" || a === "resolveReview" ? "primary" : a === "cancel" || a === "cancelAsCompany" || a === "reject" ? "outline" : "secondary"}
+                  className={a === "cancel" || a === "cancelAsCompany" ? "text-danger-700" : undefined}
                   onClick={() => open(REQUESTS[a])}
                   icon={ACTION_ICONS[a]}
                 >

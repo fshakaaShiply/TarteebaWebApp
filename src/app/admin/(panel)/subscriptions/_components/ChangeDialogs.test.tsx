@@ -76,6 +76,24 @@ describe("A08 reject, auto-renew off and keeping after a review", () => {
     expect(api.switchAutoRenewOff).toHaveBeenCalledWith(31, "Customer called", 7);
   });
 
+  it("explains that switching off a failing renewal stops the charges and ends the term", async () => {
+    api.switchAutoRenewOff.mockResolvedValue(sub);
+    const failing = subscriptionDetail({ status: "renewal_failed", term_end_date: "2026-11-28" });
+    const { user, onClose } = show((p) => <AutoRenewOffDialog subscription={failing} {...p} />);
+    expect(await screen.findByText(/The failed renewal is given up: no more attempts charge the card/)).toBeInTheDocument();
+    expect(screen.getByText("The subscription runs until Sat, 28 Nov 2026, the end of the paid term, and then ends.")).toBeInTheDocument();
+    expect(screen.queryByText(/The next period's visits are released/)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Why (for the record)", { exact: false }), "Customer asked to stop the charges");
+    await user.click(screen.getByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.switchAutoRenewOff).toHaveBeenCalledWith(31, "Customer asked to stop the charges", 7);
+  });
+
+  it("says a suspended subscription whose paid term is over ends now", async () => {
+    show((p) => <AutoRenewOffDialog subscription={subscriptionDetail({ status: "suspended", term_end_date: "2026-10-01" })} {...p} />);
+    expect(await screen.findByText("The paid term is already over, so the subscription ends now.")).toBeInTheDocument();
+  });
+
   it("keeps the subscription after a review with a note", async () => {
     api.declineCancelReview.mockResolvedValue(sub);
     const { user, onClose } = show((p) => <DeclineReviewDialog subscription={sub} {...p} />);
@@ -234,8 +252,9 @@ describe("A08 assign a worker", () => {
   });
 });
 
+/** As the API answers it: each day's substitute is the worker's id (ChangeLiveOutDays), never a name. */
 const dayPreview = (over: Record<string, unknown> = {}) => ({
-  days: [{ date: "2026-11-11", before: "service", after: "absence", substitute: { id: 15, name: "Rosa" }, credited: false }],
+  days: [{ date: "2026-11-11", before: "service", after: "absence", substitute: 15, credited: false }],
   term_end_date: "2026-11-28",
   conflicts: {},
   unfit: [],
@@ -256,6 +275,8 @@ describe("A08 Live-out day", () => {
     await waitFor(() => expect(within(substitute).getByRole("option", { name: /Rosa/ })).toBeInTheDocument());
     await user.selectOptions(substitute, "15");
     await waitFor(() => expect(api.previewLiveOutDay).toHaveBeenLastCalledWith(32, "2026-11-11", { change: "absence", scope: "this", substitute_worker_id: 15 }));
+    // The preview names her by id (15): the dialog shows the name from the candidates it loaded.
+    expect(await screen.findByText("Substitute: Rosa")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const [id, date, body, version, key] = api.changeLiveOutDay.mock.calls[0];
@@ -284,6 +305,44 @@ describe("A08 Live-out day", () => {
     const change = await screen.findByLabelText("Change to", { exact: false });
     expect(within(change).getAllByRole("option").map((o) => o.textContent)).toEqual(["Service"]);
     expect(screen.queryByLabelText("Substitute worker (optional)", { exact: false })).not.toBeInTheDocument();
+  });
+
+  it("names a substitute the preview keeps on a day going back to service from the day itself, else by number", async () => {
+    // Back to service: the primary could not take the day back, so it stays absent with its substitute (id 21).
+    api.previewLiveOutDay.mockResolvedValue(
+      dayPreview({
+        days: [
+          { date: "2026-11-11", before: "absence", after: "absence", substitute: 21, credited: false },
+          { date: "2026-11-12", before: "absence", after: "absence", substitute: 99, credited: false },
+        ],
+        unfit: [{ date: "2026-11-11", worker_id: 14, reasons: ["leave"] }],
+      }),
+    );
+    show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="absence" scope="following" daySubstitute={{ id: 21, name: "Lina" }} {...p} />);
+    expect(await screen.findByText("Substitute: Lina")).toBeInTheDocument();
+    expect(screen.getByText("Substitute: worker no. 99")).toBeInTheDocument();
+    expect(screen.queryByText(/Substitute: $/)).not.toBeInTheDocument();
+    // No absence is chosen here, so the substitute list is not asked for.
+    expect(api.fetchWorkerCandidates).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing before the preview of the days is on screen", async () => {
+    api.previewLiveOutDay.mockReturnValue(new Promise(() => undefined));
+    const { user } = show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="following" {...p} />);
+    await screen.findByLabelText("Change to", { exact: false });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const notice = await screen.findByText(/Wait for the preview before saving/);
+    expect(notice.closest("[role=alert]")).not.toBeNull();
+    expect(api.changeLiveOutDay).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing when the preview failed", async () => {
+    api.previewLiveOutDay.mockRejectedValue(apiError(500, "SERVER_ERROR"));
+    const { user } = show((p) => <LiveOutDayDialog subscription={detail} date="2026-11-11" type="service" scope="this" {...p} />);
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/Wait for the preview before saving/)).toBeInTheDocument();
+    expect(api.changeLiveOutDay).not.toHaveBeenCalled();
   });
 
   it("explains why a day cannot be edited (DAY_NOT_EDITABLE) from the preview", async () => {

@@ -21,6 +21,16 @@ describe("A08 actions by state and permission", () => {
     expect(availableActions(subscriptionDetail({ auto_renew: false }), holds("subscriptions.manage")).has("autoRenewOff")).toBe(false);
   });
 
+  it("offers auto-renew off on a failing renewal too, where it stops the charges (ToggleAutoRenew)", () => {
+    for (const status of ["renewal_failed", "suspended", "paused", "active"]) {
+      expect(availableActions(subscriptionDetail({ status }), holds("subscriptions.manage")).has("autoRenewOff"), status).toBe(true);
+    }
+    for (const status of ["expiring", "pending_confirmation", "cancelled", "ended"]) {
+      expect(availableActions(subscriptionDetail({ status }), holds("subscriptions.manage")).has("autoRenewOff"), status).toBe(false);
+    }
+    expect(availableActions(subscriptionDetail({ status: "suspended" }), holds("subscriptions.view")).has("autoRenewOff")).toBe(false);
+  });
+
   it("offers Renew now to a failed renewal and Unfreeze while frozen", () => {
     const failed = subscriptionDetail({ status: "renewal_failed", actions: { ...subscriptionDetail().actions, renew: true, freeze: false } });
     expect(availableActions(failed, holds("subscriptions.manage")).has("renew")).toBe(true);
@@ -28,13 +38,15 @@ describe("A08 actions by state and permission", () => {
     expect(availableActions(frozen, holds("subscriptions.manage")).has("unfreeze")).toBe(true);
   });
 
-  it("splits a review between Keep (manage) and Resolve (refunds.create plus a read permission)", () => {
+  it("splits a review between Keep and Cancel as the company (manage) and Resolve (refunds.create plus a read permission)", () => {
     const review = subscriptionDetail({
       cancel_review: { requested_at: "2026-10-23T10:00:00+00:00", reason_code: "customer_request", party: "customer", decision: null } as never,
       actions: { ...subscriptionDetail().actions, resolve_review: true, freeze: false, skip: false, cancel: false, edit_following: false },
     });
     expect(pendingReview(review)).not.toBeNull();
-    expect([...availableActions(review, holds("subscriptions.manage"))].sort()).toEqual(["assignBackup", "assignPrimary", "declineReview"]);
+    // §4.7: coordinators "can instead decline or cancel as the company" (the API's planner allows it during a review).
+    expect([...availableActions(review, holds("subscriptions.manage"))].sort()).toEqual(["assignBackup", "assignPrimary", "cancelAsCompany", "declineReview"]);
+    expect(availableActions(subscriptionDetail(), holds("subscriptions.manage")).has("cancelAsCompany")).toBe(false);
     expect([...availableActions(review, holds("subscriptions.view", "refunds.create"))]).toEqual(["resolveReview"]);
     expect(availableActions(review, holds("refunds.create")).size).toBe(0);
   });

@@ -3,7 +3,8 @@
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { ConfirmDialog, Notice, TextArea } from "@/components/admin";
-import { codeOf } from "@/lib/admin/subscriptions/actions";
+import { businessToday } from "@/lib/admin/format";
+import { FAILING_RENEWAL_STATUSES, codeOf } from "@/lib/admin/subscriptions/actions";
 import { declineCancelReview, rejectSubscription, switchAutoRenewOff, unfreezeSubscription } from "@/lib/admin/subscriptions/endpoints";
 import type { SubscriptionDetail } from "@/lib/admin/subscriptions/types";
 import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
@@ -102,16 +103,32 @@ export function RejectSubscriptionDialog(props: SubscriptionDialogProps) {
   );
 }
 
-/** Staff can only switch auto-renew off, on the customer's request; switching it on is the customer's consent (P4-52). */
+/**
+ * Staff can only switch auto-renew off, on the customer's request; switching it on is the customer's consent (P4-52).
+ * In renewal_failed and suspended it gives the failed renewal up (ToggleAutoRenew): no more attempts charge the card,
+ * the unpaid period and its visits are cancelled, and the subscription runs to the end of its paid term (or ends now
+ * when that is past).
+ */
 export function AutoRenewOffDialog(props: SubscriptionDialogProps) {
   const t = useTranslations("admin.subscriptions.autoRenew");
+  const text = useSubscriptionText();
+  const s = props.subscription;
+  const failing = FAILING_RENEWAL_STATUSES.includes(s.status);
+  const effect = failing ? (
+    <span className="flex flex-col gap-1">
+      <span>{t("effectFailing")}</span>
+      <span>{s.term_end_date >= businessToday() ? t("effectEndsOn", { date: text.dateShort(s.term_end_date) }) : t("effectEndsNow")}</span>
+    </span>
+  ) : (
+    t("effect")
+  );
   return (
     <ReasonDialog
       {...props}
       ns="autoRenew"
       max={500}
       field="reason"
-      extra={<p className="text-sm text-ink-600">{t("effect")}</p>}
+      extra={<p className="text-sm text-ink-600">{effect}</p>}
       send={(reason) => switchAutoRenewOff(props.subscription.id, reason, props.subscription.version)}
       done={(detail) => detail}
     />

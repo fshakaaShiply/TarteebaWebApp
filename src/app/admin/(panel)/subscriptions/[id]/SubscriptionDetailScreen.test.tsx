@@ -8,15 +8,19 @@ import { event, liveOutDetail, novemberCalendar, occurrence, pendingDetail, subs
 import { SubscriptionDetailScreen } from "./SubscriptionDetailScreen";
 
 const api = vi.hoisted(() => {
-  const names = ["fetchSubscription", "fetchSubscriptionVisits", "fetchSubscriptionCalendar", "fetchSubscriptionEvents", "fetchWorkerCandidates", "previewFreeze", "previewConfirm"];
+  const names = ["fetchSubscription", "fetchSubscriptionVisits", "fetchSubscriptionCalendar", "fetchSubscriptionEvents", "fetchWorkerCandidates", "previewFreeze", "previewConfirm", "previewCancel"];
   return Object.fromEntries(names.map((n) => [n, vi.fn()])) as Record<string, ReturnType<typeof vi.fn>>;
 });
+const shared = vi.hoisted(() => ({ fetchAddonOptions: vi.fn() }));
 vi.mock("@/lib/admin/subscriptions/endpoints", () => api);
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchZoneOptions: async () => zoneOptions,
   fetchServiceOptions: async () => serviceOptions,
   fetchSlotTemplateOptions: async () => slotTemplateOptions,
+  fetchAddonOptions: (...a: unknown[]) => shared.fetchAddonOptions(...a),
 }));
+
+const addonOption = (id: number, code: string, en: string, ar: string) => ({ id, code, name: { ar, en }, amount_fils: 1500, vat_inclusive: true, per: "visit", is_active: true, service_codes: ["STANDARD_VISIT"] });
 
 const MANAGER = ["subscriptions.manage", "bookings.view", "payments.view"];
 const READER = ["subscriptions.view"];
@@ -36,6 +40,29 @@ describe("A08 subscription page", () => {
     api.fetchWorkerCandidates.mockResolvedValue([]);
     api.previewFreeze.mockReturnValue(new Promise(() => undefined));
     api.previewConfirm.mockReturnValue(new Promise(() => undefined));
+    api.previewCancel.mockReturnValue(new Promise(() => undefined));
+    shared.fetchAddonOptions.mockReset();
+    shared.fetchAddonOptions.mockResolvedValue([addonOption(1, "IRONING", "Ironing", "الكيّ"), addonOption(2, "FRIDGE", "Fridge cleaning", "تنظيف الثلاجة")]);
+  });
+
+  it("words the contract's source, materials and add-ons in the admin's language", async () => {
+    const detail = subscriptionDetail({ source: "app", materials_by: "company", addons: ["IRONING", "FRIDGE", "OLD_CODE"] });
+    const { unmount } = open(detail, MANAGER, "ar");
+    const card = (await screen.findByText("العقد")).closest("section") ?? document.body;
+    expect(within(card as HTMLElement).getByText("التطبيق")).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText("الشركة تُحضر مواد التنظيف")).toBeInTheDocument();
+    // Names from the add-on list, joined with the Arabic comma; a code the list does not know stays as it is.
+    await waitFor(() => expect(within(card as HTMLElement).getByText((_, el) => el?.tagName === "SPAN" && el.textContent === "الكيّ، تنظيف الثلاجة، OLD_CODE")).toBeInTheDocument());
+    expect(within(card as HTMLElement).queryByText("app")).not.toBeInTheDocument();
+    expect(within(card as HTMLElement).queryByText("company")).not.toBeInTheDocument();
+    unmount();
+
+    // Without a permission that reads the add-on list, the codes are shown and the list is not asked for.
+    shared.fetchAddonOptions.mockClear();
+    open(subscriptionDetail({ addons: ["IRONING"] }), READER);
+    expect(await screen.findByText("Customer's own materials")).toBeInTheDocument();
+    expect(screen.getByText("IRONING")).toBeInTheDocument();
+    expect(shared.fetchAddonOptions).not.toHaveBeenCalled();
   });
 
   it("shows the reference, the chips, the facts and the tabs of a recurring subscription", async () => {
@@ -140,6 +167,38 @@ describe("A08 subscription page", () => {
     await screen.findByText("A cancellation waits for review");
     expect(screen.getAllByRole("button", { name: "Resolve with a refund" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Keep the subscription" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel as the company" })).not.toBeInTheDocument();
+  });
+
+  it("lets a coordinator cancel as the company while a review waits (§4.7), with the party fixed", async () => {
+    const user = userEvent.setup();
+    const review = { requested_at: "2026-10-23T10:00:00+00:00", reason_code: "customer_request", reason_text: null, party: "customer", decision: null };
+    open(subscriptionDetail({ cancel_review: review as never, actions: { ...subscriptionDetail().actions, resolve_review: true, cancel: false, freeze: false, skip: false } }), ["subscriptions.manage"]);
+    const banner = (await screen.findByText("A cancellation waits for review")).closest("[role]") as HTMLElement;
+    // The customer's own cancellation waits, so the plain Cancel is not offered.
+    expect(screen.queryByRole("button", { name: "Cancel subscription" })).not.toBeInTheDocument();
+    await user.click(within(banner).getByRole("button", { name: "Cancel as the company" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Cancel TRS-7K2M9Q");
+    expect(dialog).toHaveTextContent(/The cancellation waiting for review is closed by this one/);
+    expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
+    expect(api.previewCancel).toHaveBeenCalledWith(31, "company");
+  });
+
+  it("calls a voided card hold released, not a failed payment", async () => {
+    const user = userEvent.setup();
+    const rejected = subscriptionDetail({
+      status: "rejected",
+      rejected_reason: "No capacity in the area",
+      actions: { ...pendingDetail().actions, confirm: false, reject: false, assign: false },
+      periods: [subscriptionPeriod({ status: "void", payment: { id: 55, ulid: "01jpay0000000000000000055", status: "voided", card_label: "Visa •••• 4242" }, invoice: null, refundable_fils: 0 })],
+    });
+    open(rejected);
+    await screen.findByRole("heading", { name: /TRS-7K2M9Q/ });
+    await user.click(screen.getByRole("tab", { name: "Periods and payments" }));
+    const rows = within(await screen.findByRole("table", { name: "Periods and payments" })).getAllByRole("row");
+    expect(within(rows[1]).getByRole("link", { name: "Card hold released" })).toHaveAttribute("href", "/admin/finance/payments/55");
+    expect(within(rows[1]).queryByText("Payment failed")).not.toBeInTheDocument();
   });
 
   it("lists the customers' requests to move a visit and a running freeze with Unfreeze", async () => {

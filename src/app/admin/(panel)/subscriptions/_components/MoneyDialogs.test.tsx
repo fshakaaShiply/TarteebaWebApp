@@ -97,9 +97,47 @@ describe("A08 cancel dialog", () => {
     expect(api.cancelSubscription).not.toHaveBeenCalled();
     await user.clear(refund);
     await user.type(refund, "500.50");
+    expect(screen.getByText(/With your own amount, no fee and no package discount are taken/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cancel the subscription" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(api.cancelSubscription.mock.calls[0][1]).toMatchObject({ refund_fils: 50050, expected_refund_fils: 82800 });
+    // The API plans a custom amount with no fee and no clawback, refunding exactly that amount: those are the terms
+    // confirmed, not the policy preview's (fee 12.00, refund 828.00), which would answer 409 TERMS_CHANGED.
+    expect(api.cancelSubscription.mock.calls[0][1]).toEqual({
+      party: "customer",
+      reason_code: "no_capacity",
+      refund_fils: 50050,
+      expected_fee_fils: 0,
+      expected_refund_fils: 50050,
+      expected_clawback_fils: 0,
+    });
+  });
+
+  it("goes back to the policy's terms when the custom amount is cleared", async () => {
+    api.cancelSubscription.mockResolvedValue({ data: sub, refunds: [], review_requested: false });
+    const { user, onClose } = show((p) => <CancelSubscriptionDialog subscription={sub} {...p} />, [...MANAGER, "refunds.create"]);
+    await screen.findByRole("table", { name: "Periods of the cancellation" });
+    await user.selectOptions(screen.getByLabelText("Reason", { exact: false }), "customer_request");
+    const refund = screen.getByLabelText("Refund amount (optional)", { exact: false });
+    await user.type(refund, "100");
+    await user.clear(refund);
+    expect(screen.queryByText(/With your own amount/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel the subscription" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.cancelSubscription.mock.calls[0][1]).toEqual({ party: "customer", reason_code: "customer_request", expected_fee_fils: 1200, expected_refund_fils: 82800, expected_clawback_fils: 0 });
+  });
+
+  it("cancels as the company only while a review waits, and says the review is closed by it", async () => {
+    api.cancelSubscription.mockResolvedValue({ data: sub, refunds: [{ ulid: "r1", amount_fils: 84000, status: "pending" }], review_requested: false });
+    const { user, onClose } = show((p) => <CancelSubscriptionDialog subscription={sub} companyOnly {...p} />);
+    expect(await screen.findByText("Company cancellation rule")).toBeInTheDocument();
+    expect(screen.getByText(/The cancellation waiting for review is closed by this one/)).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(api.previewCancel).toHaveBeenCalledWith(31, "company");
+    expect(api.previewCancel).not.toHaveBeenCalledWith(31, "customer");
+    await user.selectOptions(screen.getByLabelText("Reason", { exact: false }), "worker_unavailable");
+    await user.click(screen.getByRole("button", { name: "Cancel the subscription" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.cancelSubscription.mock.calls[0][1]).toEqual({ party: "company", reason_code: "worker_unavailable", expected_fee_fils: 0, expected_refund_fils: 84000, expected_clawback_fils: 0 });
   });
 
   it("sends a cancellation that needs a review to the review queue, and says so", async () => {
@@ -266,41 +304,80 @@ describe("A08 resolve review dialog", () => {
     for (const fn of Object.values(api)) fn.mockReset();
   });
 
-  it("shows the request, what each period can give back and fills in the policy's refund", async () => {
+  it("shows the request, what each period of the review can give back and fills in the policy's refund", async () => {
     show((p) => <ResolveReviewDialog subscription={reviewing} {...p} />, ["subscriptions.view", "refunds.create"]);
     expect(await screen.findByText("Customer request")).toBeInTheDocument();
     expect(screen.getByText("Moving abroad")).toBeInTheDocument();
-    expect(screen.getByText("At most AED 1,360.00 in total.")).toBeInTheDocument();
+    // The review's own refund lines (period 1 only), not every period of the detail (period 2 adds 400.00 there).
+    expect(screen.getByText("At most AED 960.00 in total.")).toBeInTheDocument();
+    expect(screen.getByText("Period 1: Sun, 1 Nov 2026 to Sat, 28 Nov 2026")).toBeInTheDocument();
+    expect(screen.queryByText(/^Period 2:/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Total refund", { exact: false })).toHaveValue("828.00");
   });
 
-  it("caps the refund by the periods and needs a note", async () => {
+  it("never counts a closed period: the cap is what the API's review lines can give back", async () => {
+    // Period 1 was served in full and closed; period 2 is paid. Each payment could still give back 960.00, but the
+    // API resolves only from paid periods (PlanCancellation), so its cap is 960.00, not 1,920.00.
+    const line2 = { ...cancelPlan().periods[0], ulid: "01jper2", start: "2026-11-29", end: "2026-12-26", refundable_fils: 96000, refund_fils: 82800 };
+    const renewed = subscriptionDetail({
+      periods: [subscriptionPeriod({ status: "closed", refundable_fils: 96000 }), subscriptionPeriod({ id: 202, ulid: "01jper2", sequence: 2, start: "2026-11-29", end: "2026-12-26", refundable_fils: 96000 })],
+      cancel_review: { ...review, preview: cancelPlan({ periods: [line2] }) } as never,
+      actions: { ...sub.actions, resolve_review: true },
+    });
+    api.resolveCancelReview.mockResolvedValue({ data: sub, refunds: [], review_requested: false });
+    const { user, onClose } = show((p) => <ResolveReviewDialog subscription={renewed} {...p} />, ["subscriptions.view", "refunds.create"]);
+    expect(await screen.findByText("At most AED 960.00 in total.")).toBeInTheDocument();
+    expect(screen.getByText("Period 2: Sun, 29 Nov 2026 to Sat, 26 Dec 2026")).toBeInTheDocument();
+    expect(screen.queryByText(/^Period 1:/)).not.toBeInTheDocument();
+    const refund = screen.getByLabelText("Total refund", { exact: false });
+    await user.clear(refund);
+    await user.type(refund, "1500");
+    await user.type(screen.getByLabelText("Note (kept with the refund)", { exact: false }), "Agreed with the customer");
+    await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
+    expect(await screen.findByText("The periods can give back at most AED 960.00.")).toBeInTheDocument();
+    expect(api.resolveCancelReview).not.toHaveBeenCalled();
+    await user.clear(refund);
+    await user.type(refund, "960");
+    await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(api.resolveCancelReview.mock.calls[0][1]).toEqual({ refund_fils: 96000, note: "Agreed with the customer" });
+  });
+
+  it("caps the refund by the review's lines and needs a note", async () => {
     api.resolveCancelReview.mockResolvedValue({ data: sub, refunds: [], review_requested: false });
     const { user, onClose } = show((p) => <ResolveReviewDialog subscription={reviewing} {...p} />, ["subscriptions.view", "refunds.create"]);
     const refund = await screen.findByLabelText("Total refund", { exact: false });
     await user.clear(refund);
     await user.type(refund, "2000");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
-    expect(await screen.findByText("The periods can give back at most AED 1,360.00.")).toBeInTheDocument();
+    expect(await screen.findByText("The periods can give back at most AED 960.00.")).toBeInTheDocument();
     expect(await screen.findByText("Write a note of at least 3 characters.")).toBeInTheDocument();
     expect(api.resolveCancelReview).not.toHaveBeenCalled();
     await user.clear(refund);
-    await user.type(refund, "1000");
+    await user.type(refund, "900");
     await user.type(screen.getByLabelText("Note (kept with the refund)", { exact: false }), "Agreed with the customer");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const [id, body, version, key] = api.resolveCancelReview.mock.calls[0];
-    expect([id, body, version]).toEqual([31, { refund_fils: 100000, note: "Agreed with the customer" }, 7]);
+    expect([id, body, version]).toEqual([31, { refund_fils: 90000, note: "Agreed with the customer" }, 7]);
     expect(key).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("shows the API's own cap on 422 REFUND_AMOUNT_INVALID and a closed review on 409", async () => {
+  it("shows the API's own cap on 422 REFUND_AMOUNT_INVALID, checks against it from then on, and a closed review on 409", async () => {
     api.resolveCancelReview.mockRejectedValueOnce(apiError(422, "REFUND_AMOUNT_INVALID", { max_fils: 50000 })).mockRejectedValueOnce(apiError(409, "CANCEL_REVIEW_NOT_PENDING"));
     const { user } = show((p) => <ResolveReviewDialog subscription={reviewing} {...p} />, ["subscriptions.view", "refunds.create"]);
     await user.type(await screen.findByLabelText("Note (kept with the refund)", { exact: false }), "Agreed");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
     expect(await screen.findByText("The periods can give back at most AED 500.00.")).toBeInTheDocument();
+    expect(screen.getByText("At most AED 500.00 in total.")).toBeInTheDocument();
+    // 828.00 is above the API's 500.00: refused here, nothing sent.
+    await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
+    expect(api.resolveCancelReview).toHaveBeenCalledTimes(1);
+    const refund = screen.getByLabelText("Total refund", { exact: false });
+    await user.clear(refund);
+    await user.type(refund, "500");
     await user.click(screen.getByRole("button", { name: "Cancel and refund" }));
     expect(await screen.findByText("This cancellation review was already closed.")).toBeInTheDocument();
+    expect(api.resolveCancelReview).toHaveBeenCalledTimes(2);
   });
 });

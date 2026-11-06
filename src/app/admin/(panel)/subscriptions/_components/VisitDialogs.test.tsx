@@ -108,6 +108,29 @@ describe("A08 move one visit", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("says why a move is blocked in the admin's language, never the API's codes, with the API's explanation", async () => {
+    api.previewVisitMove.mockResolvedValue({ ...move("available"), allowed: false, blockers: ["policy", "price"], explanation: "لا يمكن نقل الزيارة إلى هذا الوقت." });
+    renderWithProviders(<MoveVisitDialog subscription={sub} visit={visit} onClose={vi.fn()} onStale={vi.fn()} />, { permissions: BASE, locale: "ar" });
+    const user = userEvent.setup();
+    const select = await screen.findByLabelText("الوقت الجديد", { exact: false });
+    await waitFor(() => expect(select.querySelector('option[value="2"]')).not.toBeNull());
+    await user.selectOptions(select, "2");
+    expect(await screen.findByText("القواعد لا تسمح بنقل هذه الزيارة إلى هذا الوقت.")).toBeInTheDocument();
+    expect(screen.getByText("سعر هذا الوقت أعلى من السعر المتفق عليه للزيارة.")).toBeInTheDocument();
+    expect(screen.getByText("لا يمكن نقل الزيارة إلى هذا الوقت.")).toBeInTheDocument();
+    expect(screen.queryByText(/policy|price/)).not.toBeInTheDocument();
+  });
+
+  it("does not repeat a full time as a blocker, and words an unknown blocker plainly", async () => {
+    api.previewVisitMove.mockResolvedValue({ ...move("full"), allowed: false, blockers: ["slot", "budget"] });
+    const { user } = show((p) => <MoveVisitDialog subscription={sub} visit={visit} {...p} />);
+    await chooseSlot(user, "2");
+    expect(await screen.findByText(/moving there needs the capacity override permission/)).toBeInTheDocument();
+    expect(screen.queryByText("That time cannot take the visit.")).not.toBeInTheDocument();
+    expect(screen.getByText("This move cannot be made now.")).toBeInTheDocument();
+    expect(screen.queryByText(/slot, budget/)).not.toBeInTheDocument();
+  });
+
   it("does not move a visit to the time it already has", async () => {
     const { user } = show((p) => <MoveVisitDialog subscription={sub} visit={visit} {...p} />);
     const select = await screen.findByLabelText("New time", { exact: false });

@@ -1,12 +1,12 @@
-import type { components } from "@/lib/api/schema";
+import type { components, operations } from "@/lib/api/schema";
 import type { PageMeta, Translatable } from "../types";
 
 /*
  * A08 subscriptions (spec §17; design §7.2): the shapes of GET/POST /admin/subscriptions/**. The row, the detail, an
- * occurrence, the worker candidates, the confirm and renew previews come from the generated schema; the answers the
- * schema types as a bare string or an open map (the visit and Live-out previews, the skip, freeze and cancel
- * previews, a history row's payload, the calendar summary) are narrowed here from the contracts (A5a, A5b, A6), as
- * the shared admin types do for the same kind of loosely typed answer.
+ * occurrence, the Live-out day write come from the generated schema; the answers the schema types as a bare string or
+ * an open map (the visit previews, the skip, freeze and cancel previews, a history row's payload, the calendar summary)
+ * are narrowed here from the contracts (A5a, A5b, A6), as the shared admin types do for the same kind of loosely typed
+ * answer. The Live-out day preview is the write's generated answer without `data` (the same code, rolled back).
  */
 
 type Schemas = components["schemas"];
@@ -147,12 +147,14 @@ export type FollowingPreview = {
   conflicts: Record<string, string>;
 };
 
-export type LiveOutDaysPreview = {
-  days: { date: string; before: string; after: string; substitute: { id: number; name: string } | null; credited: boolean; appended_date?: string | null }[];
-  term_end_date: string | null;
-  conflicts: Record<string, string>;
-  unfit: { date: string; worker_id: number; reasons: string[] }[];
-};
+/**
+ * POST …/live-out-days/{date}: the generated answer of the write (ChangeLiveOutDays). Each day's `substitute` is the
+ * substitute worker's id (or null), not a name: the dialog finds the name among the workers it already holds.
+ */
+export type LiveOutDaysResult = operations["admin.subscription.subscriptions.live-out-days.update"]["responses"][200]["content"]["application/json"];
+/** POST …/live-out-days/{date}/preview: the same code rolled back, so the write's answer without the subscription. */
+export type LiveOutDaysPreview = Omit<LiveOutDaysResult, "data">;
+export type LiveOutDayRow = LiveOutDaysPreview["days"][number];
 
 export type CancelParty = "customer" | "company";
 export type CancelPlanPeriod = {
@@ -190,5 +192,4 @@ export type CancelResult = { data: SubscriptionDetail; refunds: { ulid: string; 
 export type VisitWriteResult = { data: SubscriptionDetail; conflicts: Record<string, string>; edit?: FollowingPreview; credited?: { occurrence_id: number; date: string; new_date: string | null } | null };
 export type AssignResult = { data: SubscriptionDetail; assigned: string[]; kept: string[]; unfit: UnfitDay[] };
 export type UnfreezeResult = { data: SubscriptionDetail; restored: { date: string }[]; still_frozen: { date: string; reason: string }[] };
-export type LiveOutDaysResult = LiveOutDaysPreview & { data: SubscriptionDetail };
 export type RenewResult = { data: SubscriptionDetail; payment: { ulid: string; status: string } | null };
