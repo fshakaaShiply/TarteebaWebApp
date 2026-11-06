@@ -125,23 +125,39 @@ describe("A08 subscription page", () => {
     expect(await screen.findByRole("alertdialog")).toHaveTextContent("Confirm TRS-7K2M9Q");
   });
 
+  // The banner's conflicts as the API writes them: a blackout always carries `reason: "blackout"` (FlagBlackoutConflicts).
+  const bannerConflicts = () => [
+    occurrence({ id: 9, ulid: "01jx", scheduled_date: "2026-11-08", conflict: { code: "BLACKOUT", details: { date: "2026-11-08", slot_template_id: 1, reason: "blackout", blackout_id: 3 }, at: null } }),
+    occurrence({ id: 10, ulid: "01jy", scheduled_date: "2026-11-11", conflict: { code: "SLOT_FULL", details: { reason: "seats" }, at: null } }),
+  ];
+  /** The parts after the date of the banner line that names `label` ("Sun, 8 Nov 2026 · Blackout day" → ["Blackout day"]). */
+  const bannerLine = (label: string) => {
+    const lines = screen
+      .getAllByRole("listitem")
+      .map((li) => li.textContent ?? "")
+      .filter((line) => line.includes(label));
+    expect(lines).toHaveLength(1);
+    return lines[0].split(" · ").slice(1);
+  };
+
   it("lists the conflicts and jumps to the visits", async () => {
     const user = userEvent.setup();
-    open(
-      subscriptionDetail({
-        conflicts: [
-          occurrence({ id: 9, ulid: "01jx", scheduled_date: "2026-11-08", conflict: { code: "BLACKOUT", details: {}, at: null } }),
-          occurrence({ id: 10, ulid: "01jy", scheduled_date: "2026-11-11", conflict: { code: "SLOT_FULL", details: { reason: "seats" }, at: null } }),
-        ],
-      }),
-    );
+    open(subscriptionDetail({ conflicts: bannerConflicts() }));
     expect(await screen.findByText("Visits with a conflict: 2")).toBeInTheDocument();
-    expect(screen.getByText(/Blackout day/)).toBeInTheDocument();
+    // A blackout is named once: its reason ("blackout") says nothing the code does not.
+    expect(bannerLine("Blackout day")).toEqual(["Blackout day"]);
     // The conflict code and the Scheduling reason it carries (P4-245), in words.
-    expect(screen.getByText(/Slot is full · not enough seats in the vans/)).toBeInTheDocument();
+    expect(bannerLine("Slot is full")).toEqual(["Slot is full", "not enough seats in the vans"]);
     await user.click(screen.getByRole("button", { name: "Open the visits" }));
     await waitFor(() => expect(api.fetchSubscriptionVisits).toHaveBeenCalled());
     expect(screen.getByRole("tab", { name: "Visits" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("names a blackout conflict once in Arabic too", async () => {
+    open(subscriptionDetail({ conflicts: bannerConflicts() }), MANAGER, "ar");
+    expect(await screen.findByText("زيارات فيها تعارض: 2")).toBeInTheDocument();
+    expect(bannerLine("يوم مغلق")).toEqual(["يوم مغلق"]);
+    expect(bannerLine("الفترة ممتلئة")).toEqual(["الفترة ممتلئة", "لا تكفي مقاعد النقل"]);
   });
 
   it("explains a failed renewal: attempt, decline message, the date it is cancelled, and offers Renew now", async () => {
