@@ -418,8 +418,8 @@ export type VehicleOption = GetJson<"/v1/admin/vehicles/options">["data"][number
  */
 export type AddonOption = GetJson<"/v1/admin/addons/options">["data"][number];
 
-/** GET /admin/customers?phone= (Identity, bookings.create_manual): the customer with exactly that number. */
-export type CustomerLookup = GetJson<"/v1/admin/customers">;
+/** GET /admin/customers/lookup?phone= (Identity, bookings.create_manual): the customer with exactly that number. */
+export type CustomerLookup = GetJson<"/v1/admin/customers/lookup">;
 export type CustomerLookupRow = CustomerLookup["data"][number];
 export type CustomerLookupAddress = CustomerLookupRow["addresses"][number];
 
@@ -695,7 +695,24 @@ export type LinkParams = Record<string, string | number | boolean>;
  * `params` its filters. Null when the viewer could not open the target (the figure stays visible).
  */
 export type DashboardLink = {
-  list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | "subscriptions" | "subscription" | (string & {});
+  list:
+    | "bookings"
+    | "booking"
+    | "schedule"
+    | "capacity"
+    | "rounds"
+    | "driver_reports"
+    | "payment"
+    | "subscriptions"
+    | "subscription"
+    | "complaint"
+    | "compensations"
+    | "reconciliation_run"
+    | "worker"
+    | "vehicles"
+    | "drivers"
+    | "incentives"
+    | (string & {});
   path: string;
   params: LinkParams;
 };
@@ -835,7 +852,16 @@ export type DashboardAlertType =
   | "subscription_confirmation_due"
   | "subscription_renewal_failed"
   | "subscription_conflict"
-  | "subscription_cancel_review";
+  | "subscription_cancel_review"
+  // Phase 5 (A02, design §6.6): quality, finance and workforce.
+  | "complaint_sla"
+  | "complaint_unassigned"
+  | "compensation_pending"
+  | "reconciliation_failed"
+  | "reconciliation_differences"
+  | "worker_document_expiring"
+  | "fleet_document_expiring"
+  | "incentive_proposals_pending";
 
 /** GET /admin/dashboard/alerts: urgent first, then by type order, then by time. */
 export type DashboardAlert = {
@@ -845,7 +871,18 @@ export type DashboardAlert = {
   title: Translatable;
   message: Translatable;
   /** A subscription alert names its subscription: {type: "subscription", id, reference} (A08 is addressed by id). */
-  entity: { type: string; id: number; booking_id?: number; reference?: string; ulid?: string; payment_id?: number } | null;
+  entity: {
+    type: string;
+    id: number;
+    booking_id?: number;
+    reference?: string | null;
+    ulid?: string;
+    payment_id?: number;
+    /** Phase 5: a complaint or compensation's case type, a worker document's worker, an incentive month ("2026-11"). */
+    case_type?: string;
+    worker_id?: number;
+    period?: string;
+  } | null;
   link: DashboardLink | null;
   details: Record<string, unknown>;
 };

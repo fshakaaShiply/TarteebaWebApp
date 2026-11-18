@@ -185,6 +185,42 @@
         "body": "Your changes on this page haven't been saved. If you leave now, they're lost.",
         "leave": "Leave without saving",
         "stay": "Keep editing"
+      },
+      "fileField": {
+        "dropOne": "Drag the file here, or choose it from your device",
+        "dropMany": "Drag files here, or choose them from your device",
+        "dropNow": "Drop to choose",
+        "limits": "{types}, up to {size} each",
+        "anyType": "Any file type",
+        "anyImage": "Images",
+        "listSeparator": ", ",
+        "sizeKb": "{value} KB",
+        "sizeMb": "{value} MB",
+        "chosen": "Chosen files",
+        "remove": "Remove {name}",
+        "uploading": "Uploading…",
+        "uploadingPercent": "Uploading… {percent}%",
+        "tooLarge": "{name} is larger than {size}.",
+        "empty": "{name} is empty.",
+        "wrongType": "{name} isn't an accepted file type. Use {types}.",
+        "tooMany": "You can choose at most {count} files."
+      },
+      "signedFile": {
+        "open": "Open file",
+        "download": "Download file",
+        "named": "{label}: {subject}",
+        "openNamed": "Open file: {subject}",
+        "again": "Get a new link",
+        "validUntil": "Link valid until {time}",
+        "expired": "This link has expired. Get a new one to open the file."
+      },
+      "starRating": {
+        "label": "{value} out of {max}",
+        "none": "Not rated",
+        "count": "{count, plural, one {# rating} other {# ratings}}"
+      },
+      "customerLink": {
+        "unnamed": "Customer"
       }
     },
     "errors": {
@@ -223,6 +259,7 @@
       "leaveOverlap": "This worker already has a leave request or an approved leave on some of these dates.",
       "notADriver": "This staff account doesn't have the driver role. Give it the driver role in Users & roles first.",
       "phoneInvalid": "Enter a valid phone number with its country code, for example +971 50 123 4567.",
+      "useLookupEndpoint": "This page is out of date. Reload it and try again.",
       "slotInUse": "This slot has upcoming requests, so its times or service type can't change.",
       "overrideRuleReadOnly": "This rule was created by a capacity override and can't be edited. Delete it, or create a new override for that date.",
       "slotNotAvailableForService": "This slot isn't available for this service.",
@@ -607,7 +644,12 @@
         "intRange": "A whole number from {min} to {max}.",
         "timeQuarter": "24-hour time in Dubai time, on the quarter hour, for example 10:00 or 10:15.",
         "intList": "Press Enter after each value. {min} to {max} hours, ascending, up to {count} values. Leave it empty for no retries.",
-        "weekdays": "Choose at least one day."
+        "weekdays": "Choose at least one day.",
+        "intListDesc": "Press Enter after each value. {min} to {max} days, counting down, up to {count} values. Leave it empty for no extra reminders.",
+        "slaTargets": "In minutes, from {min} to {max}. The resolution can't be shorter than the first reply.",
+        "priorities": "Choose a priority for every category and low rating.",
+        "choices": "Tick the options staff can offer. With none ticked, no compensation is offered.",
+        "quietHours": "Dubai time. The window may cross midnight, for example 22:00 to 08:00. Equal times mean no quiet hours."
       },
       "errors": {
         "required": "Enter a value.",
@@ -638,7 +680,13 @@
         "int_list_order": "Put the values in ascending order, without repeats.",
         "int_list_count": "At most {count} values.",
         "weekdays_empty": "Choose at least one day.",
-        "time_quarter": "Choose a time on the quarter hour (00, 15, 30 or 45)."
+        "time_quarter": "Choose a time on the quarter hour (00, 15, 30 or 45).",
+        "int_list_order_desc": "Put the values in descending order, without repeats.",
+        "sla_int": "Enter whole minutes in every box.",
+        "sla_range": "Each target is from {min} to {max} minutes.",
+        "sla_order": "The resolution can't be shorter than the first reply.",
+        "priority_missing": "Choose a priority for every row.",
+        "quiet_time": "Enter both times in 24-hour format, for example 22:00."
       },
       "groups": {
         "booking": "Booking",
@@ -653,7 +701,8 @@
         "legal": "Legal",
         "locale": "Language & region",
         "custom": "Other",
-        "workforce": "Workers & leave"
+        "workforce": "Workers & leave",
+        "privacy": "Privacy"
       },
       "options": {
         "locale": {
@@ -695,6 +744,15 @@
         "dayNotifications": {
           "quiet": "Quiet",
           "all": "All notifications"
+        },
+        "slaClock": {
+          "working_hours": "Working hours only",
+          "calendar": "Round the clock"
+        },
+        "compensationType": {
+          "refund": "Money back",
+          "credit": "Balance credit",
+          "free_visit": "Free re-clean"
         }
       },
       "keys": {
@@ -820,6 +878,10 @@
           "lockout_minutes": {
             "label": "Code lockout (minutes)",
             "description": "How long a number waits after using up all attempts on a code."
+          },
+          "retention_days": {
+            "label": "Days verification codes are kept before they are deleted",
+            "description": "Sign-in and verification codes older than this are deleted."
           }
         },
         "auth": {
@@ -932,14 +994,46 @@
         },
         "rating": {
           "low_threshold": {
-            "label": "Low rating threshold",
-            "description": "An overall rating at or below this is treated as low and followed up."
+            "label": "Overall rating at or below this opens a low-rating follow-up",
+            "description": "A whole number of stars from 1 to 4. A rating at or below it opens a follow-up case."
+          },
+          "request_delay_minutes": {
+            "label": "Minutes after a visit is completed before the rating request",
+            "description": "0 asks as soon as the visit is completed."
+          },
+          "window_days": {
+            "label": "Days after completion a visit can be rated",
+            "description": "After this many days the customer can no longer rate the visit."
+          },
+          "series_request_interval_days": {
+            "label": "Least days between automatic rating requests of one subscription",
+            "description": "Stops a subscription customer being asked after every visit. 0 asks after every visit."
+          },
+          "request_live_out_days": {
+            "label": "Ask for ratings of Live-out days",
+            "description": "Off by default: Live-out days stay quiet."
           }
         },
         "waitlist": {
           "notify_batch": {
-            "label": "Waitlist notifications per opening",
-            "description": "How many waitlisted customers are notified when a place becomes free."
+            "label": "Customers told at once when a place opens",
+            "description": "How many waiting customers are offered a place together when one opens."
+          },
+          "renotify_after_minutes": {
+            "label": "How long a waitlist offer stays open (minutes)",
+            "description": "After this time the offer ends and the next customers are told."
+          },
+          "max_offers_per_entry": {
+            "label": "Times one waitlist request can be offered a place",
+            "description": "After this many offers the request is closed."
+          },
+          "max_open_per_customer": {
+            "label": "Open waitlist requests per customer",
+            "description": "A customer cannot have more open requests than this."
+          },
+          "quiet_hours": {
+            "label": "Hours with no waitlist offers",
+            "description": "No offers are sent in this window (Dubai time); they wait for it to end."
           }
         },
         "coupons": {
@@ -1013,6 +1107,114 @@
             "label": "Refund arrival estimate",
             "description": "Shown with every refund until the payment provider gives its own estimate."
           }
+        },
+        "reconciliation": {
+          "auto_fetch": {
+            "label": "Fetch the settlement report from the payment provider every day",
+            "description": "The report is fetched and matched with our payments every day. Turn it off to upload the report by hand."
+          },
+          "settlement_lag_days": {
+            "label": "Days a transaction may appear late in the provider's report",
+            "description": "A payment can show up in the provider's report a day or more after it was taken. Items inside this window are not reported as missing."
+          },
+          "amount_tolerance_fils": {
+            "label": "Amount difference still counted as a match (fils)",
+            "description": "0 means the amounts must match exactly. 100 fils is 1 AED."
+          }
+        },
+        "wallet": {
+          "enabled": {
+            "label": "Customer balance (wallet) is on",
+            "description": "While it is off, customers see no balance and cannot pay with it. Balances already issued stay on record."
+          },
+          "credit_validity_days": {
+            "label": "Days a free credit stays valid (0 = never expires)",
+            "description": "Applies to credit given as compensation or goodwill. 0 means it never expires."
+          },
+          "expiry_notice_days": {
+            "label": "Days before expiry to remind the customer (0 = no reminder)",
+            "description": "The customer is reminded once, this many days before the credit expires."
+          }
+        },
+        "complaint": {
+          "window_days": {
+            "label": "Days after the visit (or cancellation) a complaint can be opened",
+            "description": "After this many days the customer is asked to contact us instead."
+          },
+          "sla_clock": {
+            "label": "Count complaint deadlines in working hours or round the clock",
+            "description": "Working hours count only the company's opening hours; round the clock counts every minute."
+          },
+          "sla_targets": {
+            "label": "First-reply and resolution targets per priority, in minutes",
+            "description": "Minutes from opening a case to the first reply, and to its resolution, for each priority."
+          },
+          "default_priorities": {
+            "label": "Starting priority per category and per low rating",
+            "description": "A new case starts with the priority set here for its category, or for the star rating that opened it."
+          },
+          "auto_close_days": {
+            "label": "Days without a customer reply before a resolved or waiting case closes",
+            "description": "A resolved case, or one waiting for the customer, closes by itself after this many days of silence."
+          },
+          "sla_alert_minutes": {
+            "label": "Alert this many minutes before a complaint deadline",
+            "description": "Staff are alerted on the overview when a deadline is this close, and again when it is missed."
+          }
+        },
+        "compensation": {
+          "types": {
+            "label": "Compensation options offered on complaints (a credit also needs the balance on)",
+            "description": "The options staff can propose on a case. A balance credit needs the customer balance to be on."
+          }
+        },
+        "privacy": {
+          "deletion_grace_days": {
+            "label": "Days of cooling-off before an account deletion is carried out",
+            "description": "The customer can cancel the deletion during this time."
+          },
+          "export_available_days": {
+            "label": "Days a data copy stays available to download",
+            "description": "After this many days the download link stops working and the copy is deleted."
+          },
+          "deletion_stuck_alert_days": {
+            "label": "Alert about a deletion still waiting after this many days",
+            "description": "Staff are alerted when a deletion request is still not completed after this many days."
+          }
+        },
+        "documents": {
+          "default_alert_days": {
+            "label": "Days before expiry to alert, for new worker documents",
+            "description": "Used for a new document when no alert days are given for it."
+          },
+          "expiry_reminder_days": {
+            "label": "Extra reminders before a document expires (days)",
+            "description": "Up to three extra reminders, counting down, for example 30, 14, 7. Leave it empty for none."
+          }
+        },
+        "fleet": {
+          "document_alert_days": {
+            "label": "Days before a vehicle or driver document expires to alert",
+            "description": "Vehicle and driver documents are flagged on the fleet pages and the overview this many days before they expire."
+          }
+        },
+        "attendance": {
+          "backdate_days": {
+            "label": "How many days back attendance may be recorded",
+            "description": "Attendance older than this can no longer be recorded or changed."
+          }
+        },
+        "incentives": {
+          "compute_day_of_month": {
+            "label": "Day of the month to compute last month's incentive proposals",
+            "description": "From 4 to 28. The system may refuse an early day that leaves too little time to settle attendance."
+          }
+        },
+        "workers": {
+          "rating_window_days": {
+            "label": "Days of ratings counted in a worker's average",
+            "description": "Only ratings from this many recent days count towards the worker's average."
+          }
         }
       },
       "shortfall": "Requests already booked in these slots would no longer have enough workers. Move or release them first, or make a smaller change.",
@@ -1049,7 +1251,39 @@
         "en": "English text",
         "arShort": "AR",
         "enShort": "EN"
-      }
+      },
+      "priorities": {
+        "urgent": "Urgent",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "choose": "Choose"
+      },
+      "categories": {
+        "quality": "Cleaning quality",
+        "lateness": "Lateness",
+        "conduct": "Conduct",
+        "damage": "Damage or loss",
+        "billing": "Payment and billing",
+        "other": "Other",
+        "support": "Support request",
+        "rating_1": "Rated 1 star",
+        "rating_2": "Rated 2 stars",
+        "rating_3": "Rated 3 stars",
+        "rating_4": "Rated 4 stars"
+      },
+      "slaTargets": {
+        "firstResponse": "First reply",
+        "resolution": "Resolution",
+        "minutes": "min",
+        "summary": "first reply {first} min · resolution {resolution} min"
+      },
+      "quiet": {
+        "from": "From",
+        "to": "To",
+        "none": "No quiet hours"
+      },
+      "listSeparator": ", "
     },
     "users": {
       "title": "Users & roles",
@@ -1310,8 +1544,8 @@
         },
         "compensation": {
           "none": "None",
-          "credit": "Account credit",
-          "coupon": "Coupon"
+          "credit": "Account credit (shown only, not given automatically)",
+          "coupon": "Coupon (shown only, not given automatically)"
         },
         "weekday": {
           "0": "Sunday",

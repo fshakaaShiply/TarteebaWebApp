@@ -73,6 +73,21 @@ describe("A11 policy rules editor", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it("says that credit and coupon compensation are only shown, never given automatically (P5-F52)", () => {
+    edit();
+    const select = screen.getByLabelText(/^Compensation/);
+    expect(within(select).getByRole("option", { name: "Account credit (shown only, not given automatically)" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Coupon (shown only, not given automatically)" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "None" })).toBeInTheDocument();
+  });
+
+  it("shows the same note in Arabic", () => {
+    renderWithProviders(<PolicyEditor policy={cancellation} onClose={vi.fn()} />, { permissions: ["catalog.manage"], locale: "ar" });
+    const select = screen.getByLabelText(/^التعويض/);
+    expect(within(select).getByRole("option", { name: "رصيد في الحساب (تُعرض فقط ولا تُمنح تلقائيًا)" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "كوبون (تُعرض فقط ولا تُمنح تلقائيًا)" })).toBeInTheDocument();
+  });
+
   it("keeps the JSON view open when the text is not a JSON object", async () => {
     const { user } = edit();
     await user.click(screen.getByRole("button", { name: "JSON view" }));

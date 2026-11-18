@@ -80,6 +80,16 @@ describe("alerts bell state (D-11 polling)", () => {
     expect(alertHref({ link: "//evil.example/admin/bookings/1", entity: null })).toBeNull();
   });
 
+  it("opens the Phase 5 pages from the bell: quality, customers, waitlist and reconciliation runs", () => {
+    expect(alertHref({ link: "/admin/quality/41", entity: null })).toBe("/admin/quality/41");
+    expect(alertHref({ link: "/admin/customers/01JC0000000000000000000001", entity: null })).toBe("/admin/customers/01JC0000000000000000000001");
+    expect(alertHref({ link: "/admin/waitlist", entity: null })).toBe("/admin/waitlist");
+    expect(alertHref({ link: "/admin/finance/reconciliation/9", entity: null })).toBe("/admin/finance/reconciliation/9");
+    // A prefix is not a page: "/admin/qualityx" and a foreign origin stay closed.
+    expect(alertHref({ link: "/admin/qualityx/1", entity: null })).toBeNull();
+    expect(alertHref({ link: "https://evil.example/admin/quality/41", entity: null })).toBeNull();
+  });
+
   it("opens a subscription period's payment or refund alert on A09 only for staff who read it", () => {
     // refund.subscription_failed (accountants, urgent): the payment page, where the refund is retried.
     const refundFailed = { link: "/admin/payments/55", entity: { type: "refund", id: 7 } };

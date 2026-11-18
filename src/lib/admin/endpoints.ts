@@ -1505,12 +1505,12 @@ export type ManualBookingPayload = {
 };
 
 /**
- * GET /admin/customers?phone= (bookings.create_manual): the customer with exactly this number (any notation, normalized
+ * GET /admin/customers/lookup?phone= (bookings.create_manual; Phase 5 moved it from GET /admin/customers, which now answers 422 USE_LOOKUP_ENDPOINT): the customer with exactly this number (any notation, normalized
  * like the manual booking's) and their saved addresses; `data` [] when nobody has it. A partial number is 422
  * PHONE_INVALID; 429 RATE_LIMITED after 30 lookups a minute.
  */
 export async function lookupCustomer(phone: string): Promise<CustomerLookup> {
-  return unwrap<CustomerLookup>(adminApi.GET("/v1/admin/customers", { params: { query: { phone } } }));
+  return unwrap<CustomerLookup>(adminApi.GET("/v1/admin/customers/lookup", { params: { query: { phone } } }));
 }
 
 /**

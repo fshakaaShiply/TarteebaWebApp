@@ -264,3 +264,59 @@ export async function unwrap<T>(call: Promise<ClientResult>): Promise<T> {
   }
   return result.data as T;
 }
+
+export type AdminUploadOptions = {
+  /** POST by default; a replacement of one file may be a PUT. */
+  method?: "POST" | "PUT" | "PATCH";
+  /** Cancels the upload (the file picker's "Remove" while it is still sending). */
+  signal?: AbortSignal;
+  /** Extra headers such as `If-Match` or `Idempotency-Key`. Never a Content-Type: the browser sets the multipart boundary. */
+  headers?: Record<string, string>;
+};
+
+/**
+ * Sends a multipart form (files and fields) to an admin endpoint through the same fetch as every other admin call:
+ * CSRF cookie and X-XSRF-TOKEN, Accept-Language, one retry after a 419, 401/2FA reported to the session. Resolves with the
+ * parsed JSON answer (null for an empty one) and throws AdminApiError like `unwrap` (network failures included).
+ * `path` is the API path after /api, for example "/v1/admin/workers/12/documents". The proxy streams the body, so the
+ * file is never buffered by the web server. Progress is not reported: fetch has no upload progress, so callers show a
+ * busy state until the answer.
+ *
+ *   const form = new FormData();
+ *   form.append("file", file);
+ *   const document = await adminUpload<DataEnvelope<WorkerDocument>>("/v1/admin/workers/12/documents", form);
+ */
+export function createAdminUpload(options: AdminFetchOptions & { baseUrl?: string } = {}) {
+  const { baseUrl = ADMIN_API_BASE, ...fetchOptions } = options;
+  const adminFetch = createAdminFetch({
+    ...fetchOptions,
+    onAuthEvent: fetchOptions.onAuthEvent ?? ((event) => authHandler?.(event)),
+  });
+  return async function adminUpload<T>(path: string, body: FormData, uploadOptions: AdminUploadOptions = {}): Promise<T> {
+    if (!path.startsWith("/")) throw new Error("adminUpload: the path starts with a slash.");
+    let response: Response;
+    try {
+      const headers = new Headers(uploadOptions.headers);
+      headers.delete("Content-Type");
+      response = await adminFetch(
+        new Request(`${baseUrl}${path}`, { method: uploadOptions.method ?? "POST", body, headers, signal: uploadOptions.signal }),
+      );
+    } catch (cause) {
+      // A cancelled upload is the caller's own doing, not a network failure.
+      if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+      throw AdminApiError.network(cause);
+    }
+    let parsed: unknown = null;
+    try {
+      const text = await response.text();
+      parsed = text === "" ? null : JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+    if (!response.ok) throw new AdminApiError(response.status, parseErrorEnvelope(response.status, parsed));
+    return parsed as T;
+  };
+}
+
+/** The admin upload helper used by every screen with a file field (browser only: relative to this web origin). */
+export const adminUpload = createAdminUpload();

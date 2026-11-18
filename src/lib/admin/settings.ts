@@ -36,7 +36,15 @@ export type EditorKind =
   /** subscription.renewal_retry_hours: a short ascending list of whole numbers (draft: strings, saved as numbers). */
   | "int_list"
   /** subscription.allowed_weekdays: a multi-select of weekdays 0 (Sunday) to 6 (Saturday) (draft: strings, saved as numbers). */
-  | "weekdays";
+  | "weekdays"
+  /** complaint.sla_targets: first reply and resolution minutes for each of the four priorities (Phase 5, quality §6.4). */
+  | "sla_targets"
+  /** complaint.default_priorities: one priority for each of the 11 categories and low ratings. */
+  | "priorities"
+  /** compensation.types: a subset of a fixed list of choices, in the list's own order (an empty list is allowed). */
+  | "choices"
+  /** waitlist.quiet_hours: {from, to} wall-clock times that may cross midnight; equal times mean no quiet hours. */
+  | "quiet_hours";
 
 /** List settings whose items are local dates (edited with a date picker, saved sorted without duplicates). */
 export const DATE_LIST_SETTINGS: readonly string[] = ["calendar.public_holidays"];
@@ -53,12 +61,75 @@ export const INT_RANGES: Readonly<Record<string, readonly [number, number]>> = {
   "subscription.renew_days_before": [1, 14],
   "subscription.renewal_notice_days": [0, 14],
   "subscription.suspended_cancel_days": [0, 60],
+  // Phase 5 (design section 6.2). A null is refused for every one of them, including the three keys that already existed
+  // (rating.low_threshold, waitlist.notify_batch, waitlist.renotify_after_minutes) and now have a range.
+  "reconciliation.settlement_lag_days": [0, 7],
+  "reconciliation.amount_tolerance_fils": [0, 100],
+  "wallet.credit_validity_days": [0, 3650],
+  "wallet.expiry_notice_days": [0, 60],
+  "rating.low_threshold": [1, 4],
+  "rating.request_delay_minutes": [0, 1440],
+  "rating.window_days": [1, 60],
+  "rating.series_request_interval_days": [0, 60],
+  "complaint.window_days": [1, 90],
+  "complaint.auto_close_days": [1, 30],
+  "complaint.sla_alert_minutes": [5, 1440],
+  "privacy.deletion_grace_days": [0, 30],
+  "privacy.export_available_days": [1, 30],
+  "privacy.deletion_stuck_alert_days": [1, 90],
+  "otp.retention_days": [1, 365],
+  "documents.default_alert_days": [1, 365],
+  "fleet.document_alert_days": [1, 365],
+  "attendance.backdate_days": [1, 90],
+  // The API's lower bound is the re-derive days + 1 when that is above 4; the API says so when it refuses.
+  "incentives.compute_day_of_month": [4, 28],
+  "workers.rating_window_days": [30, 730],
+  "waitlist.notify_batch": [1, 20],
+  "waitlist.renotify_after_minutes": [10, 240],
+  "waitlist.max_offers_per_entry": [1, 5],
+  "waitlist.max_open_per_customer": [1, 20],
 };
 
-/** List-of-whole-numbers settings: item range, at most `maxItems` items, strictly ascending (spec section 7.4). */
-export const INT_LIST_SETTINGS: Readonly<Record<string, { min: number; max: number; maxItems: number; allowEmpty: boolean }>> = {
+/**
+ * List-of-whole-numbers settings: item range, at most `maxItems` items, strictly ascending (spec section 7.4) unless
+ * `order` says descending (the document reminders count down: 30, 14, 7).
+ */
+export const INT_LIST_SETTINGS: Readonly<
+  Record<string, { min: number; max: number; maxItems: number; allowEmpty: boolean; order?: "asc" | "desc" }>
+> = {
   "subscription.renewal_retry_hours": { min: 1, max: 336, maxItems: 5, allowEmpty: true },
+  "documents.expiry_reminder_days": { min: 1, max: 90, maxItems: 3, allowEmpty: true, order: "desc" },
 };
+
+/** The four complaint priorities, most urgent first (the order of the SLA table). */
+export const COMPLAINT_PRIORITIES = ["urgent", "high", "medium", "low"] as const;
+export type ComplaintPriority = (typeof COMPLAINT_PRIORITIES)[number];
+
+/** The 11 keys of complaint.default_priorities: the six categories, support requests and the four low ratings. */
+export const COMPLAINT_PRIORITY_KEYS = [
+  "quality",
+  "lateness",
+  "conduct",
+  "damage",
+  "billing",
+  "other",
+  "support",
+  "rating_1",
+  "rating_2",
+  "rating_3",
+  "rating_4",
+] as const;
+
+/** complaint.sla_targets: each target in whole minutes, from 5 minutes to 14 days (the API's range). */
+export const SLA_TARGET_RANGE = [5, 20160] as const;
+
+/** Settings that pick a subset of fixed choices (saved in the choices' own order, an empty list allowed). */
+export const CHOICE_LIST_SETTINGS: Readonly<Record<string, readonly string[]>> = {
+  "compensation.types": ["refund", "credit", "free_visit"],
+};
+
+/** The time_range settings written as {from, to} (a window that may cross midnight; equal = none). */
+export const QUIET_HOURS_SETTINGS: readonly string[] = ["waitlist.quiet_hours"];
 
 /** List settings holding weekdays (0 = Sunday ... 6 = Saturday), at least one. */
 export const WEEKDAY_SETTINGS: readonly string[] = ["subscription.allowed_weekdays"];
@@ -84,9 +155,24 @@ export const SETTING_OPTIONS: Readonly<Record<string, { messageKey: string; valu
   "subscription.hold_next_period": { messageKey: "holdNextPeriod", values: ["ahead", "after_payment"] },
   "subscription.public_holiday_effect": { messageKey: "publicHolidayEffect", values: ["serve", "skip_extend"] },
   "live_out.day_notifications": { messageKey: "dayNotifications", values: ["quiet", "all"] },
+  // Phase 5 (design section 6.2)
+  "complaint.sla_clock": { messageKey: "slaClock", values: ["working_hours", "calendar"] },
+  "compensation.types": { messageKey: "compensationType", values: CHOICE_LIST_SETTINGS["compensation.types"]! },
 };
 
-export type SettingDraft = string | boolean | string[] | WeeklyHoursDraft | BilingualDraft;
+export type SlaTargetsDraft = Record<ComplaintPriority, { first_response: string; resolution: string }>;
+export type PrioritiesDraft = Record<string, string>;
+export type QuietHoursDraft = { from: string; to: string };
+
+export type SettingDraft =
+  | string
+  | boolean
+  | string[]
+  | WeeklyHoursDraft
+  | BilingualDraft
+  | SlaTargetsDraft
+  | PrioritiesDraft
+  | QuietHoursDraft;
 
 export type SettingDraftError =
   | "hours_format"
@@ -99,7 +185,13 @@ export type SettingDraftError =
   | "int_range"
   | "int_list_item"
   | "int_list_order"
+  | "int_list_order_desc"
   | "int_list_count"
+  | "sla_int"
+  | "sla_range"
+  | "sla_order"
+  | "priority_missing"
+  | "quiet_time"
   | "weekdays_empty"
   | "time_quarter"
   | "money"
@@ -139,19 +231,49 @@ export function editorKind(setting: Pick<Setting, "key" | "type" | "value">): Ed
       if (TIME_SETTINGS.includes(setting.key)) return "time";
       return SETTING_OPTIONS[setting.key] ? "enum" : "string";
     case "list":
+      if (isChoiceList(setting.key, setting.value)) return "choices";
       if (setting.key in INT_LIST_SETTINGS && isIntList(setting.value)) return "int_list";
       if (WEEKDAY_SETTINGS.includes(setting.key) && isIntList(setting.value)) return "weekdays";
       if (DATE_LIST_SETTINGS.includes(setting.key) && isStringList(setting.value)) return "dates";
       return isStringList(setting.value) ? "chips" : "json-list";
     case "time_range":
-      return "time_range";
+      return QUIET_HOURS_SETTINGS.includes(setting.key) && isQuietHoursValue(setting.value) ? "quiet_hours" : "time_range";
     case "weekly_hours":
       return "weekly_hours";
     case "json":
+      if (setting.key === "complaint.sla_targets" && isSlaTargetsValue(setting.value)) return "sla_targets";
+      if (setting.key === "complaint.default_priorities" && isPrioritiesValue(setting.value)) return "priorities";
       return BILINGUAL_TEXT_SETTINGS.includes(setting.key) && isBilingualValue(setting.value) ? "bilingual" : "json";
     default:
       return "json";
   }
+}
+
+function isChoiceList(key: string, value: unknown): value is string[] {
+  const choices = CHOICE_LIST_SETTINGS[key];
+  return choices !== undefined && isStringList(value) && value.every((v) => choices.includes(v));
+}
+
+/** {from, to} in whatever key order the database returns them (MySQL's JSON column sorts its own way). */
+export function isQuietHoursValue(value: unknown): value is { from: string; to: string } {
+  if (!isPlainObject(value)) return false;
+  const keys = Object.keys(value).sort();
+  return keys.length === 2 && keys[0] === "from" && keys[1] === "to" && typeof value.from === "string" && typeof value.to === "string";
+}
+
+/** The four priorities, each with whole-number first_response and resolution. */
+export function isSlaTargetsValue(value: unknown): value is Record<ComplaintPriority, { first_response: number; resolution: number }> {
+  if (!isPlainObject(value) || Object.keys(value).length !== COMPLAINT_PRIORITIES.length) return false;
+  return COMPLAINT_PRIORITIES.every((p) => {
+    const row = value[p];
+    return isPlainObject(row) && Number.isInteger(row.first_response) && Number.isInteger(row.resolution);
+  });
+}
+
+/** Exactly the 11 keys, each one of the four priorities. */
+export function isPrioritiesValue(value: unknown): value is Record<string, ComplaintPriority> {
+  if (!isPlainObject(value) || Object.keys(value).length !== COMPLAINT_PRIORITY_KEYS.length) return false;
+  return COMPLAINT_PRIORITY_KEYS.every((k) => (COMPLAINT_PRIORITIES as readonly unknown[]).includes(value[k]));
 }
 
 export function isIntList(value: unknown): value is number[] {
@@ -184,6 +306,30 @@ export function toDraft(kind: EditorKind, value: unknown): SettingDraft {
     case "bilingual": {
       const text = isPlainObject(value) ? value : {};
       return { ar: typeof text.ar === "string" ? text.ar : "", en: typeof text.en === "string" ? text.en : "" };
+    }
+    case "sla_targets": {
+      const targets = isPlainObject(value) ? value : {};
+      const draft = {} as SlaTargetsDraft;
+      for (const priority of COMPLAINT_PRIORITIES) {
+        const row = isPlainObject(targets[priority]) ? (targets[priority] as Record<string, unknown>) : {};
+        draft[priority] = {
+          first_response: typeof row.first_response === "number" ? String(row.first_response) : "",
+          resolution: typeof row.resolution === "number" ? String(row.resolution) : "",
+        };
+      }
+      return draft;
+    }
+    case "priorities": {
+      const stored = isPlainObject(value) ? value : {};
+      const draft: PrioritiesDraft = {};
+      for (const key of COMPLAINT_PRIORITY_KEYS) draft[key] = typeof stored[key] === "string" ? stored[key] : "";
+      return draft;
+    }
+    case "choices":
+      return isStringList(value) ? [...value] : [];
+    case "quiet_hours": {
+      const window = isPlainObject(value) ? value : {};
+      return { from: typeof window.from === "string" ? window.from : "", to: typeof window.to === "string" ? window.to : "" };
     }
     case "enum":
     case "string":
@@ -304,8 +450,58 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
         if (!Number.isSafeInteger(n) || n < rule.min || n > rule.max) return { ok: false, error: "int_list_item" };
         numbers.push(n);
       }
-      for (let i = 1; i < numbers.length; i += 1) if (numbers[i]! <= numbers[i - 1]!) return { ok: false, error: "int_list_order" };
+      const descending = rule.order === "desc";
+      for (let i = 1; i < numbers.length; i += 1) {
+        if (descending ? numbers[i]! >= numbers[i - 1]! : numbers[i]! <= numbers[i - 1]!) {
+          return { ok: false, error: descending ? "int_list_order_desc" : "int_list_order" };
+        }
+      }
       return { ok: true, value: numbers };
+    }
+
+    case "choices": {
+      const allowed = opts.options ?? (opts.key ? CHOICE_LIST_SETTINGS[opts.key] : undefined) ?? [];
+      const chosen = Array.isArray(draft) ? draft : [];
+      if (chosen.some((v) => !allowed.includes(v))) return { ok: false, error: "option" };
+      if (new Set(chosen).size !== chosen.length) return { ok: false, error: "list_duplicate" };
+      // The list's own order, so the same choice always saves the same value.
+      return { ok: true, value: allowed.filter((v) => chosen.includes(v)) };
+    }
+
+    case "sla_targets": {
+      if (!isSlaDraft(draft)) return { ok: false, error: "sla_int" };
+      const value: Record<string, { first_response: number; resolution: number }> = {};
+      for (const priority of COMPLAINT_PRIORITIES) {
+        const first = wholeMinutes(draft[priority].first_response);
+        const resolution = wholeMinutes(draft[priority].resolution);
+        if (first === null || resolution === null) return { ok: false, error: "sla_int" };
+        const [min, max] = SLA_TARGET_RANGE;
+        if (first < min || first > max || resolution < min || resolution > max) return { ok: false, error: "sla_range" };
+        if (resolution < first) return { ok: false, error: "sla_order" };
+        value[priority] = { first_response: first, resolution };
+      }
+      return { ok: true, value };
+    }
+
+    case "priorities": {
+      const draftValue: Record<string, unknown> = isPlainObject(draft) ? draft : {};
+      const value: Record<string, string> = {};
+      for (const key of COMPLAINT_PRIORITY_KEYS) {
+        const priority = draftValue[key];
+        if (typeof priority !== "string" || priority === "") return { ok: false, error: "priority_missing" };
+        if (!(COMPLAINT_PRIORITIES as readonly string[]).includes(priority)) return { ok: false, error: "option" };
+        value[key] = priority;
+      }
+      return { ok: true, value };
+    }
+
+    case "quiet_hours": {
+      const window: Record<string, unknown> = isPlainObject(draft) ? draft : {};
+      const from = normalizeDigits(String(window.from ?? "")).trim();
+      const to = normalizeDigits(String(window.to ?? "")).trim();
+      if (!TIME.test(from) || !TIME.test(to)) return { ok: false, error: "quiet_time" };
+      // Crossing midnight (22:00 to 08:00) is the normal case; equal times mean no quiet hours.
+      return { ok: true, value: { from, to } };
     }
 
     case "weekdays": {
@@ -360,6 +556,22 @@ export function parseDraft(kind: EditorKind, draft: SettingDraft, opts: ParseOpt
   }
 }
 
+function wholeMinutes(text: string): number | null {
+  const digits = normalizeDigits(text).trim();
+  if (!/^\d+$/.test(digits)) return null;
+  const n = Number(digits);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+function isSlaDraft(draft: SettingDraft): draft is SlaTargetsDraft {
+  if (!isPlainObject(draft)) return false;
+  const rows = draft as Record<string, unknown>;
+  return COMPLAINT_PRIORITIES.every((p) => {
+    const row = rows[p];
+    return isPlainObject(row) && typeof row.first_response === "string" && typeof row.resolution === "string";
+  });
+}
+
 function isWeeklyDraft(draft: SettingDraft): draft is WeeklyHoursDraft {
   return draft !== null && typeof draft === "object" && !Array.isArray(draft) && !isBilingualDraft(draft);
 }
@@ -411,6 +623,7 @@ export const SETTING_GROUP_ORDER = [
   "finance",
   "catalog",
   "quality",
+  "privacy",
   "workforce",
   "auth",
   "legal",

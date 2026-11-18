@@ -71,7 +71,18 @@ export function markAllReadInState(state: AlertsState, at: string): AlertsState 
 }
 
 /** Admin pages that an alert may open as the API names them (driver reports have no page by id yet). */
-const BUILT_PREFIXES = ["/admin/bookings/", "/admin/workers/", "/admin/capacity", "/admin/fleet/", "/admin/subscriptions/"];
+const BUILT_PREFIXES = [
+  "/admin/bookings/",
+  "/admin/workers/",
+  "/admin/capacity",
+  "/admin/fleet/",
+  "/admin/subscriptions/",
+  // Phase 5: A10 quality, A07 customers, A04 waitlist and A09 reconciliation runs.
+  "/admin/quality/",
+  "/admin/customers/",
+  "/admin/waitlist",
+  "/admin/finance/reconciliation/",
+];
 
 /**
  * Pages the API names by their API path (PaymentIntents: a payment or refund alert, booking or subscription period,

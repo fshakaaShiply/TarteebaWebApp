@@ -23,7 +23,7 @@ import { formatDateTime } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { NOTIFICATION_TEMPLATES_PATH } from "@/lib/admin/nav";
 import { WEEK_ORDER, summarizeWeeklyHours } from "@/lib/admin/ops/weeklyHours";
-import { bilingualText, editorKind, formatTimeRange, groupSettings } from "@/lib/admin/settings";
+import { COMPLAINT_PRIORITIES, COMPLAINT_PRIORITY_KEYS, bilingualText, editorKind, formatTimeRange, groupSettings } from "@/lib/admin/settings";
 import type { Setting } from "@/lib/admin/types";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useOpsText } from "../_ops/opsText";
@@ -275,6 +275,60 @@ export function SettingValue({ setting }: { setting: Setting }) {
             </li>
           ))}
         </ul>
+      );
+    }
+    case "sla_targets": {
+      const targets = value as Record<(typeof COMPLAINT_PRIORITIES)[number], { first_response: number; resolution: number }>;
+      return (
+        <dl className="flex flex-col gap-0.5 text-sm">
+          {COMPLAINT_PRIORITIES.map((priority) => (
+            <div key={priority} className="flex flex-wrap gap-x-1.5">
+              <dt className="font-medium text-ink-900">{t(`priorities.${priority}`)}</dt>
+              <dd className="text-ink-600">
+                {t("slaTargets.summary", { first: targets[priority].first_response, resolution: targets[priority].resolution })}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+    case "priorities": {
+      const priorities = value as Record<string, string>;
+      return (
+        <dl className="flex flex-col gap-0.5 text-sm">
+          {COMPLAINT_PRIORITIES.map((priority) => {
+            const keys = COMPLAINT_PRIORITY_KEYS.filter((k) => priorities[k] === priority);
+            if (keys.length === 0) return null;
+            return (
+              <div key={priority} className="flex flex-wrap gap-x-1.5">
+                <dt className="font-medium text-ink-900">{t(`priorities.${priority}`)}</dt>
+                <dd className="text-ink-600">{keys.map((k) => t(`categories.${k}`)).join(t("listSeparator"))}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      );
+    }
+    case "choices": {
+      const chosen = value as string[];
+      if (chosen.length === 0) return <span className="text-sm text-ink-600">{t("emptyList")}</span>;
+      return (
+        <ul className="flex flex-wrap gap-1.5">
+          {chosen.map((item) => (
+            <li key={item} className="rounded-pill bg-petrol-50 px-2.5 py-0.5 text-[13px] font-medium text-petrol-700">
+              {text.option(setting.key, item)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    case "quiet_hours": {
+      const { from, to } = value as { from: string; to: string };
+      if (from === to) return <span className="text-sm text-ink-600">{t("quiet.none")}</span>;
+      return (
+        <bdi dir="ltr" className="font-latin font-medium text-ink-900">
+          {from}–{to}
+        </bdi>
       );
     }
     case "chips": {

@@ -29,17 +29,22 @@ import {
   INT_LIST_SETTINGS,
   INT_RANGES,
   QUARTER_HOUR_TIME_SETTINGS,
+  SLA_TARGET_RANGE,
   SETTING_OPTIONS,
   editorKind,
   isBilingualDraft,
   parseDraft,
   toDraft,
   type EditorKind,
+  type PrioritiesDraft,
+  type QuietHoursDraft,
   type SettingDraft,
   type SettingDraftError,
+  type SlaTargetsDraft,
 } from "@/lib/admin/settings";
 import type { Setting } from "@/lib/admin/types";
 import { ShortfallTable } from "../_ops/Shortfall";
+import { ChoicesEditor, PrioritiesEditor, QuietHoursEditor, SlaTargetsEditor } from "./StructuredEditors";
 import { HolidaysEditor, WeeklyHoursEditor } from "./WeeklyHoursEditor";
 import { useSettingText } from "./settingText";
 
@@ -102,10 +107,12 @@ export function SettingEditDialog({
 
   const range = INT_RANGES[setting.key];
   const listRule = INT_LIST_SETTINGS[setting.key];
+  // A key with a range refuses null (Phase 5), even when an old row still holds one.
+  const allowNull = setting.value === null && !range;
   const draftMessage = (error: SettingDraftError) =>
     t(`errors.${error}`, {
-      min: range?.[0] ?? listRule?.min ?? 0,
-      max: range?.[1] ?? listRule?.max ?? 0,
+      min: range?.[0] ?? listRule?.min ?? SLA_TARGET_RANGE[0],
+      max: range?.[1] ?? listRule?.max ?? SLA_TARGET_RANGE[1],
       count: listRule?.maxItems ?? 0,
     });
 
@@ -113,7 +120,7 @@ export function SettingEditDialog({
     e.preventDefault();
     if (kind === "weekly_hours") setDayErrors(validateWeeklyDraft(draft as WeeklyHoursDraft));
     const parsed = parseDraft(kind, draft, {
-      allowNull: setting.value === null,
+      allowNull,
       options: enumValues,
       range,
       key: setting.key,
@@ -138,7 +145,7 @@ export function SettingEditDialog({
       title={t("editTitle", { name: text.label(setting) })}
       description={text.description(setting) ?? undefined}
       dismissible={!save.isPending}
-      size={kind === "weekly_hours" ? "lg" : "md"}
+      size={kind === "weekly_hours" || kind === "sla_targets" || kind === "priorities" ? "lg" : "md"}
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={save.isPending}>
@@ -162,7 +169,7 @@ export function SettingEditDialog({
           }}
           error={valueError}
           dayErrors={dayErrors}
-          allowNull={setting.value === null}
+          allowNull={allowNull}
           enumValues={enumValues ?? []}
         />
         <TextArea
@@ -329,7 +336,11 @@ function ValueEditor({
           value={Array.isArray(draft) ? draft : []}
           onChange={onChange}
           valueDir="ltr"
-          hint={listRule ? t("hints.intList", { min: listRule.min, max: listRule.max, count: listRule.maxItems }) : t("hints.list")}
+          hint={
+            listRule
+              ? t(listRule.order === "desc" ? "hints.intListDesc" : "hints.intList", { min: listRule.min, max: listRule.max, count: listRule.maxItems })
+              : t("hints.list")
+          }
           error={error}
         />
       );
@@ -352,6 +363,22 @@ function ValueEditor({
         </CheckboxGroup>
       );
     }
+    case "sla_targets":
+      return <SlaTargetsEditor draft={draft as SlaTargetsDraft} onChange={onChange} error={error} />;
+    case "priorities":
+      return <PrioritiesEditor draft={draft as PrioritiesDraft} onChange={onChange} error={error} />;
+    case "quiet_hours":
+      return <QuietHoursEditor draft={draft as QuietHoursDraft} onChange={onChange} error={error} />;
+    case "choices":
+      return (
+        <ChoicesEditor
+          settingKey={settingKey}
+          values={SETTING_OPTIONS[settingKey]?.values ?? []}
+          draft={Array.isArray(draft) ? draft : []}
+          onChange={onChange}
+          error={error}
+        />
+      );
     case "chips":
       return (
         <ChipsInput

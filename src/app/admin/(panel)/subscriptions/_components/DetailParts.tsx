@@ -276,7 +276,7 @@ export function OverviewTab({ subscription, open, goTo }: { subscription: Subscr
         <Facts
           items={[
             { label: t("name"), value: subscription.customer.name ?? t("noName") },
-            { label: t("phone"), value: <Ltr>{subscription.customer.phone}</Ltr> },
+            { label: t("phone"), value: <Ltr>{subscription.customer.phone ?? "—"}</Ltr> },
             { label: t("zone"), value: text.name(subscription.zone.name) },
             { label: t("address"), value: address.length > 0 ? address.join(text.locale === "ar" ? "، " : ", ") : "—" },
           ]}

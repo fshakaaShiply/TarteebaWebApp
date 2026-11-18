@@ -233,7 +233,8 @@ const summary: FinanceSummary = {
       net_fils: 223428,
     },
     refunds: { label: { ar: "الاستردادات", en: "Refunds" }, amount_fils: 132000, refunds: 6 },
-    reconciliation_differences: { label: { ar: "فروقات التسوية", en: "Reconciliation differences" }, count: null, available: false },
+    reconciliation_differences: { label: { ar: "فروقات التسوية", en: "Reconciliation differences" }, count: 0, available: false, latest_run: null },
+    balance: { label: { ar: "الرصيد", en: "Balance" }, paid_from_balance_fils: 0, credited_to_balance_fils: 0, outstanding_fils: 0, available: false },
   },
 };
 

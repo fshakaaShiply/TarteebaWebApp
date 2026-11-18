@@ -494,6 +494,56 @@ describe("A02 daily operations overview", () => {
     expect(screen.queryByRole("link", { name: /Subscription cancellations waiting for review/ })).not.toBeInTheDocument();
   });
 
+  it("lists the eight Phase 5 alert types, each linking to its page", async () => {
+    type Row = DashboardAlerts["data"][number];
+    const row = (type: string, title: string, entity: Row["entity"], link: Row["link"], severity: "urgent" | "warning" = "warning"): Row => ({
+      type,
+      severity,
+      at: "2026-10-23T07:00:00+00:00",
+      title: { ar: title, en: title },
+      message: { ar: "…", en: `${title}: details` },
+      entity,
+      link,
+      details: {},
+    });
+    const data = [
+      row("complaint_sla", "Complaint overdue", { type: "complaint", id: 41, reference: "TC-4XQ8NM" }, { list: "complaint", path: "/api/v1/admin/complaints/41", params: {} }, "urgent"),
+      row("complaint_unassigned", "Complaint unassigned", { type: "complaint", id: 42, reference: "TC-9" }, { list: "complaint", path: "/api/v1/admin/complaints/42", params: {} }),
+      row("compensation_pending", "Compensation to approve", { type: "compensation", id: 5, reference: "TC-9" }, { list: "compensations", path: "/api/v1/admin/compensations", params: {} }),
+      row("reconciliation_failed", "Reconciliation failed", { type: "reconciliation_run", id: 9, reference: "2026-10-22" }, { list: "reconciliation_run", path: "/api/v1/admin/reconciliation/runs/9", params: {} }, "urgent"),
+      row("reconciliation_differences", "Reconciliation differences", { type: "reconciliation_run", id: 8, reference: "2026-10-21" }, { list: "reconciliation_run", path: "/api/v1/admin/reconciliation/runs/8", params: {} }),
+      row("worker_document_expiring", "Worker document expiring", { type: "worker_document", id: 3, worker_id: 14 }, { list: "worker", path: "/api/v1/admin/workers/14", params: { tab: "documents" } }),
+      row("fleet_document_expiring", "Vehicle document expiring", { type: "vehicle", id: 2 }, { list: "vehicles", path: "/api/v1/admin/vehicles", params: { search: "A 1234" } }),
+      row("incentive_proposals_pending", "Incentive proposals pending", { type: "incentive_period", id: 202610, period: "2026-10" }, { list: "incentives", path: "/api/v1/admin/incentives/proposals", params: { period: "2026-10" } }),
+    ];
+    api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data, meta: { ...alerts.meta, types: data.map((a) => a.type), total: 8, urgent: 2 } });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "complaints.manage"] });
+    const hrefs = async (title: string) => (await screen.findByRole("link", { name: `Open: ${title}` })).getAttribute("href");
+    expect(await hrefs("Complaint overdue")).toBe("/admin/quality/41");
+    expect(await hrefs("Complaint unassigned")).toBe("/admin/quality/42");
+    expect(await hrefs("Compensation to approve")).toBe("/admin/quality/compensations");
+    expect(await hrefs("Reconciliation failed")).toBe("/admin/finance/reconciliation/9");
+    expect(await hrefs("Reconciliation differences")).toBe("/admin/finance/reconciliation/8");
+    expect(await hrefs("Worker document expiring")).toBe("/admin/workers/14?tab=documents");
+    expect(await hrefs("Vehicle document expiring")).toBe("/admin/fleet/vehicles?search=A+1234");
+    expect(await hrefs("Incentive proposals pending")).toBe("/admin/workers/incentives?period=2026-10");
+  });
+
+  it("shows the rating quick stat only when the API sends it", async () => {
+    const base = dashboardSummary();
+    api.fetchDashboardSummary.mockResolvedValue({ ...base, quick_stats: { ...base.quick_stats, rating: { average: 4.46, count: 12 } } });
+    const first = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
+    const stat = (await screen.findByText("Average rating")).parentElement!;
+    expect(stat).toHaveTextContent("4.5");
+    expect(stat).toHaveTextContent("12 ratings");
+    first.unmount();
+
+    api.fetchDashboardSummary.mockResolvedValue({ ...base, quick_stats: { ...base.quick_stats, rating: null } });
+    renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
+    await screen.findByText("Cancellations today");
+    expect(screen.queryByText("Average rating")).not.toBeInTheDocument();
+  });
+
   it("welcomes staff without bookings or schedule access instead of loading figures", () => {
     renderWithProviders(<OverviewScreen />, { permissions: ["catalog.manage"] });
     expect(screen.getByText("Welcome to Tarteeba operations")).toBeInTheDocument();

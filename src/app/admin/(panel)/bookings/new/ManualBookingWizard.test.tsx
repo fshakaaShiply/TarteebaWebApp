@@ -486,6 +486,15 @@ describe("A03 manual booking wizard", () => {
     expect(api.lookupCustomer.mock.calls).toEqual([["+966501234567"]]);
   });
 
+  it("tells the coordinator to reload when the API still refuses the old lookup path (USE_LOOKUP_ENDPOINT)", async () => {
+    api.lookupCustomer.mockRejectedValue(apiError(422, "USE_LOOKUP_ENDPOINT", { path: "/api/v1/admin/customers/lookup" }));
+    renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS });
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: /Customer mobile number/ }), "0500000002");
+    await user.tab();
+    expect(await screen.findByText("This page is out of date. Reload it and try again.")).toBeInTheDocument();
+  });
+
   it("isolates the country codes left-to-right in the Arabic refusal", async () => {
     api.lookupCustomer.mockRejectedValue(apiError(422, "PHONE_COUNTRY_NOT_SUPPORTED", { country_code: "44", supported_country_codes: ["+971"] }));
     renderWithProviders(<ManualBookingWizard />, { permissions: PERMISSIONS, locale: "ar" });

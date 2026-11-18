@@ -17,3 +17,13 @@ describe("API field messages in the UI language", () => {
     expect(messageInLocale(undefined, "en")).toBeNull();
   });
 });
+
+describe("the retired customer lookup path", () => {
+  it("answers USE_LOOKUP_ENDPOINT with the reload hint, never the API text", async () => {
+    const { describeAdminError } = await import("./errors");
+    const { AdminApiError } = await import("./client");
+    const t = (key: string) => key;
+    const error = new AdminApiError(422, { code: "USE_LOOKUP_ENDPOINT", message: "x", details: { path: "/api/v1/admin/customers/lookup" } });
+    expect(describeAdminError(error, t)).toBe("useLookupEndpoint");
+  });
+});

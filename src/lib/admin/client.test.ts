@@ -5,6 +5,7 @@ import {
   backgroundPoll,
   createAdminClient,
   createAdminFetch,
+  createAdminUpload,
   parseErrorEnvelope,
   readCookie,
   unwrap,
@@ -267,5 +268,107 @@ describe("readCookie", () => {
   it("finds a cookie by exact name", () => {
     expect(readCookie("XSRF-TOKEN", "a=1; XSRF-TOKEN=x%3D; XSRF-TOKEN2=y")).toBe("x%3D");
     expect(readCookie("missing", "a=1")).toBeNull();
+  });
+});
+
+describe("adminUpload (the shared multipart helper)", () => {
+  beforeEach(clearCookies);
+  afterEach(clearCookies);
+
+  const csrfThen = (answer: () => Response) => (req: Request) => {
+    if (req.url === CSRF_URL) {
+      document.cookie = "XSRF-TOKEN=tok%3D; path=/";
+      return new Response(null, { status: 204 });
+    }
+    return answer();
+  };
+  const formWithFile = () => {
+    const form = new FormData();
+    form.append("type", "visa");
+    form.append("file", new File(["%PDF-1.4 test"], "visa.pdf", { type: "application/pdf" }));
+    return form;
+  };
+
+  it("posts the form with the CSRF token and the UI language, leaving the multipart type to the browser", async () => {
+    const { fetch, seen } = recorder(csrfThen(() => json({ data: { id: 7 } }, 201)));
+    const upload = createAdminUpload({ fetch, csrfUrl: CSRF_URL, getLocale: () => "ar", baseUrl: `${ORIGIN}/backend/api` });
+
+    const answer = await upload<{ data: { id: number } }>("/v1/admin/workers/12/documents", formWithFile(), { headers: { "Idempotency-Key": "k1", "Content-Type": "application/json" } });
+
+    expect(answer).toEqual({ data: { id: 7 } });
+    const sent = seen.find((s) => s.url.endsWith("/documents"))!;
+    expect(sent.method).toBe("POST");
+    expect(sent.url).toBe(`${ORIGIN}/backend/api/v1/admin/workers/12/documents`);
+    expect(sent.headers.get("X-XSRF-TOKEN")).toBe("tok=");
+    expect(sent.headers.get("Accept-Language")).toBe("ar");
+    expect(sent.headers.get("Idempotency-Key")).toBe("k1");
+    // The multipart boundary is the browser's: a forced JSON type is dropped.
+    expect(sent.headers.get("Content-Type")).toMatch(/^multipart\/form-data; boundary=/);
+    // (jsdom's File is not undici's, so only the field's presence is checked here.)
+    expect(sent.body).toContain('name="file"');
+    expect(sent.body).toContain('name="type"');
+  });
+
+  it("retries once after a 419 with a fresh token, sending the same file again", async () => {
+    let attempts = 0;
+    const { fetch, seen } = recorder(
+      csrfThen(() => {
+        attempts += 1;
+        return attempts === 1 ? json({ error: { code: "CSRF_MISMATCH", message: "", details: {} } }, 419) : json({ data: { id: 8 } }, 201);
+      }),
+    );
+    const upload = createAdminUpload({ fetch, csrfUrl: CSRF_URL, getLocale: () => "en", baseUrl: `${ORIGIN}/backend/api` });
+    await expect(upload("/v1/admin/workers/12/documents", formWithFile())).resolves.toEqual({ data: { id: 8 } });
+    const posts = seen.filter((s) => s.method === "POST");
+    expect(posts).toHaveLength(2);
+    expect(posts[1]!.body).toContain('name="file"');
+    expect(posts[1]!.body).toContain('name="type"');
+  });
+
+  it("throws the API's error envelope as an AdminApiError", async () => {
+    const { fetch } = recorder(
+      csrfThen(() => json({ error: { code: "VALIDATION_FAILED", message: "Bad file", details: { fields: { file: ["Too large"] } } } }, 422)),
+    );
+    const upload = createAdminUpload({ fetch, csrfUrl: CSRF_URL, getLocale: () => "en", baseUrl: `${ORIGIN}/backend/api` });
+    const error = await upload("/v1/admin/workers/12/documents", formWithFile()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AdminApiError);
+    expect(error).toMatchObject({ status: 422, code: "VALIDATION_FAILED" });
+    expect((error as AdminApiError).fieldErrors).toEqual({ file: ["Too large"] });
+  });
+
+  it("answers null for an empty success and reports a lost connection as NETWORK_ERROR", async () => {
+    const empty = recorder(csrfThen(() => new Response(null, { status: 204 })));
+    await expect(createAdminUpload({ fetch: empty.fetch, csrfUrl: CSRF_URL, baseUrl: `${ORIGIN}/backend/api` })("/v1/admin/x", formWithFile())).resolves.toBeNull();
+
+    const lost = vi.fn(async (req: Request) => {
+      if (req.url === CSRF_URL) {
+        document.cookie = "XSRF-TOKEN=t; path=/";
+        return new Response(null, { status: 204 });
+      }
+      throw new TypeError("Failed to fetch");
+    });
+    const error = await createAdminUpload({ fetch: lost, csrfUrl: CSRF_URL, baseUrl: `${ORIGIN}/backend/api` })("/v1/admin/x", formWithFile()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 0, code: "NETWORK_ERROR" });
+  });
+
+  it("tells the session about a 401, like every admin call", async () => {
+    const events: AdminAuthEvent[] = [];
+    const { fetch } = recorder(csrfThen(() => json({ error: { code: "SESSION_EXPIRED", message: "", details: {} } }, 401)));
+    const upload = createAdminUpload({ fetch, csrfUrl: CSRF_URL, baseUrl: `${ORIGIN}/backend/api`, onAuthEvent: (e) => events.push(e) });
+    await expect(upload("/v1/admin/x", formWithFile())).rejects.toMatchObject({ status: 401, code: "SESSION_EXPIRED" });
+    expect(events).toEqual([{ type: "unauthenticated", code: "SESSION_EXPIRED" }]);
+  });
+
+  it("lets a cancelled upload through as an abort, and refuses a path without a slash", async () => {
+    const controller = new AbortController();
+    const { fetch } = recorder(
+      csrfThen(() => {
+        throw new DOMException("aborted", "AbortError");
+      }),
+    );
+    const upload = createAdminUpload({ fetch, csrfUrl: CSRF_URL, baseUrl: `${ORIGIN}/backend/api` });
+    controller.abort();
+    await expect(upload("/v1/admin/x", formWithFile(), { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    await expect(upload("v1/admin/x", formWithFile())).rejects.toThrow(/starts with a slash/);
   });
 });

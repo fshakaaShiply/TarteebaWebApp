@@ -72,6 +72,6 @@ describe("A03 bookings endpoints", () => {
     expect(last().options).not.toHaveProperty("headers");
 
     await lookupCustomer("+971501234567");
-    expect(last()).toEqual({ method: "GET", path: "/v1/admin/customers", options: { params: { query: { phone: "+971501234567" } } } });
+    expect(last()).toEqual({ method: "GET", path: "/v1/admin/customers/lookup", options: { params: { query: { phone: "+971501234567" } } } });
   });
 });

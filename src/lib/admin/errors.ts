@@ -44,6 +44,7 @@ export const CODE_MESSAGES: Readonly<Record<string, string>> = {
   LEAVE_OVERLAP: "leaveOverlap",
   NOT_A_DRIVER: "notADriver",
   PHONE_INVALID: "phoneInvalid",
+  USE_LOOKUP_ENDPOINT: "useLookupEndpoint",
   SLOT_IN_USE: "slotInUse",
   OVERRIDE_RULE_READ_ONLY: "overrideRuleReadOnly",
   SLOT_NOT_AVAILABLE_FOR_SERVICE: "slotNotAvailableForService",

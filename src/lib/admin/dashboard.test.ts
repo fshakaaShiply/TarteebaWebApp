@@ -98,6 +98,27 @@ describe("A02 links to admin pages", () => {
     expect(trailingId("/api/v1/admin/bookings/15/")).toBe(15);
   });
 
+  it("opens the Phase 5 alert targets: case, compensations, reconciliation run, worker documents, fleet, incentives", () => {
+    const link = (list: string, path: string, params: DashboardLink["params"] = {}): DashboardLink => ({ list, path, params });
+    expect(dashboardHref(link("complaint", "/api/v1/admin/complaints/41"))).toBe("/admin/quality/41");
+    expect(dashboardHref(link("complaint", "/api/v1/admin/complaints/x"))).toBeNull();
+    expect(dashboardHref(link("compensations", "/api/v1/admin/compensations"))).toBe("/admin/quality/compensations");
+    expect(dashboardHref(link("reconciliation_run", "/api/v1/admin/reconciliation/runs/9"))).toBe("/admin/finance/reconciliation/9");
+    expect(dashboardHref(link("worker", "/api/v1/admin/workers/14", { tab: "documents" }))).toBe("/admin/workers/14?tab=documents");
+    // Only the Documents tab is taken from the API; anything else opens the profile.
+    expect(dashboardHref(link("worker", "/api/v1/admin/workers/14", { tab: "payroll" }))).toBe("/admin/workers/14");
+    expect(dashboardHref(link("vehicles", "/api/v1/admin/vehicles", { search: "A 1234" }))).toBe("/admin/fleet/vehicles?search=A+1234");
+    expect(dashboardHref(link("drivers", "/api/v1/admin/drivers", { search: "Omar" }))).toBe("/admin/fleet/drivers?search=Omar");
+    expect(dashboardHref(link("incentives", "/api/v1/admin/incentives/proposals", { period: "2026-10" }))).toBe("/admin/workers/incentives?period=2026-10");
+    expect(dashboardHref(link("incentives", "/api/v1/admin/incentives/proposals", { period: "x" }))).toBe("/admin/workers/incentives");
+  });
+
+  it("opens a case or a run from the alert's entity when the API gave no link", () => {
+    expect(dashboardAlertHref({ link: null, entity: { type: "complaint", id: 41, reference: "TC-4XQ8NM", case_type: "complaint" } })).toBe("/admin/quality/41");
+    expect(dashboardAlertHref({ link: null, entity: { type: "reconciliation_run", id: 9, reference: "2026-11-01" } })).toBe("/admin/finance/reconciliation/9");
+    expect(dashboardAlertHref({ link: null, entity: { type: "vehicle", id: 3 } })).toBeNull();
+  });
+
   it("splits minutes into hours and minutes", () => {
     expect(splitMinutes(130)).toEqual({ hours: 2, minutes: 10 });
     expect(splitMinutes(-5)).toEqual({ hours: 0, minutes: 0 });

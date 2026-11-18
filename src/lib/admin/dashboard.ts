@@ -10,6 +10,14 @@ import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
 
 export const BOOKINGS_PATH = "/admin/bookings";
 export const CAPACITY_PATH = "/admin/capacity";
+/** Phase 5 pages the new alert types open (A10 quality, A09 reconciliation, A05 workers, A06 fleet). */
+export const QUALITY_PATH = "/admin/quality";
+export const COMPENSATIONS_PATH = "/admin/quality/compensations";
+export const RECONCILIATION_PATH = "/admin/finance/reconciliation";
+export const WORKERS_PATH = "/admin/workers";
+export const INCENTIVES_PATH = "/admin/workers/incentives";
+export const VEHICLES_PATH = "/admin/fleet/vehicles";
+export const DRIVERS_PATH = "/admin/fleet/drivers";
 
 /** The link's filters ({} for an entity link such as a booking, or without a link). */
 export function linkParams(link: DashboardLink | null | undefined): LinkParams {
@@ -93,6 +101,28 @@ export function dashboardHref(link: DashboardLink | null | undefined): string | 
       const id = trailingId(link.path);
       return id === null ? null : `${PAYMENTS_PATH}/${id}`;
     }
+    case "complaint": {
+      // A10's case page (/api/v1/admin/complaints/{id} → /admin/quality/{id}); null for the viewer without it.
+      const id = trailingId(link.path);
+      return id === null ? null : `${QUALITY_PATH}/${id}`;
+    }
+    case "compensations":
+      return COMPENSATIONS_PATH;
+    case "reconciliation_run": {
+      const id = trailingId(link.path);
+      return id === null ? null : `${RECONCILIATION_PATH}/${id}`;
+    }
+    case "worker": {
+      // A worker's page, on the Documents tab for a document alert (any other tab name is ignored).
+      const id = trailingId(link.path);
+      return id === null ? null : withQuery(`${WORKERS_PATH}/${id}`, { tab: params.tab === "documents" ? "documents" : undefined });
+    }
+    case "vehicles":
+      return withQuery(VEHICLES_PATH, { search: params.search });
+    case "drivers":
+      return withQuery(DRIVERS_PATH, { search: params.search });
+    case "incentives":
+      return withQuery(INCENTIVES_PATH, { period: typeof params.period === "string" && /^\d{4}-\d{2}$/.test(params.period) ? params.period : undefined });
     default:
       return null;
   }
@@ -126,6 +156,9 @@ export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity"
   if (!entity) return null;
   if (entity.type === "booking" && typeof entity.id === "number") return `${BOOKINGS_PATH}/${entity.id}`;
   if (entity.type === "subscription" && typeof entity.id === "number") return `${SUBSCRIPTIONS_PATH}/${entity.id}`;
+  // Phase 5: the API gives these alerts a link only to staff who may open the page; a case still opens from its entity.
+  if (entity.type === "complaint" && typeof entity.id === "number") return `${QUALITY_PATH}/${entity.id}`;
+  if (entity.type === "reconciliation_run" && typeof entity.id === "number") return `${RECONCILIATION_PATH}/${entity.id}`;
   if (typeof entity.booking_id === "number") return `${BOOKINGS_PATH}/${entity.booking_id}`;
   return null;
 }

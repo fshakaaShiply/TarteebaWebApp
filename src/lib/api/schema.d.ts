@@ -52,6 +52,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/addresses/{address}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.addresses.block"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/addresses/{address}/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.addresses.unblock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/addresses": {
         parameters: {
             query?: never;
@@ -143,6 +175,88 @@ export interface paths {
         put?: never;
         post: operations["admin.notification.alerts.read"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/quality/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/quality/attachments (multipart file, purpose): 201 {data: Attachment} */
+        post: operations["customer.quality.attachments.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/quality/attachments/{attachment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE /customer/quality/attachments/{id}: 204 for the customer's own unattached upload; 409 ATTACHMENT_IN_USE once attached */
+        delete: operations["customer.quality.attachments.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.attendance.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.workers.attendance.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/attendance/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin.workforce.workers.attendance.record"];
+        post?: never;
+        delete: operations["admin.workforce.workers.attendance.revert"];
         options?: never;
         head?: never;
         patch?: never;
@@ -873,13 +987,19 @@ export interface paths {
          *       upcoming   held, pending confirmation, confirmed, alternative proposed or rescheduled, from today on, soonest first
          *       past       completed, or before today and not cancelled, expired or rejected, newest first
          *       cancelled  cancelled, rejected or expired, newest first
+         *     Phase 5 (C27, DECISION P5-Q63): complainable=1 lists, whatever the tab, every booking a complaint would be accepted
+         *     for now (Contracts\BookingFeedback canComplain: a completed visit, today's arrived or missed one, a cancellation
+         *     with money taken), newest first, on one page of at most config booking.complainable_max (50); meta.tab reads
+         *     `complainable`
          */
         get: operations["customer.booking.bookings.index"];
         put?: never;
         /**
-         * Screen 06 "Send booking request": 201 {data: {booking, payment: {id, status, checkout_url, expires_at}}}. Behind
-         *     the `idempotent` middleware, so a retry with the same Idempotency-Key replays this answer; when that stored
-         *     answer was lost, CreateBooking finds the booking by the key and the answer carries Idempotent-Replayed: true
+         * Screen 06 "Send booking request": 201 {data: {booking, payment: {id, status, checkout_url, expires_at,
+         *     wallet_error}}}. Behind the `idempotent` middleware, so a retry with the same Idempotency-Key replays this answer;
+         *     when that stored answer was lost, CreateBooking finds the booking by the key and the answer carries
+         *     Idempotent-Replayed: true. Phase 5 (finance P5-F71): with `pay_with: wallet` the payment is captured from the
+         *     balance at once, or `wallet_error {code, details}` says why not (the booking stays held, its payment untouched)
          */
         post: operations["customer.booking.bookings.store"];
         delete?: never;
@@ -974,6 +1094,349 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/compensations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/compensations: {data: [Compensation], meta {current_page, per_page, total, last_page}}; the pending
+         *     queue oldest first, any other selection newest first
+         */
+        get: operations["admin.quality.compensations.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/complaints/{complaint}/free-visit/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/complaints/{id}/free-visit/availability?from=&to=&slot_template_id= (≤ 14 days): the date strip and
+         *     slot cards for the case's booking's zone, service and team, as screen 26 reads them (Booking's
+         *     RescheduleCheck::availability()); 422 COMPENSATION_TYPE_UNAVAILABLE {type: free_visit, reason} when the case can
+         *     get no free visit (CompensationCaps)
+         */
+        get: operations["admin.quality.complaints.free-visit.availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compensations/{compensation}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/compensations/{id}/cancel {reason?} (optional If-Match): {data: Compensation} */
+        post: operations["admin.quality.compensations.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compensations/{compensation}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/compensations/{id}/approve {expected_amount_fils, note?} (Idempotency-Key, If-Match): {data:
+         *     Compensation, case: AdminCaseDetail} — the executed compensation and its resolved case
+         */
+        post: operations["admin.quality.compensations.approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/compensations/{compensation}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/compensations/{id}/reject {reason} (Idempotency-Key, optional If-Match): {data: Compensation} */
+        post: operations["admin.quality.compensations.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/complaints/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /customer/complaints/meta: the categories with the expected first reply of a case opened now (the default
+         *     priority's target through the SLA clock, P5-Q19), and the same for a support request
+         */
+        get: operations["customer.quality.complaints.meta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/complaints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /customer/complaints {type?, state?, page}: the customer's visible cases, the latest activity first */
+        get: operations["customer.quality.complaints.index"];
+        put?: never;
+        /** POST /customer/complaints (Idempotency-Key): 201 {data: CaseDetail} */
+        post: operations["customer.quality.complaints.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/complaints/{reference}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /customer/complaints/{reference}: {data: CaseDetail} */
+        get: operations["customer.quality.complaints.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/complaints/{reference}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /customer/complaints/{reference}/messages (Idempotency-Key): 201 {data: CaseDetail}; a reply resumes a
+         *     waiting case and reopens a resolved one
+         */
+        post: operations["customer.quality.complaints.messages.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/complaints/{reference}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/complaints/{reference}/close {reason?} (and the support-requests alias): {data: CaseDetail} */
+        post: operations["customer.quality.complaints.close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/support-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /customer/support-requests {state?, page}: GET /customer/complaints?type=support */
+        get: operations["customer.quality.support-requests.index"];
+        put?: never;
+        /**
+         * POST /customer/support-requests (Idempotency-Key): 201 {data: CaseDetail}; the booking is optional and only the
+         *     ownership is checked (no state or window rule)
+         */
+        post: operations["customer.quality.support-requests.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/support-requests/{reference}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/complaints/{reference}/close {reason?} (and the support-requests alias): {data: CaseDetail} */
+        post: operations["customer.quality.support-requests.close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/complaints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/complaints: {data: [AdminCaseRow], meta {current_page, per_page, total, last_page, counts {active,
+         *     unassigned, breached, awaiting_approval}}}
+         */
+        get: operations["admin.quality.complaints.index"];
+        put?: never;
+        /**
+         * POST /admin/complaints (Idempotency-Key): a case staff log from a call, a WhatsApp message or an admin entry
+         *     (P5-Q42). 201 {data: AdminCaseDetail}; 422 CUSTOMER_NOT_FOUND, BOOKING_INVALID (not the customer's booking), the
+         *     customer's creation errors
+         */
+        post: operations["admin.quality.complaints.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/complaints/{complaint}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/complaints/{id}: {data: AdminCaseDetail} */
+        get: operations["admin.quality.complaints.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** PATCH /admin/complaints/{id} (If-Match): {data: AdminCaseDetail} */
+        patch: operations["admin.quality.complaints.update"];
+        trace?: never;
+    };
+    "/v1/admin/quality/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/quality/assignees: who can take a case (P5-Q24), {data: [{id, name, roles[]}]} */
+        get: operations["admin.quality.assignees.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/complaints/{complaint}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/complaints/{id}/messages (Idempotency-Key): 201 {data: AdminCaseDetail} */
+        post: operations["admin.quality.complaints.messages.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/complaints/{complaint}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/complaints/{id}/resolve (Idempotency-Key, If-Match): {data: AdminCaseDetail, meta: {result:
+         *     resolved | pending_approval}} — pending_approval while a refund or a credit waits for the accountant (P5-Q27)
+         */
+        post: operations["admin.quality.complaints.resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/quality/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * POST /admin/quality/attachments (multipart file, purpose complaint): 201 {data: Attachment}; images are re-encoded
+         *     without metadata (P5-Q58)
+         */
+        post: operations["admin.quality.attachments.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/config": {
         parameters: {
             query?: never;
@@ -1000,6 +1463,113 @@ export interface paths {
         get: operations["customer.identity.consents.show"];
         put: operations["customer.identity.consents.update"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/consents/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /customer/consents/accept {document, version}: 422 VERSION_NOT_CURRENT {current_version} for another version */
+        post: operations["customer.identity.consents.accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/pages/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /public/pages/{slug}: the slug's published version; 404 PAGE_NOT_FOUND for an unknown slug or one without a
+         *     published version
+         */
+        get: operations["public.settings.pages.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/faq": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /public/faq: the active questions by sort order, placeholders rendered (P5-C31) */
+        get: operations["public.settings.faq"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/pages?slug=: every version, by slug then newest first */
+        get: operations["admin.settings.pages.index"];
+        put?: never;
+        /** POST /admin/pages: 201 with the new draft */
+        post: operations["admin.settings.pages.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/pages/{page}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.settings.pages.show"];
+        put?: never;
+        post?: never;
+        /** DELETE /admin/pages/{id} (If-Match optional): drafts only, 204 */
+        delete: operations["admin.settings.pages.destroy"];
+        options?: never;
+        head?: never;
+        /** PATCH /admin/pages/{id} (If-Match): drafts only */
+        patch: operations["admin.settings.pages.update"];
+        trace?: never;
+    };
+    "/v1/admin/pages/{page}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/pages/{id}/publish {reason} (If-Match) */
+        post: operations["admin.settings.pages.publish"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1102,7 +1672,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/customers": {
+    "/v1/admin/credit-notes/{creditNote}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 202: queued to the customer's own e-mail address; 422 EMAIL_MISSING without one */
+        post: operations["admin.billing.credit-notes.email"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/lookup": {
         parameters: {
             query?: never;
             header?: never;
@@ -1110,9 +1697,111 @@ export interface paths {
             cookie?: never;
         };
         /** 200 {data: [customer] or [], meta: {phone}}: meta.phone is the number as normalized and searched (E.164) */
+        get: operations["admin.identity.customers.lookup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/customers/{ulid}/notes: newest first, 20 a page */
+        get: operations["admin.identity.customers.notes.index"];
+        put?: never;
+        /** POST /admin/customers/{ulid}/notes {body}: 201 with the note */
+        post: operations["admin.identity.customers.notes.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The A07 list. A `phone` parameter is the manual-booking wizard's old lookup: 422 USE_LOOKUP_ENDPOINT {path},
+         *     never a list (DECISION P5-C46), so a wizard deployed before the web switch can never fill in a stranger's name
+         */
         get: operations["admin.identity.customers.index"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.customers.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.customers.block"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.customers.unblock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/marketing-opt-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.customers.marketing-opt-out"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1453,6 +2142,91 @@ export interface paths {
         patch: operations["admin.fleet.drivers.update"];
         trace?: never;
     };
+    "/v1/public/email/verify/{customer}/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.identity.email.verify"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/me/email/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["customer.identity.me.email-verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.reporting.exports.index"];
+        put?: never;
+        post: operations["admin.reporting.exports.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/exports/{export}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.reporting.exports.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/exports/{export}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A signed download link: 403 FORBIDDEN once the requester may no longer read the report (P5-F150); 409
+         *     EXPORT_NOT_READY {status} while queued, running or failed; 410 EXPORT_EXPIRED once its file is gone. The link
+         *     expires after url_ttl_minutes or with the file, whichever comes first
+         */
+        get: operations["admin.reporting.exports.url"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/fake-gateway/checkout/{session}": {
         parameters: {
             query?: never;
@@ -1467,6 +2241,59 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/faq": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/faq: every item by sort order */
+        get: operations["admin.settings.faq.index"];
+        put?: never;
+        /** POST /admin/faq: 201 with the new item (appended at the end) */
+        post: operations["admin.settings.faq.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/faq/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** PUT /admin/faq/order {ids}: the list in its new order */
+        put: operations["admin.settings.faq.order"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/faq/{item}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE /admin/faq/{id} (If-Match optional): 204 */
+        delete: operations["admin.settings.faq.destroy"];
+        options?: never;
+        head?: never;
+        /** PATCH /admin/faq/{id} (If-Match) */
+        patch: operations["admin.settings.faq.update"];
         trace?: never;
     };
     "/v1/admin/finance/summary": {
@@ -1496,6 +2323,367 @@ export interface paths {
         get: operations["public.health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentives/adjustments?period=&status=open|posted */
+        get: operations["admin.workforce.incentives.adjustments.index"];
+        put?: never;
+        /** POST /admin/incentives/adjustments → 201 {data: IncentiveAdjustment} */
+        post: operations["admin.workforce.incentives.adjustments.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/adjustments/{adjustment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** DELETE /admin/incentives/adjustments/{adjustment} (If-Match) → 204 */
+        delete: operations["admin.workforce.incentives.adjustments.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-postings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentive-postings?period= */
+        get: operations["admin.workforce.incentive-postings.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-postings/{posting}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentive-postings/{posting} */
+        get: operations["admin.workforce.incentive-postings.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-postings/{posting}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentive-postings/{posting}/file → {data: {url, expires_at, file_name}} */
+        get: operations["admin.workforce.incentive-postings.file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentives/proposals?period=YYYY-MM */
+        get: operations["admin.workforce.incentives.proposals.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/proposals/{proposal}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentives/proposals/{proposal} */
+        get: operations["admin.workforce.incentives.proposals.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/compute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/compute {period} (Idempotency-Key) */
+        post: operations["admin.workforce.incentives.compute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/approve {proposal_ids, expected_lines, expected_total_fils} → {data: {approved, total_fils}} */
+        post: operations["admin.workforce.incentives.approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/reject {proposal_ids, reason} → {data: {rejected}} */
+        post: operations["admin.workforce.incentives.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/post {period, proposal_ids, adjustment_ids, expected_lines, expected_total_fils} (Idempotency-Key) */
+        post: operations["admin.workforce.incentives.post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/{proposal}/recompute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/{proposal}/recompute (If-Match) */
+        post: operations["admin.workforce.incentives.proposals.recompute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/{proposal}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/{proposal}/approve {approved_fils, adjust_reason?} (If-Match) */
+        post: operations["admin.workforce.incentives.proposals.approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/{proposal}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/{proposal}/reject {reason} (If-Match) */
+        post: operations["admin.workforce.incentives.proposals.reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/{proposal}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/{proposal}/reopen {reason} (If-Match) */
+        post: operations["admin.workforce.incentives.proposals.reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentives/{proposal}/post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentives/{proposal}/post {expected_total_fils} (Idempotency-Key, If-Match) → 201 {data: IncentivePosting} */
+        post: operations["admin.workforce.incentives.proposals.post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentive-rules */
+        get: operations["admin.workforce.incentive-rules.index"];
+        put?: never;
+        /** POST /admin/incentive-rules → 201 */
+        post: operations["admin.workforce.incentive-rules.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-rules/{rule}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/incentive-rules/{rule} */
+        get: operations["admin.workforce.incentive-rules.show"];
+        put?: never;
+        post?: never;
+        /** DELETE /admin/incentive-rules/{rule} (If-Match) → 204 */
+        delete: operations["admin.workforce.incentive-rules.destroy"];
+        options?: never;
+        head?: never;
+        /** PATCH /admin/incentive-rules/{rule} (If-Match) */
+        patch: operations["admin.workforce.incentive-rules.update"];
+        trace?: never;
+    };
+    "/v1/admin/incentive-rules/{rule}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentive-rules/{rule}/activate (If-Match) */
+        post: operations["admin.workforce.incentive-rules.activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-rules/{rule}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentive-rules/{rule}/deactivate (If-Match) */
+        post: operations["admin.workforce.incentive-rules.deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/incentive-rules/{rule}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/incentive-rules/{rule}/preview {period} */
+        post: operations["admin.workforce.incentive-rules.preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2187,6 +3375,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/payments/{payment}/pay-with-wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Phase 5 (finance §5.3, P5-F71): pay the whole payment of a single booking from the balance. The answer is the
+         *     payment, captured with method wallet and `wallet.balance_after_fils`; a replay answers the same
+         */
+        post: operations["customer.payment.payments.pay-with-wallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/payments": {
         parameters: {
             query?: never;
@@ -2230,6 +3438,23 @@ export interface paths {
         put?: never;
         /** Refunds (part of) a captured payment; 201 with the refund and its provider status */
         post: operations["admin.payment.payments.refunds.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/payments/{payment}/review/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/payments/{id}/review/clear {note} (Phase 5, P5-F21; reconciliation.run, If-Match): the payment page */
+        post: operations["admin.payment.payments.review.clear"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2333,6 +3558,290 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/privacy/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.identity.privacy.requests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/privacy/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 202 with the new request; 409 PRIVACY_REQUEST_OPEN {request} while one is open; 429 RATE_LIMITED
+         *     {retry_after_seconds} within 24 hours of the last completed copy (P5-C23)
+         */
+        post: operations["customer.identity.privacy.export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/privacy/requests/{privacyRequest}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 404 for another customer's request; 409 EXPORT_NOT_READY; 410 EXPORT_EXPIRED */
+        get: operations["customer.identity.privacy.download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/privacy/delete/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * C30's preview (customers §5.1 DeletionPreview, in the request's language, ULIDs only); 409 PRIVACY_REQUEST_OPEN
+         *     while a deletion is open
+         */
+        get: operations["customer.identity.privacy.delete.preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/privacy/delete/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The delete_account code to the registered phone (SendOtp bound to the customer: 429 OTP_RESEND_TOO_SOON /
+         *     RATE_LIMITED / OTP_LOCKED)
+         */
+        post: operations["customer.identity.privacy.delete.otp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/privacy/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 202 {request, cancelled {bookings, subscriptions}, signed_out: true}: every other token is deleted; the one used
+         *     for this call only replays this answer for a few minutes (P5-C100), so the app signs out locally. 422
+         *     OTP_INVALID / OTP_EXPIRED; 429 OTP_LOCKED; 409
+         *     DELETION_BLOCKED {items}, TERMS_CHANGED {preview, changed}, PRIVACY_REQUEST_OPEN; a cancel action's own refusal with
+         *     details.item {type, id, reference}
+         */
+        post: operations["customer.identity.privacy.delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/privacy-exports/{privacyRequest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public.identity.privacy-exports.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/privacy-exports/{privacyRequest}/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public.identity.privacy-exports.otp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/privacy-exports/{privacyRequest}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public.identity.privacy-exports.download"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/deletion-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a deletion would do now (DeletionPreview, staff print: numeric ids, both languages, A03 / A08 paths) */
+        get: operations["admin.identity.customers.deletion-impact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/privacy-requests/otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 409 INVALID_STATE {status: deleted} for a deleted customer; SendOtp's 429s. Optional `type` (export | delete,
+         *     default delete; A4b review fix): the code is always a delete_account code (P5-C121), but its SMS says what the
+         *     caller asked for — deleting the account, or a copy of the data
+         */
+        post: operations["admin.identity.customers.privacy-requests.otp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/privacy-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.identity.customers.privacy-requests.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.privacy-requests.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy-requests/{privacyRequest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.identity.privacy-requests.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy-requests/{privacyRequest}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 409 INVALID_STATE {status} (not received, scheduled or failed), ERASURE_STARTED, STALE_VERSION */
+        post: operations["admin.identity.privacy-requests.cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/privacy-requests/{privacyRequest}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 409 INVALID_STATE {status} (not failed), STALE_VERSION */
+        post: operations["admin.identity.privacy-requests.retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customer/me": {
         parameters: {
             query?: never;
@@ -2381,6 +3890,246 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customer/bookings/{booking}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /customer/bookings/{booking}/rating: {data: Rating}; 404 RATING_NOT_FOUND before it is rated */
+        get: operations["customer.quality.ratings.show"];
+        put?: never;
+        /**
+         * POST /customer/bookings/{booking}/rating (Idempotency-Key): 201 {data: Rating, meta: {suggest_complaint}}, where
+         *     suggest_complaint is true for a low rating while no complaint is open on the booking (the app offers «فتح شكوى»)
+         */
+        post: operations["customer.quality.ratings.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/ratings: {data: [rating], meta {current_page, per_page, total, last_page, average, count}} — average of
+         *     the filtered ratings not excluded (one decimal, null without any), count of the filtered ratings
+         */
+        get: operations["admin.quality.ratings.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ratings/{rating}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/ratings/{id}: {data: rating + photos, exclusion, version} */
+        get: operations["admin.quality.ratings.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ratings/{rating}/exclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/ratings/{id}/exclude {reason} (If-Match): {data: rating}; a no-op when already excluded */
+        post: operations["admin.quality.ratings.exclude"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/ratings/{rating}/include": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/ratings/{id}/include {reason} (If-Match): {data: rating}; a no-op when included */
+        post: operations["admin.quality.ratings.include"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.reconciliation.formats.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/formats/{key}/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** text/csv download: `# report_date=YYYY-MM-DD` and the header row */
+        get: operations["admin.payment.reconciliation.formats.template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/items/{item}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.reconciliation.items.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/items/{item}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 200 {data: ItemDetail, refund: the refund confirmed, recorded or reinstated (AdminRefundRow) | null} */
+        post: operations["admin.payment.reconciliation.items.resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/items/{item}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.payment.reconciliation.items.reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.reconciliation.runs.index"];
+        put?: never;
+        /** 202: the run is created `pending`; the import job reads and matches it (poll GET …/runs/{id}) */
+        post: operations["admin.payment.reconciliation.runs.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/runs/{run}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.reconciliation.runs.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/runs/{run}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.reconciliation.runs.items"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reconciliation/runs/{run}/recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The open items of a completed run checked again now (P5-F49): auto-resolutions and documents */
+        post: operations["admin.payment.reconciliation.runs.recheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/refund-reasons": {
         parameters: {
             query?: never;
@@ -2407,6 +4156,54 @@ export interface paths {
         get: operations["admin.payment.refunds.index"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refund}/review/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.payment.refunds.review.clear"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refund}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.payment.refunds.outcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/refunds/{refund}/reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin.payment.refunds.reinstate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3992,7 +5789,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/visits/{visit}/unassign {worker_id, reason, override?} */
+        /** POST /admin/visits/{visit}/unassign {worker_id, reason, reason_code?, override?} */
         post: operations["admin.scheduling.visits.unassign"];
         delete?: never;
         options?: never;
@@ -4009,7 +5806,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, override?} */
+        /** POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, reason_code?, override?} */
         post: operations["admin.scheduling.visits.replace"];
         delete?: never;
         options?: never;
@@ -4040,7 +5837,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Open entries (waiting or notified) whose slot has not started yet, soonest first */
+        /**
+         * Open entries (waiting or notified) whose booking cut-off is still ahead (Phase 5, P5-L12), soonest first, at most
+         *     100
+         */
         get: operations["customer.scheduling.waitlist.index"];
         put?: never;
         post: operations["customer.scheduling.waitlist.store"];
@@ -4057,10 +5857,103 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * One entry of the customer, in any status (Phase 5, the entry screen and the notice's deep link), with the slot's
+         *     capacity for her team now (slot_now) and the booking it became
+         */
+        get: operations["customer.scheduling.waitlist.show"];
         put?: never;
         post?: never;
         delete: operations["customer.scheduling.waitlist.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The entries of a date range with their place in line, offers, capacity now and whether staff may offer the
+         *     place; meta.counts_by_status counts the same filters without the status filter
+         */
+        get: operations["admin.scheduling.waitlist.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/waitlist/{waitlist}/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offers the place to this customer now (Idempotency-Key required): `force` sends a new offer while one is live.
+         *     Limited per staff member and per entry (429 RATE_LIMITED, P5-L54)
+         */
+        post: operations["admin.scheduling.waitlist.notify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/customer/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customer.payment.wallet.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.payment.customers.wallet.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/customers/{customer}/wallet/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 201 {data: AdminWalletTxn, balance_fils} */
+        post: operations["admin.payment.customers.wallet.transactions.store"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4076,6 +5969,102 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["webhooks.payments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/workers/{worker}/documents?include_archived=0|1 — current documents (type order), renewed ones too on
+         *     request
+         */
+        get: operations["admin.workforce.workers.documents.index"];
+        put?: never;
+        /** POST /admin/workers/{worker}/documents (multipart) */
+        post: operations["admin.workforce.workers.documents.store"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/worker-documents/{document}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /admin/worker-documents/{document} */
+        get: operations["admin.workforce.documents.show"];
+        put?: never;
+        post?: never;
+        /** DELETE /admin/worker-documents/{document} (If-Match) → 204 */
+        delete: operations["admin.workforce.documents.destroy"];
+        options?: never;
+        head?: never;
+        /** PATCH /admin/worker-documents/{document} (If-Match) */
+        patch: operations["admin.workforce.documents.update"];
+        trace?: never;
+    };
+    "/v1/admin/worker-documents/{document}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GET /admin/worker-documents/{document}/file → {data: {url, expires_at, file_name}}, a signed URL valid
+         *     workforce.documents.url_ttl_minutes (15). 404 DOCUMENT_FILE_MISSING without a file; 503 DOCUMENT_URL_UNAVAILABLE
+         *     when the disk cannot sign
+         */
+        get: operations["admin.workforce.documents.file"];
+        put?: never;
+        /** POST /admin/worker-documents/{document}/file (multipart, If-Match) */
+        post: operations["admin.workforce.documents.file.replace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /admin/workers/{worker}/photo */
+        post: operations["admin.workforce.workers.photo.store"];
+        /** DELETE /admin/workers/{worker}/photo (If-Match) */
+        delete: operations["admin.workforce.workers.photo.destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workers/{worker}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin.workforce.workers.stats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4254,6 +6243,15 @@ export interface components {
             option_index: number;
         };
         /**
+         * AcceptConsentRequest
+         * @description POST /customer/consents/accept {document: terms|privacy, version} (C29, P5-C34).
+         */
+        AcceptConsentRequest: {
+            /** @enum {string} */
+            document: "terms" | "privacy";
+            version: string;
+        };
+        /**
          * AddStopRequest
          * @description POST /admin/rounds/{id}/stops {visit_id} with If-Match or `version` (A06: move a visit to this van).
          */
@@ -4298,6 +6296,13 @@ export interface components {
             created_at: string | null;
             updated_at: string | null;
         };
+        /**
+         * AddressBlockRequest
+         * @description POST /admin/addresses/{ulid}/block and /unblock {reason} (A07, If-Match): 3–500 characters (P5-C12).
+         */
+        AddressBlockRequest: {
+            reason: string;
+        };
         /** AddressResource */
         AddressResource: {
             id: string;
@@ -4321,6 +6326,49 @@ export interface components {
                 code: string;
                 name: string | null;
             } | null;
+            version: number;
+        };
+        /**
+         * AdjustWalletRequest
+         * @description POST /admin/customers/{ulid}/wallet/transactions (finance §5.3, P5-F39): a goodwill credit (1 … config
+         *     payment.wallet.max_single_credit_fils) or a correction debit, with its reason code matching the type (credit →
+         *     goodwill, debit → correction) and a note of 3–500 characters.
+         */
+        AdjustWalletRequest: {
+            /** @enum {string} */
+            type: "credit" | "debit";
+            amount_fils: number;
+            /** @enum {string} */
+            reason_code: "correction";
+            note: string;
+        };
+        /** AdminAddressResource */
+        AdminAddressResource: {
+            id: string;
+            /** @description The customer's ULID (A07 address). */
+            customer_id: string | null;
+            label: string;
+            property_type: string;
+            building: string | null;
+            unit_number: string | null;
+            street: string | null;
+            area_text: string | null;
+            zone: {
+                id: number;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            } | null;
+            is_default: boolean;
+            is_blocked: boolean;
+            blocked_reason: string | null;
+            blocked_at: string | null;
+            blocked_by: {
+                id: number;
+                name: string;
+            } | null;
+            deleted: boolean;
             version: number;
         };
         /** AdminBillingRefusalResource */
@@ -4353,21 +6401,29 @@ export interface components {
              *     for a single booking. Its cancel and reschedule are A08's (409 USE_SUBSCRIPTION_ACTIONS here, P4-48).
              */
             subscription: {
-                id: number;
+                id: string;
                 ulid: string;
                 reference: string;
                 type: string;
-                visit_no: number | null;
-                visits_total: number | null;
-                period_no: number | null;
-                /** @enum {string|null} */
-                period_status: "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void" | null;
-                visit_ulid: string | null;
+                visit_no: string;
+                visits_total: string;
+                period_no: string;
+                period_status: string;
+                visit_ulid: string;
+                period_payment_id: string | null;
+                per_visit_fils: string | null;
+                occurrence_state: string | null;
             } | null;
             customer: {
                 id: string;
                 name: string | null;
-                phone: string;
+                phone: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "pending_deletion" | "deleted";
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
             };
             service: {
                 id: number;
@@ -4476,6 +6532,22 @@ export interface components {
                     display_name: string;
                     role: string;
                     assigned_at: string;
+                    release_reason_code: null;
+                }[];
+                /** @description Phase 5 (P5-W06): who left the visit and why, oldest first. */
+                released_assignments: {
+                    worker_id: number;
+                    display_name: string;
+                    role: string;
+                    assigned_at: string;
+                    released_at: string;
+                    release_reason: string | null;
+                    /** @enum {string|null} */
+                    release_reason_code: "worker_unavailable" | "worker_late" | "operational" | "customer_request" | "visit_closed" | "other" | null;
+                    release_reason_label: {
+                        ar: string;
+                        en: string;
+                    } | null;
                 }[];
             }[];
             hold: {
@@ -4573,6 +6645,24 @@ export interface components {
             alternative_proposals: components["schemas"]["AlternativeProposalResource"][];
             reschedule_requests: components["schemas"]["RescheduleRequestResource"][];
             notes: components["schemas"]["BookingNoteResource"][];
+            /** @description Phase 5 (A03 quality block): the visit's rating, and its cases for complaints.manage only (null otherwise). */
+            quality: {
+                rating: {
+                    id: number;
+                    overall: number;
+                    is_low: boolean;
+                } | null;
+                cases: {
+                    id: number;
+                    reference: string;
+                    type: string;
+                    status: string;
+                    status_label: {
+                        ar: string;
+                        en: string;
+                    };
+                }[] | null;
+            };
         };
         /** AdminBookingResource */
         AdminBookingResource: {
@@ -4585,21 +6675,29 @@ export interface components {
              *     for a single booking. Its cancel and reschedule are A08's (409 USE_SUBSCRIPTION_ACTIONS here, P4-48).
              */
             subscription: {
-                id: number;
+                id: string;
                 ulid: string;
                 reference: string;
                 type: string;
-                visit_no: number | null;
-                visits_total: number | null;
-                period_no: number | null;
-                /** @enum {string|null} */
-                period_status: "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void" | null;
-                visit_ulid: string | null;
+                visit_no: string;
+                visits_total: string;
+                period_no: string;
+                period_status: string;
+                visit_ulid: string;
+                period_payment_id: string | null;
+                per_visit_fils: string | null;
+                occurrence_state: string | null;
             } | null;
             customer: {
                 id: string;
                 name: string | null;
-                phone: string;
+                phone: string | null;
+                /** @enum {string} */
+                status: "active" | "blocked" | "pending_deletion" | "deleted";
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
             };
             service: {
                 id: number;
@@ -4678,6 +6776,217 @@ export interface components {
             /** @enum {string} */
             party: "customer" | "company";
         };
+        /** AdminCaseDetailResource */
+        AdminCaseDetailResource: {
+            id: number;
+            reference: string;
+            type: string;
+            type_label: {
+                ar: string;
+                en: string;
+            };
+            category: string;
+            category_label: {
+                ar: string;
+                en: string;
+            };
+            rating: {
+                [key: string]: unknown;
+            } | null;
+            customer: {
+                id: string;
+                name: string | null;
+                phone: string | null;
+                status: string;
+            };
+            booking: {
+                [key: string]: unknown;
+            } | null;
+            workers: {
+                id: number;
+                name: string;
+            }[];
+            priority: string;
+            priority_label: {
+                ar: string;
+                en: string;
+            };
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            assignee: {
+                id: number;
+                name: string;
+            } | null;
+            sla: {
+                /** @enum {string} */
+                state: "on_track" | "due_soon" | "breached" | "paused" | "met" | "none";
+                /** @enum {string|null} */
+                kind: "first_response" | "resolution" | null;
+                due_at: string | null;
+                remaining_minutes: number | null;
+            };
+            compensation: {
+                type: string;
+                status: string;
+                amount_fils: number;
+            } | null;
+            awaiting_approval: boolean;
+            customer_replied: string;
+            created_at: string | null;
+            description: string;
+            source: string;
+            source_label: {
+                ar: string;
+                en: string;
+            };
+            customer_visible: boolean;
+            attachments: {
+                id: string;
+                purpose: string;
+                mime: string;
+                size_bytes: number;
+                url: string | null;
+                url_expires_at: string;
+                expires_at: string | null;
+            }[];
+            visit: {
+                id: number;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                arrived_at: string | null;
+                completed_at: string | null;
+                late_minutes: number | null;
+            } | null;
+            subscription: {
+                id: number;
+                reference: string;
+                type: string;
+            } | null;
+            payment: {
+                [key: string]: unknown;
+            } | null;
+            worker_options: {
+                id: number;
+                name: string;
+                role: string;
+                released: boolean;
+            }[];
+            driver: {
+                id: number;
+                name: string | null;
+            } | null;
+            driver_options: {
+                id: number;
+                name: string | null;
+                round_kind: string;
+            }[];
+            messages: {
+                [key: string]: unknown;
+            }[];
+            events: {
+                [key: string]: unknown;
+            }[];
+            compensations: {
+                [key: string]: unknown;
+            }[];
+            pending_resolution: {
+                [key: string]: unknown;
+            } | null;
+            compensation_options: {
+                refund: {
+                    available: boolean;
+                    max_fils: number;
+                    /** @enum {string|null} */
+                    destination: "card" | "wallet" | null;
+                    reason: string | null;
+                };
+                credit: {
+                    available: boolean;
+                    max_fils: number;
+                    reason: string | null;
+                };
+                free_visit: {
+                    available: boolean;
+                    reason: string | null;
+                };
+            } | null;
+            outcome: string | null;
+            outcome_label: {
+                ar: string;
+                en: string;
+            } | null;
+            resolution: string | null;
+            resolved_at: string | null;
+            resolved_by: {
+                id: number;
+                name: string;
+            } | null;
+            close_reason: string | null;
+            close_reason_label: {
+                ar: string;
+                en: string;
+            } | null;
+            closed_at: string | null;
+            merged_into: {
+                id: number;
+                reference: string;
+            } | null;
+            first_response_due_at: string;
+            first_responded_at: string | null;
+            resolution_due_at: string | null;
+            reopened_count: number;
+            actions: {
+                assign: string;
+                reply: string;
+                resolve: string;
+                close: string;
+                reopen: string;
+                /**
+                 * @description A refund also needs refunds.create (P3-35, ApproveCompensation); a closing account takes only a refund to
+                 *     the card (P5-Q121).
+                 */
+                approve: string;
+                reject: string;
+                cancel_compensation: string;
+            };
+            version: number;
+        };
+        /** AdminContentPageResource */
+        AdminContentPageResource: {
+            id: number;
+            /** @enum {string} */
+            slug: "terms" | "privacy" | "cancellation";
+            version_label: string;
+            effective_date: string;
+            title: {
+                ar: string;
+                en: string;
+            };
+            body: {
+                ar: string;
+                en: string;
+            };
+            /** @enum {string} */
+            status: "draft" | "published" | "superseded";
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            published_at: string | null;
+            published_by: {
+                id: number;
+                name: string;
+            } | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
         /** AdminCreditNoteDetailResource */
         AdminCreditNoteDetailResource: {
             id: number;
@@ -4740,6 +7049,8 @@ export interface components {
                 vat_fils: number;
                 total_fils: number;
             }[];
+            /** @description Phase 5 (P5-F27): when it was last sent to the customer by e-mail (A09 "Send by e-mail"). */
+            emailed_at: string | null;
         };
         /** AdminCreditNoteResource */
         AdminCreditNoteResource: {
@@ -4785,6 +7096,256 @@ export interface components {
             currency: string;
             total_text: string;
             pdf_ready: boolean;
+        };
+        /** AdminCustomerDetailResource */
+        AdminCustomerDetailResource: {
+            id: string;
+            name: string | null;
+            phone: string | null;
+            email: string | null;
+            email_verified: boolean;
+            locale: string;
+            /** @enum {string} */
+            status: "active" | "blocked" | "pending_deletion" | "deleted";
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            /** @description customers.version: the If-Match of block and unblock. */
+            version: number;
+            blocked: {
+                reason: string | null;
+                at: string | null;
+                by: {
+                    id: number;
+                    name: string;
+                } | null;
+            } | null;
+            deletion: {
+                request_id: number;
+                scheduled_for: string | null;
+                waiting_on: string[];
+            } | null;
+            created_at: string | null;
+            last_login_at: string | null;
+            /**
+             * @description The inline @var types below are what the OpenAPI document (and the web's generated client) reads: Scramble
+             *     does not follow CustomerFigures' array shapes and would fall back to string (P5-C140).
+             */
+            stats: {
+                bookings_total: number;
+                bookings_cancelled: number;
+                bookings_open: number;
+                subscriptions_open: number;
+                subscriptions_total: number;
+                paid_total_fils: number;
+                currency: string;
+                /** @description null until the quality module answers and without ratings (P5-C04) */
+                avg_rating_given: {
+                    average: number;
+                    count: number;
+                } | null;
+                /** @description null until the quality module answers */
+                complaints_open: number | null;
+                /** @description Y-m-d (Asia/Dubai); null without a counted booking */
+                last_booking_on: string | null;
+            };
+            preferred_workers: {
+                id: string;
+                display_name: string;
+                times: number;
+            }[];
+            consents: {
+                marketing: {
+                    accepted: boolean;
+                    updated_at: string | null;
+                };
+                analytics: {
+                    accepted: boolean;
+                    updated_at: string | null;
+                };
+                terms: {
+                    accepted_version: string | null;
+                    current_version: string;
+                    up_to_date: boolean;
+                };
+                privacy: {
+                    accepted_version: string | null;
+                    current_version: string;
+                    up_to_date: boolean;
+                };
+                card_on_file_count: number;
+            };
+            addresses: {
+                id: string;
+                label: string;
+                property_type: string;
+                building: string | null;
+                unit_number: string | null;
+                street: string | null;
+                area_text: string | null;
+                zone: {
+                    id: number;
+                    name: {
+                        ar: string;
+                        en: string;
+                    };
+                } | null;
+                is_default: boolean;
+                is_blocked: boolean;
+                blocked_reason: string | null;
+                blocked_at: string | null;
+                deleted: boolean;
+                version: number;
+            }[];
+            privacy_requests: {
+                id: number;
+                type: string;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                created_at: string | null;
+                scheduled_for: string | null;
+                completed_at: string | null;
+            }[];
+            notes_count: number;
+            links: {
+                bookings: {
+                    /** @constant */
+                    list: "bookings";
+                    /** @constant */
+                    path: "/api/v1/admin/bookings";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                subscriptions: {
+                    /** @constant */
+                    list: "subscriptions";
+                    /** @constant */
+                    path: "/api/v1/admin/subscriptions";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                payments: {
+                    /** @constant */
+                    list: "payments";
+                    /** @constant */
+                    path: "/api/v1/admin/payments";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                /** @description The complaints list reads with either permission (the accountant decides compensation, P5-Q40). */
+                complaints: {
+                    /** @constant */
+                    list: "complaints";
+                    /** @constant */
+                    path: "/api/v1/admin/complaints";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                ratings: {
+                    /** @constant */
+                    list: "ratings";
+                    /** @constant */
+                    path: "/api/v1/admin/ratings";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                waitlist: {
+                    /** @constant */
+                    list: "waitlist";
+                    /** @constant */
+                    path: "/api/v1/admin/waitlist";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                wallet: {
+                    /** @constant */
+                    list: "wallet";
+                    path: string;
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+                privacy_requests: {
+                    /** @constant */
+                    list: "privacy_requests";
+                    /** @constant */
+                    path: "/api/v1/admin/privacy-requests";
+                    /** @description a JSON object, {} when the list takes no filter */
+                    params: {
+                        [key: string]: string;
+                    };
+                } | null;
+            };
+            actions: {
+                block: boolean;
+                unblock: boolean;
+                add_note: boolean;
+                /** @description false once the erasure has started (P5-C141) */
+                block_address: boolean;
+                privacy_request: boolean;
+                marketing_opt_out: boolean;
+            };
+        };
+        /** AdminCustomerListItemResource */
+        AdminCustomerListItemResource: {
+            id: string;
+            /** @description Null for a deleted customer (P5-C41). */
+            name: string | null;
+            /** @description Null for a deleted customer. */
+            phone: string | null;
+            email: string | null;
+            /** @enum {string} */
+            status: "active" | "blocked" | "pending_deletion" | "deleted";
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            created_at: string | null;
+            /** @description Y-m-d (Asia/Dubai); null without a counted booking */
+            last_booking_on: string | null;
+            bookings_total: number;
+            open_bookings: number;
+            open_subscriptions: number;
+            /**
+             * @description an open privacy request
+             * @enum {string|null}
+             */
+            privacy_pending: "export" | "delete" | null;
+            /** @description Y-m-d (Asia/Dubai) the open delete request runs on: the «الحذف في {date}» chip (P5-C93); else null. */
+            deletion_on: string | null;
+        };
+        /** AdminFaqItemResource */
+        AdminFaqItemResource: {
+            id: number;
+            question: {
+                ar: string;
+                en: string;
+            };
+            answer: {
+                ar: string;
+                en: string;
+            };
+            sort_order: number;
+            is_active: boolean;
+            version: number;
+            updated_at: string | null;
         };
         /** AdminInvoiceDetailResource */
         AdminInvoiceDetailResource: {
@@ -5087,6 +7648,32 @@ export interface components {
                 ar: string;
                 en: string;
             } | null;
+            /** @description Phase 5 (P5-F21): the review flag with its reason (kept after it is cleared) and who cleared it. */
+            review: {
+                needs_review: boolean;
+                reason: string | null;
+                reason_label: {
+                    ar: string;
+                    en: string;
+                } | null;
+                cleared_at: string | null;
+                cleared_by: {
+                    id: number | null;
+                    name: unknown;
+                } | null;
+                note: string | null;
+            };
+            /** @description Phase 5 (P5-F59): what chargebacks returned to the cardholder; refundable_fils already excludes it. */
+            disputed_fils: number;
+            reconciliation: {
+                item_id: number;
+                run_id: number;
+                report_date: string;
+                line_type: components["schemas"]["SettlementLineType"];
+                status: components["schemas"]["ReconciliationItemStatus"];
+                reason_code: components["schemas"]["ReconciliationReason"];
+                resolved: boolean;
+            }[];
             updated_at: string | null;
             events: {
                 id: number;
@@ -5124,6 +7711,23 @@ export interface components {
                     name: string | null;
                 };
                 gateway: string;
+                /**
+                 * @description Phase 5 (P5-F35): where the money went, the refund row's gateway (wallet = the customer's
+                 *                          balance; card = back through the provider)
+                 * @enum {string}
+                 */
+                destination: "card" | "wallet";
+                /** @description Phase 5 (P5-F28): what the refund is for (a complaint's compensation); `link` opens the case for complaints.manage, null otherwise (P3-59). */
+                context: {
+                    type: string;
+                    id: number;
+                    reference: string;
+                    link: {
+                        list: string;
+                        path: string;
+                        params: Record<string, never>;
+                    } | null;
+                } | null;
                 gateway_refund_ref: string | null;
                 failure_code: string | null;
                 failure_message: string | null;
@@ -5140,6 +7744,18 @@ export interface components {
                     en: string | null;
                 };
                 needs_review: boolean;
+                /** @description Phase 5 (P5-F21): why it was flagged (kept after the flag is cleared) and who cleared it, when, why. */
+                review: {
+                    reason: string | null;
+                    reason_label: {
+                        ar: string;
+                        en: string;
+                    } | null;
+                    cleared_at: string | null;
+                    cleared_by: number | null;
+                    note: string | null;
+                };
+                version: number;
                 created_at: string | null;
                 submitted_at: string | null;
                 succeeded_at: string | null;
@@ -5224,6 +7840,89 @@ export interface components {
             captured_at: string | null;
             voided_at: string | null;
         };
+        /** AdminPrivacyRequestResource */
+        AdminPrivacyRequestResource: {
+            id: number;
+            ulid: string;
+            /** @enum {string} */
+            type: "export" | "delete";
+            type_label: {
+                ar: string | null;
+                en: string | null;
+            };
+            /** @enum {string} */
+            status: "received" | "scheduled" | "processing" | "completed" | "expired" | "cancelled" | "failed";
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            /** @enum {string} */
+            source: "app" | "staff";
+            verification: string;
+            verification_label: {
+                ar: string;
+                en: string;
+            };
+            /** @description Staff text (the document reference); null once the request completed. */
+            verification_note: string | null;
+            otp_verified_at: string | null;
+            customer: {
+                id: string;
+                name: string | null;
+                phone: string | null;
+                status: string;
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            previous_customer_status: string | null;
+            /** @description Deletion: what the submit cancelled (final, not restored by a cancel) and the refunds then on their way. */
+            impact_snapshot: {
+                [key: string]: unknown;
+            } | null;
+            scheduled_for: string | null;
+            waiting_on: {
+                code: string;
+                label: {
+                    ar: string;
+                    en: string;
+                };
+            }[];
+            next_check_at: string | null;
+            processing_started_at: string | null;
+            completed_at: string | null;
+            cancelled_at: string | null;
+            cancel_reason: string | null;
+            handled_by: {
+                id: number;
+                name: string;
+            } | null;
+            handled_at: string | null;
+            export: {
+                size_bytes: number | null;
+                expires_at: string | null;
+                download_count: number;
+                last_downloaded_at: string | null;
+            } | null;
+            attempts: number;
+            failure_code: string | null;
+            failure_label: {
+                ar: string;
+                en: string;
+            } | null;
+            failure_detail: string | null;
+            /** @description Deletion: module => {table: rows} written by the execution. */
+            erasure_log: string | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+            actions: {
+                cancel: string;
+                /** @description A4b review fix: no copy is built again for an account whose erasure began (RetryPrivacyRequest). */
+                retry: string;
+            };
+        };
         /** AdminRefundResource */
         AdminRefundResource: {
             id: number;
@@ -5248,6 +7947,23 @@ export interface components {
                 name: string | null;
             };
             gateway: string;
+            /**
+             * @description Phase 5 (P5-F35): where the money went, the refund row's gateway (wallet = the customer's
+             *                          balance; card = back through the provider)
+             * @enum {string}
+             */
+            destination: "card" | "wallet";
+            /** @description Phase 5 (P5-F28): what the refund is for (a complaint's compensation); `link` opens the case for complaints.manage, null otherwise (P3-59). */
+            context: {
+                type: string;
+                id: number;
+                reference: string;
+                link: {
+                    list: string;
+                    path: string;
+                    params: Record<string, never>;
+                } | null;
+            } | null;
             gateway_refund_ref: string | null;
             failure_code: string | null;
             failure_message: string | null;
@@ -5264,6 +7980,18 @@ export interface components {
                 en: string | null;
             };
             needs_review: boolean;
+            /** @description Phase 5 (P5-F21): why it was flagged (kept after the flag is cleared) and who cleared it, when, why. */
+            review: {
+                reason: string | null;
+                reason_label: {
+                    ar: string;
+                    en: string;
+                } | null;
+                cleared_at: string | null;
+                cleared_by: number | null;
+                note: string | null;
+            };
+            version: number;
             created_at: string | null;
             submitted_at: string | null;
             succeeded_at: string | null;
@@ -5332,8 +8060,20 @@ export interface components {
             } | null;
             customer: {
                 id: number;
+                /** @description Phase 5: the customer's ULID, which the A07 profile is addressed by (P5-C08). */
+                ulid: string;
+                /** @description Null for a deleted customer, whose anonymised row is never shown (P5-C41). */
                 name: string | null;
-                phone: string;
+                phone: string | null;
+                /**
+                 * @description Phase 5 (P5-C10): the A08 "customer blocked" banner.
+                 * @enum {string}
+                 */
+                status: "active" | "blocked" | "pending_deletion" | "deleted";
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
             };
             zone: {
                 id: number;
@@ -5598,6 +8338,10 @@ export interface components {
                     en: string;
                 };
             };
+            address: {
+                label: string | null;
+                area: string | null;
+            };
             status: string;
             status_label: {
                 ar: string;
@@ -5624,6 +8368,20 @@ export interface components {
             first_visit_at: string | null;
         };
         /**
+         * AdminUploadAttachmentRequest
+         * @description POST /admin/quality/attachments (multipart): `file` and `purpose: complaint`. Staff images are re-encoded without
+         *     metadata (P5-Q58), so only images the library can decode (jpeg, png, webp) and PDF are taken (DECISION P5-Q65).
+         */
+        AdminUploadAttachmentRequest: {
+            /** @enum {string} */
+            purpose: "complaint";
+            /**
+             * Format: binary
+             * @description Maximum file size: 5120 kilobytes.
+             */
+            file: string;
+        };
+        /**
          * AdminVisitRequest
          * @description A08 POST /admin/subscriptions/{id}/visits/{visit}/preview and POST …/visits/{visit} (design §7.2):
          *       {scope: this, action: move, date, slot_template_id, override?, override_reason?, reason?}  staff move of one visit;
@@ -5647,6 +8405,86 @@ export interface components {
             rest_weekdays?: number[] | null;
             /** Format: date */
             expected_term_end_date?: string | null;
+        };
+        /** AdminWaitlistEntryResource */
+        AdminWaitlistEntryResource: {
+            id: number;
+            ulid: string;
+            customer: {
+                id: string | null;
+                name: string | null;
+                phone_masked: string | null;
+                status: string | "deleted";
+            };
+            address: {
+                id: string | null;
+                label: string | null;
+                area_text: string | null;
+                usable: boolean;
+            };
+            zone: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            service: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+            };
+            date: string;
+            slot: {
+                id: number;
+                code: string;
+                name: {
+                    ar: string;
+                    en: string;
+                };
+                start: string;
+                end: string;
+            };
+            workers_count: number;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            position: string;
+            offers_count: number;
+            offer: {
+                state: string;
+                expires_at: string | null;
+                offered_at: string | null;
+                offered_by: {
+                    id: string;
+                    name: string;
+                } | null;
+            };
+            book_by: string;
+            expires_at: string;
+            created_at: string | null;
+            closed_at: string | null;
+            closed_reason: string | null;
+            booking: {
+                id: number;
+                ulid: string;
+                reference: string;
+            } | null;
+            slot_now: {
+                status: string;
+                remaining_for_team: number;
+            } | null;
+            actions: {
+                notify: boolean;
+                /** @enum {string|null} */
+                notify_blocked_reason: "offer_limit" | "slot_full" | "slot_closed" | "address_unavailable" | "customer_inactive" | "closed" | null;
+            };
         };
         /** AlertResource */
         AlertResource: {
@@ -5749,6 +8587,26 @@ export interface components {
             auto_renew_allowed: boolean;
         };
         /**
+         * ApproveCompensationRequest
+         * @description POST /admin/compensations/{id}/approve {expected_amount_fils, note? ≤ 500} (Idempotency-Key, If-Match or `version`;
+         *     quality §5.2): the amount the accountant saw (409 TERMS_CHANGED when it differs, P5-Q27).
+         */
+        ApproveCompensationRequest: {
+            expected_amount_fils: number;
+            note?: string | null;
+            version?: number;
+        };
+        /**
+         * ApproveIncentiveRequest
+         * @description POST /admin/incentives/{proposal}/approve {approved_fils, adjust_reason?} (If-Match; workforce §5.6). The amount's
+         *     range and the reason for a changed amount are checked by ApproveProposal (422 AMOUNT_OUT_OF_RANGE, REASON_REQUIRED).
+         */
+        ApproveIncentiveRequest: {
+            approved_fils: number;
+            adjust_reason?: string | null;
+            version?: number;
+        };
+        /**
          * AssignWorkerRequest
          * @description A08 POST /admin/subscriptions/{id}/assign-primary and /assign-backup {worker_id|null, apply_from?} (design §6.1,
          *     §7.2; If-Match): the worker id (null clears the role; a Live-out primary is required), from which local date the
@@ -5768,6 +8626,55 @@ export interface components {
             override?: boolean;
             reason?: string | null;
         };
+        /** AttendanceDayResource */
+        AttendanceDayResource: {
+            worker: {
+                id: number;
+                employee_no: string;
+                display_name: string;
+                home_zone_id: number;
+            };
+            date: string;
+            expected: boolean;
+            rest_day: boolean;
+            leave: {
+                id: number;
+            } | null;
+            /** @enum {string|null} */
+            status: "present" | "absent" | "late" | "half_day" | null;
+            status_label: {
+                ar: string;
+                en: string;
+            } | null;
+            /** @enum {string|null} */
+            source: "derived" | "manual" | null;
+            stored: boolean;
+            check_in_at: string | null;
+            check_out_at: string | null;
+            late_minutes: number | null;
+            note: string | null;
+            evidence: {
+                [key: string]: unknown;
+            };
+            recorded_by: {
+                id: number;
+                name: string;
+            } | null;
+            recorded_at: string | null;
+            locked: boolean;
+            conflicts_with_evidence: boolean;
+            live_out: {
+                subscription_id: number;
+                reference: string;
+            } | null;
+            version: number;
+        };
+        /**
+         * AttendanceStatus
+         * @description attendance_records.status (spec §6.7, workforce §2.3). The column may also be null: expected that day, nothing recorded (P5-W03). late and half_day are only ever recorded by operations (P5-W12).
+         * @enum {string}
+         */
+        AttendanceStatus: "present" | "absent" | "late" | "half_day";
         /**
          * AutoRenewRequest
          * @description POST /customer/subscriptions/{ulid}/auto-renew {auto_renew, expected_amount_fils?} (design §7.1, P4-52): turning
@@ -5828,10 +8735,11 @@ export interface components {
             id: string;
             reference: string;
             /**
-             * @description Phase 4: single, or a subscription visit (subscription_visit, live_out_day, live_out_trial).
+             * @description Phase 4: single, or a subscription visit (subscription_visit, live_out_day, live_out_trial). Phase 5:
+             *     recovery, a free make-up visit for a complaint (P5-Q32).
              * @enum {string}
              */
-            kind: "single" | "subscription_visit" | "live_out_trial" | "live_out_day";
+            kind: "single" | "subscription_visit" | "live_out_trial" | "live_out_day" | "recovery";
             /**
              * @description A subscription visit's subscription and its place in the period ("Visit 3 of 8"); null for a single
              *     booking. Cancel and reschedule happen there (P4-48), on the occurrence visit_ulid (P4-246).
@@ -5871,8 +8779,10 @@ export interface components {
                 building: string | null;
                 unit: string | null;
             };
+            /** @description Display name and, from Phase 5, the approved photo (null without one; screens 09 / 10, P5-X18). */
             assigned_workers: {
                 display_name: string;
+                photo_url: string | null;
             }[];
             total_fils: number;
             currency: string;
@@ -5954,7 +8864,29 @@ export interface components {
                  *     instead of being cancelled or rescheduled here. A single booking's actions keep their Phase 3 shape.
                  */
                 subscription_link?: string | null;
+                /** @description Phase 5 (screen 11): a rating would be accepted now. */
+                can_rate: boolean;
+                /** @description Phase 5 (C27): a complaint would be accepted now. */
+                can_complain: boolean;
             };
+            /** @description Phase 5 (screen 11): the visit's rating, null before it is rated. */
+            rating: {
+                id: string;
+                overall: number;
+                created_at: string;
+            } | null;
+            /** @description Phase 5: until when the visit can be rated; null when it cannot be rated. */
+            rating_due_by: string | null;
+            /** @description Phase 5 (C27): the requests about this booking the customer can see, newest first (TC-… references). */
+            complaints: {
+                reference: string;
+                status: string;
+                status_label: string;
+            }[];
+            recovery: {
+                case_reference: string | null;
+                note: string | null;
+            } | null;
             policy: {
                 cancel_free_until: string | null;
                 reschedule_free_until: string | null;
@@ -6001,6 +8933,27 @@ export interface components {
             } | null;
         };
         /**
+         * BulkApproveIncentivesRequest
+         * @description POST /admin/incentives/approve {proposal_ids[1..500], expected_lines: [{id, amount_fils}], expected_total_fils}
+         *     (workforce §5.6, P5-W30): every line the screen showed, each at its proposed amount.
+         */
+        BulkApproveIncentivesRequest: {
+            proposal_ids: number[];
+            expected_lines: {
+                id: number;
+                amount_fils: number;
+            }[];
+            expected_total_fils: number;
+        };
+        /**
+         * BulkRejectIncentivesRequest
+         * @description POST /admin/incentives/reject {proposal_ids[1..500], reason} (workforce §5.6).
+         */
+        BulkRejectIncentivesRequest: {
+            proposal_ids: number[];
+            reason: string;
+        };
+        /**
          * CancelBookingRequest
          * @description The customer cancels a booking (POST /customer/bookings/{ulid}/cancel, screen 17): a reason from config
          *     booking.customer_cancel_reasons (text required for "other"), and optionally the fee and refund the preview showed
@@ -6017,6 +8970,14 @@ export interface components {
             reason_text?: string | null;
             expected_fee_fils?: number | null;
             expected_refund_fils?: number | null;
+        };
+        /**
+         * CancelCompensationRequest
+         * @description POST /admin/compensations/{id}/cancel {reason? ≤ 500} (optional If-Match or `version`; quality §5.2).
+         */
+        CancelCompensationRequest: {
+            reason?: string | null;
+            version?: number;
         };
         /** CancelPreview */
         CancelPreview: {
@@ -6126,6 +9087,107 @@ export interface components {
             max_bookings?: number | null;
             reason: string;
         };
+        /** CaseDetailResource */
+        CaseDetailResource: {
+            reference: string;
+            type: string;
+            type_label: {
+                ar: string;
+                en: string;
+            };
+            category: string;
+            category_label: {
+                ar: string;
+                en: string;
+            };
+            title: {
+                ar: string;
+                en: string;
+            } | null;
+            status: string;
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            description: string;
+            attachments: {
+                id: string;
+                purpose: string;
+                mime: string;
+                size_bytes: number;
+                url: string | null;
+                url_expires_at: string;
+                expires_at: string | null;
+            }[];
+            booking: {
+                id: string;
+                reference: string;
+                service_date: string;
+                service: {
+                    code: string;
+                    name: {
+                        ar: string;
+                        en: string;
+                    };
+                };
+            } | null;
+            created_at: string | null;
+            expected_reply: {
+                hours: number | null;
+                by: string | null;
+                overdue: boolean;
+            } | null;
+            needs_reply: boolean;
+            messages: {
+                id: string;
+                /** @enum {string} */
+                author: "customer" | "team" | "system";
+                author_label: {
+                    ar: string;
+                    en: string;
+                };
+                body: string;
+                attachments: {
+                    [key: string]: unknown;
+                }[];
+                created_at: string | null;
+            }[];
+            resolution: {
+                text: string;
+                resolved_at: string | null;
+                compensation: {
+                    type: string;
+                    type_label: {
+                        ar: string;
+                        en: string;
+                    };
+                    amount_fils: number | null;
+                    refund: {
+                        id: string;
+                        status: string;
+                        status_label: {
+                            ar: string;
+                            en: string;
+                        };
+                        /** @enum {string} */
+                        destination: "card" | "wallet";
+                    } | null;
+                    booking: {
+                        id: string;
+                        reference: string;
+                        service_date: string;
+                        slot: {
+                            start: string;
+                            end: string;
+                        };
+                    } | null;
+                } | null;
+            } | null;
+            actions: {
+                can_reply: boolean;
+                can_close: boolean;
+            };
+        };
         /**
          * CatalogPreviewRequest
          * @description POST /admin/catalog/preview (A11 "preview before publish"):
@@ -6140,6 +9202,13 @@ export interface components {
                 id?: number;
                 delete?: boolean;
             }[];
+        };
+        /**
+         * CloseCaseRequest
+         * @description POST /customer/complaints/{reference}/close and /customer/support-requests/{reference}/close {reason? ≤ 500}.
+         */
+        CloseCaseRequest: {
+            reason?: string | null;
         };
         /**
          * ConfirmPhoneChangeRequest
@@ -6159,6 +9228,26 @@ export interface components {
         ConfirmSubscriptionRequest: {
             primary_worker_id?: number | null;
             backup_worker_id?: number | null;
+        };
+        /**
+         * ContentPageRequest
+         * @description POST /admin/pages (all fields) and PATCH /admin/pages/{id} (any of them) — A11 legal page drafts (customers §5.3):
+         *     slug (create only; the closed list is checked by the action, 422 SLUG_UNKNOWN), version_label (the label customers
+         *     see and accept, "2026-11"), effective_date (Y-m-d), title {ar, en}, body {ar, en} (plain text, P5-C30).
+         */
+        ContentPageRequest: {
+            version_label: string;
+            /** Format: date */
+            effective_date: string;
+            title: {
+                ar?: string;
+                en?: string;
+            };
+            body: {
+                ar?: string;
+                en?: string;
+            };
+            slug: string;
         };
         /**
          * CouponRequest
@@ -6209,6 +9298,27 @@ export interface components {
             updated_at: string | null;
         };
         /**
+         * CreateAdminCaseRequest
+         * @description POST /admin/complaints (A10 / A03 "open complaint", P5-Q42): {customer_id (ULID), booking_id? (numeric), type:
+         *     complaint | support, category, description 10–2000, priority?, source: phone | whatsapp | admin,
+         *     window_override_reason? (lets a complaint past complaint.window_days), attachment_ids? (the staff member's uploads)}.
+         */
+        CreateAdminCaseRequest: {
+            customer_id: string;
+            booking_id?: number | null;
+            /** @enum {string} */
+            type: "complaint" | "support";
+            /** @enum {string} */
+            category?: "quality" | "lateness" | "conduct" | "damage" | "billing" | "other";
+            description: string;
+            /** @enum {string} */
+            priority?: "low" | "medium" | "high" | "urgent";
+            /** @enum {string} */
+            source: "phone" | "whatsapp" | "admin";
+            window_override_reason?: string | null;
+            attachment_ids?: string[];
+        };
+        /**
          * CreateBookingRequest
          * @description POST /customer/bookings (spec §14.2, screens 04-06). Only the shape is validated here; pricing, capacity, coupon,
          *     preferred worker and materials rules are Actions\CreateBooking's, with their own error codes.
@@ -6231,6 +9341,36 @@ export interface components {
             return_url: string;
             /** @description Screen 06: pay with one of the customer's saved cards (screen 24) instead of the hosted checkout. */
             payment_method_id?: string | null;
+            /**
+             * @description Phase 5 (finance P5-F71): pay the whole booking from the Tarteeba balance, with the amount the customer
+             *     confirmed; a refusal comes back as payment.wallet_error in the 201 answer.
+             * @enum {string}
+             */
+            pay_with?: "card" | "wallet";
+            wallet_expected_amount_fils?: number | null;
+        };
+        /**
+         * CreateCaseRequest
+         * @description POST /customer/complaints {booking_id (booking ULID), category, description 10–2000, attachment_ids ≤ 5} and POST
+         *     /customer/support-requests {booking_id?, category? (default other), description, attachment_ids?} (C27, Help «طلب
+         *     دعم», P5-X04).
+         */
+        CreateCaseRequest: {
+            booking_id: string;
+            /** @enum {string} */
+            category: "quality" | "lateness" | "conduct" | "damage" | "billing" | "other";
+            description: string;
+            attachment_ids?: string[];
+        };
+        /**
+         * CreateExportRequest
+         * @description POST /admin/exports (finance §5.4): `{report, format, filters {}}`. Only the shape is validated here; the report, its
+         *     formats, its filters (as its page) and the limits are Exports\Actions\CreateExport's, with their own error codes.
+         */
+        CreateExportRequest: {
+            report: string;
+            format: string;
+            filters?: string[] | null;
         };
         /**
          * CreateManualBookingRequest
@@ -6281,6 +9421,26 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * CreateReconciliationRunRequest
+         * @description POST /admin/reconciliation/runs (finance §5.1): a multipart upload (`source=upload`, `report_date`, `file` .csv up
+         *     to payment.reconciliation.max_upload_bytes, `format` default tarteeba_settlement_v1, `gateway` default
+         *     payment.gateway, `replace`, `reason`) or a JSON fetch (`source=fetch`, `report_date`, `gateway`, `replace`,
+         *     `reason`). The report date is today or earlier (local) and at most 400 days back; a replace needs a reason (3–500).
+         *     The size and line limits, the format and the stated date answer the action's own codes (SETTLEMENT_*).
+         */
+        CreateReconciliationRunRequest: {
+            /** @enum {string} */
+            source: "fetch" | "upload";
+            /** Format: date */
+            report_date: string;
+            /** Format: binary */
+            file?: string;
+            format?: string;
+            gateway?: string;
+            replace?: boolean;
+            reason?: string | null;
+        };
+        /**
          * CreateRefundRequest
          * @description POST /admin/payments/{id}/refunds (A09, spec §10.4): amount in fils, a reason from config
          *     payment.refund_reason_codes (GET /admin/refund-reasons lists them with labels), a note (required for "other"). The
@@ -6291,6 +9451,11 @@ export interface components {
             /** @enum {string} */
             reason_code: "customer_cancellation" | "company_cancellation" | "booking_rejected" | "complaint_compensation" | "duplicate_payment" | "service_not_delivered" | "goodwill" | "other";
             reason_text?: string | null;
+            /**
+             * @description Phase 5 (P5-F35): back to the card (default: the way the payment was paid) or to the customer's balance.
+             * @enum {string}
+             */
+            destination?: "card" | "wallet";
         };
         /**
          * CreateSubscriptionRequest
@@ -6373,6 +9538,46 @@ export interface components {
                 bookable: boolean;
             }[];
         };
+        /**
+         * CustomerMessageRequest
+         * @description POST /customer/complaints/{reference}/messages {body 1–2000, attachment_ids ≤ 5} (C27 thread).
+         */
+        CustomerMessageRequest: {
+            body: string;
+            attachment_ids?: string[];
+        };
+        /**
+         * CustomerNoteRequest
+         * @description POST /admin/customers/{ulid}/notes {body} (A07 internal notes, 1 – identity.limits.customer_note_max_length).
+         */
+        CustomerNoteRequest: {
+            body: string;
+        };
+        /** CustomerNoteResource */
+        CustomerNoteResource: {
+            id: number;
+            body: string;
+            author: {
+                id: number;
+                name: string;
+                roles: {
+                    key: string;
+                    label: {
+                        ar: string;
+                        en: string;
+                    };
+                }[];
+            };
+            created_at: string;
+        };
+        /**
+         * CustomerReasonRequest
+         * @description POST /admin/customers/{ulid}/block, /unblock (If-Match) and /marketing-opt-out (A07): the reason staff give, 3–500
+         *     characters (P5-C12), stored on the audit row (and as the block reason).
+         */
+        CustomerReasonRequest: {
+            reason: string;
+        };
         /** CustomerResource */
         CustomerResource: {
             id: string;
@@ -6414,11 +9619,45 @@ export interface components {
             note: string;
         };
         /**
+         * DeleteAccountRequest
+         * @description POST /customer/privacy/delete (C30, customers §5.1): the delete_account `code`, and the terms the customer saw in the
+         *     preview, `expected` {bookings: [{id (ULID), fee_fils, refund_fils}], subscriptions: [{id, fee_fils, refund_fils,
+         *     clawback_fils}]} — compared with the preview again before anything is cancelled (409 TERMS_CHANGED).
+         */
+        DeleteAccountRequest: {
+            code: string;
+            expected: {
+                bookings?: {
+                    id: string;
+                    fee_fils: number;
+                    refund_fils: number;
+                }[];
+                subscriptions?: {
+                    id: string;
+                    fee_fils: number;
+                    refund_fils: number;
+                    clawback_fils: number;
+                }[];
+            };
+        };
+        /**
          * DiscountType
          * @description Package and coupon discounts. `fixed` is a net (pre-VAT) amount in fils (decision R-07, spec §4.3).
          * @enum {string}
          */
         DiscountType: "percent" | "fixed";
+        /**
+         * DocumentCheck
+         * @description The tax document check of a matched settlement line (finance §4.5, DECISION P5-F14, AC6): a charge against its payment's invoice, a refund against its credit note, both compared with our records (P5-F67).
+         * @enum {string}
+         */
+        DocumentCheck: "ok" | "no_invoice" | "invoice_differs" | "no_credit_note" | "credit_note_differs" | "not_invoiceable" | "refused" | "not_applicable";
+        /**
+         * DocumentType
+         * @description worker_documents.type (Phase 5, workforce §2.8): spec §6.7's six plus emirates_id and work_permit (the labour card), standard UAE employment documents with their own expiry (DECISION P5-W07). `other` needs a title.
+         * @enum {string}
+         */
+        DocumentType: "residency" | "emirates_id" | "work_permit" | "passport" | "medical" | "insurance" | "contract" | "other";
         /**
          * DriverActionRequest
          * @description The driver's buttons (POST /driver/rounds/{id}/depart, /driver/stops/{id}/arrive|dropoff|pickup|undo): an optional
@@ -6520,6 +9759,18 @@ export interface components {
          */
         EmploymentStatus: "active" | "on_leave" | "suspended" | "terminated";
         /**
+         * ExportFormat
+         * @description File formats of an export (DECISION P5-F42): every report in CSV and XLSX, PDF only for the VAT summary.
+         * @enum {string}
+         */
+        ExportFormat: "csv" | "xlsx" | "pdf";
+        /**
+         * ExportStatus
+         * @description An export's lifecycle (finance §3.5): queued → running → ready → expired; queued | running → failed.
+         * @enum {string}
+         */
+        ExportStatus: "queued" | "running" | "ready" | "failed" | "expired";
+        /**
          * FakeCheckoutRequest
          * @description POST /public/fake-gateway/checkout/{session}: a button of a FakeGateway hosted page. `scenario` is a checkout or
          *     3-D Secure outcome (Enums\FakeScenario) or, on the "save card" page, a test card (Enums\FakeTestCard); the
@@ -6529,6 +9780,22 @@ export interface components {
             /** @enum {string} */
             scenario: "approve" | "approve_3ds" | "decline" | "timeout_then_approved" | "timeout_then_declined" | "fail_3ds" | "visa_4242" | "mastercard_5454" | "visa_3ds_3220" | "visa_decline_0002" | "visa_verify_9995";
             token: string;
+        };
+        /**
+         * FaqItemRequest
+         * @description POST /admin/faq (question and answer required) and PATCH /admin/faq/{id} (any field) — A11 FAQ items (customers
+         *     §5.3): question {ar, en} (≤ 200 each), answer {ar, en} (≤ 2000 each, the P5-C31 placeholders allowed), is_active.
+         */
+        FaqItemRequest: {
+            question: {
+                ar?: string;
+                en?: string;
+            };
+            answer: {
+                ar?: string;
+                en?: string;
+            };
+            is_active?: boolean;
         };
         /** FollowingEditPreview */
         FollowingEditPreview: {
@@ -6614,6 +9881,240 @@ export interface components {
             expected_term_end_date?: string | null;
             reason?: string | null;
         };
+        /** IncentiveAdjustmentResource */
+        IncentiveAdjustmentResource: {
+            id: number;
+            worker: {
+                id: number;
+                employee_no: string;
+                display_name: string;
+            };
+            period: string;
+            amount_fils: number;
+            currency: string;
+            reason: string;
+            corrects_posting: {
+                id: number;
+                reference: string;
+            } | null;
+            posting: {
+                id: number;
+                reference: string;
+            } | null;
+            created_by: {
+                id: number;
+                name: string;
+            } | null;
+            created_at: string | null;
+            version: number;
+        };
+        /**
+         * IncentivePeriodRequest
+         * @description {period: YYYY-MM} (workforce §5.6): POST /admin/incentives/compute and POST /admin/incentive-rules/{rule}/preview. The
+         *     month must have ended (422 PERIOD_NOT_CLOSED, checked by the action).
+         */
+        IncentivePeriodRequest: {
+            period: string;
+        };
+        /** IncentivePostingResource */
+        IncentivePostingResource: {
+            id: number;
+            reference: string;
+            period: {
+                start: string;
+                end: string;
+            };
+            lines_count: number;
+            total_fils: number;
+            currency: string;
+            posted_by: {
+                id: number;
+                name: string;
+            } | null;
+            posted_at: string;
+            lines?: {
+                /** @enum {string} */
+                kind: "incentive" | "adjustment";
+                proposal_id: number | null;
+                adjustment_id: number | null;
+                worker: {
+                    id: number;
+                    employee_no: string;
+                    full_name: {
+                        ar: string;
+                        en: string;
+                    };
+                };
+                amount_fils: number;
+            }[];
+        };
+        /** IncentiveProposalResource */
+        IncentiveProposalResource: {
+            id: number;
+            worker: {
+                id: number;
+                employee_no: string;
+                display_name: string;
+                full_name: {
+                    ar: string;
+                    en: string;
+                };
+                home_zone: {
+                    id: number;
+                    name: {
+                        ar: string;
+                        en: string;
+                    };
+                };
+            };
+            period: {
+                start: string;
+                end: string;
+            };
+            /** @enum {string} */
+            status: "proposed" | "approved" | "rejected" | "posted";
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            score_bp: number;
+            proposed_fils: number;
+            approved_fils: number | null;
+            currency: string;
+            scores: {
+                hours?: number;
+                rating?: number | null;
+                punctuality?: number | null;
+                repeat_requests?: number | null;
+            };
+            gates: ("min_hours" | "max_absent_days")[];
+            metrics_summary: {
+                worked_minutes: number;
+                completed_visits: number;
+                rating_avg_x100: number | null;
+                ratings_count: number | null;
+                absent_days: number;
+                late_days: number;
+                requested_percent: number | null;
+                complaints_upheld: number | null;
+            };
+            rule: {
+                id: number;
+                name: {
+                    ar: string;
+                    en: string;
+                } | null;
+                version: number;
+            };
+            approved: {
+                by: {
+                    id: number;
+                    name: string;
+                } | null;
+                at: string;
+                adjust_reason: string | null;
+            } | null;
+            rejected: {
+                by: {
+                    id: number;
+                    name: string;
+                } | null;
+                at: string;
+                /** @enum {string|null} */
+                code: "below_threshold" | "hr_decision" | null;
+                reason: string | null;
+            } | null;
+            posting: {
+                id: number;
+                reference: string;
+            } | null;
+            locked_attendance: boolean;
+            metrics_stale_at: string | null;
+            version: number;
+            computed_at: string;
+            rule_snapshot?: {
+                [key: string]: unknown;
+            };
+            metrics?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * IncentiveReasonRequest
+         * @description {reason} (3–500 characters; If-Match): POST /admin/incentives/{proposal}/reject and /reopen (workforce §5.6).
+         */
+        IncentiveReasonRequest: {
+            reason: string;
+            version?: number;
+        };
+        /**
+         * IncentiveRuleRequest
+         * @description POST /admin/incentive-rules (every part required) and PATCH /admin/incentive-rules/{rule} (If-Match; any part, each
+         *     part whole) (workforce §2.4, §5.6): name {ar, en}; weights {hours, rating, punctuality, repeat_requests} ints 0..100;
+         *     thresholds {hours_target_minutes 1..44640, min_hours_minutes 0..44640, rating_floor_x100 0..499, min_ratings 0..1000,
+         *     max_absent_days null | 0..31}; amounts 1..workforce.incentives.max_tiers tiers {min_score_bp 0..10000, amount_fils}.
+         *     A refusal answers 422 RULE_INVALID {fields} (not VALIDATION_FAILED), like the cross-field checks of RuleShape.
+         */
+        IncentiveRuleRequest: {
+            name: {
+                ar: string;
+                en: string;
+            };
+            weights: {
+                hours?: number;
+                rating?: number;
+                punctuality?: number;
+                repeat_requests?: number;
+            };
+            thresholds: {
+                hours_target_minutes?: number;
+                min_hours_minutes?: number;
+                rating_floor_x100?: number;
+                min_ratings?: number;
+                max_absent_days?: number | null;
+            };
+            amounts: {
+                min_score_bp: number;
+                amount_fils: number;
+            }[];
+            version?: number;
+        };
+        /** IncentiveRuleResource */
+        IncentiveRuleResource: {
+            id: number;
+            name: {
+                ar: string;
+                en: string;
+            };
+            weights: {
+                hours: number;
+                rating: number;
+                punctuality: number;
+                repeat_requests: number;
+            };
+            thresholds: {
+                hours_target_minutes: number;
+                min_hours_minutes: number;
+                rating_floor_x100: number;
+                min_ratings: number;
+                max_absent_days: number | null;
+            };
+            amounts: {
+                min_score_bp: number;
+                amount_fils: number;
+            }[];
+            is_active: boolean;
+            activated_at: string | null;
+            version: number;
+            created_at: string | null;
+            updated_at: string | null;
+        };
+        /**
+         * IncentiveStatus
+         * @description incentive_proposals.status (spec §6.7, workforce §3.3, Incentives\IncentiveTransition): (new) → proposed | rejected (a zero suggestion, closed by the system)   proposed → approved | rejected   approved | rejected → proposed (reopen, until posting)   approved → posted (terminal)
+         * @enum {string}
+         */
+        IncentiveStatus: "proposed" | "approved" | "rejected" | "posted";
         /**
          * InvoiceIssueReason
          * @description Why an invoice was issued; invoices are unique per (payment, reason). Spec §9.3: a booking payment is invoiced when it is captured. Later reasons (subscription periods, Phase 4) get their own case.
@@ -7009,6 +10510,14 @@ export interface components {
             updated_by: number | null;
             updated_at: string | null;
         };
+        /**
+         * NotifyWaitlistEntryRequest
+         * @description POST /admin/waitlist/{id}/notify (Phase 5, waitlist §5.2): `force` true only from "Notify again" after a confirmation,
+         *     to send an offer while one is still live (P5-L32).
+         */
+        NotifyWaitlistEntryRequest: {
+            force?: boolean;
+        };
         /** OccurrenceResource */
         OccurrenceResource: {
             ulid: string;
@@ -7120,6 +10629,14 @@ export interface components {
             return_url?: string | null;
         };
         /**
+         * PayWithWalletRequest
+         * @description POST /customer/payments/{ulid}/pay-with-wallet (finance §5.3, P5-F71): the amount the customer confirmed paying from
+         *     the balance (409 TERMS_CHANGED when it is not the payment's).
+         */
+        PayWithWalletRequest: {
+            expected_amount_fils: number;
+        };
+        /**
          * PaymentIntent
          * @description What a payment asks the gateway for (spec §6.9): hold now and capture at confirmation, take the money at once, or a merchant-initiated recurring charge on a saved token.
          * @enum {string}
@@ -7196,6 +10713,9 @@ export interface components {
                 last4: string | null;
                 label: string;
                 payment_method_id: string | null;
+            } | null;
+            wallet: {
+                balance_after_fils: number;
             } | null;
             payable: {
                 type: string;
@@ -7296,6 +10816,32 @@ export interface components {
          */
         PolicyType: "cancellation" | "reschedule" | "refund";
         /**
+         * PostIncentiveRequest
+         * @description POST /admin/incentives/{proposal}/post {expected_total_fils} (Idempotency-Key, If-Match; workforce §5.6).
+         */
+        PostIncentiveRequest: {
+            expected_total_fils: number;
+            version?: number;
+        };
+        /**
+         * PostIncentivesRequest
+         * @description POST /admin/incentives/post {period, proposal_ids[0..500], adjustment_ids[0..500], expected_lines: [{kind, id,
+         *     amount_fils}], expected_total_fils} (Idempotency-Key; workforce §5.6): at least one line.
+         */
+        PostIncentivesRequest: {
+            period: string;
+            /** @description At least one line: a proposal or an adjustment (an empty list counts as none). */
+            proposal_ids?: number[];
+            adjustment_ids?: number[];
+            expected_lines: {
+                /** @enum {string} */
+                kind: "incentive" | "adjustment";
+                id: number;
+                amount_fils: number;
+            }[];
+            expected_total_fils: number;
+        };
+        /**
          * PreviewNotificationTemplateRequest
          * @description POST /admin/notification-templates/{id}/preview {payload?: {placeholder: text | {ar, en}}, subject?, body?} (A11
          *     preview before publish): subject and body are an unsaved draft of this template's language.
@@ -7317,6 +10863,32 @@ export interface components {
          */
         PriceUnit: "per_worker_visit" | "per_hour" | "per_day" | "per_month";
         /**
+         * PrivacyExportCodeRequest
+         * @description POST /public/privacy-exports/{ulid}/download (customers §5.2, P5-C54): the privacy_export `code` sent to the registered
+         *     phone; the link's `expires` and `signature` come in the query or the body (checked by the controller against the
+         *     link's GET path, 403 PRIVACY_LINK_INVALID).
+         */
+        PrivacyExportCodeRequest: {
+            code: string;
+        };
+        /** PrivacyRequestResource */
+        PrivacyRequestResource: {
+            id: string;
+            /** @enum {string} */
+            type: "export" | "delete";
+            /** @enum {string} */
+            status: "received" | "scheduled" | "processing" | "completed" | "expired" | "cancelled" | "failed";
+            status_label: string;
+            created_at: string | null;
+            scheduled_for: string | null;
+            completed_at: string | null;
+            /** @description Data copies only: available while completed and before expires_at. */
+            download: {
+                available: string;
+                expires_at: string | null;
+            } | null;
+        };
+        /**
          * PropertyType
          * @description Address property type (spec §6.2, screens 13/22).
          * @enum {string}
@@ -7337,6 +10909,13 @@ export interface components {
             note?: string | null;
         };
         /**
+         * PublishContentPageRequest
+         * @description POST /admin/pages/{id}/publish {reason} (A11, If-Match): the reason goes to the audit rows.
+         */
+        PublishContentPageRequest: {
+            reason: string;
+        };
+        /**
          * QuoteRequest
          * @description POST /customer/quotes (spec §14.2, screens 04-06). Only the shape is validated here; the business rules (service,
          *     address ownership, slot, workers range, add-ons, coupon) are PricingService's, with their own error codes.
@@ -7354,6 +10933,387 @@ export interface components {
             addons?: string[] | null;
             coupon_code?: string | null;
         };
+        /**
+         * RatingExclusionRequest
+         * @description POST /admin/ratings/{id}/exclude and /include {reason 3–500} (If-Match or `version`, P5-Q34).
+         */
+        RatingExclusionRequest: {
+            reason: string;
+            version?: number;
+        };
+        /** RatingResource */
+        RatingResource: {
+            id: string;
+            overall: number;
+            quality: number | null;
+            punctuality: number | null;
+            conduct: number | null;
+            comment: string | null;
+            request_same_worker: boolean;
+            photos: {
+                id: string;
+                purpose: string;
+                mime: string;
+                size_bytes: number;
+                url: string | null;
+                url_expires_at: string;
+                expires_at: string | null;
+            }[];
+            created_at: string | null;
+        };
+        /** ReconciliationItemResource */
+        ReconciliationItemResource: {
+            id: number;
+            run_id: number;
+            report_date: string | null;
+            line_no: number | null;
+            line_type: components["schemas"]["SettlementLineType"];
+            line_type_label: {
+                ar: string;
+                en: string;
+            };
+            line_key: string;
+            gateway_ref: string | null;
+            refund_ref: string | null;
+            merchant_ref: string | null;
+            payout_ref: string | null;
+            transaction_at: string | null;
+            settled_on: string | null;
+            currency: string;
+            system_amount_fils: number | null;
+            gateway_amount_fils: number | null;
+            difference_fils: number | null;
+            fee_fils: number | null;
+            net_fils: number | null;
+            status: components["schemas"]["ReconciliationItemStatus"];
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            reason_code: components["schemas"]["ReconciliationReason"];
+            reason_label: {
+                ar: string;
+                en: string;
+            };
+            payment: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["PaymentStatus"];
+                payable_type: string;
+                reference: string | null;
+                customer: {
+                    id: number;
+                    ulid: string;
+                    name: string | null;
+                } | null;
+            } | null;
+            refund: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["RefundStatus"];
+                amount_fils: number;
+            } | null;
+            document_check: components["schemas"]["DocumentCheck"] | null;
+            document_check_label: {
+                ar: string;
+                en: string;
+            } | null;
+            invoice: {
+                id: number | null;
+                number: string | null;
+            } | null;
+            credit_note: {
+                id: number | null;
+                number: string | null;
+            } | null;
+            document_total_fils: number | null;
+            document_vat_fils: number | null;
+            document_discount_fils: number | null;
+            needs_action: boolean;
+            resolution: {
+                at: string;
+                by: {
+                    /** @enum {string} */
+                    type: "staff" | "system";
+                    id: number | null;
+                    name: string | null;
+                };
+                code: components["schemas"]["ReconciliationResolution"];
+                label: {
+                    ar: string;
+                    en: string;
+                };
+                note: string | null;
+                refund: {
+                    id: number;
+                    ulid: string | null;
+                } | null;
+                paired_item_id: number | null;
+                carried: boolean;
+            } | null;
+            version: number;
+            payment_facts: {
+                id: number;
+                gateway_payment_ref: string | null;
+                currency: string;
+                amount_fils: number;
+                captured_fils: number;
+                refunded_fils: number;
+                disputed_fils: number;
+                refundable_fils: number;
+                needs_review: boolean;
+                has_open_refund: boolean;
+            } | null;
+            refund_facts: {
+                id: number;
+                ulid: string;
+                status: components["schemas"]["RefundStatus"];
+                amount_fils: number;
+                currency: string;
+                gateway_refund_ref: string | null;
+                reason_code: string;
+                needs_review: boolean;
+                succeeded_at: string | null;
+                failed_at: string | null;
+            } | null;
+            pair_candidates: {
+                id: number;
+                run_id: number;
+                report_date: string | null;
+                line_no: number | null;
+                line_type: components["schemas"]["SettlementLineType"];
+                line_type_label: {
+                    ar: string;
+                    en: string;
+                };
+                line_key: string;
+                gateway_ref: string | null;
+                refund_ref: string | null;
+                merchant_ref: string | null;
+                payout_ref: string | null;
+                transaction_at: string | null;
+                settled_on: string | null;
+                currency: string;
+                system_amount_fils: number | null;
+                gateway_amount_fils: number | null;
+                difference_fils: number | null;
+                fee_fils: number | null;
+                net_fils: number | null;
+                status: components["schemas"]["ReconciliationItemStatus"];
+                status_label: {
+                    ar: string;
+                    en: string;
+                };
+                reason_code: components["schemas"]["ReconciliationReason"];
+                reason_label: {
+                    ar: string;
+                    en: string;
+                };
+                payment: {
+                    id: number;
+                    ulid: string;
+                    status: components["schemas"]["PaymentStatus"];
+                    payable_type: string;
+                    reference: string | null;
+                    customer: {
+                        id: number;
+                        ulid: string;
+                        name: string | null;
+                    } | null;
+                } | null;
+                refund: {
+                    id: number;
+                    ulid: string;
+                    status: components["schemas"]["RefundStatus"];
+                    amount_fils: number;
+                } | null;
+                document_check: components["schemas"]["DocumentCheck"] | null;
+                document_check_label: {
+                    ar: string;
+                    en: string;
+                } | null;
+                invoice: {
+                    id: number | null;
+                    number: string | null;
+                } | null;
+                credit_note: {
+                    id: number | null;
+                    number: string | null;
+                } | null;
+                document_total_fils: number | null;
+                document_vat_fils: number | null;
+                document_discount_fils: number | null;
+                needs_action: boolean;
+                resolution: {
+                    at: string;
+                    by: {
+                        /** @enum {string} */
+                        type: "staff" | "system";
+                        id: number | null;
+                        name: string | null;
+                    };
+                    code: components["schemas"]["ReconciliationResolution"];
+                    label: {
+                        ar: string;
+                        en: string;
+                    };
+                    note: string | null;
+                    refund: {
+                        id: number;
+                        ulid: string | null;
+                    } | null;
+                    paired_item_id: number | null;
+                    carried: boolean;
+                } | null;
+                version: number;
+            }[];
+            allowed_resolutions: unknown[];
+            history: {
+                /** @enum {string} */
+                action: "resolved" | "reopened";
+                at: string;
+                by: {
+                    type: string;
+                    id: number | null;
+                    name: string | null;
+                };
+                code: string | null;
+                note: string | null;
+            }[];
+        };
+        /**
+         * ReconciliationItemStatus
+         * @description A reconciliation item's status: the spec's five (§6.9), the cause in ReconciliationReason (P5-F11).
+         * @enum {string}
+         */
+        ReconciliationItemStatus: "matched" | "amount_mismatch" | "missing_in_system" | "missing_in_gateway" | "status_mismatch";
+        /**
+         * ReconciliationReason
+         * @description Why a reconciliation item has its status (finance §3.2, DECISION P5-F11): a closed list, each reason belonging to one status, each with the resolutions a person may give it. Some codes of that list depend on the item's facts as well (Reconciliation\ResolutionRules: a stray pair only for a voided or failed payment's charge, a provider refund only for a refund of the payment's current charge, a confirmation only for equal amounts).
+         * @enum {string}
+         */
+        ReconciliationReason: "ok" | "amount_differs" | "currency_differs" | "payout_total_differs" | "unknown_reference" | "charge_not_current" | "refund_unknown" | "duplicate_line" | "chargeback" | "provider_adjustment" | "charge_not_reported" | "refund_not_reported" | "not_captured_in_system" | "refund_open_in_system" | "refund_failed_in_system" | "refund_payment_differs";
+        /**
+         * ReconciliationResolution
+         * @description How a reconciliation item was resolved (finance §3.2, DECISION P5-F17): accepted, provider_to_correct, timing  staff, note only (reopenable)   stray_charge_refunded                  staff, pairs a stray charge with the provider refund made for it (P5-F20)   refund_confirmed                       staff + refunds.create: the line settles an open refund (P5-F18)   provider_refund_recorded               staff + refunds.create: books a refund made by hand at the provider (P5-F19)   refund_reinstated                      staff + refunds.create: books a failed refund the provider paid (P5-F53)   reported_later, resolved_in_system     system: the record was reported in another run / reached the line's state
+         * @enum {string}
+         */
+        ReconciliationResolution: "accepted" | "provider_to_correct" | "timing" | "stray_charge_refunded" | "refund_confirmed" | "provider_refund_recorded" | "refund_reinstated" | "reported_later" | "resolved_in_system";
+        /** ReconciliationRunResource */
+        ReconciliationRunResource: {
+            id: number;
+            gateway: string;
+            report_date: string;
+            source: components["schemas"]["ReconciliationSource"];
+            parser: string;
+            parser_label: {
+                ar: string;
+                en: string;
+            };
+            source_file_name: string | null;
+            status: components["schemas"]["ReconciliationRunStatus"];
+            status_label: {
+                ar: string;
+                en: string;
+            };
+            lines_count: number;
+            counts: {
+                matched: number;
+                amount_mismatch: number;
+                missing_in_system: number;
+                missing_in_gateway: number;
+                status_mismatch: number;
+            };
+            unresolved_count: number;
+            totals_brief: {
+                charges_fils: number;
+                refunds_fils: number;
+                fees_fils: number;
+                net_fils: number;
+            } | null;
+            started_by: {
+                id: number | null;
+                name: string | null;
+            } | null;
+            started_at: string;
+            finished_at: string | null;
+            failure_code: string | null;
+            failure_label: {
+                ar: string;
+                en: string;
+            } | null;
+            supersedes_run_id: number | null;
+            superseded_by_run_id: number | null;
+            source_file: {
+                name: string | null;
+                sha256: string | null;
+                bytes: number | null;
+            } | null;
+            report_ref: string | null;
+            currency: string;
+            replace_reason: string | null;
+            errors: unknown[];
+            errors_total: number;
+            /** @description the run's totals once completed (finance §5.5) */
+            totals: {
+                gateway: {
+                    [key: string]: unknown;
+                };
+                system: {
+                    [key: string]: unknown;
+                };
+                documents: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            version: number;
+        };
+        /**
+         * ReconciliationRunStatus
+         * @description A reconciliation run's status (finance §3.1, Support\ReconciliationRunTransition): pending ──(job picks it up)──▶ processing ──(items written)──▶ completed ──(a replace completes)──▶ superseded      └──────────(fatal error, worker lost)──────┴──▶ failed  Only a completed run is "active": its items count on the cards and alerts and in the expected-set lookups.
+         * @enum {string}
+         */
+        ReconciliationRunStatus: "pending" | "processing" | "completed" | "failed" | "superseded";
+        /**
+         * ReconciliationSource
+         * @description Where a reconciliation run's report came from (finance §2.1): fetched from the gateway or uploaded as a file.
+         * @enum {string}
+         */
+        ReconciliationSource: "fetch" | "upload";
+        /**
+         * RecordAttendanceRequest
+         * @description PUT /admin/workers/{worker}/attendance/{date} (attendance.manage, If-Match = the row's version; workforce §5.4):
+         *     status; late_minutes 1..600 for `late` only; check_in_at / check_out_at (ISO instants with Z or an offset, P5-W88;
+         *     check-out not before check-in; both on the date, checked by RecordAttendance); a note (≤ 500) for absent, late and
+         *     half_day.
+         */
+        RecordAttendanceRequest: {
+            status: components["schemas"]["AttendanceStatus"];
+            late_minutes?: number | null;
+            /**
+             * Format: date-time
+             * @description DECISION P5-W88: instants with Z or an offset only (the house rule of VisitStatusRequest). Why: an
+             *     offset-less "2026-11-15 10:25" (a datetime-local field) was read as UTC, four hours off Dubai time.
+             */
+            check_in_at?: string | null;
+            /** Format: date-time */
+            check_out_at?: string | null;
+            note?: string | null;
+            version?: number;
+        };
+        /**
+         * RecordRefundOutcomeRequest
+         * @description POST /admin/refunds/{id}/outcome (DECISION P5-F22): `status` succeeded | failed, `provider_refund_ref` (the provider's
+         *     refund reference, needed with succeeded when the refund has none: the action checks it), `failure_code` (required
+         *     with failed, ≤ 64), `note` (3–500).
+         */
+        RecordRefundOutcomeRequest: {
+            /** @enum {string} */
+            status: "succeeded" | "failed";
+            provider_refund_ref?: string | null;
+            failure_code?: string | null;
+            note: string;
+        };
         /** RefundResource */
         RefundResource: {
             id: string;
@@ -7361,9 +11321,19 @@ export interface components {
             currency: string;
             status: components["schemas"]["RefundStatus"];
             status_label: string;
+            /** @description A refund to the balance arrives at once: its own text, never "depending on your bank" (P5-F38). */
             message: string;
+            /** @description Phase 5 (finance §5.3, P5-F74): why it was refunded, where the money went, and the complaint it compensates. */
+            reason_code: string;
+            reason_label: string;
+            /** @enum {string} */
+            destination: "card" | "wallet";
+            case: {
+                reference: string;
+            } | null;
+            /** @description The provider's reference; a refund to the balance has none to show. */
             reference: string | null;
-            /** @description No arrival promise for a refund the provider refused. */
+            /** @description No arrival promise for a refund the provider refused, nor for one to the balance. */
             estimated_arrival: string | null;
             requested_at: string | null;
             submitted_at: string | null;
@@ -7394,6 +11364,16 @@ export interface components {
             locale?: "ar" | "en" | null;
         };
         /**
+         * ReinstateRefundRequest
+         * @description POST /admin/refunds/{id}/reinstate (DECISION P5-F53): `expected_amount_fils` (the refund amount the person
+         *     confirmed), `provider_refund_ref` (optional), `note` (3–500).
+         */
+        ReinstateRefundRequest: {
+            expected_amount_fils: number;
+            provider_refund_ref?: string | null;
+            note: string;
+        };
+        /**
          * RejectBookingRequest
          * @description POST /admin/bookings/{id}/reject (A03): a reason code from config booking.reject_reasons; text required for "other".
          */
@@ -7401,6 +11381,14 @@ export interface components {
             /** @enum {string} */
             reason_code: "no_capacity" | "out_of_area" | "worker_unavailable" | "duplicate" | "other";
             reason_text?: string | null;
+        };
+        /**
+         * RejectCompensationRequest
+         * @description POST /admin/compensations/{id}/reject {reason 3–500} (Idempotency-Key, optional If-Match or `version`; quality §5.2).
+         */
+        RejectCompensationRequest: {
+            reason: string;
+            version?: number;
         };
         /**
          * RejectSubscriptionRequest
@@ -7419,6 +11407,13 @@ export interface components {
             mit_consent: boolean;
         };
         /**
+         * ReorderFaqRequest
+         * @description PUT /admin/faq/order {ids: [...]}: every FAQ item id once, in the new order (checked by ReorderFaqItems).
+         */
+        ReorderFaqRequest: {
+            ids: number[];
+        };
+        /**
          * ReorderStopsRequest
          * @description POST /admin/rounds/{id}/stops/reorder {stop_ids[]} with If-Match or `version` (spec §8.3, A06 drag).
          */
@@ -7427,12 +11422,29 @@ export interface components {
             version?: number;
         };
         /**
+         * ReplaceWorkerDocumentFileRequest
+         * @description POST /admin/worker-documents/{document}/file (multipart, If-Match; workforce §5.1): the new scan.
+         */
+        ReplaceWorkerDocumentFileRequest: {
+            /**
+             * Format: binary
+             * @description Maximum file size: 10240 kilobytes.
+             */
+            file: string;
+            version?: number;
+        };
+        /**
          * ReplaceWorkerRequest
-         * @description POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, override?} (spec §8.7, §14.3).
+         * @description POST /admin/visits/{visit}/replace {worker_id, new_worker_id, reason, reason_code?, override?} (spec §8.7, §14.3).
          */
         ReplaceWorkerRequest: {
             worker_id: number;
             new_worker_id: number;
+            /**
+             * @description Phase 5 (workforce §5.7, P5-W06): why the worker leaves the visit; `other` when not sent.
+             * @enum {string}
+             */
+            reason_code?: "worker_unavailable" | "worker_late" | "operational" | "customer_request" | "other";
             override?: boolean;
             reason: string;
         };
@@ -7539,6 +11551,48 @@ export interface components {
         ResolveCancelReviewRequest: {
             refund_fils: number;
             note: string;
+        };
+        /**
+         * ResolveCaseRequest
+         * @description POST /admin/complaints/{id}/resolve (Idempotency-Key, If-Match): {outcome?: upheld | not_upheld | partial,
+         *     resolution? (the customer's text, ≤ 2000; required on a customer-visible case), compensation?: {type: none | refund |
+         *     credit | free_visit, amount_fils?, note? ≤ 500, free_visit?: {date, slot_template_id, workers_count?}}} (quality
+         *     §5.2). A free visit needs its `free_visit` block; a refund's or credit's amount is checked against the per-visit cap
+         *     by the action (422 COMPENSATION_AMOUNT_INVALID {max_fils}).
+         */
+        ResolveCaseRequest: {
+            /** @enum {string|null} */
+            outcome?: "upheld" | "not_upheld" | "partial" | null;
+            resolution?: string | null;
+            compensation?: {
+                /** @enum {string} */
+                type?: "none" | "refund" | "credit" | "free_visit";
+                amount_fils?: number;
+                note?: string | null;
+                free_visit?: {
+                    /** Format: date */
+                    date?: string;
+                    slot_template_id?: number;
+                    workers_count?: number;
+                };
+            };
+            version?: number;
+        };
+        /**
+         * ResolveReconciliationItemRequest
+         * @description POST /admin/reconciliation/items/{id}/resolve (finance §5.1): `resolution_code` (a staff code), `note` (3–1000), and
+         *     for a stray pair `paired_item_id`, for a recorded provider refund `refund_reason_code` (the staff refund reasons),
+         *     for every money code `expected_amount_fils` (the line amount the person confirmed, P3-80). Whether the code is
+         *     allowed for the item is the action's answer (422 RESOLUTION_NOT_ALLOWED).
+         */
+        ResolveReconciliationItemRequest: {
+            /** @enum {string} */
+            resolution_code: "accepted" | "provider_to_correct" | "timing" | "stray_charge_refunded" | "refund_confirmed" | "provider_refund_recorded" | "refund_reinstated";
+            note: string;
+            paired_item_id?: number | null;
+            /** @enum {string|null} */
+            refund_reason_code?: "customer_cancellation" | "company_cancellation" | "booking_rejected" | "complaint_compensation" | "duplicate_payment" | "service_not_delivered" | "goodwill" | "other" | null;
+            expected_amount_fils?: number | null;
         };
         /**
          * RetryRenewalRequest
@@ -7705,6 +11759,28 @@ export interface components {
             override?: boolean;
             reason?: string | null;
         };
+        /**
+         * SetWorkerPhotoRequest
+         * @description POST /admin/workers/{worker}/photo (multipart, If-Match on the worker; workforce §5.2): the photo (jpg, jpeg, png,
+         *     webp, at most workforce.photos.max_kb) and approved_for_customers, which must be ticked: uploading is the approval
+         *     (P5-W22).
+         */
+        SetWorkerPhotoRequest: {
+            /**
+             * Format: binary
+             * @description Maximum file size: 2048 kilobytes.
+             */
+            photo: string;
+            /** @enum {unknown} */
+            approved_for_customers: "yes" | "on" | "1" | 1 | "true" | true;
+            version?: number;
+        };
+        /**
+         * SettlementLineType
+         * @description The kind of a settlement report line (finance §2.7, §2.8). Direction comes from the type, never from a sign: the amount is absolute except on an adjustment. Net effect on the payout (fils): charge, chargeback_reversal amount − fee; refund, chargeback −amount − fee; fee −amount; adjustment amount − fee; a payout line is the payout total and not part of Σ net.
+         * @enum {string}
+         */
+        SettlementLineType: "charge" | "refund" | "chargeback" | "chargeback_reversal" | "fee" | "adjustment" | "payout";
         /** SkillResource */
         SkillResource: {
             id: number;
@@ -7901,6 +11977,17 @@ export interface components {
             /** @description While true, every other admin endpoint answers 403 TWO_FACTOR_SETUP_REQUIRED (Http\Middleware\EnsureAdminAccess). */
             two_factor_setup_required: boolean;
         };
+        /**
+         * StaffMessageRequest
+         * @description POST /admin/complaints/{id}/messages {body 1–2000, is_internal, await_customer? (a public message on a customer-visible
+         *     case only, P5-Q52), attachment_ids? (the staff member's uploads)}.
+         */
+        StaffMessageRequest: {
+            body: string;
+            is_internal: boolean;
+            await_customer?: boolean;
+            attachment_ids?: string[];
+        };
         /** StaffMovePreview */
         StaffMovePreview: {
             allowed: boolean;
@@ -7925,6 +12012,30 @@ export interface components {
                 current: number | null;
                 new: number | null;
             };
+        };
+        /**
+         * StaffNoteRequest
+         * @description A staff action that only needs a note (Phase 5): POST /admin/reconciliation/items/{id}/reopen (3–1000 characters),
+         *     POST /admin/payments/{id}/review/clear and POST /admin/refunds/{id}/review/clear (3–500, P5-F21).
+         */
+        StaffNoteRequest: {
+            note: string;
+        };
+        /**
+         * StaffPrivacyRequestRequest
+         * @description POST /admin/customers/{ulid}/privacy-requests (customers §5.3, P5-C24, P5-C50): `type` export | delete,
+         *     `verification` registered_phone_call | in_person | written_request, `verification_note` (the document reference,
+         *     10–500 characters, required in person or in writing) and `otp_code` (the delete_account code the caller read back,
+         *     required for a registered-phone call). A missing proof is answered 422 VERIFICATION_REQUIRED by the action, so the
+         *     screen can tell it from a malformed body.
+         */
+        StaffPrivacyRequestRequest: {
+            /** @enum {string} */
+            type: "export" | "delete";
+            /** @enum {string} */
+            verification: "registered_phone_call" | "in_person" | "written_request";
+            verification_note?: string | null;
+            otp_code?: string | null;
         };
         /**
          * StaffRenewRequest
@@ -8033,6 +12144,18 @@ export interface components {
             status?: components["schemas"]["DriverStatus"];
         };
         /**
+         * StoreIncentiveAdjustmentRequest
+         * @description POST /admin/incentives/adjustments {worker_id, period, amount_fils (signed, ≠ 0), reason, corrects_posting_id?}
+         *     (Idempotency-Key; workforce §5.6, P5-W43). The amount's range is checked by the action (422 AMOUNT_OUT_OF_RANGE).
+         */
+        StoreIncentiveAdjustmentRequest: {
+            worker_id: number;
+            period: string;
+            amount_fils: number;
+            reason: string;
+            corrects_posting_id?: number | null;
+        };
+        /**
          * StoreLeaveRequest
          * @description POST /admin/workers/{id}/leaves (A05): local dates, both inclusive. The maximum length and how far back a leave may
          *     start are business limits checked by RequestLeave.
@@ -8119,6 +12242,29 @@ export interface components {
             default_driver_id?: number | null;
         };
         /**
+         * StoreWorkerDocumentRequest
+         * @description POST /admin/workers/{worker}/documents (multipart; workforce §5.1): type, title (required for `other`), number (≤ 50),
+         *     issued_at, expires_at (≥ issued_at), alert_days_before (1..365), notes, file (pdf, jpg, jpeg, png, webp, heic; at
+         *     most workforce.documents.max_kb), supersedes_id (a renewal).
+         */
+        StoreWorkerDocumentRequest: {
+            type: components["schemas"]["DocumentType"];
+            title?: string | null;
+            number?: string | null;
+            /** Format: date */
+            issued_at?: string | null;
+            /** Format: date */
+            expires_at?: string | null;
+            alert_days_before?: number | null;
+            notes?: string | null;
+            /**
+             * Format: binary
+             * @description Maximum file size: 10240 kilobytes.
+             */
+            file?: string | null;
+            supersedes_id?: number | null;
+        };
+        /**
          * StoreWorkerRequest
          * @description POST /admin/workers (A05). Shifts, services and skills are optional here and have their own endpoints. When the
          *     week is sent, its rows get the same rules as PUT /admin/workers/{id}/shifts (UpdateShiftsRequest::shiftRules); the
@@ -8185,6 +12331,21 @@ export interface components {
             active_addresses_count?: number;
             created_at: string | null;
             updated_at: string | null;
+        };
+        /**
+         * SubmitRatingRequest
+         * @description POST /customer/bookings/{booking}/rating (screen 11, P5-Q03): overall 1–5 required; quality, punctuality and conduct
+         *     1–5 optional; comment ≤ 1000 (trimmed, empty = none); request_same_worker; attachment_ids ≤ 5 (the customer's uploads
+         *     of purpose rating).
+         */
+        SubmitRatingRequest: {
+            overall: number;
+            quality?: number | null;
+            punctuality?: number | null;
+            conduct?: number | null;
+            comment?: string | null;
+            request_same_worker?: boolean;
+            attachment_ids?: string[];
         };
         /** SubscriptionDetailResource */
         SubscriptionDetailResource: {
@@ -8342,11 +12503,15 @@ export interface components {
                 last4: string;
                 expired: boolean;
             } | null;
+            /** @description Phase 5: with the approved photo (screens 14 / 15), null without one. */
             primary_worker: {
                 display_name: string;
+                photo_url: string | null;
             } | null;
+            /** @description Phase 5: with the approved photo (screens 14 / 15), null without one. */
             backup_worker: {
                 display_name: string;
+                photo_url: string | null;
             } | null;
             limits: {
                 skips_used_this_month: number;
@@ -8407,12 +12572,14 @@ export interface components {
                 confirmation_deadline_at: string | null;
             } | null;
             cancel_review_pending: boolean;
-            /** @description The Live-out calendar of the current period; null for a recurring series. */
+            /** @description The Live-out calendar of the current period; null for a recurring series. Phase 5: each day's worker and substitute with their approved photo (null without one). */
             calendar: {
                 date: string;
                 type: string;
                 worker_name: string | null;
+                worker_photo_url: string | null;
                 substitute_name: string | null;
+                substitute_photo_url: string | null;
                 credited: boolean;
             }[] | null;
             actions: {
@@ -8581,11 +12748,17 @@ export interface components {
         };
         /**
          * UnassignWorkerRequest
-         * @description POST /admin/visits/{visit}/unassign {worker_id, reason, override?} (spec §14.3 Assignments). override: true applies
+         * @description POST /admin/visits/{visit}/unassign {worker_id, reason, reason_code?, override?} (spec §14.3 Assignments; reason_code
+         *     one of AssignmentReleaseReason::staffCodes(), default other, Phase 5 P5-W06). override: true applies
          *     an unassignment that leaves the visit's pool short (capacity.override, reason of at least 10 characters).
          */
         UnassignWorkerRequest: {
             worker_id: number;
+            /**
+             * @description Phase 5 (workforce §5.7, P5-W06): why the worker leaves the visit; `other` when not sent.
+             * @enum {string}
+             */
+            reason_code?: "worker_unavailable" | "worker_late" | "operational" | "customer_request" | "other";
             override?: boolean;
             reason: string;
         };
@@ -8612,11 +12785,32 @@ export interface components {
             version?: number;
         };
         /**
+         * UpdateCaseRequest
+         * @description PATCH /admin/complaints/{id} (A10, If-Match or `version`): any of {assignee_id (null to unassign), priority, category,
+         *     worker_ids[], driver_id (null), status: in_review | awaiting_customer | closed, close_reason, reason ≤ 500}.
+         */
+        UpdateCaseRequest: {
+            assignee_id?: number | null;
+            /** @enum {string} */
+            priority?: "low" | "medium" | "high" | "urgent";
+            /** @enum {string} */
+            category?: "quality" | "lateness" | "conduct" | "damage" | "billing" | "other";
+            worker_ids?: number[];
+            driver_id?: number | null;
+            /** @enum {string} */
+            status?: "in_review" | "awaiting_customer" | "closed";
+            /** @enum {string|null} */
+            close_reason?: "resolved" | "no_customer_reply" | "customer_withdrew" | "duplicate" | "merged" | "not_actionable" | "account_closed" | null;
+            reason?: string | null;
+            version?: number;
+        };
+        /**
          * UpdateConsentsRequest
-         * @description PUT /customer/consents.
+         * @description PUT /customer/consents {marketing?, analytics?}: at least one of the two switches (Phase 5 adds analytics, P5-C33).
          */
         UpdateConsentsRequest: {
-            marketing: boolean;
+            marketing?: boolean;
+            analytics?: boolean;
         };
         /**
          * UpdateCustomerProfileRequest
@@ -8667,7 +12861,7 @@ export interface components {
         UpdateNotificationPreferencesRequest: {
             preferences: {
                 /** @enum {string} */
-                group: "bookings" | "payments" | "reminders" | "visit_progress" | "waitlist" | "subscriptions";
+                group: "bookings" | "payments" | "reminders" | "visit_progress" | "waitlist" | "subscriptions" | "ratings" | "support" | "account";
                 /** @enum {string} */
                 channel: "push" | "sms" | "email";
                 enabled: boolean;
@@ -8779,6 +12973,23 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * UpdateWorkerDocumentRequest
+         * @description PATCH /admin/worker-documents/{document} (If-Match; workforce §5.1): any of title, number (null clears it), issued_at,
+         *     expires_at, alert_days_before, notes. The dates' order and an `other` document's title are checked on the merged
+         *     document (UpdateWorkerDocument).
+         */
+        UpdateWorkerDocumentRequest: {
+            title?: string | null;
+            number?: string | null;
+            /** Format: date */
+            issued_at?: string | null;
+            /** Format: date */
+            expires_at?: string | null;
+            alert_days_before?: number;
+            notes?: string | null;
+            version?: number;
+        };
+        /**
          * UpdateWorkerRequest
          * @description PATCH /admin/workers/{id} (A05): partial update, employment status included; `version` field or If-Match header.
          */
@@ -8819,6 +13030,20 @@ export interface components {
             sort_order?: number;
             version?: number;
             reason?: string | null;
+        };
+        /**
+         * UploadAttachmentRequest
+         * @description POST /customer/quality/attachments (multipart; P5-Q23): `file` (at most quality.attachments.max_kb, 5 MB) and
+         *     `purpose` — rating (jpeg, png, webp, heic, heif) or complaint (the same images and PDF).
+         */
+        UploadAttachmentRequest: {
+            /** @enum {string} */
+            purpose: "rating" | "complaint";
+            /**
+             * Format: binary
+             * @description Maximum file size: 5120 kilobytes.
+             */
+            file: string;
         };
         /** VehicleResource */
         VehicleResource: {
@@ -8917,6 +13142,11 @@ export interface components {
                 name: string;
             };
             address_id: string;
+            address: {
+                id: string;
+                label: string;
+                area_text: string | null;
+            };
             date: string;
             slot: {
                 id: number;
@@ -8927,11 +13157,79 @@ export interface components {
             };
             workers_count: number;
             status: string;
+            /** @description P5-L56: an open entry past its cut-off is labelled as ended until the sweep closes it. */
+            status_label: string;
+            offer: {
+                state: string;
+                expires_at: string | null;
+                count: number;
+            };
+            book_by: string;
             expires_at: string;
             notified_at: string | null;
             created_at: string | null;
-            /** @constant */
-            notice: "سنرسل لك إشعارًا إذا توفر مكان. الانضمام إلى قائمة الانتظار لا يعني تأكيد الحجز، ويُحجز المكان لأول من يكمل الدفع.";
+            closed_at: string | null;
+            closed_reason: string | null;
+            booking: {
+                id: string;
+                reference: string;
+            } | null;
+            slot_now?: {
+                status: string;
+                bookable: boolean;
+            };
+            actions: {
+                can_leave: boolean;
+                can_book: string;
+            };
+            /** @enum {string} */
+            notice: "scheduling::messages.waitlist_notice.converted" | "scheduling::messages.waitlist_notice.expired" | "scheduling::messages.waitlist_notice.address_unavailable" | "scheduling::messages.waitlist_notice.cancelled" | "scheduling::messages.waitlist_notice.cutoff_passed" | "scheduling::messages.waitlist_notice.offer_taken" | "scheduling::messages.waitlist_notice.offer_live" | "scheduling::messages.waitlist_notice.bookable_now" | "scheduling::messages.waitlist_notice.offer_lapsed" | "scheduling::messages.waitlist_notice.waiting";
+        };
+        /**
+         * WalletSource
+         * @description Why a customer's balance moved (finance §2.4): credits come from a refund to the balance, a complaint compensation, a staff goodwill credit or (reserved, no flow in Phase 5) a promotion; debits pay a booking, expire a free credit or correct the balance (staff).
+         * @enum {string}
+         */
+        WalletSource: "refund" | "compensation" | "goodwill" | "promo" | "payment" | "expiry" | "correction";
+        /**
+         * WalletTransactionType
+         * @description A movement of a customer's Tarteeba balance (finance §2.4, spec §6.9 wallet_transactions.type).
+         * @enum {string}
+         */
+        WalletTransactionType: "credit" | "debit";
+        /** WorkerDocumentResource */
+        WorkerDocumentResource: {
+            id: number;
+            worker_id: number;
+            /** @enum {string} */
+            type: "residency" | "emirates_id" | "work_permit" | "passport" | "medical" | "insurance" | "contract" | "other";
+            type_label: {
+                ar: string;
+                en: string;
+            };
+            title: string | null;
+            number_last4: string;
+            issued_at: string | null;
+            expires_at: string | null;
+            alert_days_before: number;
+            /** @enum {string} */
+            state: "valid" | "expiring" | "expired" | "no_expiry";
+            days_left: number | null;
+            file: {
+                mime: string | null;
+                size_bytes: number | null;
+                file_name: string | null;
+            } | null;
+            notes: string | null;
+            supersedes_id: number | null;
+            superseded_by_id: number | null;
+            archived_at: string | null;
+            created_by: {
+                id: number;
+                name: string;
+            } | null;
+            updated_at: string | null;
+            version: number;
         };
         /** WorkerResource */
         WorkerResource: {
@@ -8983,6 +13281,45 @@ export interface components {
                 date_to: string;
                 days: number;
                 status: string;
+            }[];
+            week_minutes: number;
+            rating: {
+                average: number;
+                count: number;
+            } | null;
+            photo_url: string | null;
+            alert?: {
+                document_id: number;
+                /** @enum {string} */
+                type: "residency" | "emirates_id" | "work_permit" | "passport" | "medical" | "insurance" | "contract" | "other";
+                type_label: {
+                    ar: string;
+                    en: string;
+                };
+                expires_at: string | null;
+                days_left: number | null;
+                /** @enum {string} */
+                state: "valid" | "expiring" | "expired" | "no_expiry";
+            } | null;
+            alerts_count?: number;
+            photo?: {
+                url: string | null;
+                approved_at: string | null;
+                approved_by: {
+                    id: number;
+                    name: string;
+                } | null;
+            } | null;
+            documents_summary?: {
+                /** @enum {string} */
+                type: "residency" | "emirates_id" | "work_permit" | "passport" | "medical" | "insurance" | "contract" | "other";
+                type_label: {
+                    ar: string;
+                    en: string;
+                };
+                expires_at: string | null;
+                /** @enum {string} */
+                state: "valid" | "expiring" | "expired" | "no_expiry";
             }[];
             version: number;
             created_at: string | null;
@@ -9251,6 +13588,70 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
+    "admin.addresses.block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The address ulid */
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddressBlockRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminAddressResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminAddressResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.addresses.unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The address ulid */
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddressBlockRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminAddressResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminAddressResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "customer.addresses.index": {
         parameters: {
             query?: never;
@@ -9474,6 +13875,220 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.quality.attachments.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadAttachmentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            purpose: string;
+                            mime: string;
+                            size_bytes: number;
+                            url: string;
+                            url_expires_at: string;
+                            /**
+                             * @description An upload not attached yet can be used until this instant; past it, it neither counts nor can be claimed,
+                             *     and Jobs\PruneQualityUploads removes it (P5-Q118).
+                             */
+                            expires_at: null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.attachments.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.workforce.attendance.index": {
+        parameters: {
+            query?: {
+                date?: string;
+                zone_id?: number;
+                status?: "present" | "absent" | "late" | "half_day" | "unrecorded" | "leave" | "not_expected";
+                search?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AttendanceDayResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            date: string;
+                            counts: {
+                                expected: number;
+                                present: number;
+                                absent: number;
+                                late: number;
+                                half_day: number;
+                                unrecorded: number;
+                                leave: number;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.attendance.index": {
+        parameters: {
+            query?: {
+                month?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AttendanceDayResource"][];
+                        meta: {
+                            month: string;
+                            summary: {
+                                expected_days: number;
+                                present_days: number;
+                                absent_days: number;
+                                late_days: number;
+                                half_days: number;
+                                unrecorded_days: number;
+                                leave_days: number;
+                            };
+                            locked: boolean;
+                            proposal: {
+                                id: number;
+                                /** @enum {string} */
+                                status: "proposed" | "approved" | "rejected" | "posted";
+                            } | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.attendance.record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordAttendanceRequest"];
+            };
+        };
+        responses: {
+            /** @description `AttendanceDayResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AttendanceDayResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.attendance.revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AttendanceDayResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AttendanceDayResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
         };
     };
     "customer.identity.auth.logout": {
@@ -10098,7 +14713,9 @@ export interface operations {
                 /** @description Phase 3: cancellations waiting for staff review (spec §10.4). */
                 cancel_review?: boolean;
                 /** @description Phase 4 (design §6.2): one booking kind, or `series` for the three subscription visit kinds. */
-                kind?: "single" | "subscription_visit" | "live_out_trial" | "live_out_day" | "series";
+                kind?: "single" | "subscription_visit" | "live_out_trial" | "live_out_day" | "recovery" | "series";
+                /** @description Phase 5 (A07 tabs, P5-C05, P5-X11): one customer's bookings, by the customer's ULID. */
+                customer_id?: string;
             };
             header?: never;
             path?: never;
@@ -11035,6 +15652,7 @@ export interface operations {
                 tab?: "upcoming" | "past" | "cancelled";
                 page?: number;
                 per_page?: number;
+                complainable?: boolean;
             };
             header?: never;
             path?: never;
@@ -11055,6 +15673,18 @@ export interface operations {
                             per_page: number;
                             total: number;
                             last_page: number;
+                        };
+                    } | {
+                        data: unknown[];
+                        meta: {
+                            /** @constant */
+                            tab: "complainable";
+                            /** @constant */
+                            current_page: 1;
+                            per_page: unknown;
+                            total: number;
+                            /** @constant */
+                            last_page: 1;
                         };
                     };
                 };
@@ -11090,6 +15720,11 @@ export interface operations {
                                 status_label: string;
                                 checkout_url: string | null;
                                 expires_at: string | null;
+                                /** @description Phase 5: why paying from the balance was refused (pay_with wallet); null otherwise. */
+                                wallet_error: {
+                                    code: string;
+                                    details: Record<string, never>;
+                                } | null;
                             };
                         };
                     };
@@ -11237,6 +15872,10 @@ export interface operations {
                                     assigned_units: string;
                                     pool_units: number;
                                     uncovered_visits: number;
+                                };
+                                waitlist: {
+                                    waiting: string | 0;
+                                    notified: string | 0;
                                 };
                             }[];
                             uncovered_visits: {
@@ -11411,6 +16050,1448 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "admin.quality.compensations.index": {
+        parameters: {
+            query?: {
+                "status[]"?: "pending_approval" | "executed" | "rejected" | "cancelled" | "failed";
+                "type[]"?: "refund" | "credit" | "free_visit";
+                customer_id?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.complaints.free-visit.availability": {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                slot_template_id?: number;
+            };
+            header?: never;
+            path: {
+                complaint: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            date: string;
+                            slots: {
+                                slot_template_id: number;
+                                code: string;
+                                name: string;
+                                start: string;
+                                end: string;
+                                /** @enum {string} */
+                                status: "available" | "limited" | "full" | "closed";
+                                remaining?: number;
+                            }[];
+                        }[];
+                        meta: {
+                            timezone: string;
+                            horizon_days: number;
+                            limited_threshold: number;
+                            workers: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.compensations.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compensation: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelCompensationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            case: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                                category: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            /** @enum {string} */
+                            type: "refund" | "credit" | "free_visit";
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            amount_fils: number;
+                            currency: string;
+                            /** @enum {string} */
+                            status: "pending_approval" | "executed" | "rejected" | "cancelled" | "failed";
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            /** @enum {string|null} */
+                            destination: "card" | "wallet" | null;
+                            note: string | null;
+                            proposed_by: {
+                                id: number;
+                                name: string | null;
+                            };
+                            proposed_at: string;
+                            decided_by: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            decided_at: string | null;
+                            decision_note: string | null;
+                            executed_at: string | null;
+                            settled_at: string | null;
+                            failed_at: string | null;
+                            /** @enum {string|null} */
+                            failure_code: "refund_failed" | "refund_failed_manual" | "visit_cancelled" | "visit_missed" | null;
+                            reinstated_at: string | null;
+                            refund: {
+                                id: number;
+                                ulid: string;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            recovery_booking: {
+                                id: number;
+                                reference: string;
+                                service_date: string;
+                                status: string;
+                            } | null;
+                            wallet_transaction_id: number | null;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.compensations.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compensation: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveCompensationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            case: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                                category: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            /** @enum {string} */
+                            type: "refund" | "credit" | "free_visit";
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            amount_fils: number;
+                            currency: string;
+                            /** @enum {string} */
+                            status: "pending_approval" | "executed" | "rejected" | "cancelled" | "failed";
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            /** @enum {string|null} */
+                            destination: "card" | "wallet" | null;
+                            note: string | null;
+                            proposed_by: {
+                                id: number;
+                                name: string | null;
+                            };
+                            proposed_at: string;
+                            decided_by: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            decided_at: string | null;
+                            decision_note: string | null;
+                            executed_at: string | null;
+                            settled_at: string | null;
+                            failed_at: string | null;
+                            /** @enum {string|null} */
+                            failure_code: "refund_failed" | "refund_failed_manual" | "visit_cancelled" | "visit_missed" | null;
+                            reinstated_at: string | null;
+                            refund: {
+                                id: number;
+                                ulid: string;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            recovery_booking: {
+                                id: number;
+                                reference: string;
+                                service_date: string;
+                                status: string;
+                            } | null;
+                            wallet_transaction_id: number | null;
+                            version: number;
+                        };
+                        case: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.compensations.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                compensation: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectCompensationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            case: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                                category: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            /** @enum {string} */
+                            type: "refund" | "credit" | "free_visit";
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            amount_fils: number;
+                            currency: string;
+                            /** @enum {string} */
+                            status: "pending_approval" | "executed" | "rejected" | "cancelled" | "failed";
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            /** @enum {string|null} */
+                            destination: "card" | "wallet" | null;
+                            note: string | null;
+                            proposed_by: {
+                                id: number;
+                                name: string | null;
+                            };
+                            proposed_at: string;
+                            decided_by: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            decided_at: string | null;
+                            decision_note: string | null;
+                            executed_at: string | null;
+                            settled_at: string | null;
+                            failed_at: string | null;
+                            /** @enum {string|null} */
+                            failure_code: "refund_failed" | "refund_failed_manual" | "visit_cancelled" | "visit_missed" | null;
+                            reinstated_at: string | null;
+                            refund: {
+                                id: number;
+                                ulid: string;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                            } | null;
+                            recovery_booking: {
+                                id: number;
+                                reference: string;
+                                service_date: string;
+                                status: string;
+                            } | null;
+                            wallet_transaction_id: number | null;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.complaints.meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            categories: {
+                                code: string;
+                                label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                expected_reply: {
+                                    hours: number | null;
+                                    by: string | null;
+                                };
+                            }[];
+                            support: {
+                                expected_reply: {
+                                    hours: number | null;
+                                    by: string | null;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.quality.complaints.index": {
+        parameters: {
+            query?: {
+                type?: "complaint" | "support";
+                state?: "active" | "done";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.complaints.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.complaints.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `CaseDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CaseDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.quality.complaints.messages.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerMessageRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.complaints.close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description `CaseDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CaseDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.support-requests.index": {
+        parameters: {
+            query?: {
+                type?: "complaint" | "support";
+                state?: "active" | "done";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.support-requests.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.quality.support-requests.close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CloseCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description `CaseDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CaseDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.complaints.index": {
+        parameters: {
+            query?: {
+                customer_id?: string;
+                "type[]"?: "complaint" | "support" | "rating_followup";
+                "status[]"?: "open" | "in_review" | "awaiting_customer" | "resolved" | "closed";
+                "priority[]"?: "low" | "medium" | "high" | "urgent";
+                "category[]"?: "quality" | "lateness" | "conduct" | "damage" | "billing" | "other";
+                assignee?: string;
+                sla?: "breached" | "due_soon" | "paused";
+                awaiting_approval?: boolean;
+                customer_replied?: boolean;
+                worker_id?: number;
+                zone_id?: number;
+                from?: string;
+                to?: string;
+                q?: string;
+                sort?: "sla" | "created" | "priority";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            counts: {
+                                active: number;
+                                unassigned: number;
+                                breached: number;
+                                awaiting_approval: number;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.complaints.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAdminCaseRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            reference: string;
+                            type: string;
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            category: string;
+                            category_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            rating: {
+                                [key: string]: unknown;
+                            } | null;
+                            customer: {
+                                id: string;
+                                name: string | null;
+                                phone: string | null;
+                                status: string;
+                            };
+                            booking: {
+                                [key: string]: unknown;
+                            } | null;
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            priority: string;
+                            priority_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            assignee: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            sla: {
+                                /** @enum {string} */
+                                state: "on_track" | "due_soon" | "breached" | "paused" | "met" | "none";
+                                /** @enum {string|null} */
+                                kind: "first_response" | "resolution" | null;
+                                due_at: string | null;
+                                remaining_minutes: number | null;
+                            };
+                            compensation: {
+                                type: string;
+                                status: string;
+                                amount_fils: number;
+                            } | null;
+                            awaiting_approval: boolean;
+                            customer_replied: string;
+                            created_at: string | null;
+                            description: string;
+                            source: string;
+                            source_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            customer_visible: boolean;
+                            attachments: {
+                                id: string;
+                                purpose: string;
+                                mime: string;
+                                size_bytes: number;
+                                url: string | null;
+                                url_expires_at: string;
+                                expires_at: string | null;
+                            }[];
+                            visit: {
+                                id: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                late_minutes: number | null;
+                            } | null;
+                            subscription: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                            } | null;
+                            payment: {
+                                [key: string]: unknown;
+                            } | null;
+                            worker_options: {
+                                id: number;
+                                name: string;
+                                role: string;
+                                released: boolean;
+                            }[];
+                            driver: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            driver_options: {
+                                id: number;
+                                name: string | null;
+                                round_kind: string;
+                            }[];
+                            messages: {
+                                [key: string]: unknown;
+                            }[];
+                            events: {
+                                [key: string]: unknown;
+                            }[];
+                            compensations: {
+                                [key: string]: unknown;
+                            }[];
+                            pending_resolution: {
+                                [key: string]: unknown;
+                            } | null;
+                            compensation_options: {
+                                refund: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    /** @enum {string|null} */
+                                    destination: "card" | "wallet" | null;
+                                    reason: string | null;
+                                };
+                                credit: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    reason: string | null;
+                                };
+                                free_visit: {
+                                    available: boolean;
+                                    reason: string | null;
+                                };
+                            } | null;
+                            outcome: string | null;
+                            outcome_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            resolution: string | null;
+                            resolved_at: string | null;
+                            resolved_by: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            close_reason: string | null;
+                            close_reason_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            closed_at: string | null;
+                            merged_into: {
+                                id: number;
+                                reference: string;
+                            } | null;
+                            first_response_due_at: string;
+                            first_responded_at: string | null;
+                            resolution_due_at: string | null;
+                            reopened_count: number;
+                            actions: {
+                                assign: string;
+                                reply: string;
+                                resolve: string;
+                                close: string;
+                                reopen: string;
+                                /**
+                                 * @description A refund also needs refunds.create (P3-35, ApproveCompensation); a closing account takes only a refund to
+                                 *     the card (P5-Q121).
+                                 */
+                                approve: string;
+                                reject: string;
+                                cancel_compensation: string;
+                            };
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.complaints.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                complaint: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminCaseDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCaseDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.quality.complaints.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                complaint: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminCaseDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCaseDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.assignees.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            name: string;
+                            roles: string[];
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.quality.complaints.messages.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                complaint: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffMessageRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            reference: string;
+                            type: string;
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            category: string;
+                            category_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            rating: {
+                                [key: string]: unknown;
+                            } | null;
+                            customer: {
+                                id: string;
+                                name: string | null;
+                                phone: string | null;
+                                status: string;
+                            };
+                            booking: {
+                                [key: string]: unknown;
+                            } | null;
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            priority: string;
+                            priority_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            assignee: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            sla: {
+                                /** @enum {string} */
+                                state: "on_track" | "due_soon" | "breached" | "paused" | "met" | "none";
+                                /** @enum {string|null} */
+                                kind: "first_response" | "resolution" | null;
+                                due_at: string | null;
+                                remaining_minutes: number | null;
+                            };
+                            compensation: {
+                                type: string;
+                                status: string;
+                                amount_fils: number;
+                            } | null;
+                            awaiting_approval: boolean;
+                            customer_replied: string;
+                            created_at: string | null;
+                            description: string;
+                            source: string;
+                            source_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            customer_visible: boolean;
+                            attachments: {
+                                id: string;
+                                purpose: string;
+                                mime: string;
+                                size_bytes: number;
+                                url: string | null;
+                                url_expires_at: string;
+                                expires_at: string | null;
+                            }[];
+                            visit: {
+                                id: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                late_minutes: number | null;
+                            } | null;
+                            subscription: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                            } | null;
+                            payment: {
+                                [key: string]: unknown;
+                            } | null;
+                            worker_options: {
+                                id: number;
+                                name: string;
+                                role: string;
+                                released: boolean;
+                            }[];
+                            driver: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            driver_options: {
+                                id: number;
+                                name: string | null;
+                                round_kind: string;
+                            }[];
+                            messages: {
+                                [key: string]: unknown;
+                            }[];
+                            events: {
+                                [key: string]: unknown;
+                            }[];
+                            compensations: {
+                                [key: string]: unknown;
+                            }[];
+                            pending_resolution: {
+                                [key: string]: unknown;
+                            } | null;
+                            compensation_options: {
+                                refund: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    /** @enum {string|null} */
+                                    destination: "card" | "wallet" | null;
+                                    reason: string | null;
+                                };
+                                credit: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    reason: string | null;
+                                };
+                                free_visit: {
+                                    available: boolean;
+                                    reason: string | null;
+                                };
+                            } | null;
+                            outcome: string | null;
+                            outcome_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            resolution: string | null;
+                            resolved_at: string | null;
+                            resolved_by: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            close_reason: string | null;
+                            close_reason_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            closed_at: string | null;
+                            merged_into: {
+                                id: number;
+                                reference: string;
+                            } | null;
+                            first_response_due_at: string;
+                            first_responded_at: string | null;
+                            resolution_due_at: string | null;
+                            reopened_count: number;
+                            actions: {
+                                assign: string;
+                                reply: string;
+                                resolve: string;
+                                close: string;
+                                reopen: string;
+                                /**
+                                 * @description A refund also needs refunds.create (P3-35, ApproveCompensation); a closing account takes only a refund to
+                                 *     the card (P5-Q121).
+                                 */
+                                approve: string;
+                                reject: string;
+                                cancel_compensation: string;
+                            };
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.complaints.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                complaint: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResolveCaseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            reference: string;
+                            type: string;
+                            type_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            category: string;
+                            category_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            rating: {
+                                [key: string]: unknown;
+                            } | null;
+                            customer: {
+                                id: string;
+                                name: string | null;
+                                phone: string | null;
+                                status: string;
+                            };
+                            booking: {
+                                [key: string]: unknown;
+                            } | null;
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            priority: string;
+                            priority_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            status: string;
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            assignee: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            sla: {
+                                /** @enum {string} */
+                                state: "on_track" | "due_soon" | "breached" | "paused" | "met" | "none";
+                                /** @enum {string|null} */
+                                kind: "first_response" | "resolution" | null;
+                                due_at: string | null;
+                                remaining_minutes: number | null;
+                            };
+                            compensation: {
+                                type: string;
+                                status: string;
+                                amount_fils: number;
+                            } | null;
+                            awaiting_approval: boolean;
+                            customer_replied: string;
+                            created_at: string | null;
+                            description: string;
+                            source: string;
+                            source_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            customer_visible: boolean;
+                            attachments: {
+                                id: string;
+                                purpose: string;
+                                mime: string;
+                                size_bytes: number;
+                                url: string | null;
+                                url_expires_at: string;
+                                expires_at: string | null;
+                            }[];
+                            visit: {
+                                id: number;
+                                status: string;
+                                status_label: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                arrived_at: string | null;
+                                completed_at: string | null;
+                                late_minutes: number | null;
+                            } | null;
+                            subscription: {
+                                id: number;
+                                reference: string;
+                                type: string;
+                            } | null;
+                            payment: {
+                                [key: string]: unknown;
+                            } | null;
+                            worker_options: {
+                                id: number;
+                                name: string;
+                                role: string;
+                                released: boolean;
+                            }[];
+                            driver: {
+                                id: number;
+                                name: string | null;
+                            } | null;
+                            driver_options: {
+                                id: number;
+                                name: string | null;
+                                round_kind: string;
+                            }[];
+                            messages: {
+                                [key: string]: unknown;
+                            }[];
+                            events: {
+                                [key: string]: unknown;
+                            }[];
+                            compensations: {
+                                [key: string]: unknown;
+                            }[];
+                            pending_resolution: {
+                                [key: string]: unknown;
+                            } | null;
+                            compensation_options: {
+                                refund: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    /** @enum {string|null} */
+                                    destination: "card" | "wallet" | null;
+                                    reason: string | null;
+                                };
+                                credit: {
+                                    available: boolean;
+                                    max_fils: number;
+                                    reason: string | null;
+                                };
+                                free_visit: {
+                                    available: boolean;
+                                    reason: string | null;
+                                };
+                            } | null;
+                            outcome: string | null;
+                            outcome_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            resolution: string | null;
+                            resolved_at: string | null;
+                            resolved_by: {
+                                id: number;
+                                name: string;
+                            } | null;
+                            close_reason: string | null;
+                            close_reason_label: {
+                                ar: string;
+                                en: string;
+                            } | null;
+                            closed_at: string | null;
+                            merged_into: {
+                                id: number;
+                                reference: string;
+                            } | null;
+                            first_response_due_at: string;
+                            first_responded_at: string | null;
+                            resolution_due_at: string | null;
+                            reopened_count: number;
+                            actions: {
+                                assign: string;
+                                reply: string;
+                                resolve: string;
+                                close: string;
+                                reopen: string;
+                                /**
+                                 * @description A refund also needs refunds.create (P3-35, ApproveCompensation); a closing account takes only a refund to
+                                 *     the card (P5-Q121).
+                                 */
+                                approve: string;
+                                reject: string;
+                                cancel_compensation: string;
+                            };
+                            version: number;
+                        };
+                        meta: {
+                            /** @enum {string} */
+                            result: "resolved" | "pending_approval";
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.attachments.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AdminUploadAttachmentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            purpose: string;
+                            mime: string;
+                            size_bytes: number;
+                            url: string;
+                            url_expires_at: string;
+                            /**
+                             * @description An upload not attached yet can be used until this instant; past it, it neither counts nor can be claimed,
+                             *     and Jobs\PruneQualityUploads removes it (P5-Q118).
+                             */
+                            expires_at: null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "public.identity.config": {
         parameters: {
             query?: never;
@@ -11436,6 +17517,17 @@ export interface operations {
                             legal: {
                                 terms_version: unknown;
                                 privacy_version: unknown;
+                                /**
+                                 * @description Phase 5 (customers §5.2): each legal page's published version, effective date and customer web URL
+                                 *     in the request language (C29 opens it; the store listings link the deletion page, Phase 6).
+                                 */
+                                pages: {
+                                    [key: string]: {
+                                        version_label: string | null;
+                                        effective_date: string | null;
+                                        url: string;
+                                    };
+                                };
                             };
                             otp: {
                                 /** @constant */
@@ -11469,6 +17561,19 @@ export interface operations {
                                 mit_consent_version: string;
                                 max_period_visits: number;
                             };
+                            /**
+                             * @description Phase 5 (customers §5.2): the deletion cooling-off C30 and the deletion page state (P5-C17), the public
+                             *     page explaining how to delete an account (P5-C39), and whether customers have a balance (finance §5.3).
+                             */
+                            privacy: {
+                                deletion_grace_days: number;
+                            };
+                            links: {
+                                account_deletion: string;
+                            };
+                            wallet: {
+                                enabled: boolean;
+                            };
                         };
                     };
                 };
@@ -11495,6 +17600,10 @@ export interface operations {
                                 accepted: boolean;
                                 updated_at: string | null;
                             };
+                            analytics: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
                             terms: {
                                 accepted_version: string | null;
                                 current_version: string;
@@ -11505,13 +17614,19 @@ export interface operations {
                                 current_version: string;
                                 up_to_date: boolean;
                             };
-                            /**
-                             * @description The merchant-initiated (card on file) consents the customer gave for subscription renewals, newest first
-                             *     (design §7.1, P4-65): one per subscription created and one per renewal card changed.
-                             */
                             card_on_file: {
                                 version: string;
                                 accepted_at: string;
+                            }[];
+                            documents: {
+                                slug: string;
+                                title: string;
+                                version_label: string | null;
+                                effective_date: string | null;
+                                url: string;
+                                accepted_version: string | null;
+                                up_to_date: boolean | null;
+                                needs_acceptance: boolean;
                             }[];
                         };
                     };
@@ -11527,7 +17642,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["UpdateConsentsRequest"];
             };
@@ -11544,6 +17659,10 @@ export interface operations {
                                 accepted: boolean;
                                 updated_at: string | null;
                             };
+                            analytics: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
                             terms: {
                                 accepted_version: string | null;
                                 current_version: string;
@@ -11554,19 +17673,302 @@ export interface operations {
                                 current_version: string;
                                 up_to_date: boolean;
                             };
-                            /**
-                             * @description The merchant-initiated (card on file) consents the customer gave for subscription renewals, newest first
-                             *     (design §7.1, P4-65): one per subscription created and one per renewal card changed.
-                             */
                             card_on_file: {
                                 version: string;
                                 accepted_at: string;
+                            }[];
+                            documents: {
+                                slug: string;
+                                title: string;
+                                version_label: string | null;
+                                effective_date: string | null;
+                                url: string;
+                                accepted_version: string | null;
+                                up_to_date: boolean | null;
+                                needs_acceptance: boolean;
                             }[];
                         };
                     };
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.consents.accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptConsentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            marketing: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
+                            analytics: {
+                                accepted: boolean;
+                                updated_at: string | null;
+                            };
+                            terms: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                            privacy: {
+                                accepted_version: string | null;
+                                current_version: string;
+                                up_to_date: boolean;
+                            };
+                            card_on_file: {
+                                version: string;
+                                accepted_at: string;
+                            }[];
+                            documents: {
+                                slug: string;
+                                title: string;
+                                version_label: string | null;
+                                effective_date: string | null;
+                                url: string;
+                                accepted_version: string | null;
+                                up_to_date: boolean | null;
+                                needs_acceptance: boolean;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.settings.pages.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            slug: string;
+                            version_label: string;
+                            effective_date: string;
+                            published_at: string | null;
+                            title: string;
+                            body: string;
+                            locale: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "public.settings.faq": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            question: string;
+                            answer: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    "admin.settings.pages.index": {
+        parameters: {
+            query?: {
+                slug?: "terms" | "privacy" | "cancellation";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminContentPageResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.pages.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentPageRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.pages.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminContentPageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminContentPageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.settings.pages.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.settings.pages.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentPageRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminContentPageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminContentPageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.pages.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishContentPageRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminContentPageResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminContentPageResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -11731,7 +18133,11 @@ export interface operations {
                 from?: string;
                 to?: string;
                 invoice_id?: number;
-                customer_id?: number;
+                /**
+                 * @description The customer's numeric id or ULID (Phase 5, P5-F72). Documented as integer|string so the published
+                 *     integer contract still holds for its clients (DECISION P5-F104).
+                 */
+                customer_id?: number | string;
                 search?: string;
             };
             header?: never;
@@ -11813,7 +18219,36 @@ export interface operations {
             401: components["responses"]["AuthenticationException"];
         };
     };
-    "admin.identity.customers.index": {
+    "admin.billing.credit-notes.email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creditNote: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** @constant */
+                            status: "queued";
+                            email: string;
+                            message: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.identity.customers.lookup": {
         parameters: {
             query: {
                 phone: string;
@@ -11851,6 +18286,243 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    "admin.identity.customers.notes.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomerNoteResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.notes.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerNoteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.index": {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: "active" | "blocked" | "pending_deletion" | "deleted";
+                sort?: "recent" | "name" | "created";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCustomerListItemResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Error overview. */
+                        message: string;
+                    };
+                };
+            };
+        };
+    };
+    "admin.identity.customers.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminCustomerDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCustomerDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.identity.customers.block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminCustomerDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCustomerDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminCustomerDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCustomerDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.marketing-opt-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminCustomerDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminCustomerDetailResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "admin.reporting.dashboard.summary": {
@@ -12232,7 +18904,7 @@ export interface operations {
                     "application/json": {
                         data: {
                             /** @enum {string} */
-                            type: "visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review" | "subscription_confirmation_due" | "subscription_renewal_failed" | "subscription_conflict" | "subscription_cancel_review";
+                            type: "visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review" | "subscription_confirmation_due" | "subscription_renewal_failed" | "subscription_conflict" | "subscription_cancel_review" | "complaint_sla" | "complaint_unassigned" | "compensation_pending" | "reconciliation_failed" | "reconciliation_differences" | "worker_document_expiring" | "fleet_document_expiring" | "incentive_proposals_pending";
                             /** @enum {string} */
                             severity: "urgent" | "warning";
                             at: string;
@@ -12246,7 +18918,7 @@ export interface operations {
                             };
                             entity: {
                                 /** @enum {string} */
-                                type: "booking" | "visit" | "driver_report" | "payment" | "refund" | "subscription";
+                                type: "booking" | "visit" | "driver_report" | "payment" | "refund" | "subscription" | "complaint" | "compensation" | "reconciliation_run" | "worker_document" | "vehicle" | "driver" | "incentive_period";
                                 id: number;
                                 reference?: string | null;
                                 booking_id?: number;
@@ -12254,10 +18926,13 @@ export interface operations {
                                 ulid?: string;
                                 payment_id?: number;
                                 occurrence_id?: number;
+                                case_type?: string;
+                                worker_id?: number;
+                                period?: string;
                             };
                             link: {
                                 /** @enum {string} */
-                                list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | "subscription";
+                                list: "bookings" | "booking" | "schedule" | "capacity" | "rounds" | "driver_reports" | "payment" | "subscription" | "complaint" | "compensations" | "reconciliation_run" | "worker" | "vehicles" | "drivers" | "incentives";
                                 path: string;
                                 params: {
                                     [key: string]: string | number;
@@ -12279,7 +18954,7 @@ export interface operations {
                                     en: string;
                                 };
                             } | null;
-                            types: ("visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review" | "subscription_confirmation_due" | "subscription_renewal_failed" | "subscription_conflict" | "subscription_cancel_review")[];
+                            types: ("visit_uncovered" | "sla_due" | "visit_delayed" | "driver_report" | "auto_cancelled" | "payment_failed" | "refund_failed" | "payment_review" | "refund_review" | "subscription_confirmation_due" | "subscription_renewal_failed" | "subscription_conflict" | "subscription_cancel_review" | "complaint_sla" | "complaint_unassigned" | "compensation_pending" | "reconciliation_failed" | "reconciliation_differences" | "worker_document_expiring" | "fleet_document_expiring" | "incentive_proposals_pending")[];
                             counts: {
                                 [key: string]: number;
                             };
@@ -13430,6 +20105,7 @@ export interface operations {
                             per_page: number;
                             total: number;
                             last_page: number;
+                            document_alert_days: number;
                         };
                     };
                 };
@@ -13525,6 +20201,213 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "public.identity.email.verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer: string;
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "customer.identity.me.email-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            sent_to: string;
+                            expires_in: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.reporting.exports.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.reporting.exports.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExportRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            report: string;
+                            report_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            format: components["schemas"]["ExportFormat"];
+                            status: components["schemas"]["ExportStatus"];
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            row_count: number | null;
+                            file_name: string | null;
+                            size_bytes: number | null;
+                            /** @description The validated filters, a phone by its last four digits ("…4567", P5-F148); an object, `{}` when none. */
+                            filters: {
+                                [key: string]: unknown;
+                            };
+                            created_at: string | null;
+                            finished_at: string | null;
+                            expires_at: string | null;
+                            /** @enum {string|null} */
+                            failure_code: "too_large" | "internal_error" | "worker_lost" | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.reporting.exports.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            report: string;
+                            report_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            format: components["schemas"]["ExportFormat"];
+                            status: components["schemas"]["ExportStatus"];
+                            status_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            row_count: number | null;
+                            file_name: string | null;
+                            size_bytes: number | null;
+                            /** @description The validated filters, a phone by its last four digits ("…4567", P5-F148); an object, `{}` when none. */
+                            filters: {
+                                [key: string]: unknown;
+                            };
+                            created_at: string | null;
+                            finished_at: string | null;
+                            expires_at: string | null;
+                            /** @enum {string|null} */
+                            failure_code: "too_large" | "internal_error" | "worker_lost" | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.reporting.exports.url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "public.payment.fake-checkout.show": {
         parameters: {
             query?: never;
@@ -13576,6 +20459,135 @@ export interface operations {
                 };
                 content?: never;
             };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.faq.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminFaqItemResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.settings.faq.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaqItemRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.faq.order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderFaqRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminFaqItemResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.settings.faq.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.settings.faq.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FaqItemRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminFaqItemResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminFaqItemResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -13649,7 +20661,43 @@ export interface operations {
                                         ar: string;
                                         en: string;
                                     };
-                                    count: number | null;
+                                    count: number;
+                                    available: boolean;
+                                    latest_run: {
+                                        id: number;
+                                        gateway: string;
+                                        report_date: string;
+                                        status: string;
+                                        counts: {
+                                            matched: number;
+                                            amount_mismatch: number;
+                                            missing_in_system: number;
+                                            missing_in_gateway: number;
+                                            status_mismatch: number;
+                                        };
+                                        unresolved_count: number;
+                                    } | null;
+                                };
+                                balance: {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    paid_from_balance_fils: number;
+                                    credited_to_balance_fils: number;
+                                    outstanding_fils: unknown;
+                                    available: boolean;
+                                } | {
+                                    label: {
+                                        ar: string;
+                                        en: string;
+                                    };
+                                    /** @constant */
+                                    paid_from_balance_fils: 0;
+                                    /** @constant */
+                                    credited_to_balance_fils: 0;
+                                    /** @constant */
+                                    outstanding_fils: 0;
                                     available: boolean;
                                 };
                             };
@@ -13678,6 +20726,777 @@ export interface operations {
                     "application/json": string;
                 };
             };
+        };
+    };
+    "admin.workforce.incentives.adjustments.index": {
+        parameters: {
+            query?: {
+                period?: string;
+                status?: "open" | "posted";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveAdjustmentResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.adjustments.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoreIncentiveAdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveAdjustmentResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveAdjustmentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.adjustments.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The adjustment ID */
+                adjustment: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-postings.index": {
+        parameters: {
+            query?: {
+                period?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentivePostingResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentive-postings.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The posting ID */
+                posting: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentivePostingResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentivePostingResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-postings.file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The posting ID */
+                posting: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.index": {
+        parameters: {
+            query: {
+                period: string;
+                "status[]"?: components["schemas"]["IncentiveStatus"][];
+                zone_id?: number;
+                search?: string;
+                sort?: "amount" | "employee_no";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            period: string;
+                            totals: {
+                                proposed: {
+                                    count: number;
+                                    fils: number;
+                                };
+                                approved: {
+                                    count: number;
+                                    fils: number;
+                                };
+                                rejected: {
+                                    count: number;
+                                    fils: number;
+                                };
+                                posted: {
+                                    count: number;
+                                    fils: number;
+                                };
+                            };
+                            rule: {
+                                id: number;
+                                name: {
+                                    ar: string;
+                                    en: string;
+                                };
+                                version: number;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentiveProposalResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentives.compute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentivePeriodRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            created: number;
+                            rejected_below_threshold: number;
+                            existing: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkApproveIncentivesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            approved: number;
+                            total_fils: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRejectIncentivesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            rejected: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostIncentivesRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentivePostingResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentivePostingResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.recompute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentiveProposalResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveIncentiveRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveProposalResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentiveReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveProposalResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentiveReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveProposalResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveProposalResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentives.proposals.post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The proposal ID */
+                proposal: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostIncentiveRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentivePostingResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentivePostingResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentive-rules.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.workforce.incentive-rules.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentiveRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveRuleResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentive-rules.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentiveRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-rules.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-rules.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentiveRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description `IncentiveRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.incentive-rules.activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentiveRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-rules.deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `IncentiveRuleResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["IncentiveRuleResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.incentive-rules.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The rule ID */
+                rule: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncentivePeriodRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            period: string;
+                            workers: {
+                                worker: {
+                                    id: number;
+                                    display_name: string;
+                                };
+                                score_bp: number;
+                                proposed_fils: number;
+                                gates: ("min_hours" | "max_absent_days")[];
+                            }[];
+                            totals: {
+                                count: number;
+                                fils: number;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "customer.billing.invoices.index": {
@@ -13802,7 +21621,11 @@ export interface operations {
                 status?: "issued" | "credited_partial" | "credited_full";
                 from?: string;
                 to?: string;
-                customer_id?: number;
+                /**
+                 * @description The customer's numeric id or ULID (Phase 5, P5-F72). Documented as integer|string so the published
+                 *     integer contract still holds for its clients (DECISION P5-F104).
+                 */
+                customer_id?: number | string;
                 payment_id?: number;
                 search?: string;
             };
@@ -14749,7 +22572,7 @@ export interface operations {
     "admin.notification.templates.index": {
         parameters: {
             query?: {
-                event_key?: "booking.requested" | "booking.confirmed" | "booking.alternative_proposed" | "booking.alternatives_expiring" | "booking.rejected" | "booking.cancelled" | "booking.auto_cancelled_sla" | "booking.rescheduled" | "booking.reschedule_requested" | "booking.reschedule_declined" | "booking.cancellation_review_requested" | "booking.cancellation_review_declined" | "booking.payment_link" | "visit.reminder_day_before" | "visit.reminder_before_arrival" | "round.departed" | "visit.arrived" | "visit.started" | "visit.completed" | "visit.worker_changed" | "visit.delayed" | "visit.missed" | "payment.failed" | "payment.verifying_resolved" | "payment.needs_review" | "refund.succeeded" | "refund.failed" | "refund.subscription_succeeded" | "refund.subscription_failed" | "invoice.issued" | "payment.subscription_failed" | "payment.subscription_verifying_resolved" | "invoice.subscription_issued" | "waitlist.slot_available" | "driver.report_submitted" | "subscription.requested" | "subscription.confirmed" | "subscription.rejected" | "subscription.cancelled" | "subscription.cancelled_unpaid" | "subscription.renewal_upcoming" | "subscription.not_renewing" | "subscription.renewed" | "subscription.renewal_failed" | "subscription.suspended" | "subscription.ended" | "subscription.frozen" | "subscription.visit_credited" | "subscription.holiday_credited" | "subscription.worker_changed" | "subscription.conflict";
+                event_key?: "booking.requested" | "booking.confirmed" | "booking.alternative_proposed" | "booking.alternatives_expiring" | "booking.rejected" | "booking.cancelled" | "booking.auto_cancelled_sla" | "booking.rescheduled" | "booking.reschedule_requested" | "booking.reschedule_declined" | "booking.cancellation_review_requested" | "booking.cancellation_review_declined" | "booking.payment_link" | "visit.reminder_day_before" | "visit.reminder_before_arrival" | "round.departed" | "visit.arrived" | "visit.started" | "visit.completed" | "visit.worker_changed" | "visit.delayed" | "visit.missed" | "payment.failed" | "payment.verifying_resolved" | "payment.needs_review" | "refund.succeeded" | "refund.failed" | "refund.subscription_succeeded" | "refund.subscription_failed" | "invoice.issued" | "payment.subscription_failed" | "payment.subscription_verifying_resolved" | "invoice.subscription_issued" | "waitlist.slot_available" | "driver.report_submitted" | "subscription.requested" | "subscription.confirmed" | "subscription.rejected" | "subscription.cancelled" | "subscription.cancelled_unpaid" | "subscription.renewal_upcoming" | "subscription.not_renewing" | "subscription.renewed" | "subscription.renewal_failed" | "subscription.suspended" | "subscription.ended" | "subscription.frozen" | "subscription.visit_credited" | "subscription.holiday_credited" | "subscription.worker_changed" | "subscription.conflict" | "reconciliation.differences" | "reconciliation.failed" | "wallet.credited" | "wallet.credit_expiring" | "rating.requested" | "rating.low" | "complaint.received" | "complaint.created" | "complaint.updated" | "complaint.resolved" | "complaint.sla_breached" | "compensation.approval_requested" | "compensation.decided" | "booking.recovery_scheduled" | "privacy.export_ready" | "privacy.deletion_scheduled" | "privacy.deletion_cancelled" | "privacy.deletion_waiting" | "privacy.request_failed" | "worker.document_expiring" | "worker.document_expired" | "fleet.document_expiring" | "fleet.document_expired" | "incentive.proposals_ready" | "incentive.posted";
                 audience?: "customer" | "staff";
                 channel?: "push" | "sms" | "email" | "in_app" | "whatsapp_future";
                 locale?: "ar" | "en";
@@ -15397,6 +23220,36 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.payment.payments.pay-with-wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayWithWalletRequest"];
+            };
+        };
+        responses: {
+            /** @description `PaymentResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PaymentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "admin.payment.payments.index": {
         parameters: {
             query?: {
@@ -15409,6 +23262,10 @@ export interface operations {
                 payable_type?: string;
                 needs_review?: boolean;
                 reference?: string;
+                /** @description Phase 5 (finance §5.2): the customer's ULID (P5-X11, the A07 profile's payments link), the method and gateway. */
+                customer_id?: string;
+                method?: "card" | "apple_pay" | "google_pay" | "wallet" | "cash_future";
+                gateway?: string;
             };
             header?: never;
             path?: never;
@@ -15505,6 +23362,23 @@ export interface operations {
                                 name: string | null;
                             };
                             gateway: string;
+                            /**
+                             * @description Phase 5 (P5-F35): where the money went, the refund row's gateway (wallet = the customer's
+                             *                          balance; card = back through the provider)
+                             * @enum {string}
+                             */
+                            destination: "card" | "wallet";
+                            /** @description Phase 5 (P5-F28): what the refund is for (a complaint's compensation); `link` opens the case for complaints.manage, null otherwise (P3-59). */
+                            context: {
+                                type: string;
+                                id: number;
+                                reference: string;
+                                link: {
+                                    list: string;
+                                    path: string;
+                                    params: Record<string, never>;
+                                } | null;
+                            } | null;
                             gateway_refund_ref: string | null;
                             failure_code: string | null;
                             failure_message: string | null;
@@ -15521,6 +23395,18 @@ export interface operations {
                                 en: string | null;
                             };
                             needs_review: boolean;
+                            /** @description Phase 5 (P5-F21): why it was flagged (kept after the flag is cleared) and who cleared it, when, why. */
+                            review: {
+                                reason: string | null;
+                                reason_label: {
+                                    ar: string;
+                                    en: string;
+                                } | null;
+                                cleared_at: string | null;
+                                cleared_by: number | null;
+                                note: string | null;
+                            };
+                            version: number;
                             created_at: string | null;
                             submitted_at: string | null;
                             succeeded_at: string | null;
@@ -15541,6 +23427,37 @@ export interface operations {
                                 phone: string;
                             } | null;
                         };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.payments.review.clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminPaymentDetailResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPaymentDetailResource"];
                     };
                 };
             };
@@ -15762,7 +23679,10 @@ export interface operations {
     };
     "customer.booking.preferred-workers.index": {
         parameters: {
-            query?: never;
+            query?: {
+                service?: string;
+                address_id?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15778,9 +23698,16 @@ export interface operations {
                         data: {
                             id: string;
                             display_name: string;
-                            photo_url: null;
-                            avg_rating: null;
-                            availability_hint: null;
+                            photo_url: string | null;
+                            avg_rating: number | null;
+                            ratings_count: number;
+                            visits_with_you: number;
+                            availability_hint: {
+                                /** @enum {string} */
+                                status: "available" | "busy";
+                                date: string | null;
+                                label: string;
+                            } | null;
                         }[];
                         meta: {
                             note: string;
@@ -15789,6 +23716,518 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.identity.privacy.requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PrivacyRequestResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.privacy.export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PrivacyRequestResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.privacy.download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                privacyRequest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.privacy.delete.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            can_submit: boolean;
+                            grace_days: number;
+                            executes_after: string;
+                            phone_masked: string;
+                            bookings: unknown[];
+                            subscriptions: unknown[];
+                            refunds: unknown[];
+                            complaints: unknown[];
+                            waitlist: {
+                                count: number;
+                                /** @constant */
+                                action: "cancel";
+                            };
+                            /** @description A0 review (P5-X54): the customer's blocking items carry the record's ULID, never its numeric id. */
+                            blocking: unknown[];
+                            wallet: {
+                                balance_fils: number;
+                                projected_balance_fils: number;
+                            } | null;
+                            cancellations_are_final: boolean;
+                            totals: {
+                                fee_fils: number;
+                                refund_fils: number;
+                                currency: string;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.privacy.delete.otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phone_masked: string;
+                            expires_in: number;
+                            resend_in: number;
+                            max_attempts: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.identity.privacy.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            request: components["schemas"]["PrivacyRequestResource"];
+                            cancelled: {
+                                bookings: {
+                                    id: string;
+                                    reference: string;
+                                    payment: string;
+                                    refund_fils: number;
+                                }[];
+                                subscriptions: {
+                                    id: string;
+                                    reference: string;
+                                    refund_fils: number;
+                                }[];
+                            };
+                            signed_out: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "public.identity.privacy-exports.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                privacyRequest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    "public.identity.privacy-exports.otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                privacyRequest: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phone_masked: string;
+                            expires_in: number;
+                            resend_in: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "public.identity.privacy-exports.download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                privacyRequest: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivacyExportCodeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                        };
+                    };
+                };
+            };
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.deletion-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            can_request: string;
+                            grace_days: number;
+                            executes_after: string;
+                            phone_masked: string;
+                            bookings: unknown[];
+                            subscriptions: unknown[];
+                            refunds: unknown[];
+                            complaints: unknown[];
+                            waitlist: {
+                                count: number;
+                                /** @constant */
+                                action: "cancel";
+                            };
+                            blocking: unknown[];
+                            wallet: {
+                                balance_fils: number;
+                                projected_balance_fils: number;
+                            } | null;
+                            cancellations_are_final: boolean;
+                            totals: {
+                                fee_fils: number;
+                                refund_fils: number;
+                                currency: string;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.identity.customers.privacy-requests.otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string|null} */
+                    type?: "export" | "delete" | null;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phone_masked: string;
+                            expires_in: number;
+                            resend_in: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.customers.privacy-requests.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The customer ulid */
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPrivacyRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPrivacyRequestResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.privacy-requests.index": {
+        parameters: {
+            query?: {
+                type?: "export" | "delete";
+                status?: "open" | "received" | "scheduled" | "processing" | "completed" | "expired" | "cancelled" | "failed";
+                q?: string | null;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPrivacyRequestResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            counts_by_status: {
+                                [key: string]: number;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.privacy-requests.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The privacy request ID */
+                privacyRequest: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminPrivacyRequestResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPrivacyRequestResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.identity.privacy-requests.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The privacy request ID */
+                privacyRequest: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description `AdminPrivacyRequestResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPrivacyRequestResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.identity.privacy-requests.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The privacy request ID */
+                privacyRequest: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `AdminPrivacyRequestResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminPrivacyRequestResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
         };
     };
     "customer.identity.me.show": {
@@ -15938,6 +24377,643 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.quality.ratings.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `RatingResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["RatingResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "customer.quality.ratings.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                booking: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRatingRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            suggest_complaint: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.ratings.index": {
+        parameters: {
+            query?: {
+                customer_id?: string;
+                low?: boolean;
+                excluded?: boolean;
+                worker_id?: number;
+                zone_id?: number;
+                "kind[]"?: "single" | "subscription_visit" | "live_out_trial" | "live_out_day" | "recovery";
+                from?: string;
+                to?: string;
+                has_comment?: boolean;
+                q?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            average: number | null;
+                            count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.ratings.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rating: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            booking: {
+                                id: number;
+                                reference: string;
+                                kind: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            overall: number;
+                            quality: number | null;
+                            punctuality: number | null;
+                            conduct: number | null;
+                            comment: string | null;
+                            photos_count: number;
+                            request_same_worker: boolean;
+                            is_low: boolean;
+                            excluded: boolean;
+                            case: {
+                                id: number;
+                                reference: string;
+                                status: string;
+                            } | null;
+                            service_date: string;
+                            created_at: string | null;
+                            photos: unknown[];
+                            exclusion: {
+                                at: string;
+                                by: {
+                                    id: number;
+                                    name: string;
+                                } | null;
+                                reason: string | null;
+                            } | null;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.quality.ratings.exclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rating: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingExclusionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            booking: {
+                                id: number;
+                                reference: string;
+                                kind: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            overall: number;
+                            quality: number | null;
+                            punctuality: number | null;
+                            conduct: number | null;
+                            comment: string | null;
+                            photos_count: number;
+                            request_same_worker: boolean;
+                            is_low: boolean;
+                            excluded: boolean;
+                            case: {
+                                id: number;
+                                reference: string;
+                                status: string;
+                            } | null;
+                            service_date: string;
+                            created_at: string | null;
+                            photos: unknown[];
+                            exclusion: {
+                                at: string;
+                                by: {
+                                    id: number;
+                                    name: string;
+                                } | null;
+                                reason: string | null;
+                            } | null;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.quality.ratings.include": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rating: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingExclusionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: number;
+                            ulid: string;
+                            booking: {
+                                id: number;
+                                reference: string;
+                                kind: string;
+                            };
+                            customer: {
+                                id: string;
+                                name: string | null;
+                            };
+                            workers: {
+                                id: number;
+                                name: string;
+                            }[];
+                            overall: number;
+                            quality: number | null;
+                            punctuality: number | null;
+                            conduct: number | null;
+                            comment: string | null;
+                            photos_count: number;
+                            request_same_worker: boolean;
+                            is_low: boolean;
+                            excluded: boolean;
+                            case: {
+                                id: number;
+                                reference: string;
+                                status: string;
+                            } | null;
+                            service_date: string;
+                            created_at: string | null;
+                            photos: unknown[];
+                            exclusion: {
+                                at: string;
+                                by: {
+                                    id: number;
+                                    name: string;
+                                } | null;
+                                reason: string | null;
+                            } | null;
+                            version: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.formats.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            key: string;
+                            label: {
+                                ar: string;
+                                en: string;
+                            };
+                            accepts: string[];
+                            columns: {
+                                name: string;
+                                required: boolean;
+                                format: string;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.payment.reconciliation.formats.template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv; charset=UTF-8": string;
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.payment.reconciliation.items.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ReconciliationItemResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReconciliationItemResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.payment.reconciliation.items.resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveReconciliationItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        refund: {
+                            [key: string]: unknown;
+                        } | null;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.items.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description `ReconciliationItemResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReconciliationItemResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.runs.index": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                from?: string;
+                to?: string;
+                gateway?: string;
+                status?: "pending" | "processing" | "completed" | "failed" | "superseded";
+                unresolved?: boolean;
+                include_superseded?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            unresolved_total: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.runs.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CreateReconciliationRunRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: unknown[];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.runs.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `ReconciliationRunResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ReconciliationRunResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.payment.reconciliation.runs.items": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                view?: "differences" | "matched" | "resolved" | "documents" | "all";
+                "status[]"?: "matched" | "amount_mismatch" | "missing_in_system" | "missing_in_gateway" | "status_mismatch";
+                "reason_code[]"?: "ok" | "amount_differs" | "currency_differs" | "payout_total_differs" | "unknown_reference" | "charge_not_current" | "refund_unknown" | "duplicate_line" | "chargeback" | "provider_adjustment" | "charge_not_reported" | "refund_not_reported" | "not_captured_in_system" | "refund_open_in_system" | "refund_failed_in_system" | "refund_payment_differs";
+                "line_type[]"?: "charge" | "refund" | "chargeback" | "chargeback_reversal" | "fee" | "adjustment" | "payout";
+                "document_check[]"?: "ok" | "no_invoice" | "invoice_differs" | "no_credit_note" | "credit_note_differs" | "not_invoiceable" | "refused" | "not_applicable";
+                unresolved?: boolean;
+                q?: string;
+            };
+            header?: never;
+            path: {
+                run: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            counts_by_status: {
+                                matched: number;
+                                amount_mismatch: number;
+                                missing_in_system: number;
+                                missing_in_gateway: number;
+                                status_mismatch: number;
+                            };
+                            unresolved_count: number;
+                            documents_issues: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.reconciliation.runs.recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        rechecked: number;
+                        auto_resolved: number;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
     "admin.payment.refund-reasons.index": {
         parameters: {
             query?: never;
@@ -15980,6 +25056,10 @@ export interface operations {
                 reason_code?: string;
                 needs_review?: boolean;
                 phone?: string;
+                /** @description Phase 5 (finance §5.2): the customer's ULID (P5-X11), where the money went (P5-F35), what it was for (P5-F28). */
+                customer_id?: string;
+                destination?: "card" | "wallet";
+                context_type?: string;
             };
             header?: never;
             path?: never;
@@ -16004,6 +25084,102 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.refunds.review.clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffNoteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.refunds.outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRefundOutcomeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.refunds.reinstate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                refund: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReinstateRefundRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
             422: components["responses"]["ValidationException"];
         };
     };
@@ -21286,6 +30462,7 @@ export interface operations {
                 renewal_to?: string;
                 zone_id?: number;
                 worker_id?: number;
+                customer_id?: string;
                 conflicts?: boolean;
                 cancel_review?: boolean;
                 q?: string | null;
@@ -21914,6 +31091,7 @@ export interface operations {
                             per_page: number;
                             total: number;
                             last_page: number;
+                            document_alert_days: number;
                         };
                     };
                 };
@@ -22453,7 +31631,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        data: unknown[];
+                        data: components["schemas"]["WaitlistEntryResource"][];
                     };
                 };
             };
@@ -22489,6 +31667,31 @@ export interface operations {
             422: components["responses"]["ValidationException"];
         };
     };
+    "customer.scheduling.waitlist.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                waitlist: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `WaitlistEntryResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WaitlistEntryResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+        };
+    };
     "customer.scheduling.waitlist.destroy": {
         parameters: {
             query?: never;
@@ -22512,6 +31715,243 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+        };
+    };
+    "admin.scheduling.waitlist.index": {
+        parameters: {
+            query?: {
+                date_from?: string;
+                date_to?: string;
+                zone_id?: number;
+                slot_template_id?: number;
+                service?: string;
+                customer_id?: string;
+                "status[]"?: "waiting" | "notified" | "converted" | "expired" | "cancelled" | "open";
+                q?: string | null;
+                sort?: "date" | "created";
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminWaitlistEntryResource"][];
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                            counts_by_status: {
+                                waiting: number;
+                                notified: number;
+                                converted: number;
+                                expired: number;
+                                cancelled: number;
+                            };
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.scheduling.waitlist.notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                waitlist: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NotifyWaitlistEntryRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminWaitlistEntryResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "customer.payment.wallet.show": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            enabled: boolean;
+                            currency: string;
+                            balance_fils: number;
+                            expiring: {
+                                amount_fils: number;
+                                on: string;
+                            } | null;
+                            transactions: {
+                                id: string;
+                                type: string;
+                                source: string;
+                                label: string;
+                                amount_fils: number;
+                                balance_after_fils: number;
+                                created_at: string | null;
+                                expires_at: string | null;
+                                booking: {
+                                    ulid: string;
+                                    reference: string | null;
+                                } | null;
+                            }[];
+                        };
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.customers.wallet.show": {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            customer_id: string;
+                            currency: string;
+                            enabled: boolean;
+                            balance_fils: number;
+                            /** @description P5-F146 */
+                            expiring_30d_fils: number;
+                            transactions: unknown[];
+                        };
+                        meta: {
+                            current_page: number;
+                            per_page: number;
+                            total: number;
+                            last_page: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.payment.customers.wallet.transactions.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustWalletRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            type: components["schemas"]["WalletTransactionType"];
+                            source: components["schemas"]["WalletSource"];
+                            source_label: {
+                                ar: string;
+                                en: string;
+                            };
+                            amount_fils: number;
+                            balance_after_fils: number;
+                            remaining_fils: number | null;
+                            expires_at: string | null;
+                            payment: {
+                                id: number;
+                                ulid: string;
+                            } | null;
+                            refund: {
+                                id: number;
+                                ulid: string;
+                            } | null;
+                            context: {
+                                type: string | null;
+                                id: number | null;
+                                reference: string | null;
+                            } | null;
+                            reason_code: string | null;
+                            note: string | null;
+                            created_by: {
+                                /** @enum {string} */
+                                type: "staff" | "customer" | "system";
+                                id: number | null;
+                                name: string | null;
+                            };
+                            created_at: string | null;
+                        };
+                        balance_fils: string;
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            422: components["responses"]["ValidationException"];
         };
     };
     "webhooks.payments": {
@@ -22553,6 +31993,358 @@ export interface operations {
             };
         };
     };
+    "admin.workforce.workers.documents.index": {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerDocumentResource"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.documents.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["StoreWorkerDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerDocumentResource` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerDocumentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.documents.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document ID */
+                document: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `WorkerDocumentResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerDocumentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.documents.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document ID */
+                document: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.documents.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document ID */
+                document: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkerDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerDocumentResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerDocumentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.documents.file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document ID */
+                document: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            url: string;
+                            expires_at: string;
+                            file_name: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.documents.file.replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The document ID */
+                document: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ReplaceWorkerDocumentFileRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerDocumentResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerDocumentResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.photo.store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["SetWorkerPhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
+    "admin.workforce.workers.photo.destroy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `WorkerResource` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkerResource"];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+        };
+    };
+    "admin.workforce.workers.stats": {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The worker ID */
+                worker: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            worker_id: number;
+                            period: {
+                                from: string;
+                                to: string;
+                            };
+                            visits: {
+                                completed: number;
+                                no_show: number;
+                            };
+                            hours: {
+                                worked_minutes: number;
+                                planned_minutes: number;
+                            };
+                            requested_by_name: {
+                                visits: number;
+                                eligible: number;
+                                percent: number | null;
+                            };
+                            rating: {
+                                average: number | null;
+                                count: number;
+                                low_count: number;
+                            } | null;
+                            complaints: {
+                                upheld: number;
+                                partial: number;
+                                not_upheld: number;
+                                open: number;
+                            } | null;
+                            team_arrivals: {
+                                recorded: number;
+                                on_time: number;
+                                percent: number | null;
+                            };
+                            substitutions: {
+                                replaced_unavailable: number;
+                                replaced_late: number;
+                                reassigned: number;
+                                covered: number;
+                            };
+                            attendance: {
+                                expected_days: number;
+                                present_days: number;
+                                absent_days: number;
+                                late_days: number;
+                                half_days: number;
+                                unrecorded_days: number;
+                                leave_days: number;
+                            } | null;
+                            incentive: {
+                                proposal_id: number;
+                                period_start: string;
+                                /** @enum {string} */
+                                status: "proposed" | "approved" | "rejected" | "posted";
+                                proposed_fils: number;
+                                approved_fils: number | null;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationException"];
+            404: components["responses"]["ModelNotFoundException"];
+            422: components["responses"]["ValidationException"];
+        };
+    };
     "admin.workforce.workers.index": {
         parameters: {
             query?: {
@@ -22563,6 +32355,7 @@ export interface operations {
                 service_id?: number;
                 skill?: string;
                 search?: string;
+                alert?: "documents";
             };
             header?: never;
             path?: never;
@@ -22587,6 +32380,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["AuthenticationException"];
+            403: components["responses"]["AuthorizationException"];
             422: components["responses"]["ValidationException"];
         };
     };

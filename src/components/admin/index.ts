@@ -2,6 +2,8 @@
 export { Button, ButtonLink, IconButton, buttonClasses, type ButtonSize, type ButtonVariant } from "./Button";
 export { Checkbox, CheckboxGroup, FieldShell, Select, TextArea, TextField, controlClasses, showFieldError } from "./Field";
 export { ChipsInput } from "./ChipsInput";
+export { CustomerLink, CUSTOMERS_PATH, isCustomerUlid } from "./CustomerLink";
+export { FileField, acceptedTypeNames, checkFile, type FileRejection } from "./FileField";
 export { ConfirmDialog, Dialog, Drawer, type FocusTarget } from "./Dialog";
 export { DataTable, Pagination, type Column } from "./DataTable";
 export { FilterBar, SearchField } from "./FilterBar";
@@ -10,6 +12,8 @@ export { LtrText } from "./LtrText";
 export { MoneyField } from "./MoneyField";
 export { EmptyState, ErrorState, LoadingBlock, PermissionDenied, Skeleton } from "./States";
 export { StatusBadge, type StatusTone } from "./StatusBadge";
+export { SignedFileLink, type SignedFile } from "./SignedFileLink";
+export { StarRating } from "./StarRating";
 export { Switch } from "./Switch";
 export { TabPanel, Tabs, type TabItem } from "./Tabs";
 export { ToastProvider, useToast, type ToastTone } from "./Toast";
