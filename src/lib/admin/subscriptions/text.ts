@@ -56,10 +56,15 @@ export function businessDateOf(instant: string | null | undefined): string {
 export function useSubscriptionText() {
   const locale = useLocale();
   const t = useTranslations("admin.subscriptions.enums");
+  const catalog = useTranslations("admin.catalog.enums");
   return useMemo(() => {
     const own = (group: string, value: string, fallback?: string) => {
       const key = `${group}.${value}`;
       return t.has(key as never) ? t(key as never) : (fallback ?? value);
+    };
+    const policyCompensation = (value: string) => {
+      const key = `compensation.${value}`;
+      return catalog.has(key as never) ? catalog(key as never) : value;
     };
     return {
       locale,
@@ -82,7 +87,12 @@ export function useSubscriptionText() {
       day: (value: string) => own("day", value),
       reason: (value: string) => own("cancelReason", value),
       cancelRule: (value: string | null | undefined) => (value ? own("rule", value) : ""),
-      compensation: (value: string | null | undefined) => (value ? own("compensation", value) : ""),
+      /**
+       * The policy's company_cancellation.compensation (none, credit, coupon) a company cancellation shows: the policy
+       * editor's own labels, so credit and coupon read "shown only, not given automatically" here too (P5-F52; nothing
+       * in the API carries them out).
+       */
+      compensation: (value: string | null | undefined) => (value ? policyCompensation(value) : ""),
       /**
        * Why a worker cannot take a day (WorkerFit's codes). Anything else (an assignment that failed on that day for
        * another reason: the API's lowercased error code, or "error") reads "Could not be assigned", never a code.
@@ -120,7 +130,7 @@ export function useSubscriptionText() {
       /** "10:00–14:00". */
       slot: (slot: { start: string; end: string } | null | undefined) => (slot ? `${slot.start}–${slot.end}` : "—"),
     };
-  }, [t, locale]);
+  }, [t, catalog, locale]);
 }
 
 export type SubscriptionText = ReturnType<typeof useSubscriptionText>;

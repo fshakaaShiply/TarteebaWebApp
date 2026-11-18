@@ -51,8 +51,32 @@ describe("A08 cancel dialog", () => {
     await screen.findByRole("table", { name: "Periods of the cancellation" });
     await user.click(screen.getByRole("radio", { name: "The company's" }));
     expect(await screen.findByText("Company cancellation rule")).toBeInTheDocument();
-    expect(screen.getByText("Credit for the customer")).toBeInTheDocument();
+    // The policy's compensation is a label nothing carries out (P5-F52): it says so, never "Credit for the customer".
+    expect(screen.getByText("Account credit (shown only, not given automatically)")).toBeInTheDocument();
+    expect(screen.queryByText("Credit for the customer")).not.toBeInTheDocument();
     expect(api.previewCancel).toHaveBeenLastCalledWith(31, "company");
+  });
+
+  it("says a coupon or credit compensation is shown only, in English and in Arabic, never as the raw value", async () => {
+    const company = cancelPlan({ party: "company", rule_applied: "company_cancel", compensation: "coupon" });
+    const render = (locale: "en" | "ar") =>
+      renderWithProviders(<CancelSubscriptionDialog subscription={sub} companyOnly onClose={vi.fn()} onStale={vi.fn()} />, { permissions: MANAGER, locale });
+
+    api.previewCancel.mockResolvedValue(company);
+    let view = render("en");
+    expect(await screen.findByText("Coupon (shown only, not given automatically)")).toBeInTheDocument();
+    expect(screen.queryByText("coupon")).not.toBeInTheDocument();
+    view.unmount();
+
+    view = render("ar");
+    expect(await screen.findByText("كوبون (تُعرض فقط ولا تُمنح تلقائيًا)")).toBeInTheDocument();
+    expect(screen.getByText("التعويض")).toBeInTheDocument();
+    view.unmount();
+
+    api.previewCancel.mockResolvedValue({ ...company, compensation: "credit" });
+    render("ar");
+    expect(await screen.findByText("رصيد في الحساب (تُعرض فقط ولا تُمنح تلقائيًا)")).toBeInTheDocument();
+    expect(screen.queryByText("رصيد للعميل")).not.toBeInTheDocument();
   });
 
   it("needs a reason, and details for 'other', before it sends anything", async () => {

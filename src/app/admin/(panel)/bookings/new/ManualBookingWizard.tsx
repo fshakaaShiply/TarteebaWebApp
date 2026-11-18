@@ -171,9 +171,11 @@ function Wizard() {
    */
   const lookupHeldBack = lookupCurrent && !lookup.data && rateLimited(lookup.isError ? lookup.error : lookup.failureReason);
 
-  // A found customer fills in the name (when empty) and the language (unless chosen) once per number.
+  // A found customer fills in the name (when empty) and the language (unless chosen) once per number. An account that
+  // can't book (blocked, being deleted: `bookable = false`) fills in nothing: the lookup only shows the refusal, and the
+  // notice never names the customer either (customers.md W0 row).
   useEffect(() => {
-    if (!customer || !lookupPhone || applied.current?.phone === lookupPhone) return;
+    if (!customer?.bookable || !lookupPhone || applied.current?.phone === lookupPhone) return;
     applied.current = { phone: lookupPhone, name: null };
     if (!form.getValues("name").trim() && customer.name) {
       form.setValue("name", customer.name, { shouldDirty: true });

@@ -1,3 +1,4 @@
+import { isBuiltAdminPage } from "./alerts";
 import { PAYMENTS_PATH, SUBSCRIPTIONS_PATH } from "./nav";
 import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
 
@@ -5,8 +6,15 @@ import type { DashboardAlert, DashboardLink, LinkParams } from "./types";
  * A02 links (spec §17: every KPI opens a filtered list, every alert links to its entity). The API names the target
  * page and its filters ({list, path, params}); this turns that into an admin web route. A link the API gives only to
  * staff who may open it (a payment needs payments.view, Reporting Support\Links) is null otherwise. The A04 board,
- * rounds and driver reports have no route from here yet: those links are null unless a fallback is given.
+ * rounds and driver reports have no route from here yet: those links are null unless a fallback is given. A Phase 5
+ * page whose web slice has not landed yet (alerts.ts PAGES_NOT_BUILT_YET) is not linked either: the alert is listed
+ * without "Open" until its page exists.
  */
+
+/** `href` when its page is built, else null. */
+function built(href: string | null): string | null {
+  return href !== null && isBuiltAdminPage(href) ? href : null;
+}
 
 export const BOOKINGS_PATH = "/admin/bookings";
 export const CAPACITY_PATH = "/admin/capacity";
@@ -73,6 +81,11 @@ export function trailingId(path: string | null | undefined): number | null {
 
 /** The admin web page of a dashboard link, or null when that page is not built yet. */
 export function dashboardHref(link: DashboardLink | null | undefined): string | null {
+  return built(dashboardTarget(link));
+}
+
+/** The admin web route a dashboard link names, built or not (dashboardHref keeps only the built ones). */
+export function dashboardTarget(link: DashboardLink | null | undefined): string | null {
   if (!link) return null;
   const params = linkParams(link);
   switch (link.list) {
@@ -156,9 +169,9 @@ export function dashboardAlertHref(alert: Pick<DashboardAlert, "link" | "entity"
   if (!entity) return null;
   if (entity.type === "booking" && typeof entity.id === "number") return `${BOOKINGS_PATH}/${entity.id}`;
   if (entity.type === "subscription" && typeof entity.id === "number") return `${SUBSCRIPTIONS_PATH}/${entity.id}`;
-  // Phase 5: the API gives these alerts a link only to staff who may open the page; a case still opens from its entity.
-  if (entity.type === "complaint" && typeof entity.id === "number") return `${QUALITY_PATH}/${entity.id}`;
-  if (entity.type === "reconciliation_run" && typeof entity.id === "number") return `${RECONCILIATION_PATH}/${entity.id}`;
+  // Phase 5: a case or a run without a link still opens from its entity, once its page is built.
+  if (entity.type === "complaint" && typeof entity.id === "number") return built(`${QUALITY_PATH}/${entity.id}`);
+  if (entity.type === "reconciliation_run" && typeof entity.id === "number") return built(`${RECONCILIATION_PATH}/${entity.id}`);
   if (typeof entity.booking_id === "number") return `${BOOKINGS_PATH}/${entity.booking_id}`;
   return null;
 }

@@ -67,6 +67,83 @@ describe("SignedFileLink", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it("stops offering a link 30 seconds before it expires", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const load = vi.fn().mockResolvedValue({ url: "https://files.example/short", expires_at: new Date(Date.now() + 50_000).toISOString() });
+    renderWithProviders(<SignedFileLink load={load} label="View" />);
+    const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(await screen.findByRole("link")).toHaveAttribute("href", "https://files.example/short");
+
+    // At the next tick (30 s) the link still has 20 s left: too close, so it is no longer offered.
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("This link has expired. Get a new one to open the file.")).toHaveAttribute("role", "status");
+  });
+
+  it("asks for a new link instead of opening a dead one when the click comes between two ticks", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce({ url: "https://files.example/first", expires_at: new Date(Date.now() + 75_000).toISOString() })
+      .mockResolvedValueOnce({ url: "https://files.example/second", expires_at: new Date(Date.now() + 15 * 60_000).toISOString() });
+    const clicks: boolean[] = [];
+    const record = (event: Event) => {
+      clicks.push(event.defaultPrevented);
+      event.preventDefault();
+    };
+    document.addEventListener("click", record);
+    try {
+      renderWithProviders(<SignedFileLink load={load} label="View" />);
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+      await user.click(screen.getByRole("button", { name: "View" }));
+      const link = await screen.findByRole("link");
+
+      // 50 s on: the screen last ticked at 30 s and still offers the link, but it is within its last 30 s.
+      await act(async () => {
+        vi.advanceTimersByTime(50_000);
+      });
+      expect(screen.getByRole("link")).toBe(link);
+      clicks.length = 0;
+      await user.click(link);
+      expect(clicks).toEqual([true]);
+      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      expect(screen.getByText("This link has expired. Get a new one to open the file.")).toHaveAttribute("role", "status");
+      const again = screen.getByRole("button", { name: "Get a new link" });
+      await waitFor(() => expect(again).toHaveFocus());
+      expect(load).toHaveBeenCalledTimes(1);
+
+      await user.click(again);
+      expect(await screen.findByRole("link")).toHaveAttribute("href", "https://files.example/second");
+    } finally {
+      document.removeEventListener("click", record);
+    }
+  });
+
+  it("opens a link well inside its time without interfering", async () => {
+    const load = vi.fn().mockResolvedValue({ url: "https://files.example/ok", expires_at: new Date(Date.now() + 15 * 60_000).toISOString() });
+    const clicks: boolean[] = [];
+    const record = (event: Event) => {
+      clicks.push(event.defaultPrevented);
+      // After the component had its say: jsdom does not navigate.
+      event.preventDefault();
+    };
+    renderWithProviders(<SignedFileLink load={load} label="View" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "View" }));
+    const link = await screen.findByRole("link");
+    document.addEventListener("click", record);
+    try {
+      await user.click(link);
+    } finally {
+      document.removeEventListener("click", record);
+    }
+    expect(clicks).toEqual([false]);
+    expect(screen.getByRole("link")).toBe(link);
+  });
+
   it("trusts a link with no expiry for a few minutes only", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const load = vi.fn().mockResolvedValue({ url: "https://files.example/noexp" });

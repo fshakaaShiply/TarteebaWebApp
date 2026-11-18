@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { alertSubscription, dashboardAlertHref, dashboardHref, linkParams, splitMinutes, subscriptionCancelReviewsHref, trailingId, withQuery } from "./dashboard";
+import { isBuiltAdminPage } from "./alerts";
+import { alertSubscription, dashboardAlertHref, dashboardHref, dashboardTarget, linkParams, splitMinutes, subscriptionCancelReviewsHref, trailingId, withQuery } from "./dashboard";
 import type { DashboardLink } from "./types";
 
 // Links as GET /admin/dashboard/summary and /alerts send them (Reporting Support\Links).
@@ -98,24 +99,42 @@ describe("A02 links to admin pages", () => {
     expect(trailingId("/api/v1/admin/bookings/15/")).toBe(15);
   });
 
-  it("opens the Phase 5 alert targets: case, compensations, reconciliation run, worker documents, fleet, incentives", () => {
+  it("names the Phase 5 alert targets: case, compensations, reconciliation run, worker documents, fleet, incentives", () => {
     const link = (list: string, path: string, params: DashboardLink["params"] = {}): DashboardLink => ({ list, path, params });
-    expect(dashboardHref(link("complaint", "/api/v1/admin/complaints/41"))).toBe("/admin/quality/41");
-    expect(dashboardHref(link("complaint", "/api/v1/admin/complaints/x"))).toBeNull();
-    expect(dashboardHref(link("compensations", "/api/v1/admin/compensations"))).toBe("/admin/quality/compensations");
-    expect(dashboardHref(link("reconciliation_run", "/api/v1/admin/reconciliation/runs/9"))).toBe("/admin/finance/reconciliation/9");
-    expect(dashboardHref(link("worker", "/api/v1/admin/workers/14", { tab: "documents" }))).toBe("/admin/workers/14?tab=documents");
+    expect(dashboardTarget(link("complaint", "/api/v1/admin/complaints/41"))).toBe("/admin/quality/41");
+    expect(dashboardTarget(link("complaint", "/api/v1/admin/complaints/x"))).toBeNull();
+    expect(dashboardTarget(link("compensations", "/api/v1/admin/compensations"))).toBe("/admin/quality/compensations");
+    expect(dashboardTarget(link("reconciliation_run", "/api/v1/admin/reconciliation/runs/9"))).toBe("/admin/finance/reconciliation/9");
+    expect(dashboardTarget(link("worker", "/api/v1/admin/workers/14", { tab: "documents" }))).toBe("/admin/workers/14?tab=documents");
     // Only the Documents tab is taken from the API; anything else opens the profile.
-    expect(dashboardHref(link("worker", "/api/v1/admin/workers/14", { tab: "payroll" }))).toBe("/admin/workers/14");
-    expect(dashboardHref(link("vehicles", "/api/v1/admin/vehicles", { search: "A 1234" }))).toBe("/admin/fleet/vehicles?search=A+1234");
-    expect(dashboardHref(link("drivers", "/api/v1/admin/drivers", { search: "Omar" }))).toBe("/admin/fleet/drivers?search=Omar");
-    expect(dashboardHref(link("incentives", "/api/v1/admin/incentives/proposals", { period: "2026-10" }))).toBe("/admin/workers/incentives?period=2026-10");
-    expect(dashboardHref(link("incentives", "/api/v1/admin/incentives/proposals", { period: "x" }))).toBe("/admin/workers/incentives");
+    expect(dashboardTarget(link("worker", "/api/v1/admin/workers/14", { tab: "payroll" }))).toBe("/admin/workers/14");
+    expect(dashboardTarget(link("vehicles", "/api/v1/admin/vehicles", { search: "A 1234" }))).toBe("/admin/fleet/vehicles?search=A+1234");
+    expect(dashboardTarget(link("drivers", "/api/v1/admin/drivers", { search: "Omar" }))).toBe("/admin/fleet/drivers?search=Omar");
+    expect(dashboardTarget(link("incentives", "/api/v1/admin/incentives/proposals", { period: "2026-10" }))).toBe("/admin/workers/incentives?period=2026-10");
+    expect(dashboardTarget(link("incentives", "/api/v1/admin/incentives/proposals", { period: "x" }))).toBe("/admin/workers/incentives");
   });
 
-  it("opens a case or a run from the alert's entity when the API gave no link", () => {
-    expect(dashboardAlertHref({ link: null, entity: { type: "complaint", id: 41, reference: "TC-4XQ8NM", case_type: "complaint" } })).toBe("/admin/quality/41");
-    expect(dashboardAlertHref({ link: null, entity: { type: "reconciliation_run", id: 9, reference: "2026-11-01" } })).toBe("/admin/finance/reconciliation/9");
+  it("links a Phase 5 target only once its page is built (W0 ships before W1–W4, P5-X29)", () => {
+    const link = (list: string, path: string, params: DashboardLink["params"] = {}): DashboardLink => ({ list, path, params });
+    const cases: [DashboardLink, string][] = [
+      [link("complaint", "/api/v1/admin/complaints/41"), "/admin/quality/41"],
+      [link("compensations", "/api/v1/admin/compensations"), "/admin/quality/compensations"],
+      [link("reconciliation_run", "/api/v1/admin/reconciliation/runs/9"), "/admin/finance/reconciliation/9"],
+      [link("incentives", "/api/v1/admin/incentives/proposals", { period: "2026-10" }), "/admin/workers/incentives?period=2026-10"],
+      [link("worker", "/api/v1/admin/workers/14", { tab: "documents" }), "/admin/workers/14?tab=documents"],
+      [link("vehicles", "/api/v1/admin/vehicles", { search: "A 1234" }), "/admin/fleet/vehicles?search=A+1234"],
+    ];
+    for (const [target, href] of cases) expect(dashboardHref(target), href).toBe(isBuiltAdminPage(href) ? href : null);
+    // The A05 worker page and the A06 lists exist already (which pages do not is pinned in alerts.test.ts).
+    expect(dashboardHref(link("worker", "/api/v1/admin/workers/14", { tab: "documents" }))).toBe("/admin/workers/14?tab=documents");
+    expect(dashboardHref(link("drivers", "/api/v1/admin/drivers", { search: "Omar" }))).toBe("/admin/fleet/drivers?search=Omar");
+  });
+
+  it("opens a case or a run from the alert's entity when the API gave no link, once its page is built", () => {
+    const caseHref = dashboardAlertHref({ link: null, entity: { type: "complaint", id: 41, reference: "TC-4XQ8NM", case_type: "complaint" } });
+    expect(caseHref).toBe(isBuiltAdminPage("/admin/quality/41") ? "/admin/quality/41" : null);
+    const runHref = dashboardAlertHref({ link: null, entity: { type: "reconciliation_run", id: 9, reference: "2026-11-01" } });
+    expect(runHref).toBe(isBuiltAdminPage("/admin/finance/reconciliation/9") ? "/admin/finance/reconciliation/9" : null);
     expect(dashboardAlertHref({ link: null, entity: { type: "vehicle", id: 3 } })).toBeNull();
   });
 

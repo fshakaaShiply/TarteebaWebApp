@@ -410,6 +410,10 @@ describe("A03 manual booking wizard", () => {
     const phone = screen.getByRole("textbox", { name: /Customer mobile number/ });
     await user.type(phone, "0500000002");
     expect(await screen.findByText("This customer's account can't make bookings.")).toBeInTheDocument();
+    // The API still names a blocked account; the wizard fills in neither its name nor its language (Omar's is "en").
+    expect(screen.getByRole("textbox", { name: /Customer name/ })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: /Customer's language/ })).toHaveValue("ar");
+    expect(screen.queryByText(/Omar Khalid/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("heading", { name: "Customer" })).toBeInTheDocument();
     expect(phone).toHaveAccessibleDescription(/This customer's account can't make bookings\./);

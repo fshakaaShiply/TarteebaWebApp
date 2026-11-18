@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isBuiltAdminPage } from "@/lib/admin/alerts";
 import { AdminApiError } from "@/lib/admin/client";
 import type { DashboardAlerts } from "@/lib/admin/types";
 import { bookingRow, dashboardSummary, serviceOptions, zoneOptions } from "@/test/bookingFixtures";
@@ -518,30 +519,43 @@ describe("A02 daily operations overview", () => {
     ];
     api.fetchDashboardAlerts.mockResolvedValue({ ...alerts, data, meta: { ...alerts.meta, types: data.map((a) => a.type), total: 8, urgent: 2 } });
     renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view", "complaints.manage"] });
-    const hrefs = async (title: string) => (await screen.findByRole("link", { name: `Open: ${title}` })).getAttribute("href");
-    expect(await hrefs("Complaint overdue")).toBe("/admin/quality/41");
-    expect(await hrefs("Complaint unassigned")).toBe("/admin/quality/42");
-    expect(await hrefs("Compensation to approve")).toBe("/admin/quality/compensations");
-    expect(await hrefs("Reconciliation failed")).toBe("/admin/finance/reconciliation/9");
-    expect(await hrefs("Reconciliation differences")).toBe("/admin/finance/reconciliation/8");
-    expect(await hrefs("Worker document expiring")).toBe("/admin/workers/14?tab=documents");
-    expect(await hrefs("Vehicle document expiring")).toBe("/admin/fleet/vehicles?search=A+1234");
-    expect(await hrefs("Incentive proposals pending")).toBe("/admin/workers/incentives?period=2026-10");
+    // Every alert is listed; "Open" leads to its page once that page is built (W0 ships before W1–W4, P5-X29), and
+    // never to a 404 or to the worker page of "incentives" meanwhile.
+    expect(await screen.findByText("Incentive proposals pending")).toBeInTheDocument();
+    for (const { title } of data) expect(screen.getByText(title.en)).toBeInTheDocument();
+    const href = (title: string) => screen.queryByRole("link", { name: `Open: ${title}` })?.getAttribute("href") ?? null;
+    const once = (path: string) => (isBuiltAdminPage(path) ? path : null);
+    expect(href("Complaint overdue")).toBe(once("/admin/quality/41"));
+    expect(href("Complaint unassigned")).toBe(once("/admin/quality/42"));
+    expect(href("Compensation to approve")).toBe(once("/admin/quality/compensations"));
+    expect(href("Reconciliation failed")).toBe(once("/admin/finance/reconciliation/9"));
+    expect(href("Reconciliation differences")).toBe(once("/admin/finance/reconciliation/8"));
+    expect(href("Incentive proposals pending")).toBe(once("/admin/workers/incentives?period=2026-10"));
+    // The A05 worker page and the A06 lists are built already.
+    expect(href("Worker document expiring")).toBe("/admin/workers/14?tab=documents");
+    expect(href("Vehicle document expiring")).toBe("/admin/fleet/vehicles?search=A+1234");
   });
 
-  it("shows the rating quick stat only when the API sends it", async () => {
+  it("shows the rating quick stat only when the API sends it, naming its 30 days", async () => {
     const base = dashboardSummary();
     api.fetchDashboardSummary.mockResolvedValue({ ...base, quick_stats: { ...base.quick_stats, rating: { average: 4.46, count: 12 } } });
     const first = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
-    const stat = (await screen.findByText("Average rating")).parentElement!;
+    // The API averages the last 30 days (QuickStats::rating), unlike its "today" neighbours: the label says so.
+    const stat = (await screen.findByText("Average rating (last 30 days)")).parentElement!;
     expect(stat).toHaveTextContent("4.5");
     expect(stat).toHaveTextContent("12 ratings");
     first.unmount();
 
+    const arabic = renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"], locale: "ar" });
+    const statAr = (await screen.findByText("متوسط التقييم (آخر 30 يومًا)")).parentElement!;
+    expect(statAr).toHaveTextContent("4.5");
+    expect(statAr).toHaveTextContent("تقييمًا");
+    arabic.unmount();
+
     api.fetchDashboardSummary.mockResolvedValue({ ...base, quick_stats: { ...base.quick_stats, rating: null } });
     renderWithProviders(<OverviewScreen />, { permissions: ["bookings.view"] });
     await screen.findByText("Cancellations today");
-    expect(screen.queryByText("Average rating")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Average rating/)).not.toBeInTheDocument();
   });
 
   it("welcomes staff without bookings or schedule access instead of loading figures", () => {

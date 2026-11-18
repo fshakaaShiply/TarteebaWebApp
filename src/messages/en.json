@@ -530,7 +530,7 @@
         "occupancyDetail": "{used} of {available} cleaner places booked",
         "cancellations": "Cancellations today",
         "cancellationsDetail": "Customer {customer} · Company {company} · System {system}",
-        "rating": "Average rating",
+        "rating": "Average rating (last 30 days)",
         "ratingDetail": "{count, plural, one {# rating} other {# ratings}}",
         "subscriptionsCancelled": "Subscriptions cancelled today",
         "subscriptionsCancelledDetail": "Customer {customer} · Staff {staff} · System {system}"
@@ -4969,11 +4969,6 @@
           "full_refund": "Full refund of the unused value",
           "company_cancel": "Company cancellation rule",
           "staff": "Staff decision"
-        },
-        "compensation": {
-          "none": "No compensation",
-          "credit": "Credit for the customer",
-          "discount_next": "Discount on the next period"
         },
         "unfit": {
           "not_active": "Not an active worker",

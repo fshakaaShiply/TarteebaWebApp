@@ -71,18 +71,51 @@ export function markAllReadInState(state: AlertsState, at: string): AlertsState 
 }
 
 /** Admin pages that an alert may open as the API names them (driver reports have no page by id yet). */
-const BUILT_PREFIXES = [
+export const BUILT_PREFIXES: readonly string[] = [
   "/admin/bookings/",
   "/admin/workers/",
   "/admin/capacity",
   "/admin/fleet/",
   "/admin/subscriptions/",
-  // Phase 5: A10 quality, A07 customers, A04 waitlist and A09 reconciliation runs.
+  // Phase 5: A10 quality, A07 customers, A04 waitlist and A09 reconciliation runs (each opens once its page is built,
+  // PAGES_NOT_BUILT_YET).
   "/admin/quality/",
   "/admin/customers/",
   "/admin/waitlist",
   "/admin/finance/reconciliation/",
 ];
+
+/**
+ * Phase 5 pages the API already links to (the bell and the A02 alerts) whose screens come with a later web slice. W0
+ * ships with the Phase 5 API on its own and W1–W4 follow as they finish (P5-X29), so until a page exists no alert opens
+ * it: the link would 404, or land on a page by id (/admin/workers/incentives is the worker page of "incentives", which
+ * the API answers 404). The slice that builds a page takes its entry out: W1 reconciliation, W2 quality, W3 customers,
+ * W4 incentives and the waitlist. alerts.test.ts fails while an entry names a page that exists.
+ */
+export const PAGES_NOT_BUILT_YET: readonly string[] = [
+  "/admin/finance/reconciliation",
+  "/admin/quality",
+  "/admin/customers",
+  "/admin/workers/incentives",
+  "/admin/waitlist",
+];
+
+/** The path without its query or fragment and trailing slashes ("/admin/quality/41?x=1" → "/admin/quality/41"). */
+function barePath(path: string): string {
+  return path.split(/[?#]/, 1)[0].replace(/(.)\/+$/, "$1");
+}
+
+/** Whether `path` is the page `page` or one below it ("/admin/waitlist" holds "/admin/waitlist/3", not "/admin/waitlistx"). */
+function isUnder(path: string, page: string): boolean {
+  const bare = barePath(path);
+  const root = barePath(page);
+  return bare === root || bare.startsWith(`${root}/`);
+}
+
+/** False for a path in a Phase 5 page that is not built yet (PAGES_NOT_BUILT_YET); every alert link goes through it. */
+export function isBuiltAdminPage(path: string): boolean {
+  return !PAGES_NOT_BUILT_YET.some((page) => isUnder(path, page));
+}
 
 /**
  * Pages the API names by their API path (PaymentIntents: a payment or refund alert, booking or subscription period,
@@ -99,7 +132,7 @@ const FINANCE_PAGES: readonly { pattern: RegExp; base: string; anyOf: readonly s
  */
 export function alertHref(alert: Pick<AdminAlert, "link" | "entity">, canAny: (permissions: readonly string[]) => boolean = () => true): string | null {
   const path = safeAdminNext(alert.link);
-  if (path && BUILT_PREFIXES.some((prefix) => path.startsWith(prefix))) return path;
+  if (path && isBuiltAdminPage(path) && BUILT_PREFIXES.some((prefix) => (prefix.endsWith("/") ? path.startsWith(prefix) : isUnder(path, prefix)))) return path;
   for (const page of FINANCE_PAGES) {
     const match = path ? page.pattern.exec(path) : null;
     if (match && canAny(page.anyOf)) return `${page.base}/${match[1]}`;

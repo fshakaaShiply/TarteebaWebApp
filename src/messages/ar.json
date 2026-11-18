@@ -530,7 +530,7 @@
         "occupancyDetail": "أماكن العاملات المحجوزة: {used} من {available}",
         "cancellations": "إلغاءات اليوم",
         "cancellationsDetail": "العميل {customer} · الشركة {company} · النظام {system}",
-        "rating": "متوسط التقييم",
+        "rating": "متوسط التقييم (آخر 30 يومًا)",
         "ratingDetail": "{count, plural, one {تقييم واحد} two {تقييمان} few {# تقييمات} many {# تقييمًا} other {# تقييم}}",
         "subscriptionsCancelled": "اشتراكات أُلغيت اليوم",
         "subscriptionsCancelledDetail": "العميل {customer} · الموظفون {staff} · النظام {system}"
@@ -4969,11 +4969,6 @@
           "full_refund": "استرداد كامل للقيمة غير المستخدمة",
           "company_cancel": "قاعدة إلغاء الشركة",
           "staff": "قرار الموظف"
-        },
-        "compensation": {
-          "none": "بلا تعويض",
-          "credit": "رصيد للعميل",
-          "discount_next": "خصم على الفترة القادمة"
         },
         "unfit": {
           "not_active": "ليست عاملة نشطة",
