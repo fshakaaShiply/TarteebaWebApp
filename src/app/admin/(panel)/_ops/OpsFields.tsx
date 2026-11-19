@@ -41,24 +41,27 @@ export function TimeSelect({ label, kind, value, error, hint, className, contain
   );
 }
 
-/** "Expired" / "Expires soon" next to a document date (insurance, registration, licence), within 30 days. */
-export function ExpiryBadge({ date, today = businessToday() }: { date: string | null | undefined; today?: string }) {
+/**
+ * "Expired" / "Expires soon" next to a document date (insurance, registration, licence). "Soon" is within `warningDays`:
+ * the lists name it in `meta.document_alert_days` (Settings fleet.document_alert_days, Phase 5), 30 until they do.
+ */
+export function ExpiryBadge({ date, today = businessToday(), warningDays }: { date: string | null | undefined; today?: string; warningDays?: number }) {
   const t = useTranslations("admin.ops.expiry");
-  const state = expiryState(date, today);
+  const state = expiryState(date, today, warningDays);
   if (state === "expired") return <StatusBadge tone="danger">{t("expired")}</StatusBadge>;
   if (state === "soon") return <StatusBadge tone="pending">{t("soon")}</StatusBadge>;
   return null;
 }
 
 /** A document date with its badge; "—" style "not recorded" text when empty. */
-export function ExpiryDate({ date }: { date: string | null | undefined }) {
+export function ExpiryDate({ date, warningDays }: { date: string | null | undefined; warningDays?: number }) {
   const t = useTranslations("admin.ops.expiry");
   const text = useOpsText();
   if (!date) return <span className="text-sm text-ink-600">{t("none")}</span>;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <span className="text-sm text-ink-900">{text.dateShort(date)}</span>
-      <ExpiryBadge date={date} />
+      <ExpiryBadge date={date} warningDays={warningDays} />
     </span>
   );
 }

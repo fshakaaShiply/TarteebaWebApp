@@ -164,6 +164,25 @@ describe("alerts bell state (D-11 polling)", () => {
     }
   });
 
+  it("opens the incentive.posted notice on A09's posting page for HR and the accountant who download it, and for nobody else", () => {
+    const posted = { link: "/admin/incentive-postings/4", entity: { type: "incentive_posting", id: 4 } };
+    const can = (held: string[]) => (wanted: readonly string[]) => wanted.some((p) => held.includes(p));
+    expect(alertHref(posted, can(["incentives.view"]))).toBe("/admin/finance/incentive-postings/4");
+    expect(alertHref(posted, can(["incentives.approve"]))).toBe("/admin/finance/incentive-postings/4");
+    expect(alertHref(posted, can(["payments.view"]))).toBeNull();
+    expect(routeExists("/admin/finance/incentive-postings/4")).toBe(true);
+  });
+
+  it("opens the Phase 5 incentive and waitlist pages now that W4 built them, and nothing is left unbuilt", () => {
+    expect(PAGES_NOT_BUILT_YET).toEqual([]);
+    expect(isBuiltAdminPage("/admin/workers/incentives?period=2026-10")).toBe(true);
+    expect(isBuiltAdminPage("/admin/waitlist")).toBe(true);
+    expect(alertHref({ link: "/admin/workers/incentives?period=2026-10", entity: null })).toBe("/admin/workers/incentives?period=2026-10");
+    expect(alertHref({ link: "/admin/waitlist", entity: null })).toBe("/admin/waitlist");
+    expect(routeExists("/admin/workers/incentives")).toBe(true);
+    expect(routeExists("/admin/waitlist")).toBe(true);
+  });
+
   it("opens a subscription period's payment or refund alert on A09 only for staff who read it", () => {
     // refund.subscription_failed (accountants, urgent): the payment page, where the refund is retried.
     const refundFailed = { link: "/admin/payments/55", entity: { type: "refund", id: 7 } };

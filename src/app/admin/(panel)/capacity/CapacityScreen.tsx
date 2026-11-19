@@ -24,6 +24,7 @@ import { addDaysIso, businessToday, isIsoDate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, EXCLUSION_REASONS, overrideOptions } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
+import { waitlistHref } from "@/lib/admin/workforce/waitlist";
 import type { CapacitySlot, CapacityView, Vehicle } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
 import { RequirePermission } from "../../_components/RequirePermission";
@@ -176,7 +177,7 @@ function CapacityBody({ view, vehicles }: { view: CapacityView; vehicles: Vehicl
       {view.uncovered_visits && <UncoveredVisits view={view} />}
       <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {view.slots.map((slot) => (
-          <SlotCard key={slot.slot_template_id} slot={slot} vehicles={vehicles} onOverride={() => setOverriding(slot)} />
+          <SlotCard key={slot.slot_template_id} slot={slot} day={view.date} zoneId={view.zone.id} vehicles={vehicles} onOverride={() => setOverriding(slot)} />
         ))}
       </div>
       {overriding && <OverrideDialog view={view} slot={overriding} onClose={() => setOverriding(null)} />}
@@ -243,7 +244,7 @@ function Stat({ label, value, hint, strong }: { label: string; value: number; hi
   );
 }
 
-function SlotCard({ slot, vehicles, onOverride }: { slot: CapacitySlot; vehicles: Vehicle[] | undefined; onOverride: () => void }) {
+function SlotCard({ slot, day, zoneId, vehicles, onOverride }: { slot: CapacitySlot; day: string; zoneId: number; vehicles: Vehicle[] | undefined; onOverride: () => void }) {
   const t = useTranslations("admin.capacity");
   const text = useOpsText();
   const ruleText = useRuleText();
@@ -350,6 +351,22 @@ function SlotCard({ slot, vehicles, onOverride }: { slot: CapacitySlot; vehicles
           <dt className="text-xs font-medium text-ink-600">{t("holds")}</dt>
           <dd className="text-ink-900">{t("holdsValue", { active: slot.holds.active, converted: slot.holds.converted })}</dd>
         </div>
+        {slot.waitlist && (
+          <div className="flex flex-col gap-0.5">
+            <dt className="text-xs font-medium text-ink-600">{t("waitlist")}</dt>
+            <dd className="text-ink-900">
+              {t("waitlistValue", { waiting: slot.waitlist.waiting, notified: slot.waitlist.notified })}
+              {can("waitlist.manage") && (
+                <>
+                  {" · "}
+                  <Link href={waitlistHref(day, zoneId, slot.slot_template_id)} className="font-bold" aria-label={t("waitlistOpenLabel", { slot: text.name(slot.name) })}>
+                    {t("waitlistOpen")}
+                  </Link>
+                </>
+              )}
+            </dd>
+          </div>
+        )}
         <div className="flex flex-col gap-0.5 sm:col-span-2">
           <dt className="text-xs font-medium text-ink-600">{t("rule")}</dt>
           <dd className="text-ink-900">

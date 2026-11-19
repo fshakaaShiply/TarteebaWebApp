@@ -138,9 +138,63 @@ describe("assignment panel (§8.5–§8.7)", () => {
 
     await user.selectOptions(within(dialog).getByRole("combobox", { name: /New cleaner/ }), "1");
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Sick today");
+    // The type of reason is required beside the free text: nothing is sent without it (P5-W06).
     await user.click(within(dialog).getByRole("button", { name: "Replace" }));
-    await waitFor(() => expect(api.replaceWorker).toHaveBeenCalledWith(4, { worker_id: 3, new_worker_id: 1, reason: "Sick today" }, 1));
+    expect(within(dialog).getByText("Choose the type of reason.")).toBeInTheDocument();
+    expect(api.replaceWorker).not.toHaveBeenCalled();
+    expect(within(within(dialog).getByRole("combobox", { name: /Type of reason/ })).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Choose a type",
+      "Cleaner unavailable",
+      "Cleaner running late",
+      "Operational change",
+      "Customer request",
+      "Other reason",
+    ]);
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Type of reason/ }), "worker_unavailable");
+    await user.click(within(dialog).getByRole("button", { name: "Replace" }));
+    await waitFor(() =>
+      expect(api.replaceWorker).toHaveBeenCalledWith(4, { worker_id: 3, new_worker_id: 1, reason: "Sick today", reason_code: "worker_unavailable" }, 1),
+    );
     expect(await screen.findByText(`${isolate("Lakshmi N.")} is replaced.`)).toBeInTheDocument();
+  });
+
+  it("lists who left the visit and why, in the API's own label and in both languages (P5-W06)", async () => {
+    api.fetchVisitCandidates.mockResolvedValue(visitCandidates(1));
+    const detail = bookingDetail();
+    detail.visits = [
+      {
+        ...detail.visits[0],
+        released_assignments: [
+          {
+            worker_id: 9,
+            display_name: "Joy R.",
+            role: "primary",
+            assigned_at: "2026-10-20T08:00:00+00:00",
+            released_at: "2026-10-23T09:00:00+00:00",
+            release_reason: "Sick today",
+            release_reason_code: "worker_unavailable",
+            release_reason_label: { ar: "العاملة غير متاحة", en: "Cleaner unavailable" },
+          },
+          {
+            worker_id: 8,
+            display_name: "Siti R.",
+            role: "substitute",
+            assigned_at: "2026-10-20T08:00:00+00:00",
+            released_at: "2026-10-23T10:00:00+00:00",
+            release_reason: null,
+            release_reason_code: null,
+            release_reason_label: null,
+          },
+        ],
+      },
+    ];
+    const { unmount } = renderWithProviders(<AssignmentPanel booking={detail} />, { permissions: MANAGER });
+    const released = (await screen.findByRole("region", { name: "Left this visit" })).querySelectorAll("li");
+    expect(released[0]).toHaveTextContent(`${isolate("Joy R.")}: Cleaner unavailable · Sick today`);
+    expect(released[1]).toHaveTextContent(`${isolate("Siti R.")}: no reason recorded`);
+    unmount();
+    renderWithProviders(<AssignmentPanel booking={detail} />, { permissions: MANAGER, locale: "ar" });
+    expect((await screen.findByRole("region", { name: "غادرت هذه الزيارة" })).querySelectorAll("li")[0]).toHaveTextContent("العاملة غير متاحة");
   });
 
   it("sets the cleaners' names as their own bidi runs in Arabic: the team, the candidates, the dialog and the toast", async () => {
@@ -155,8 +209,10 @@ describe("assignment panel (§8.5–§8.7)", () => {
     await user.click(replace);
     const dialog = screen.getByRole("alertdialog", { name: `استبدال ${isolate("Lakshmi N.")}` });
     // An <option> holds text only: a bare "Maria S." showed as ".Maria S" in the RTL select.
-    expect(within(within(dialog).getByRole("combobox")).getByRole("option", { name: isolate("Maria S.") })).toHaveValue("1");
-    await user.selectOptions(within(dialog).getByRole("combobox"), "1");
+    const [workerSelect, reasonSelect] = within(dialog).getAllByRole("combobox");
+    expect(within(workerSelect).getByRole("option", { name: isolate("Maria S.") })).toHaveValue("1");
+    await user.selectOptions(workerSelect, "1");
+    await user.selectOptions(reasonSelect, "worker_late");
     await user.type(within(dialog).getByRole("textbox"), "Sick today");
     await user.click(within(dialog).getByRole("button", { name: "استبدال" }));
     // The name no longer ends the sentence ("Lakshmi N..").
@@ -179,7 +235,11 @@ describe("assignment panel (§8.5–§8.7)", () => {
     const dialog = screen.getByRole("alertdialog", { name: `Remove ${isolate("Lakshmi N.")} from this visit?` });
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Sick");
     await user.click(within(dialog).getByRole("button", { name: "Remove" }));
-    await waitFor(() => expect(api.unassignWorker).toHaveBeenCalledWith(4, 3, "Sick", 1, false));
+    expect(within(dialog).getByText("Choose the type of reason.")).toBeInTheDocument();
+    expect(api.unassignWorker).not.toHaveBeenCalled();
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Type of reason/ }), "worker_unavailable");
+    await user.click(within(dialog).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(api.unassignWorker).toHaveBeenCalledWith(4, 3, "Sick", 1, false, "worker_unavailable"));
     // The short slot by its name and times, not its code.
     const shortRow = within(await within(dialog).findByRole("table")).getAllByRole("row")[1];
     expect(await within(shortRow).findByText("Morning")).toBeInTheDocument();
@@ -190,7 +250,7 @@ describe("assignment panel (§8.5–§8.7)", () => {
     expect(within(dialog).getByText("An override needs a reason of at least 10 characters.")).toBeInTheDocument();
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), " and no cover");
     await user.click(within(dialog).getByRole("button", { name: "Remove anyway" }));
-    await waitFor(() => expect(api.unassignWorker).toHaveBeenLastCalledWith(4, 3, "Sick and no cover", 1, true));
+    await waitFor(() => expect(api.unassignWorker).toHaveBeenLastCalledWith(4, 3, "Sick and no cover", 1, true, "worker_unavailable"));
   });
 
   it("shows the team without candidates to a role that cannot assign or read them", async () => {

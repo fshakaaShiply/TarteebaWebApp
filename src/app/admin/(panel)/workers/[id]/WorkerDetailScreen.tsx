@@ -8,24 +8,41 @@ import { ButtonLink, Card, ErrorState, LoadingBlock, PageHeader, StatusBadge, Ta
 import { AdminApiError } from "@/lib/admin/client";
 import { fetchWorker } from "@/lib/admin/endpoints";
 import { adminKeys } from "@/lib/admin/keys";
+import { useAdminSession } from "@/lib/admin/session";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { useZoneName } from "../../_ops/options";
 import { employmentTone, useOpsText } from "../../_ops/opsText";
+import { WorkerAttendanceTab } from "./WorkerAttendanceTab";
+import { WorkerDocumentsTab } from "./WorkerDocumentsTab";
 import { WorkerInfoTab } from "./WorkerInfoTab";
 import { WorkerLeavesTab } from "./WorkerLeavesTab";
+import { WorkerPerformanceTab } from "./WorkerPerformanceTab";
+import { WorkerPhotoCard } from "./WorkerPhotoCard";
 import { WorkerScheduleTab } from "./WorkerScheduleTab";
 import { WorkerServicesTab } from "./WorkerServicesTab";
 
 const TABS_ID = "a05-worker";
-const TABS = ["info", "schedule", "services", "leaves"] as const;
+const TABS = ["info", "schedule", "services", "leaves", "attendance", "documents", "performance"] as const;
 type Tab = (typeof TABS)[number];
 
+/**
+ * The tabs this user may open (design P5-W41): the app's four, then attendance (attendance.manage), the documents (HR,
+ * workers.documents) and the performance and incentives tab (any reader of a cleaner; its incentive card needs
+ * incentives.approve). The API refuses every one again.
+ */
+function allowedTabs(can: (permission: string) => boolean): readonly Tab[] {
+  return TABS.filter((tab) => (tab === "attendance" ? can("attendance.manage") : tab === "documents" ? can("workers.documents") : true));
+}
+
 export function WorkerDetailScreen({ id, initialTab }: { id: string; initialTab?: string }) {
+  const { can } = useAdminSession();
+  const tabs = allowedTabs(can);
   return (
     <RequirePermission anyOf={["workers.view"]}>
       <WorkerDetail
+        tabs={tabs}
         id={/^\d+$/.test(id) ? Number(id) : null}
-        initialTab={(TABS as readonly string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "info"}
+        initialTab={(tabs as readonly string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "info"}
       />
     </RequirePermission>
   );
@@ -46,7 +63,7 @@ function BackLink() {
   );
 }
 
-function WorkerDetail({ id, initialTab }: { id: number | null; initialTab: Tab }) {
+function WorkerDetail({ id, tabs, initialTab }: { id: number | null; tabs: readonly Tab[]; initialTab: Tab }) {
   const t = useTranslations("admin.workers.detail");
   const text = useOpsText();
   const zoneName = useZoneName();
@@ -93,13 +110,24 @@ function WorkerDetail({ id, initialTab }: { id: number | null; initialTab: Tab }
   const panel = (value: Tab) => {
     switch (value) {
       case "info":
-        return <WorkerInfoTab worker={worker} />;
+        return (
+          <>
+            <WorkerPhotoCard worker={worker} />
+            <WorkerInfoTab worker={worker} />
+          </>
+        );
       case "schedule":
         return <WorkerScheduleTab worker={worker} />;
       case "services":
         return <WorkerServicesTab worker={worker} />;
       case "leaves":
         return <WorkerLeavesTab worker={worker} />;
+      case "attendance":
+        return <WorkerAttendanceTab worker={worker} />;
+      case "documents":
+        return <WorkerDocumentsTab worker={worker} />;
+      case "performance":
+        return <WorkerPerformanceTab worker={worker} />;
     }
   };
 
@@ -132,9 +160,9 @@ function WorkerDetail({ id, initialTab }: { id: number | null; initialTab: Tab }
         label={t("tabsLabel")}
         value={tab}
         onValueChange={selectTab}
-        items={TABS.map((value) => ({ value, label: t(`tabs.${value}`) }))}
+        items={tabs.map((value) => ({ value, label: t(`tabs.${value}`) }))}
       />
-      {TABS.filter((value) => visited.has(value)).map((value) => (
+      {tabs.filter((value) => visited.has(value)).map((value) => (
         <TabPanel key={value} id={TABS_ID} value={value} hidden={value !== tab} className="flex flex-col gap-5">
           {panel(value)}
         </TabPanel>

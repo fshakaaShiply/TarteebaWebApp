@@ -502,10 +502,31 @@ export type Worker = {
   shifts?: ShiftRow[];
   on_leave_until?: string | null;
   upcoming_leaves?: (WorkerLeave | LeaveSummary)[];
+  // Phase 5 (A5 §7): the week's planned minutes, the rating, the approved photo, and for workers.documents holders the
+  // document alert and the documents' summary. `photo` is on the detail only.
+  week_minutes?: number;
+  rating?: { average: number; count: number } | null;
+  photo_url?: string | null;
+  alert?: WorkerDocumentAlert | null;
+  alerts_count?: number;
+  photo?: { url: string | null; approved_at: string | null; approved_by: { id: number; name: string } | null } | null;
+  documents_summary?: { type: string; type_label: Translatable; expires_at: string | null; state: "valid" | "expiring" | "expired" | "no_expiry" }[];
   version: number;
   created_at: string | null;
   updated_at: string | null;
 };
+
+export type WorkerDocumentAlert = {
+  document_id: number;
+  type: string;
+  type_label: Translatable;
+  expires_at: string | null;
+  days_left: number | null;
+  state: "valid" | "expiring" | "expired" | "no_expiry";
+};
+
+/** The vehicles and drivers lists carry the days within which a document counts as expiring (Phase 5, A5 §7 Fleet). */
+export type FleetPage<T> = { data: T[]; meta: PageMeta & { document_alert_days?: number } };
 
 // ---- Phase 2: A06 vehicles and drivers (app/Modules/Fleet/Http/Resources) ----------------------------------------
 
@@ -628,6 +649,8 @@ export type CapacitySlot = {
   rule: SlotRuleSnapshot | null;
   max_workers_fit: number;
   holds: { active: number; converted: number };
+  /** Phase 5 (A6 §5.2): the open waitlist requests of this date, zone and slot (counted for every reader of the view). */
+  waitlist?: { waiting: number; notified: number };
   zone_workers: number;
   excluded: Partial<Record<ExclusionReason, number>>;
 };
@@ -1080,6 +1103,17 @@ export type BookingVisit = {
   status_label: Translatable;
   sub_zone_id: number | null;
   assignments: { worker_id: number; display_name: string; role: string; assigned_at: string }[];
+  /** Phase 5 (P5-W06): who left the visit and why, oldest first. */
+  released_assignments?: {
+    worker_id: number;
+    display_name: string;
+    role: string;
+    assigned_at: string;
+    released_at: string;
+    release_reason: string | null;
+    release_reason_code: "worker_unavailable" | "worker_late" | "operational" | "customer_request" | "visit_closed" | "other" | null;
+    release_reason_label: Translatable | null;
+  }[];
 };
 
 export type BookingPayment = {

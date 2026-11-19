@@ -1,4 +1,4 @@
-import { DOCUMENTS_READ, INVOICES_PATH, PAYMENTS_PATH, safeAdminNext } from "./nav";
+import { DOCUMENTS_READ, INCENTIVE_POSTINGS_PATH, INCENTIVES_READ, INVOICES_PATH, PAYMENTS_PATH, safeAdminNext } from "./nav";
 import type { AdminAlert, AlertsPage } from "./types";
 
 /*
@@ -94,9 +94,8 @@ export const BUILT_PREFIXES: readonly string[] = [
  */
 export const PAGES_NOT_BUILT_YET: readonly string[] = [
   // W1 built /admin/finance/reconciliation (runs and /{id}); W2 built /admin/quality (inbox, /{id}, ratings, compensations);
-  // W3 built /admin/customers (list, /{ulid}, privacy-requests).
-  "/admin/workers/incentives",
-  "/admin/waitlist",
+  // W3 built /admin/customers (list, /{ulid}, privacy-requests); W4 built /admin/workers/incentives and /admin/waitlist.
+  // Nothing is left: every Phase 5 page the API links to exists.
 ];
 
 /** The path without its query or fragment and trailing slashes ("/admin/quality/41?x=1" → "/admin/quality/41"). */
@@ -123,6 +122,8 @@ export function isBuiltAdminPage(path: string): boolean {
 const FINANCE_PAGES: readonly { pattern: RegExp; base: string; anyOf: readonly string[] }[] = [
   { pattern: /^\/admin\/payments\/(\d+)$/, base: PAYMENTS_PATH, anyOf: ["payments.view"] },
   { pattern: /^\/admin\/invoices\/(\d+)$/, base: INVOICES_PATH, anyOf: DOCUMENTS_READ },
+  // Phase 5 (W4): the incentive.posted notice links /admin/incentive-postings/{id}, which is A09's page.
+  { pattern: /^\/admin\/incentive-postings\/(\d+)$/, base: INCENTIVE_POSTINGS_PATH, anyOf: INCENTIVES_READ },
 ];
 
 /**

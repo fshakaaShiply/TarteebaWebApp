@@ -58,13 +58,14 @@ describe("ADMIN_NAV", () => {
       ADMIN_NAV.filter((m) => m.code === code).flatMap((m) => (m.children ?? [m]).map((c) => `${c.id}:${c.built ? "built" : "later"}`));
     expect(built("A02")).toEqual(["overview:built"]);
     expect(built("A03")).toEqual(["bookings:built"]);
-    expect(built("A04")).toEqual(["schedule:built", "capacity:built"]);
-    expect(built("A05")).toEqual(["workers:built"]);
+    expect(built("A04")).toEqual(["schedule:built", "capacity:built", "waitlist:built"]);
+    expect(built("A05")).toEqual(["workersList:built", "attendance:built", "incentives:built"]);
     expect(built("A08")).toEqual(["subscriptions:built"]);
     expect(built("A06")).toEqual(["vehicles:built", "drivers:built", "trips:built", "driverReports:built"]);
     const fleet = ADMIN_NAV.find((m) => m.code === "A06")!;
     expect(fleet.children!.map((c) => c.href)).toEqual(["/admin/fleet/vehicles", "/admin/fleet/drivers", "/admin/trips", "/admin/trips/reports"]);
-    expect(ADMIN_NAV.find((m) => m.code === "A04")!.children!.map((c) => c.href)).toEqual(["/admin/schedule", "/admin/capacity"]);
+    expect(ADMIN_NAV.find((m) => m.code === "A04")!.children!.map((c) => c.href)).toEqual(["/admin/schedule", "/admin/capacity", "/admin/waitlist"]);
+    expect(ADMIN_NAV.find((m) => m.code === "A05")!.children!.map((c) => c.href)).toEqual(["/admin/workers", "/admin/workers/attendance", "/admin/workers/incentives"]);
   });
 });
 
@@ -95,17 +96,20 @@ describe("filterNav", () => {
       "users.manage",
       "audit.view",
       "reports.export",
+      "attendance.manage",
+      "incentives.approve",
+      "waitlist.manage",
     ];
     expect(ids([...all, "trips.manage"])).toEqual([
       "access",
       "overview",
       "bookings",
-      "operations[schedule,capacity]",
-      "workers",
+      "operations[schedule,capacity,waitlist]",
+      "workers[workersList,attendance,incentives]",
       "fleet[vehicles,drivers,trips,driverReports]",
       "customers[customersList,privacyRequests]",
       "subscriptions",
-      "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports]",
+      "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports,incentivePostings]",
       "quality[qualityInbox,qualityRatings,qualityCompensations]",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,legalPages,faq,settings]",
       "reports",
@@ -144,7 +148,7 @@ describe("filterNav", () => {
       "overview",
       "bookings",
       "operations[schedule,capacity]",
-      "workers",
+      "workers[workersList]",
       "fleet[vehicles,trips,driverReports]",
     ]);
     // Operations coordinator: also fleet.manage and trips.manage → drivers.
@@ -152,7 +156,7 @@ describe("filterNav", () => {
       "access",
       "overview",
       "operations[schedule,capacity]",
-      "workers",
+      "workers[workersList]",
       "fleet[vehicles,drivers,trips,driverReports]",
     ]);
     // HR: workers and capacity, no fleet editing (schedule.view still reads vehicles, rounds and driver reports).
@@ -160,7 +164,7 @@ describe("filterNav", () => {
       "access",
       "overview",
       "operations[schedule,capacity]",
-      "workers",
+      "workers[workersList]",
       "fleet[vehicles,trips,driverReports]",
     ]);
     // trips.manage alone: the trip planner and the reports, no vehicles list.
@@ -283,6 +287,45 @@ describe("safeAdminNext", () => {
   });
 });
 
+describe("Phase 5 workforce, waitlist and incentive postings (W4)", () => {
+  it("gives A05 three entries by permission: the list, the attendance sheet, the incentives", () => {
+    expect(ids(["workers.view"])).toEqual(["access", "workers[workersList]"]);
+    expect(ids(["attendance.manage"])).toEqual(["access", "workers[attendance]"]);
+    expect(ids(["incentives.approve"])).toEqual(["access", "workers[incentives]", "finance[incentivePostings]"]);
+    expect(ids(["workers.view", "attendance.manage", "incentives.approve"])).toContain("workers[workersList,attendance,incentives]");
+  });
+
+  it("marks the list on a worker's page and the incentives page, with its rules page, under their own entries", () => {
+    const workers = ADMIN_NAV.find((m) => m.code === "A05")!.children!;
+    expect(activeChildHref(workers, "/admin/workers/14")).toBe("/admin/workers");
+    expect(activeChildHref(workers, "/admin/workers/attendance")).toBe("/admin/workers/attendance");
+    expect(activeChildHref(workers, "/admin/workers/incentives")).toBe("/admin/workers/incentives");
+    expect(activeChildHref(workers, "/admin/workers/incentives/rules")).toBe("/admin/workers/incentives");
+  });
+
+  it("puts the waitlist in A04 for waitlist.manage alone, after the capacity view", () => {
+    expect(ids(["waitlist.manage"])).toEqual(["access", "operations[waitlist]"]);
+    expect(ids(["schedule.view", "waitlist.manage"])).toContain("operations[schedule,capacity,waitlist]");
+    const operations = ADMIN_NAV.find((m) => m.code === "A04")!.children!;
+    expect(activeChildHref(operations, "/admin/waitlist")).toBe("/admin/waitlist");
+  });
+
+  it("shows the incentive postings in A09 to incentives.view (the accountant) as well as to HR", () => {
+    expect(ids(["incentives.view"])).toEqual(["access", "finance[incentivePostings]"]);
+    expect(ids(["payments.view", "incentives.view"])).toEqual(["access", "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,incentivePostings]"]);
+    const finance = ADMIN_NAV.find((m) => m.code === "A09")!.children!;
+    expect(activeChildHref(finance, "/admin/finance/incentive-postings/4")).toBe("/admin/finance/incentive-postings");
+  });
+
+  it("sends a user whose only permission is a W4 page to it", () => {
+    expect(firstAccessiblePath(["attendance.manage"])).toBe("/admin/workers/attendance");
+    expect(firstAccessiblePath(["incentives.approve"])).toBe("/admin/workers/incentives");
+    expect(firstAccessiblePath(["waitlist.manage"])).toBe("/admin/waitlist");
+    expect(firstAccessiblePath(["incentives.view"])).toBe("/admin/finance/incentive-postings");
+    expect(firstAccessiblePath(["workers.view", "attendance.manage"])).toBe("/admin/workers");
+  });
+});
+
 describe("A09 finance and A11 notification templates", () => {
   it("builds A09 summary, payments, refunds, invoices, credit notes, refused documents, reconciliation and exports", () => {
     const finance = ADMIN_NAV.find((m) => m.code === "A09")!;
@@ -298,6 +341,7 @@ describe("A09 finance and A11 notification templates", () => {
       "/admin/finance/billing-refusals:built",
       "/admin/finance/reconciliation:built",
       "/admin/finance/exports:built",
+      "/admin/finance/incentive-postings:built",
     ]);
   });
 

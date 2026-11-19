@@ -84,6 +84,7 @@ import type {
   LiveOutPlan,
   LiveOutPlanKind,
   MaterialsMode,
+  FleetPage,
   Paginated,
   Permission,
   Policy,
@@ -781,6 +782,8 @@ export type WorkerListQuery = {
   serviceId?: number;
   skill?: string;
   search?: string;
+  /** HR (workers.documents): only workers with a document alert; 403 FORBIDDEN without that permission. */
+  alert?: "documents";
 };
 
 export async function fetchWorkers(q: WorkerListQuery): Promise<Paginated<Worker>> {
@@ -795,6 +798,7 @@ export async function fetchWorkers(q: WorkerListQuery): Promise<Paginated<Worker
           service_id: q.serviceId,
           skill: q.skill,
           search: q.search?.trim(),
+          alert: q.alert,
         }) as never,
       },
     }),
@@ -930,8 +934,8 @@ export async function cancelLeave(id: number, note: string, version: number): Pr
 
 export type FleetListQuery = { page?: number; perPage?: number; status?: VehicleStatus | DriverStatus | ""; zoneId?: number; search?: string };
 
-export async function fetchVehicles(q: FleetListQuery): Promise<Paginated<Vehicle>> {
-  return unwrap<Paginated<Vehicle>>(
+export async function fetchVehicles(q: FleetListQuery): Promise<FleetPage<Vehicle>> {
+  return unwrap<FleetPage<Vehicle>>(
     adminApi.GET("/v1/admin/vehicles", {
       params: {
         query: compact({ page: q.page, per_page: q.perPage, status: q.status, zone_id: q.zoneId, search: q.search?.trim() }) as never,
@@ -960,8 +964,8 @@ export async function updateVehicle(id: number, input: Partial<VehiclePayload>, 
   return body.data;
 }
 
-export async function fetchDrivers(q: FleetListQuery): Promise<Paginated<Driver>> {
-  return unwrap<Paginated<Driver>>(
+export async function fetchDrivers(q: FleetListQuery): Promise<FleetPage<Driver>> {
+  return unwrap<FleetPage<Driver>>(
     adminApi.GET("/v1/admin/drivers", {
       params: { query: compact({ page: q.page, per_page: q.perPage, status: q.status, search: q.search?.trim() }) as never },
     }),
@@ -1561,11 +1565,21 @@ export async function assignWorkers(visitId: number, workerIds: number[], versio
   return body.data;
 }
 
-export async function unassignWorker(visitId: number, workerId: number, reason: string, version: number | null, override = false): Promise<VisitSummary> {
+/** Why a worker left a visit (Phase 5, A5 §7): the API's staff codes; `visit_closed` is only ever written by the system. */
+export type ReleaseReasonCode = "worker_unavailable" | "worker_late" | "operational" | "customer_request" | "other";
+
+export async function unassignWorker(
+  visitId: number,
+  workerId: number,
+  reason: string,
+  version: number | null,
+  override = false,
+  reasonCode: ReleaseReasonCode = "other",
+): Promise<VisitSummary> {
   const body = await unwrap<DataEnvelope<VisitSummary>>(
     adminApi.POST("/v1/admin/visits/{visit}/unassign", {
       params: { path: { visit: visitId } },
-      body: { worker_id: workerId, reason, ...(override ? { override: true } : {}) } as never,
+      body: { worker_id: workerId, reason, reason_code: reasonCode, ...(override ? { override: true } : {}) } as never,
       headers: optionalIfMatch(version),
     }),
   );
@@ -1574,7 +1588,7 @@ export async function unassignWorker(visitId: number, workerId: number, reason: 
 
 export async function replaceWorker(
   visitId: number,
-  input: { worker_id: number; new_worker_id: number; reason: string; override?: boolean },
+  input: { worker_id: number; new_worker_id: number; reason: string; reason_code?: ReleaseReasonCode; override?: boolean },
   version: number | null,
 ): Promise<VisitSummary> {
   const body = await unwrap<DataEnvelope<VisitSummary>>(

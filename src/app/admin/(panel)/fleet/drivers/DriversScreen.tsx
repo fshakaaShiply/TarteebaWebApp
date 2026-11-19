@@ -121,7 +121,7 @@ function DriversTable({ onEdit }: { onEdit: (driver: Driver) => void }) {
       cell: (d) => (
         <div className="flex flex-col gap-0.5">
           <MaskedLicence last4={d.license_no_last4} />
-          <ExpiryDate date={d.license_expires_at} />
+          <ExpiryDate date={d.license_expires_at} warningDays={list.data?.meta.document_alert_days} />
         </div>
       ),
     },

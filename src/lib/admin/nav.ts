@@ -78,6 +78,16 @@ export const PRIVACY_REQUESTS_PATH = "/admin/customers/privacy-requests";
 export const LEGAL_PAGES_PATH = "/admin/settings/pages";
 export const FAQ_PATH = "/admin/settings/faq";
 
+/** Phase 5 (W4): the A05 pages (workers.view lists; attendance.manage records; incentives.approve decides), the A04 waitlist and A09 postings. */
+export const WORKERS_PATH = "/admin/workers";
+export const ATTENDANCE_PATH = "/admin/workers/attendance";
+export const INCENTIVE_PROPOSALS_PATH = "/admin/workers/incentives";
+export const INCENTIVE_RULES_PATH = "/admin/workers/incentives/rules";
+export const INCENTIVE_POSTINGS_PATH = "/admin/finance/incentive-postings";
+export const WAITLIST_PATH = "/admin/waitlist";
+/** The postings are readable by HR (who posts) and by the accountant who downloads the file (Workforce routes/admin.php). */
+export const INCENTIVES_READ = ["incentives.approve", "incentives.view"] as const;
+
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
@@ -97,9 +107,25 @@ export const ADMIN_NAV: readonly NavModule[] = [
     children: [
       { id: "schedule", labelKey: "schedule", href: SCHEDULE_PATH, anyOf: ["schedule.view"], built: true },
       { id: "capacity", labelKey: "capacity", href: CAPACITY_PATH, anyOf: ["schedule.view"], built: true },
+      // Phase 5: the waitlist of customers who asked to hear when a full slot frees up (staff offer a place, waitlist.manage).
+      { id: "waitlist", labelKey: "waitlist", href: WAITLIST_PATH, anyOf: ["waitlist.manage"], built: true },
     ],
   },
-  { id: "workers", code: "A05", labelKey: "workers", href: "/admin/workers", anyOf: ["workers.view"], built: true },
+  {
+    // A05 (Phase 5, P5-W41): the workers list and profiles, the daily attendance sheet and the monthly incentives. The list is
+    // a prefix of the other two: activeChildHref marks the longest match, so they keep their own entry.
+    id: "workers",
+    code: "A05",
+    labelKey: "workers",
+    href: WORKERS_PATH,
+    anyOf: ["workers.view", "attendance.manage", "incentives.approve"],
+    built: true,
+    children: [
+      { id: "workersList", labelKey: "workersList", href: WORKERS_PATH, anyOf: ["workers.view"], built: true },
+      { id: "attendance", labelKey: "attendance", href: ATTENDANCE_PATH, anyOf: ["attendance.manage"], built: true },
+      { id: "incentives", labelKey: "incentives", href: INCENTIVE_PROPOSALS_PATH, anyOf: ["incentives.approve"], built: true },
+    ],
+  },
   {
     id: "fleet",
     code: "A06",
@@ -145,7 +171,7 @@ export const ADMIN_NAV: readonly NavModule[] = [
     code: "A09",
     labelKey: "finance",
     href: FINANCE_SUMMARY_PATH,
-    anyOf: ["payments.view", "invoices.manage", "refunds.create"],
+    anyOf: ["payments.view", "invoices.manage", "refunds.create", "incentives.view", "incentives.approve"],
     built: true,
     children: [
       // A prefix of every other finance page: activeChildHref marks the longest match, so they keep their own entry.
@@ -159,6 +185,8 @@ export const ADMIN_NAV: readonly NavModule[] = [
       // Phase 5: the run pages read with either permission (reconciliation.run resolves), exports need reports.export.
       { id: "reconciliation", labelKey: "reconciliation", href: RECONCILIATION_PATH, anyOf: RECONCILIATION_READ, built: true },
       { id: "exports", labelKey: "exports", href: EXPORTS_PATH, anyOf: ["reports.export"], built: true },
+      // Phase 5 (W4): the incentive postings HR made, which accounting downloads (incentives.view reads, HR holds both).
+      { id: "incentivePostings", labelKey: "incentivePostings", href: INCENTIVE_POSTINGS_PATH, anyOf: INCENTIVES_READ, built: true },
     ],
   },
   {
@@ -250,14 +278,16 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
  * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 summary (or the refunds
- * list for refunds.create alone), the A08 subscriptions, the A10 inbox, the A07 customers, else the overview's welcome note.
+ * list for refunds.create alone), the A08 subscriptions, the A10 inbox, the A07 customers, the A04 waitlist and the A09 incentive postings, else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
   if (permissions.includes("catalog.manage")) return "/admin/catalog/services";
   if (permissions.includes("settings.manage")) return "/admin/settings";
   if (permissions.includes("users.manage")) return "/admin/users";
-  if (permissions.includes("workers.view")) return "/admin/workers";
+  if (permissions.includes("workers.view")) return WORKERS_PATH;
+  if (permissions.includes("attendance.manage")) return ATTENDANCE_PATH;
+  if (permissions.includes("incentives.approve")) return INCENTIVE_PROPOSALS_PATH;
   if (permissions.includes("fleet.manage")) return "/admin/fleet/vehicles";
   if (permissions.includes("trips.manage")) return TRIPS_PATH;
   if (hasAnyPermission(permissions, DOCUMENTS_READ)) return FINANCE_SUMMARY_PATH;
@@ -266,6 +296,8 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, QUALITY_READ)) return QUALITY_PATH;
   if (permissions.includes("customers.view")) return CUSTOMERS_LIST_PATH;
   if (permissions.includes("customers.privacy_requests")) return PRIVACY_REQUESTS_PATH;
+  if (permissions.includes("waitlist.manage")) return WAITLIST_PATH;
+  if (hasAnyPermission(permissions, INCENTIVES_READ)) return INCENTIVE_POSTINGS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 

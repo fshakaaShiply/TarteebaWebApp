@@ -26,12 +26,14 @@ import { isPollDriven } from "@/lib/admin/backgroundRefresh";
 import { AdminApiError } from "@/lib/admin/client";
 import { overrideRequiredOf } from "@/lib/admin/bookings/actions";
 import { VISIT_STATUS_TARGETS, assignmentReasonSchema, visitStatusSchema, type VisitStatusValues } from "@/lib/admin/bookings/forms";
-import { assignWorkers, fetchVisitCandidates, replaceWorker, setVisitStatus, unassignWorker } from "@/lib/admin/endpoints";
+import { assignWorkers, fetchVisitCandidates, replaceWorker, setVisitStatus, unassignWorker, type ReleaseReasonCode } from "@/lib/admin/endpoints";
 import { applyFieldErrors, useAdminErrorMessage } from "@/lib/admin/errors";
 import { isolate } from "@/lib/admin/format";
 import { adminKeys } from "@/lib/admin/keys";
 import { CAPACITY_OVERRIDE_PERMISSION, FORCE_REASON_MAX, readShortfalls } from "@/lib/admin/ops/capacity";
 import { useAdminSession } from "@/lib/admin/session";
+import { RELEASE_REASON_CODES } from "@/lib/admin/workforce/assignment";
+import { useWorkforceText } from "@/lib/admin/workforce/text";
 import type { BookingDetail, BookingVisit, CandidateReason, CandidateWorker, VisitCandidates } from "@/lib/admin/types";
 import { ResourceConflictNotice, ShortfallTable } from "../../_ops/Shortfall";
 import { SlotLabel } from "../_components/BookingBits";
@@ -118,6 +120,8 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
   const assigned = fromSummary?.workers.map((w) => ({ id: w.id, name: w.display_name })) ?? visit.assignments.map((a) => ({ id: a.worker_id, name: a.display_name }));
   const missing = fromSummary?.missing ?? Math.max(0, required - assigned.length);
 
+  const wt = useWorkforceText();
+  const released = visit.released_assignments ?? [];
   const [unassigning, setUnassigning] = useState<{ id: number; name: string } | null>(null);
   const [replacing, setReplacing] = useState<{ id: number; name: string } | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -177,6 +181,23 @@ function VisitTeam({ booking, visit }: { booking: BookingDetail; visit: BookingV
               ? t("nobodyDone")
               : t("nobody")}
         </p>
+      )}
+
+      {released.length > 0 && (
+        <section className="flex flex-col gap-1" aria-label={t("releasedTitle")}>
+          <h4 className="text-xs font-bold text-ink-600">{t("releasedTitle")}</h4>
+          <ul className="flex flex-col gap-0.5 text-sm text-ink-900">
+            {released.map((r) => (
+              <li key={`${r.worker_id}-${r.released_at}`}>
+                {t("releasedLine", {
+                  name: isolate(r.display_name),
+                  reason: r.release_reason_label ? (wt.locale === "ar" ? r.release_reason_label.ar : r.release_reason_label.en) : r.release_reason_code ? wt.releaseReason(r.release_reason_code) : t("releasedNoReason"),
+                })}
+                {r.release_reason ? <span className="text-ink-600"> · {r.release_reason}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {assignable && missing > 0 && canSeeCandidates && (
@@ -546,12 +567,15 @@ function UnassignDialog({
   const toast = useToast();
   const after = useAfterTeamChange(visitId);
   const { can } = useAdminSession();
+  const wt = useWorkforceText();
   const [reason, setReason] = useState("");
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [override, setOverride] = useState(false);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [field, setField] = useState<HTMLTextAreaElement | null>(null);
   const mutation = useMutation({
-    mutationFn: (input: { reason: string; override: boolean }) => unassignWorker(visitId, worker.id, input.reason, version, input.override),
+    mutationFn: (input: { reason: string; override: boolean }) => unassignWorker(visitId, worker.id, input.reason, version, input.override, code as ReleaseReasonCode),
     onSuccess: () => {
       toast.success(t("unassigned", { name: isolate(worker.name) }));
       after();
@@ -563,10 +587,12 @@ function UnassignDialog({
 
   const submit = () => {
     const parsed = assignmentReasonSchema(override).safeParse({ reason });
+    if (!code) setCodeError(f("reasonCodeRequired"));
     if (!parsed.success) {
       showFieldError(() => setReasonError(f(parsed.error.issues[0]?.message ?? "reasonRequired")), field);
       return;
     }
+    if (!code) return;
     mutation.mutate({ reason: parsed.data, override });
   };
 
@@ -582,6 +608,18 @@ function UnassignDialog({
       onConfirm={submit}
       returnFocusTo={returnFocusTo}
     >
+      <Select
+        label={t("reasonCode")}
+        required
+        placeholder={t("reasonCodeChoose")}
+        value={code}
+        onChange={(e) => {
+          setCode(e.target.value);
+          setCodeError(null);
+        }}
+        options={RELEASE_REASON_CODES.map((c) => ({ value: c, label: wt.releaseReason(c) }))}
+        error={codeError}
+      />
       <TextArea
         ref={setField}
         label={t("reason")}
@@ -630,10 +668,12 @@ function ReplaceDialog({
   const ruleLabel = useRuleLabel();
   const { can } = useAdminSession();
   const canOverride = can(CAPACITY_OVERRIDE_PERMISSION);
+  const wt = useWorkforceText();
   const [newWorker, setNewWorker] = useState("");
   const [reason, setReason] = useState("");
+  const [code, setCode] = useState("");
   const [override, setOverride] = useState(false);
-  const [errors, setErrors] = useState<{ worker?: string; reason?: string }>({});
+  const [errors, setErrors] = useState<{ worker?: string; reason?: string; code?: string }>({});
   const [field, setField] = useState<HTMLTextAreaElement | null>(null);
 
   const options: { worker: CandidateWorker; soft: boolean }[] = [
@@ -644,7 +684,11 @@ function ReplaceDialog({
 
   const mutation = useMutation({
     mutationFn: (input: { reason: string; override: boolean }) =>
-      replaceWorker(visitId, { worker_id: worker.id, new_worker_id: Number(newWorker), reason: input.reason, ...(input.override ? { override: true } : {}) }, data.visit.version),
+      replaceWorker(
+        visitId,
+        { worker_id: worker.id, new_worker_id: Number(newWorker), reason: input.reason, reason_code: code as ReleaseReasonCode, ...(input.override ? { override: true } : {}) },
+        data.visit.version,
+      ),
     onSuccess: () => {
       toast.success(t("replaced", { name: isolate(worker.name) }));
       after();
@@ -655,11 +699,12 @@ function ReplaceDialog({
   const useOverride = override || !!chosen?.soft;
 
   const submit = () => {
-    const next: { worker?: string; reason?: string } = {};
+    const next: { worker?: string; reason?: string; code?: string } = {};
     if (!newWorker) next.worker = f("required");
+    if (!code) next.code = f("reasonCodeRequired");
     const parsed = assignmentReasonSchema(useOverride).safeParse({ reason });
     if (!parsed.success) next.reason = f(parsed.error.issues[0]?.message ?? "reasonRequired");
-    if (next.worker || next.reason || !parsed.success) {
+    if (next.worker || next.reason || next.code || !parsed.success) {
       showFieldError(() => setErrors(next), next.worker ? null : field);
       return;
     }
@@ -692,6 +737,18 @@ function ReplaceDialog({
         error={errors.worker}
       />
       {chosen?.soft && <Notice tone="warning">{t("softChosen")}</Notice>}
+      <Select
+        label={t("reasonCode")}
+        required
+        placeholder={t("reasonCodeChoose")}
+        value={code}
+        onChange={(e) => {
+          setCode(e.target.value);
+          setErrors((x) => ({ ...x, code: undefined }));
+        }}
+        options={RELEASE_REASON_CODES.map((c) => ({ value: c, label: wt.releaseReason(c) }))}
+        error={errors.code}
+      />
       <TextArea
         ref={setField}
         label={t("reason")}

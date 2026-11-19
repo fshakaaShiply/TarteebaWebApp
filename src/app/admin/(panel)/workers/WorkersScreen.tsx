@@ -24,10 +24,14 @@ import {
   type Column,
 } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
-import { createWorker, fetchWorkers } from "@/lib/admin/endpoints";
+import { createWorker, fetchDashboardSummary, fetchWorkers } from "@/lib/admin/endpoints";
 import { applyFieldErrors } from "@/lib/admin/errors";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
+import { OVERVIEW_PERMISSIONS } from "@/lib/admin/nav";
+import { businessToday } from "@/lib/admin/format";
+import { hoursText } from "@/lib/admin/workforce/incentives";
+import { useWorkforceText } from "@/lib/admin/workforce/text";
 import { EMPLOYMENT_STATUSES, newWorkerValues, workerFormSchema, type WorkerPayload } from "@/lib/admin/ops/workforce";
 import { useAdminSession } from "@/lib/admin/session";
 import type { EmploymentStatus, Worker } from "@/lib/admin/types";
@@ -37,6 +41,7 @@ import { useOpsInvalidate } from "../_ops/invalidate";
 import { useChoiceOptions, useServiceChoices, useServiceName, useSkills, useZoneChoices, useZoneName } from "../_ops/options";
 import { employmentTone, useOpsText } from "../_ops/opsText";
 import { WORKER_FIELDS, WorkerFormFields } from "./WorkerFormFields";
+import { WorkerAvatar } from "./_components/WorkerAvatar";
 
 const PER_PAGE = 25;
 
@@ -64,12 +69,14 @@ export function WorkersScreen() {
   );
 }
 
-type Filters = { search: string; zone: string; status: string; service: string; skill: string };
-const NO_FILTERS: Filters = { search: "", zone: "", status: "", service: "", skill: "" };
+type Filters = { search: string; zone: string; status: string; service: string; skill: string; alert: string };
+const NO_FILTERS: Filters = { search: "", zone: "", status: "", service: "", skill: "", alert: "" };
 
 function WorkersTable() {
   const t = useTranslations("admin.workers");
   const text = useOpsText();
+  const wt = useWorkforceText();
+  const { can, canAny } = useAdminSession();
   const zones = useZoneChoices();
   const services = useServiceChoices();
   const choiceOptions = useChoiceOptions();
@@ -85,7 +92,7 @@ function WorkersTable() {
   };
 
   const list = useQuery({
-    queryKey: adminKeys.workerList({ page, search, zone: filters.zone, status: filters.status, service: filters.service, skill: filters.skill }),
+    queryKey: adminKeys.workerList({ page, search, zone: filters.zone, status: filters.status, service: filters.service, skill: filters.skill, alert: filters.alert }),
     queryFn: () =>
       fetchWorkers({
         page,
@@ -95,19 +102,31 @@ function WorkersTable() {
         status: filters.status as EmploymentStatus | "",
         serviceId: filters.service ? Number(filters.service) : undefined,
         skill: filters.skill,
+        alert: filters.alert === "documents" ? "documents" : undefined,
       }),
     placeholderData: keepPreviousData,
   });
+  // "9 available today" is the overview's own figure: read only by staff who may open the overview (the API refuses the rest).
+  const summary = useQuery({
+    queryKey: adminKeys.dashboardSummary(businessToday(), null),
+    queryFn: () => fetchDashboardSummary({ date: businessToday() }),
+    enabled: canAny(OVERVIEW_PERMISSIONS),
+    retry: false,
+  });
+  const available = summary.data?.panels.workers.available;
 
   const columns: Column<Worker>[] = [
     {
       id: "worker",
       header: t("columns.worker"),
       cell: (w) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-ink-900">{w.display_name}</span>
-          <span className="text-xs text-ink-600">{text.name(w.full_name)}</span>
-          <LtrText className="text-xs text-ink-600">{w.employee_no}</LtrText>
+        <div className="flex items-center gap-3">
+          <WorkerAvatar name={w.display_name} url={w.photo_url} />
+          <div className="flex flex-col">
+            <span className="font-bold text-ink-900">{w.display_name}</span>
+            <span className="text-xs text-ink-600">{text.name(w.full_name)}</span>
+            <LtrText className="text-xs text-ink-600">{w.employee_no}</LtrText>
+          </div>
         </div>
       ),
     },
@@ -154,6 +173,52 @@ function WorkersTable() {
         ),
     },
     {
+      id: "weekHours",
+      header: t("columns.weekHours"),
+      cell: (w) => (w.week_minutes === undefined ? <span className="text-sm text-ink-600">—</span> : <span className="font-latin text-sm">{t("hoursValue", { hours: hoursText(w.week_minutes) })}</span>),
+    },
+    {
+      id: "rating",
+      header: t("columns.rating"),
+      cell: (w) =>
+        w.rating ? (
+          <span className="text-sm">
+            <span aria-hidden>★ </span>
+            <bdi dir="ltr" className="font-latin font-medium">
+              {w.rating.average.toFixed(1)}
+            </bdi>
+            <span className="text-ink-600"> · {t("ratingCount", { count: w.rating.count })}</span>
+          </span>
+        ) : (
+          <span className="text-sm text-ink-600">—</span>
+        ),
+    },
+    ...(can("workers.documents")
+      ? [
+          {
+            id: "alert",
+            header: t("columns.alert"),
+            cell: (w: Worker) => {
+              const a = w.alert;
+              if (!a) return <span className="text-sm text-ink-600">—</span>;
+              const more = (w.alerts_count ?? 1) - 1;
+              return (
+                <span className="flex flex-col items-start gap-0.5">
+                  <StatusBadge tone={a.state === "expired" ? "danger" : "pending"}>
+                    {a.state === "expired"
+                      ? t("alertExpired", { type: wt.documentType(a.type) })
+                      : a.days_left === 0
+                        ? t("alertToday", { type: wt.documentType(a.type) })
+                        : t("alertSoon", { type: wt.documentType(a.type), count: a.days_left ?? 0 })}
+                  </StatusBadge>
+                  {more > 0 && <span className="text-xs text-ink-600">{t("alertMore", { count: more })}</span>}
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
+    {
       id: "liveOut",
       header: t("columns.liveOut"),
       cell: (w) => (w.can_live_out ? <StatusBadge tone="confirmed">{t("liveOutYes")}</StatusBadge> : <span className="text-sm text-ink-600">—</span>),
@@ -181,6 +246,11 @@ function WorkersTable() {
 
   return (
     <Card>
+      {list.data && (
+        <p className="text-sm text-ink-600" aria-live="polite">
+          {available === undefined ? t("countLine", { count: list.data.meta.total }) : t("countLineAvailable", { count: list.data.meta.total, available })}
+        </p>
+      )}
       <FilterBar
         canReset={filtered}
         onReset={() => {
@@ -213,6 +283,16 @@ function WorkersTable() {
           options={choiceOptions(services.data)}
           containerClassName="min-w-[170px]"
         />
+        {can("workers.documents") && (
+          <Select
+            label={t("filters.documents")}
+            placeholder={t("filters.allCleaners")}
+            value={filters.alert}
+            onChange={(e) => setFilter("alert", e.target.value)}
+            options={[{ value: "documents", label: t("filters.documentAlerts") }]}
+            containerClassName="min-w-[170px]"
+          />
+        )}
         <Select
           label={t("filters.skill")}
           placeholder={t("filters.allSkills")}
@@ -233,7 +313,7 @@ function WorkersTable() {
         onRetry={() => void list.refetch()}
         empty={<EmptyState title={filtered ? t("noMatches") : t("empty")} />}
         pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
-        minWidth={960}
+        minWidth={1100}
       />
     </Card>
   );

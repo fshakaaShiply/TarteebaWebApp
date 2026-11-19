@@ -126,8 +126,8 @@ function VehiclesTable({ onEdit }: { onEdit?: (vehicle: Vehicle) => void }) {
       header: t("columns.driver"),
       cell: (v) => (v.default_driver ? v.default_driver.name : <span className="text-ink-600">{t("noDriver")}</span>),
     },
-    { id: "insurance", header: t("columns.insurance"), cell: (v) => <ExpiryDate date={v.insurance_expires_at} /> },
-    { id: "registration", header: t("columns.registration"), cell: (v) => <ExpiryDate date={v.registration_expires_at} /> },
+    { id: "insurance", header: t("columns.insurance"), cell: (v) => <ExpiryDate date={v.insurance_expires_at} warningDays={list.data?.meta.document_alert_days} /> },
+    { id: "registration", header: t("columns.registration"), cell: (v) => <ExpiryDate date={v.registration_expires_at} warningDays={list.data?.meta.document_alert_days} /> },
     {
       id: "status",
       header: t("columns.status"),

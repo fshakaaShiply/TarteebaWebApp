@@ -249,6 +249,34 @@ describe("capacity view and manual override", () => {
     await waitFor(() => expect(api.overrideCapacity).toHaveBeenCalledWith(expect.objectContaining({ service_id: 1, action: "open" })));
   });
 
+  it("counts the slot's open waitlist requests, and links to them only with waitlist.manage (waitlist §7.1)", async () => {
+    api.fetchCapacity.mockResolvedValue({ ...view, slots: [slot({ waitlist: { waiting: 3, notified: 1 } }), view.slots[1]] });
+    const { unmount } = renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view"] });
+    const morning = (await screen.findByRole("heading", { name: "Morning" })).closest("section")!;
+    expect(within(morning).getByText("Waitlist").nextElementSibling).toHaveTextContent("3 waiting · 1 offered");
+    // Everyone who reads the view sees the count; the link is for those who manage the waitlist.
+    expect(within(morning).queryByRole("link", { name: /Open the waitlist/ })).not.toBeInTheDocument();
+    // A slot the API sends no count for shows no line.
+    expect(within(screen.getByRole("heading", { name: "Evening" }).closest("section")!).queryByText("Waitlist")).not.toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view", "waitlist.manage"] });
+    const withLink = (await screen.findByRole("heading", { name: "Morning" })).closest("section")!;
+    // That day, that zone and that slot, the open requests (the filter names are the waitlist page's own).
+    expect(within(withLink).getByRole("link", { name: "Open the waitlist for Morning" })).toHaveAttribute(
+      "href",
+      "/admin/waitlist?date_from=2026-10-24&date_to=2026-10-24&zone_id=1&slot_template_id=1&status=open",
+    );
+  });
+
+  it("writes the waitlist line in Arabic", async () => {
+    api.fetchCapacity.mockResolvedValue({ ...view, slots: [slot({ waitlist: { waiting: 3, notified: 1 } })] });
+    renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view", "waitlist.manage"], locale: "ar" });
+    const morning = (await screen.findByRole("heading", { name: "الفترة الصباحية" })).closest("section")!;
+    expect(within(morning).getByText("قائمة الانتظار").nextElementSibling).toHaveTextContent("3 في الانتظار · 1 عُرض عليهم مكان");
+    expect(within(morning).getByRole("link", { name: "فتح قائمة الانتظار لفترة الفترة الصباحية" })).toBeInTheDocument();
+  });
+
   it("renders in Arabic", async () => {
     renderWithProviders(<CapacityScreen />, { permissions: ["schedule.view"], locale: "ar" });
     expect(await screen.findByRole("heading", { name: "الفترة الصباحية" })).toBeInTheDocument();
