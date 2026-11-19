@@ -113,7 +113,7 @@ export function BulkApproveDialog({ proposals, live, onClose }: { proposals: Inc
     >
       {terms && (
         <Notice tone="warning" title={t("termsChangedTitle")}>
-          {t("termsChanged", { total: wt.money(terms.total) })}
+          {t("termsChanged", { total: wt.moneyText(terms.total) })}
         </Notice>
       )}
       <LinesTable lines={lines} names={names} changed={changed} />

@@ -3036,10 +3036,12 @@
           "show": "Show",
           "none": "No visits, rounds or absences were found for this day.",
           "visit": "Visit {reference} ({status})",
-          "round": "Round {kind}, left at {time}",
+          "round": "{kind} round, left at {time}",
           "pickups": "{count, plural, one {# pick-up completed} other {# pick-ups completed}}",
           "liveOut": "A Live-out day is booked.",
-          "released": "Released from a visit: {reason}"
+          "released": "Released from a visit: {reason}",
+          "visitPlain": "Visit {reference}",
+          "roundPlain": "Round, left at {time}"
         },
         "dialogTitle": "Attendance of {name}",
         "dialogBody": "{date}",
@@ -3137,7 +3139,6 @@
         "unrecordedLeaveValue": "{unrecorded} not recorded · {leave} on leave",
         "incentive": {
           "title": "Proposed incentive for {month}",
-          "titlePlain": "Proposed incentive",
           "auto": "Computed automatically from hours, rating and punctuality. It is not sent to accounting before it is approved.",
           "ratingNote": "A rating never changes pay automatically: HR decides.",
           "approve": "Approve",
@@ -3145,7 +3146,8 @@
           "reject": "Reject",
           "reopen": "Reopen",
           "final": "Final: posted to accounting",
-          "openMonth": "Open the month"
+          "openMonth": "Open the month",
+          "none": "No incentive has been proposed for {month} yet."
         }
       },
       "errors": {
@@ -8431,7 +8433,9 @@
         "approve": "Approve ({count})",
         "reject": "Reject ({count})",
         "post": "Post ({count} approved, {adjustments} adjustments)",
-        "staleHint": "Some selected proposals have changed figures: recompute them before approving."
+        "staleHint": "Some selected proposals have changed figures: recompute them before approving.",
+        "zeroHint": "{count, plural, one {# selected proposal is zero, so Approve leaves it out: edit its amount or reject it.} other {# selected proposals are zero, so Approve leaves them out: edit their amounts or reject them.}}",
+        "moreAdjustments": "{count, plural, one {# more open adjustment is not shown: post these first, then the rest.} other {# more open adjustments are not shown: post these first, then the rest.}}"
       },
       "enums": {
         "status": {
@@ -8503,7 +8507,10 @@
         "amountHint": "In dirhams, up to 2 decimals.",
         "reason": "Reason for the change",
         "reasonRequiredHint": "The amount differs from the proposal: say why (at least 3 characters).",
-        "reasonOptionalHint": "Needed only when you change the amount."
+        "reasonOptionalHint": "Needed only when you change the amount.",
+        "proposedMovedTitle": "The proposed amount changed",
+        "proposedMoved": "The proposal is now {to} (it was {from}). The amount to approve follows it.",
+        "proposedMovedTyped": "The proposal is now {to} (it was {from}). The amount you typed is kept: check it before approving."
       },
       "reject": {
         "title": "Reject the incentive of {name}",
@@ -8581,7 +8588,8 @@
         "postedTitle": "Posted",
         "postedBody": "Posting {reference} was made: {count, plural, one {# line} other {# lines}}, {total}.",
         "downloadFile": "Download the file",
-        "openPosting": "Open the posting"
+        "openPosting": "Open the posting",
+        "singleNote": "Only this incentive is posted. The month's open adjustments stay open for a later posting."
       },
       "drawer": {
         "title": "Incentive of {name}",
@@ -8615,7 +8623,15 @@
         "deleted": "Adjustment deleted.",
         "gone": "This adjustment is no longer in the list.",
         "movedWaiting": "This adjustment changed while you were working. Reading the latest version…",
-        "movedRenewed": "This adjustment changed while you were working. Check it and confirm again."
+        "movedRenewed": "This adjustment changed while you were working. Check it and confirm again.",
+        "heldTitle": "An adjustment sent earlier got no answer",
+        "heldBody": "It may have been saved. Check the Adjustments list before adding another, or send it again: it is never added twice.",
+        "heldNote": "{amount} for {name}, {month}.",
+        "unknownTitle": "No answer came back",
+        "unknownBody": "The adjustment may have been saved. Sending it again is safe: it is never added twice. Check the Adjustments list before adding a different one.",
+        "earlierTitle": "The earlier adjustment was saved",
+        "earlierBody": "The adjustment sent earlier without an answer was saved, so this one was not added. Send the earlier one again to confirm it, then add this one.",
+        "resendEarlier": "Send the earlier adjustment again"
       },
       "adjustments": {
         "title": "Adjustments of {month}",
@@ -8633,7 +8649,8 @@
         "postedIn": "Posted in {reference}",
         "delete": "Delete",
         "deleteLabel": "Delete the adjustment of {name}",
-        "empty": "No adjustments for this month."
+        "empty": "No adjustments for this month.",
+        "openMonth": "{month} has not ended yet: its adjustments can be posted once it has."
       },
       "postings": {
         "title": "Postings of {month}",
@@ -8790,7 +8807,6 @@
       "caption": "Waitlist requests",
       "theCustomer": "the customer",
       "deletedCustomer": "Deleted customer",
-      "customerStatus": "Account: {status}",
       "team": "{count, plural, one {1 cleaner} other {# cleaners}}",
       "lastBy": "Last by {name}",
       "lastAuto": "Last automatic",
@@ -8897,6 +8913,11 @@
         "OFFER_LIVE_plain": "A place was just offered and the offer is still live. Use “Notify again” only if you mean to send another.",
         "WAITLIST_NOTICE_DISABLED": "The waitlist message is switched off in the notification templates, so nothing can be sent.",
         "WAITLIST_BUSY": "The slot is being updated by another action. Try again in a moment."
+      },
+      "customerState": {
+        "blocked": "Account blocked",
+        "pending_deletion": "Account being closed",
+        "other": "Account not active"
       }
     }
   },

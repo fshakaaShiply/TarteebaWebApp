@@ -36,10 +36,15 @@ export function previousPeriod(period: string): string {
   return addDaysIso(`${period}-01`, -1).slice(0, 7);
 }
 
+/** The last month that has ended: the one whose proposals HR decides on now (computed from the 4th or so, P5-W74). */
+export function lastEndedPeriod(today: string = businessToday()): string {
+  return previousPeriod(currentPeriod(today));
+}
+
 /** The ended months, newest first (the month picker of the proposals page). */
 export function closedPeriods(count = 12, today: string = businessToday()): string[] {
   const out: string[] = [];
-  let period = previousPeriod(currentPeriod(today));
+  let period = lastEndedPeriod(today);
   for (let i = 0; i < count; i++) {
     out.push(period);
     period = previousPeriod(period);
@@ -49,7 +54,15 @@ export function closedPeriods(count = 12, today: string = businessToday()): stri
 
 /** "2026-10" from a link; anything else (or an unended month) falls back to the last ended month. */
 export function periodFromParam(value: string | null | undefined, today: string = businessToday()): string {
-  return value && isClosedPeriod(value, today) ? value : previousPeriod(currentPeriod(today));
+  return value && isClosedPeriod(value, today) ? value : lastEndedPeriod(today);
+}
+
+/**
+ * The month of the Adjustments tab: an adjustment may be made for the current month too (P5-W89), so that tab also
+ * shows it (proposals and postings exist only for ended months). Anything later or malformed falls back to `fallback`.
+ */
+export function adjustmentPeriodFromParam(value: string | null | undefined, fallback: string, today: string = businessToday()): string {
+  return value && isPeriod(value) && value <= currentPeriod(today) ? value : fallback;
 }
 
 /** The first day of a period as a local date, for the date helpers. */
@@ -102,6 +115,33 @@ export function totalOf(lines: readonly { amount_fils: number }[]): number {
 /** A proposal HR can approve: proposed, and its figures not changed since compute (409 METRICS_STALE otherwise). */
 export function canApprove(p: Pick<IncentiveProposal, "status" | "metrics_stale_at">): boolean {
   return p.status === "proposed" && p.metrics_stale_at === null;
+}
+
+/**
+ * A proposal that can be approved at the amount it was proposed: the API approves only 1 fils or more
+ * (ApproveProposal::assertAmount), and a bulk approval is all or nothing (one AED 0.00 line refuses the whole batch with
+ * 422 AMOUNT_OUT_OF_RANGE, naming no proposal). A zero proposal (a recompute that dropped it to zero, P5-W59, or a
+ * system-rejected zero reopened) needs "Edit amount" or "Reject".
+ */
+export function canApproveAsProposed(p: Pick<IncentiveProposal, "status" | "metrics_stale_at" | "proposed_fils">): boolean {
+  return canApprove(p) && p.proposed_fils >= 1;
+}
+
+/** The row of one worker in a proposals page searched by her employee number (the search also matches names and longer numbers). */
+export function findWorkerProposal<T extends Pick<IncentiveProposal, "worker">>(rows: readonly T[], workerId: number): T | null {
+  return rows.find((p) => p.worker.id === workerId) ?? null;
+}
+
+/** Every page of a list, up to `maxPages` (the post takes at most `max_bulk` 500 adjustments: 5 pages of 100). */
+export async function readAllPages<T>(
+  fetchPage: (page: number) => Promise<{ data: T[]; meta: { last_page: number; total: number } }>,
+  maxPages = 5,
+): Promise<{ rows: T[]; total: number }> {
+  const first = await fetchPage(1);
+  const rows = [...first.data];
+  const last = Math.min(first.meta.last_page, maxPages);
+  for (let page = 2; page <= last; page++) rows.push(...(await fetchPage(page)).data);
+  return { rows, total: Math.max(first.meta.total, rows.length) };
 }
 
 /** The figures behind an open proposal changed since it was computed: it must be recomputed before it is approved. */

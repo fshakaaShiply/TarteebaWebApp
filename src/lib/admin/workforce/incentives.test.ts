@@ -2,22 +2,27 @@ import { describe, expect, it } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import { adjustment, proposal, rule } from "@/test/workforceFixtures";
 import {
+  adjustmentPeriodFromParam,
   approveLines,
   bpText,
   canApprove,
+  canApproveAsProposed,
   changedLineKeys,
   closedPeriods,
   currentPeriod,
   decimalToInt,
   emptyRuleForm,
+  findWorkerProposal,
   hoursInput,
   hoursText,
   isClosedPeriod,
   isStale,
+  lastEndedPeriod,
   periodFromParam,
   postLines,
   previousPeriod,
   proposalFils,
+  readAllPages,
   readIds,
   readTermsChanged,
   ruleFieldOf,
@@ -49,6 +54,44 @@ describe("incentive months", () => {
     expect(periodFromParam("2026-10", TODAY)).toBe("2026-09");
     expect(periodFromParam("nonsense", TODAY)).toBe("2026-09");
     expect(periodFromParam(null, TODAY)).toBe("2026-09");
+  });
+
+  it("names the last ended month (the one HR decides on now), also across a year", () => {
+    expect(lastEndedPeriod(TODAY)).toBe("2026-09");
+    expect(lastEndedPeriod("2026-01-02")).toBe("2025-12");
+  });
+
+  it("lets the Adjustments tab show the current month too, never a later one", () => {
+    expect(adjustmentPeriodFromParam("2026-10", "2026-09", TODAY)).toBe("2026-10");
+    expect(adjustmentPeriodFromParam("2026-07", "2026-09", TODAY)).toBe("2026-07");
+    expect(adjustmentPeriodFromParam("2026-11", "2026-09", TODAY)).toBe("2026-09");
+    expect(adjustmentPeriodFromParam("2026-13", "2026-09", TODAY)).toBe("2026-09");
+    expect(adjustmentPeriodFromParam("", "2026-09", TODAY)).toBe("2026-09");
+  });
+});
+
+describe("reading lists whole", () => {
+  const page = (ids: number[], lastPage: number, total: number) => ({ data: ids.map((id) => ({ id })), meta: { last_page: lastPage, total } });
+
+  it("reads every page up to the limit and says how many rows there are in all", async () => {
+    const pages: Record<number, ReturnType<typeof page>> = { 1: page([1, 2], 3, 6), 2: page([3, 4], 3, 6), 3: page([5, 6], 3, 6) };
+    const asked: number[] = [];
+    const all = await readAllPages(async (n) => {
+      asked.push(n);
+      return pages[n];
+    });
+    expect(asked).toEqual([1, 2, 3]);
+    expect(all).toEqual({ rows: [1, 2, 3, 4, 5, 6].map((id) => ({ id })), total: 6 });
+    // Past the limit the rows read are kept and the total says more exist.
+    const capped = await readAllPages(async (n) => pages[n], 2);
+    expect(capped.rows).toHaveLength(4);
+    expect(capped.total).toBe(6);
+  });
+
+  it("picks one worker's row from a search that also matched others", () => {
+    const rows = [proposal({ id: 1, worker: { ...proposal().worker, id: 30, employee_no: "DEMO-W010" } }), proposal({ id: 2 })];
+    expect(findWorkerProposal(rows, 3)?.id).toBe(2);
+    expect(findWorkerProposal(rows, 99)).toBeNull();
   });
 });
 
@@ -92,6 +135,14 @@ describe("the lines HR confirms (workforce §4.4)", () => {
     expect(isStale(proposal({ metrics_stale_at: "2026-10-10T00:00:00+00:00" }))).toBe(true);
     expect(isStale(proposal({ status: "rejected", metrics_stale_at: "2026-10-10T00:00:00+00:00" }))).toBe(true);
     expect(isStale(proposal({ status: "posted", metrics_stale_at: "2026-10-10T00:00:00+00:00" }))).toBe(false);
+  });
+
+  it("approves as proposed only an amount of 1 fils or more: a zero proposal needs Edit or Reject (the bulk route refuses the batch)", () => {
+    expect(canApproveAsProposed(proposal({ proposed_fils: 35000 }))).toBe(true);
+    expect(canApproveAsProposed(proposal({ proposed_fils: 1 }))).toBe(true);
+    expect(canApproveAsProposed(proposal({ proposed_fils: 0 }))).toBe(false);
+    expect(canApprove(proposal({ proposed_fils: 0 }))).toBe(true);
+    expect(canApproveAsProposed(proposal({ proposed_fils: 35000, metrics_stale_at: "2026-10-10T00:00:00+00:00" }))).toBe(false);
   });
 
   it("reads the new terms of a 409 TERMS_CHANGED, with the kind of each line when the API names it", () => {

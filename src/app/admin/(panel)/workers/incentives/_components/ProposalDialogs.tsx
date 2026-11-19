@@ -18,12 +18,14 @@ import { useSeenRecord } from "../../../finance/_components/useSeenRecord";
 
 /**
  * After a decision on a proposal: the proposals, the adjustments and the posting lists (an approval locks the month's
- * attendance and changes the totals), the worker's attendance months and her stats.
+ * attendance and changes the totals; a post adds a posting, which the Postings tab, A09's list and the adjustment form's
+ * "corrects a posting" choice read under their own root), the worker's attendance months and her stats.
  */
 export function useIncentiveRefresh() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: workforceKeys.incentives() });
+    void queryClient.invalidateQueries({ queryKey: workforceKeys.postingsAll() });
     void queryClient.invalidateQueries({ queryKey: workforceKeys.attendanceAll() });
     void queryClient.invalidateQueries({ queryKey: ["admin", "workers", "attendance"] });
     void queryClient.invalidateQueries({ queryKey: ["admin", "workers", "stats"] });
@@ -72,7 +74,18 @@ export function ApproveProposalDialog({ proposal, live, onClose, mode = "approve
   const refresh = useIncentiveRefresh();
   const seen = useSeenRecord(live ?? proposal);
   const record = seen.record;
-  const [amount, setAmount] = useState(() => filsToAedInput(proposal.proposed_fils));
+  const [amount, setAmount] = useState(() => filsToAedInput(record.proposed_fils));
+  // Whether the person typed an amount, and the proposed amount the field was filled from: when the dialog's copy is
+  // renewed with another proposed amount (a recompute here, a STALE_VERSION), an untouched field follows it, so the
+  // old figure is never approved by default; a typed one is kept and the change is said.
+  const [typed, setTyped] = useState(false);
+  const [basis, setBasis] = useState(record.proposed_fils);
+  const [proposedMoved, setProposedMoved] = useState<{ from: number; to: number } | null>(null);
+  if (record.proposed_fils !== basis) {
+    setBasis(record.proposed_fils);
+    setProposedMoved({ from: proposedMoved?.from ?? basis, to: record.proposed_fils });
+    if (!typed) setAmount(filsToAedInput(record.proposed_fils));
+  }
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; reason?: string }>({});
   const gone = live === null;
@@ -119,10 +132,17 @@ export function ApproveProposalDialog({ proposal, live, onClose, mode = "approve
       {gone && <Notice tone="danger">{t("gone")}</Notice>}
       {stale && !gone && <Notice tone="warning">{seen.renewed ? t("movedRenewed") : t("movedWaiting")}</Notice>}
       {record.metrics_stale_at !== null && <Notice tone="warning">{t("staleBanner")}</Notice>}
+      {proposedMoved && proposedMoved.from !== proposedMoved.to && (
+        <Notice tone="warning" title={t("proposedMovedTitle")}>
+          {t(typed ? "proposedMovedTyped" : "proposedMoved", { from: wt.moneyText(proposedMoved.from), to: wt.moneyText(proposedMoved.to) })}
+        </Notice>
+      )}
       <dl className="grid grid-cols-2 gap-2 text-sm">
-        <div>
+        <div className={proposedMoved && proposedMoved.from !== proposedMoved.to ? "rounded-md bg-apricot-100 px-2 py-1" : undefined}>
           <dt className="text-xs text-ink-600">{t("proposed")}</dt>
-          <dd className="font-latin font-bold text-ink-900">{wt.money(record.proposed_fils)}</dd>
+          <dd className="font-latin font-bold text-ink-900" dir="ltr">
+            {wt.money(record.proposed_fils)}
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-ink-600">{t("score")}</dt>
@@ -135,6 +155,7 @@ export function ApproveProposalDialog({ proposal, live, onClose, mode = "approve
         value={amount}
         onChange={(ev) => {
           setAmount(ev.target.value);
+          setTyped(true);
           setErrors((x) => ({ ...x, amount: undefined }));
         }}
         error={errors.amount}

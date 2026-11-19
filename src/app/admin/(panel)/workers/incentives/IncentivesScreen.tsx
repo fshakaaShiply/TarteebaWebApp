@@ -10,9 +10,24 @@ import { useDebouncedValue } from "@/lib/admin/hooks";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { INCENTIVE_RULES_PATH, INCENTIVE_POSTINGS_PATH } from "@/lib/admin/nav";
 import type { FilterSpec } from "@/lib/admin/finance/filters";
+import { adjustmentKeys } from "@/lib/admin/workforce/adjustmentKeys";
 import { computeIncentives, fetchAdjustments, fetchPostings, fetchProposals } from "@/lib/admin/workforce/endpoints";
 import { useWorkforceError } from "@/lib/admin/workforce/errors";
-import { bpText, canApprove, closedPeriods, hoursText, INCENTIVE_STATUSES, isStale, periodFromParam, proposalFils, starsText } from "@/lib/admin/workforce/incentives";
+import {
+  adjustmentPeriodFromParam,
+  bpText,
+  canApprove,
+  canApproveAsProposed,
+  closedPeriods,
+  currentPeriod,
+  hoursText,
+  INCENTIVE_STATUSES,
+  isStale,
+  periodFromParam,
+  proposalFils,
+  readAllPages,
+  starsText,
+} from "@/lib/admin/workforce/incentives";
 import { workforceKeys } from "@/lib/admin/workforce/keys";
 import { useWorkforceText } from "@/lib/admin/workforce/text";
 import type { IncentiveAdjustment, IncentiveProposal } from "@/lib/admin/workforce/types";
@@ -21,7 +36,7 @@ import { RequirePermission } from "../../../_components/RequirePermission";
 import { useUrlFilters } from "../../finance/_components/useUrlFilters";
 import { useZoneName } from "../../_ops/options";
 import { WorkerAvatar } from "../_components/WorkerAvatar";
-import { AdjustmentDialog, DeleteAdjustmentDialog } from "./_components/AdjustmentDialogs";
+import { AdjustmentDialog, adjustmentPeriods, DeleteAdjustmentDialog } from "./_components/AdjustmentDialogs";
 import { BulkApproveDialog, BulkRejectDialog } from "./_components/BulkDialogs";
 import { PostDialog } from "./_components/PostDialog";
 import { ProposalDrawer } from "./_components/ProposalDrawer";
@@ -29,6 +44,8 @@ import { incentiveTone } from "./_components/ProposalFacts";
 import { useIncentiveRefresh } from "./_components/ProposalDialogs";
 
 const PER_PAGE = 25;
+/** The open adjustments a post may include are read whole, 100 a page (the API's most), up to max_bulk (500). */
+const ADJUSTMENTS_PER_PAGE = 100;
 const TABS = ["proposals", "adjustments", "postings"] as const;
 const FILTERS = {
   period: { kind: "text", max: 7 },
@@ -56,19 +73,25 @@ function Incentives() {
   const t = useTranslations("admin.incentives");
   const wt = useWorkforceText();
   const { filters, set, setPage, reset } = useUrlFilters(FILTERS);
+  // Proposals and postings exist for ended months only; an adjustment may be for the current month too (P5-W89), so
+  // the Adjustments tab also offers it, and a current month in the address falls back to the last ended one elsewhere.
   const period = periodFromParam(filters.period);
   const tab = (TABS as readonly string[]).includes(filters.tab) ? filters.tab : "proposals";
+  const adjustmentsPeriod = adjustmentPeriodFromParam(filters.period, period);
+  const shown = tab === "adjustments" ? adjustmentsPeriod : period;
   const [adding, setAdding] = useState(false);
   const [computing, setComputing] = useState(false);
-  const periods = closedPeriods(12);
-  const options = periods.includes(period) ? periods : [period, ...periods];
+  // New adjustments have no If-Match: their Idempotency-Key outlives the dialog (held after an unknown outcome).
+  const [adjustmentKeyStore] = useState(() => adjustmentKeys());
+  const periods = tab === "adjustments" ? adjustmentPeriods() : closedPeriods(12);
+  const options = periods.includes(shown) ? periods : [shown, ...periods];
 
   // The month of the adjustments and the postings tab: its own query each (below), the proposals have theirs.
   return (
     <>
       <PageHeader
         title={t("title")}
-        subtitle={t("subtitle", { month: wt.month(period) })}
+        subtitle={t("subtitle", { month: wt.month(shown) })}
         actions={
           <>
             <ButtonLink href={INCENTIVE_RULES_PATH} variant="outline" icon={<Settings2 aria-hidden className="size-4" />}>
@@ -84,19 +107,19 @@ function Incentives() {
         }
       />
       <div className="flex flex-wrap items-end gap-3">
-        <Select label={t("month")} value={period} onChange={(e) => set({ period: e.target.value })} options={options.map((p) => ({ value: p, label: wt.month(p) }))} containerClassName="min-w-[200px]" />
+        <Select label={t("month")} value={shown} onChange={(e) => set({ period: e.target.value })} options={options.map((p) => ({ value: p, label: wt.month(p) }))} containerClassName="min-w-[200px]" />
       </div>
       <Tabs id="a05-incentives" label={t("tabsLabel")} value={tab} onValueChange={(v) => set({ tab: v === "proposals" ? "" : v })} items={TABS.map((v) => ({ value: v, label: t(`tabs.${v}`) }))} />
       <TabPanel id="a05-incentives" value="proposals" hidden={tab !== "proposals"} className="flex flex-col gap-4">
         {tab === "proposals" && <ProposalsPanel period={period} filters={filters} set={set} setPage={setPage} reset={reset} onCompute={() => setComputing(true)} />}
       </TabPanel>
       <TabPanel id="a05-incentives" value="adjustments" hidden={tab !== "adjustments"} className="flex flex-col gap-4">
-        {tab === "adjustments" && <AdjustmentsPanel period={period} />}
+        {tab === "adjustments" && <AdjustmentsPanel period={adjustmentsPeriod} />}
       </TabPanel>
       <TabPanel id="a05-incentives" value="postings" hidden={tab !== "postings"} className="flex flex-col gap-4">
         {tab === "postings" && <PostingsPanel period={period} />}
       </TabPanel>
-      {adding && <AdjustmentDialog defaultPeriod={period} onClose={() => setAdding(false)} />}
+      {adding && <AdjustmentDialog defaultPeriod={shown} keys={adjustmentKeyStore} onClose={() => setAdding(false)} />}
       {computing && <ComputeDialog period={period} onClose={() => setComputing(false)} />}
     </>
   );
@@ -135,12 +158,20 @@ function ProposalsPanel({
     queryFn: () => fetchProposals({ period, status: filters.status ? [filters.status] : undefined, search: q || undefined, sort: filters.sort || undefined, page: filters.page, perPage: PER_PAGE }),
     placeholderData: keepPreviousData,
   });
-  const adjustments = useQuery({ queryKey: workforceKeys.adjustments({ period, page: 1 }), queryFn: () => fetchAdjustments({ period, page: 1 }) });
+  // Every open adjustment of the month (a post may include each): the API's list is 25 a page in id order, posted ones
+  // included, so only `status=open` read whole reaches the post dialog.
+  const adjustments = useQuery({
+    queryKey: workforceKeys.adjustments({ period, status: "open", all: 1 }),
+    queryFn: () => readAllPages((page) => fetchAdjustments({ period, status: "open", page, perPage: ADJUSTMENTS_PER_PAGE })),
+  });
   const rows = query.data?.data;
   const meta = query.data?.meta;
-  const openAdjustments = (adjustments.data?.data ?? []).filter((a) => a.posting === null);
+  const openAdjustments = (adjustments.data?.rows ?? []).filter((a) => a.posting === null);
+  const unreadAdjustments = adjustments.data ? adjustments.data.total - adjustments.data.rows.length : 0;
   const chosen = (rows ?? []).filter((p) => selected.has(p.id));
-  const approvable = chosen.filter(canApprove);
+  // Bulk approve takes each line at its proposed amount, all or nothing: an AED 0.00 one needs Edit or Reject.
+  const approvable = chosen.filter(canApproveAsProposed);
+  const zeroChosen = chosen.filter((p) => canApprove(p) && !canApproveAsProposed(p));
   const proposed = chosen.filter((p) => p.status === "proposed");
   const approved = chosen.filter((p) => p.status === "approved");
   const filtered = filters.status !== "" || q !== "";
@@ -295,6 +326,8 @@ function ProposalsPanel({
               {t("bulk.post", { count: approved.length, adjustments: openAdjustments.length })}
             </Button>
             {chosen.some((p) => isStale(p)) && <span className="text-xs text-warning-700">{t("bulk.staleHint")}</span>}
+            {zeroChosen.length > 0 && <span className="text-xs text-warning-700">{t("bulk.zeroHint", { count: zeroChosen.length })}</span>}
+            {unreadAdjustments > 0 && <span className="text-xs text-warning-700">{t("bulk.moreAdjustments", { count: unreadAdjustments })}</span>}
           </div>
         )}
         <DataTable
@@ -321,7 +354,8 @@ function ProposalsPanel({
       {action === "approve" && <BulkApproveDialog proposals={approvable} live={rows ?? []} onClose={() => { setAction(null); clearSelection(); }} />}
       {action === "reject" && <BulkRejectDialog proposals={proposed} onClose={() => { setAction(null); clearSelection(); }} />}
       {action === "post" && <PostDialog period={period} proposals={approved} adjustments={openAdjustments} onClose={() => { setAction(null); clearSelection(); }} />}
-      {postOne && <PostDialog period={period} proposals={[postOne]} adjustments={openAdjustments} onClose={() => setPostOne(null)} />}
+      {/* One proposal's Post posts that proposal only: the month's open adjustments wait for a posting HR chooses them in. */}
+      {postOne && <PostDialog period={period} proposals={[postOne]} adjustments={[]} single onClose={() => setPostOne(null)} />}
     </>
   );
 }
@@ -393,6 +427,7 @@ function AdjustmentsPanel({ period }: { period: string }) {
   return (
     <Card title={t("title", { month: wt.month(period) })}>
       <p className="text-sm text-ink-600">{t("intro")}</p>
+      {period === currentPeriod() && <Notice tone="info">{t("openMonth", { month: wt.month(period) })}</Notice>}
       <DataTable
         caption={t("caption")}
         columns={columns}

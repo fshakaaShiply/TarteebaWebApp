@@ -111,6 +111,8 @@ const pick = async (user: ReturnType<typeof userEvent.setup>, ...names: string[]
 beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset());
   consoleError.mockClear();
+  // A held adjustment attempt lives in this tab's sessionStorage: every test starts without one.
+  window.sessionStorage.clear();
   url.set("");
   vi.spyOn(window.history, "replaceState").mockImplementation((_state, _unused, target) => url.set(String(target ?? "").split("?")[1] ?? ""));
   api.fetchAdjustments.mockResolvedValue(fixedPage([]));
@@ -207,6 +209,22 @@ describe("bulk approve (money: the lines and the total are confirmed, 409 TERMS_
     expect(await screen.findByText("2 incentives approved, AED 550.00 in all.")).toBeInTheDocument();
   });
 
+  it("leaves an AED 0.00 proposal out of bulk approve and says why (the API would refuse the whole batch)", async () => {
+    api.bulkApprove.mockResolvedValue({ approved: 1, total_fils: 35000 });
+    open([maria, { ...lakshmi, proposed_fils: 0 }, nirmala]);
+    const user = userEvent.setup();
+    await screen.findByText("Maria S.");
+    await pick(user, "Lakshmi N.", "Nirmala P.");
+    expect(screen.getByText("1 selected proposal is zero, so Approve leaves it out: edit its amount or reject it.")).toBeInTheDocument();
+    // Rejecting it is still offered.
+    expect(screen.getByRole("button", { name: "Reject (2)" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Approve (1)" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Approve 1 incentive" });
+    expect(dialog).not.toHaveTextContent("Lakshmi N.");
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(api.bulkApprove).toHaveBeenCalledWith({ proposal_ids: [4], expected_lines: [{ id: 4, amount_fils: 35000 }], expected_total_fils: 35000 }));
+  });
+
   it("approves only the proposals that can be approved: an approved or stale one is not in the count", async () => {
     open([maria, { ...lakshmi, metrics_stale_at: "2026-10-10T00:00:00+00:00" }, nirmala]);
     const user = userEvent.setup();
@@ -229,7 +247,7 @@ describe("bulk approve (money: the lines and the total are confirmed, 409 TERMS_
     const dialog = screen.getByRole("alertdialog", { name: "Approve 2 incentives" });
     await user.click(within(dialog).getByRole("button", { name: "Approve" }));
     expect(await within(dialog).findByText("The amounts changed")).toBeInTheDocument();
-    expect(dialog).toHaveTextContent("The new total is AED 600.00: confirm again to approve it.");
+    expect(dialog).toHaveTextContent("The new total is ⁦AED 600.00⁩: confirm again to approve it.");
     expect(within(dialog).getByText("Nirmala P.").closest("tr")).toHaveTextContent("changed");
     expect(within(dialog).getByText("Nirmala P.").closest("tr")).toHaveTextContent("AED 400.00");
     expect(within(dialog).getByText("Lakshmi N.").closest("tr")).not.toHaveTextContent("changed");
@@ -310,7 +328,7 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
       expected_total_fils: 85000,
     });
     // The answer: the reference, and the file for accounting through a fresh signed link.
-    expect(await screen.findByText("Posting INC-2026-09-01 was made: 3 lines, AED 850.00.")).toBeInTheDocument();
+    expect(await screen.findByText("Posting ⁦INC-2026-09-01⁩ was made: 3 lines, ⁦AED 850.00⁩.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Download the file/ }));
     expect(api.fetchPostingFile).toHaveBeenCalledWith(1);
     expect(screen.getByRole("link", { name: "Open the posting" })).toHaveAttribute("href", "/admin/finance/incentive-postings/1");
@@ -324,7 +342,7 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
     await pick(user, "Maria S.");
     await user.click(screen.getByRole("button", { name: "Post (1 approved, 1 adjustments)" }));
     const dialog = screen.getByRole("dialog", { name: "Post the incentives of September 2026" });
-    await user.click(within(dialog).getByRole("checkbox", { name: /Maria S\.: AED -50\.00/ }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /Maria S\.⁩: ⁦AED -50\.00⁩/ }));
     expect(dialog).toHaveTextContent("Total of 1 line");
     await user.click(within(dialog).getByRole("button", { name: "Post" }));
     await waitFor(() => expect(api.postIncentives).toHaveBeenCalledTimes(1));
@@ -345,7 +363,7 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
     await waitFor(() => expect(api.postIncentives).toHaveBeenCalledTimes(2));
     expect(api.postIncentives.mock.calls[1][1]).toBe(api.postIncentives.mock.calls[0][1]);
     expect(api.postIncentives.mock.calls[1][0]).toEqual(api.postIncentives.mock.calls[0][0]);
-    expect(await screen.findByText(/Posting INC-2026-09-01 was made/)).toBeInTheDocument();
+    expect(await screen.findByText(/Posting ⁦INC-2026-09-01⁩ was made/)).toBeInTheDocument();
   });
 
   it("keeps the key after a lost answer too, and takes a new one once the API answered with a refusal it keeps", async () => {
@@ -388,7 +406,7 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
     const dialog = screen.getByRole("dialog", { name: "Post the incentives of September 2026" });
     await user.click(within(dialog).getByRole("button", { name: "Post" }));
     expect(await within(dialog).findByText("The amounts changed")).toBeInTheDocument();
-    expect(dialog).toHaveTextContent("The new total is AED 450.00: confirm again to post it.");
+    expect(dialog).toHaveTextContent("The new total is ⁦AED 450.00⁩: confirm again to post it.");
     expect(within(dialog).getByText("Maria S.").closest("tr")).toHaveTextContent("changed");
     await user.click(within(dialog).getByRole("button", { name: "Post the new total" }));
     await waitFor(() => expect(api.postIncentives).toHaveBeenCalledTimes(2));
@@ -408,8 +426,9 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
     expect(await within(dialog).findByText("This request was already used for different lines. Reopen the posting dialog and confirm again.")).toBeInTheDocument();
   });
 
-  it("posts one proposal from its drawer", async () => {
+  it("posts one proposal from its drawer, and only it: other cleaners' open adjustments stay open", async () => {
     api.postIncentives.mockResolvedValue(posting({ lines_count: 1, total_fils: 40000 }));
+    api.fetchAdjustments.mockResolvedValue(fixedPage([adjustment({ id: 4, worker: { id: 4, employee_no: "DEMO-W02", display_name: "Siti R." }, amount_fils: -5000 })]));
     open();
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /Open the incentive of Maria S\./ }));
@@ -418,9 +437,78 @@ describe("posting (final: Idempotency-Key, lines and total confirmed, adjustment
     expect(drawer).toHaveTextContent("Covered two extra Fridays");
     await user.click(within(drawer).getByRole("button", { name: "Post" }));
     const dialog = await screen.findByRole("dialog", { name: "Post the incentives of September 2026" });
+    expect(dialog).toHaveTextContent("Only this incentive is posted. The month's open adjustments stay open for a later posting.");
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("Siti R.");
+    expect(dialog).toHaveTextContent("Total of 1 line");
     await user.click(within(dialog).getByRole("button", { name: "Post" }));
     await waitFor(() => expect(api.postIncentives).toHaveBeenCalledTimes(1));
-    expect(api.postIncentives.mock.calls[0][0]).toMatchObject({ proposal_ids: [1], expected_total_fils: 40000 });
+    expect(api.postIncentives.mock.calls[0][0]).toEqual({
+      period: "2026-09",
+      proposal_ids: [1],
+      adjustment_ids: [],
+      expected_lines: [{ kind: "incentive", id: 1, amount_fils: 40000 }],
+      expected_total_fils: 40000,
+    });
+  });
+
+  it("reads every open adjustment of the month for the post, not only the API's first page of 25", async () => {
+    const siti = { id: 4, employee_no: "DEMO-W02", display_name: "Siti R." };
+    api.fetchAdjustments.mockImplementation(async (q: { status?: string; page?: number }) => {
+      if (q.status !== "open") return fixedPage([]);
+      return q.page === 2
+        ? { data: [adjustment({ id: 31, worker: siti, amount_fils: 2500, reason: "Extra Friday" })], meta: { current_page: 2, per_page: 100, total: 2, last_page: 2 } }
+        : { data: [adjustment({ id: 30, amount_fils: -5000 })], meta: { current_page: 1, per_page: 100, total: 2, last_page: 2 } };
+    });
+    api.postIncentives.mockResolvedValue(posting());
+    open();
+    const user = userEvent.setup();
+    await screen.findByText("Maria S.");
+    await waitFor(() => expect(api.fetchAdjustments).toHaveBeenCalledWith({ period: "2026-09", status: "open", page: 2, perPage: 100 }));
+    expect(api.fetchAdjustments).toHaveBeenCalledWith({ period: "2026-09", status: "open", page: 1, perPage: 100 });
+    await pick(user, "Maria S.");
+    await user.click(await screen.findByRole("button", { name: "Post (1 approved, 2 adjustments)" }));
+    const dialog = screen.getByRole("dialog", { name: "Post the incentives of September 2026" });
+    expect(dialog).toHaveTextContent("Extra Friday");
+    await user.click(within(dialog).getByRole("button", { name: "Post" }));
+    await waitFor(() => expect(api.postIncentives).toHaveBeenCalledTimes(1));
+    expect(api.postIncentives.mock.calls[0][0]).toMatchObject({ adjustment_ids: [30, 31], expected_total_fils: 40000 - 5000 + 2500 });
+  });
+
+  it("says when the month has more open adjustments than one post can take", async () => {
+    api.fetchAdjustments.mockImplementation(async (q: { status?: string; page?: number }) =>
+      q.status === "open" ? { data: [adjustment({ id: 100 + (q.page ?? 1) })], meta: { current_page: q.page ?? 1, per_page: 100, total: 7, last_page: 7 } } : fixedPage([]),
+    );
+    open();
+    await screen.findByText("Maria S.");
+    expect(await screen.findByText("2 more open adjustments are not shown: post these first, then the rest.")).toBeInTheDocument();
+    expect(api.fetchAdjustments).not.toHaveBeenCalledWith(expect.objectContaining({ page: 6 }));
+  });
+
+  it("refreshes the postings lists after a post (the Postings tab and A09 read them under their own root)", async () => {
+    api.postIncentives.mockResolvedValue(posting());
+    const { queryClient } = open();
+    const postingsKey = ["admin", "incentive-postings", "list", { period: "2026-09", page: 1 }];
+    queryClient.setQueryData(postingsKey, fixedPage([]));
+    const user = userEvent.setup();
+    await screen.findByText("Maria S.");
+    await pick(user, "Maria S.");
+    await user.click(screen.getByRole("button", { name: /^Post \(1 approved/ }));
+    await user.click(within(screen.getByRole("dialog", { name: "Post the incentives of September 2026" })).getByRole("button", { name: "Post" }));
+    expect(await screen.findByText(/was made/)).toBeInTheDocument();
+    expect(queryClient.getQueryState(postingsKey)?.isInvalidated).toBe(true);
+  });
+
+  it("writes a negative adjustment with its sign before the digits inside an Arabic sentence", async () => {
+    api.fetchAdjustments.mockResolvedValue(fixedPage([adjustment({ id: 4, amount_fils: -5000 })]));
+    open([maria], HR, "ar");
+    const user = userEvent.setup();
+    await screen.findByText("Maria S.");
+    await user.click(screen.getByRole("checkbox", { name: "تحديد Maria S." }));
+    await user.click(screen.getByRole("button", { name: /^ترحيل/ }));
+    const dialog = screen.getByRole("dialog", { name: /ترحيل حوافز/ });
+    // The amount is a left-to-right isolate ("-50.00 د.إ"), the name a first-strong isolate.
+    expect(within(dialog).getByRole("checkbox", { name: /^⁨Maria S\.⁩: ⁦-50\.00 د\.إ⁩/ })).toBeChecked();
   });
 });
 
@@ -470,7 +558,90 @@ describe("adjustments and postings of the month", () => {
     await user.type(within(dialog).getByLabelText(/Amount/), "99999");
     await user.type(within(dialog).getByLabelText(/Reason/), "Typo test");
     await user.click(within(dialog).getByRole("button", { name: "Add adjustment" }));
-    expect(await within(dialog).findByText("The amount must be between AED -10,000.00 and AED 10,000.00.")).toBeInTheDocument();
+    // The bounds are isolated left to right, so the minus stays before the digits in an Arabic sentence too.
+    expect(await within(dialog).findByText("The amount must be between ⁦AED -10,000.00⁩ and ⁦AED 10,000.00⁩.")).toBeInTheDocument();
+  });
+
+  const fillAdjustment = async (user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, amount: string, reason: string) => {
+    await user.selectOptions(within(dialog).getByRole("combobox", { name: /Cleaner/ }), "3");
+    await user.type(within(dialog).getByLabelText(/Amount/), amount);
+    await user.type(within(dialog).getByLabelText(/Reason/), reason);
+  };
+
+  it("never makes a second adjustment after a lost answer: a corrected form keeps the key, and the earlier one can be sent again", async () => {
+    api.createAdjustment
+      .mockRejectedValueOnce(AdminApiError.network())
+      .mockRejectedValueOnce(apiError(422, "IDEMPOTENCY_KEY_REUSED"))
+      .mockResolvedValueOnce(adjustment({ amount_fils: -50000, reason: "Overpaid in Agust" }));
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Add adjustment" }));
+    const dialog = screen.getByRole("dialog", { name: "Add an adjustment" });
+    await fillAdjustment(user, dialog, "-500", "Overpaid in Agust");
+    await user.click(within(dialog).getByRole("button", { name: "Add adjustment" }));
+    expect(await within(dialog).findByText("No answer came back")).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Sending it again is safe: it is never added twice.");
+    // HR fixes the typo and saves again: the same key goes out, so the API refuses it if the first one was saved.
+    const reason = within(dialog).getByLabelText(/Reason/);
+    await user.clear(reason);
+    await user.type(reason, "Overpaid in August");
+    await user.click(within(dialog).getByRole("button", { name: "Add adjustment" }));
+    await waitFor(() => expect(api.createAdjustment).toHaveBeenCalledTimes(2));
+    expect(api.createAdjustment.mock.calls[1][1]).toBe(api.createAdjustment.mock.calls[0][1]);
+    expect(await within(dialog).findByText("The earlier adjustment was saved")).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("⁦AED -500.00⁩ for ⁨Maria S.⁩, September 2026.");
+    // Sending the earlier one again replays the API's answer for it: the same body, the same key.
+    await user.click(within(dialog).getByRole("button", { name: "Send the earlier adjustment again" }));
+    await waitFor(() => expect(api.createAdjustment).toHaveBeenCalledTimes(3));
+    expect(api.createAdjustment.mock.calls[2]).toEqual(api.createAdjustment.mock.calls[0]);
+    expect(api.createAdjustment.mock.calls[0][0]).toEqual({ worker_id: 3, period: "2026-09", amount_fils: -50000, reason: "Overpaid in Agust" });
+    expect(await screen.findByText(/Adjustment for .* added\./)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Add an adjustment" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the held key when the dialog is closed and opened again", async () => {
+    api.createAdjustment.mockRejectedValueOnce(apiError(502, "BAD_GATEWAY")).mockResolvedValueOnce(adjustment());
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Add adjustment" }));
+    let dialog = screen.getByRole("dialog", { name: "Add an adjustment" });
+    await fillAdjustment(user, dialog, "-500", "Overpaid in August");
+    await user.click(within(dialog).getByRole("button", { name: "Add adjustment" }));
+    await within(dialog).findByText("No answer came back");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Add adjustment" }));
+    dialog = screen.getByRole("dialog", { name: "Add an adjustment" });
+    expect(within(dialog).getByText("An adjustment sent earlier got no answer")).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Check the Adjustments list before adding another");
+    // Another adjustment typed now still goes out under the held key.
+    await fillAdjustment(user, dialog, "-400", "Overpaid twice");
+    await user.click(within(dialog).getByRole("button", { name: "Add adjustment" }));
+    await waitFor(() => expect(api.createAdjustment).toHaveBeenCalledTimes(2));
+    expect(api.createAdjustment.mock.calls[1][1]).toBe(api.createAdjustment.mock.calls[0][1]);
+  });
+
+  it("shows the current month's adjustments on the Adjustments tab (an adjustment may be made for it), never for proposals", async () => {
+    url.set("tab=adjustments");
+    open();
+    const user = userEvent.setup();
+    const month = await screen.findByRole("combobox", { name: "Month" });
+    const options = within(month).getAllByRole("option").map((o) => o.getAttribute("value"));
+    expect(options[0]).toBe("2026-10");
+    expect(options).toContain("2026-09");
+    expect(options).not.toContain("2026-11");
+    await user.selectOptions(month, "2026-10");
+    await waitFor(() => expect(api.fetchAdjustments).toHaveBeenCalledWith({ period: "2026-10", page: 1 }));
+    expect(await screen.findByText("October 2026 has not ended yet: its adjustments can be posted once it has.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Adjustments of October 2026" })).toBeInTheDocument();
+    // A new adjustment from here starts on that month.
+    await user.click(screen.getByRole("button", { name: "Add adjustment" }));
+    expect(within(screen.getByRole("dialog", { name: "Add an adjustment" })).getByRole("combobox", { name: /Month/ })).toHaveValue("2026-10");
+    await user.click(within(screen.getByRole("dialog", { name: "Add an adjustment" })).getByRole("button", { name: "Cancel" }));
+    // The proposals stay on ended months: the same address falls back to the last one there.
+    await user.click(screen.getByRole("tab", { name: "Proposals" }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Month" })).toHaveValue("2026-09"));
+    expect(within(screen.getByRole("combobox", { name: "Month" })).getAllByRole("option").map((o) => o.getAttribute("value"))).not.toContain("2026-10");
+    expect(api.fetchProposals).not.toHaveBeenCalledWith(expect.objectContaining({ period: "2026-10" }));
   });
 
   it("lists the month's adjustments and deletes an open one with its version, never a posted one", async () => {

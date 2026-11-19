@@ -244,8 +244,11 @@ export async function postIncentives(input: PostInput, key: string): Promise<Inc
   return body.data;
 }
 
-export async function fetchAdjustments(q: { period?: string; status?: "open" | "posted"; page?: number }): Promise<AdjustmentsPage> {
-  return unwrap<AdjustmentsPage>(adminApi.GET("/v1/admin/incentives/adjustments", { params: { query: compact({ period: q.period, status: q.status, page: q.page }) as never } }));
+/** `perPage` up to 100 (workforce.admin_per_page_max); the API's default is 25, in id order, posted ones included. */
+export async function fetchAdjustments(q: { period?: string; status?: "open" | "posted"; page?: number; perPage?: number }): Promise<AdjustmentsPage> {
+  return unwrap<AdjustmentsPage>(
+    adminApi.GET("/v1/admin/incentives/adjustments", { params: { query: compact({ period: q.period, status: q.status, page: q.page, per_page: q.perPage }) as never } }),
+  );
 }
 
 export type AdjustmentInput = { worker_id: number; period: string; amount_fils: number; reason: string; corrects_posting_id?: number };

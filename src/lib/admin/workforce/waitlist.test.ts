@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { waitlistEntry } from "@/test/workforceFixtures";
-import { entryPhase, isOpen, NOTIFY_BLOCKED_REASONS, notifyAction, notifyBody, statusParams, waitlistHref, WAITLIST_STATUS_CHOICES } from "./waitlist";
+import { CUSTOMER_STATES, customerStateKey, entryPhase, isOpen, NOTIFY_BLOCKED_REASONS, notifyAction, notifyBody, statusParams, waitlistHref, WAITLIST_STATUS_CHOICES } from "./waitlist";
 
 describe("waitlist page (waitlist §7.1)", () => {
   it("sends the API's default for no choice, one status for a chip and every status for All", () => {
@@ -43,5 +43,14 @@ describe("waitlist page (waitlist §7.1)", () => {
 
   it("links the capacity view's slot to its open requests of that day, zone and slot", () => {
     expect(waitlistHref("2026-10-26", 3, 13)).toBe("/admin/waitlist?date_from=2026-10-26&date_to=2026-10-26&zone_id=3&slot_template_id=13&status=open");
+  });
+
+  it("words the customer's account state from a known list, never the API's token", () => {
+    expect(customerStateKey("active")).toBeNull();
+    expect(customerStateKey("deleted")).toBeNull();
+    expect(customerStateKey("blocked")).toBe("blocked");
+    expect(customerStateKey("pending_deletion")).toBe("pending_deletion");
+    expect(customerStateKey("suspended")).toBe("other");
+    expect(CUSTOMER_STATES).toEqual(["blocked", "pending_deletion", "other"]);
   });
 });

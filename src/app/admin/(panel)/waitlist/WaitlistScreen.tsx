@@ -14,7 +14,7 @@ import { fetchWaitlist } from "@/lib/admin/workforce/endpoints";
 import { workforceKeys } from "@/lib/admin/workforce/keys";
 import { useWorkforceText } from "@/lib/admin/workforce/text";
 import type { WaitlistEntry } from "@/lib/admin/workforce/types";
-import { entryPhase, notifyAction, statusParams, waitlistTone, WAITLIST_FILTERS, WAITLIST_STATUS_CHOICES, type NotifyMode } from "@/lib/admin/workforce/waitlist";
+import { customerStateKey, entryPhase, notifyAction, statusParams, waitlistTone, WAITLIST_FILTERS, WAITLIST_STATUS_CHOICES, type NotifyMode } from "@/lib/admin/workforce/waitlist";
 import { RequirePermission } from "../../_components/RequirePermission";
 import { useUrlFilters } from "../finance/_components/useUrlFilters";
 import { useChoiceOptions, useSlotPickList, useZoneChoices, useZoneName } from "../_ops/options";
@@ -37,6 +37,13 @@ export function WaitlistScreen() {
       <WaitlistTable />
     </RequirePermission>
   );
+}
+
+/** A blocked account, one being closed or any other inactive one, in words (never the API's status token). */
+function CustomerState({ status }: { status: string }) {
+  const t = useTranslations("admin.waitlist.customerState");
+  const key = customerStateKey(status);
+  return key === null ? null : <span className="text-xs text-warning-700">{t(key)}</span>;
 }
 
 function WaitlistTable() {
@@ -96,7 +103,7 @@ function WaitlistTable() {
               {e.customer.phone_masked}
             </bdi>
           )}
-          {e.customer.status !== "active" && e.customer.status !== "deleted" && <span className="text-xs text-warning-700">{t("customerStatus", { status: e.customer.status })}</span>}
+          <CustomerState status={e.customer.status} />
         </span>
       ),
     },

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Checkbox, Dialog, Notice, SignedFileLink } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
+import { isolate } from "@/lib/admin/format";
 import { useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { fetchPostingFile, postIncentives, type PostInput } from "@/lib/admin/workforce/endpoints";
 import { useWorkforceError } from "@/lib/admin/workforce/errors";
@@ -27,11 +28,14 @@ export function PostDialog({
   period,
   proposals,
   adjustments,
+  single = false,
   onClose,
 }: {
   period: string;
   proposals: IncentiveProposal[];
   adjustments: IncentiveAdjustment[];
+  /** One proposal's Post (from its drawer): that proposal only, and the dialog says the month's adjustments stay open. */
+  single?: boolean;
   onClose: () => void;
 }) {
   const t = useTranslations("admin.incentives.post");
@@ -87,7 +91,7 @@ export function PostDialog({
   if (posted) {
     return (
       <Dialog open onOpenChange={(open) => !open && onClose()} title={t("postedTitle")} footer={<Button onClick={onClose}>{t("close")}</Button>}>
-        <Notice tone="success">{t("postedBody", { reference: posted.reference, count: posted.lines_count, total: wt.money(posted.total_fils) })}</Notice>
+        <Notice tone="success">{t("postedBody", { reference: isolate(posted.reference, "ltr"), count: posted.lines_count, total: wt.moneyText(posted.total_fils) })}</Notice>
         <div className="flex flex-wrap items-start gap-3">
           <SignedFileLink load={() => fetchPostingFile(posted.id)} label={t("downloadFile")} download />
           <Link href={`/admin/finance/incentive-postings/${posted.id}`} className="touch-target text-sm font-bold">
@@ -118,9 +122,10 @@ export function PostDialog({
       }
     >
       <Notice tone="warning">{t("final")}</Notice>
+      {single && <p className="text-sm text-ink-600">{t("singleNote")}</p>}
       {terms && (
         <Notice tone="warning" title={t("termsChangedTitle")}>
-          {t("termsChanged", { total: wt.money(terms.total) })}
+          {t("termsChanged", { total: wt.moneyText(terms.total) })}
         </Notice>
       )}
       {adjustments.length > 0 && !override && (
@@ -129,7 +134,7 @@ export function PostDialog({
           {adjustments.map((a) => (
             <Checkbox
               key={a.id}
-              label={t("adjustmentLabel", { name: a.worker.display_name, amount: wt.money(a.amount_fils) })}
+              label={t("adjustmentLabel", { name: isolate(a.worker.display_name), amount: wt.moneyText(a.amount_fils) })}
               description={a.reason}
               checked={included.has(a.id)}
               onChange={(ev) =>

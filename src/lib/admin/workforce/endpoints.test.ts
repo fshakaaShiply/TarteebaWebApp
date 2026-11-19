@@ -216,6 +216,8 @@ describe("A05 incentive endpoints", () => {
     });
     await fetchAdjustments({ period: "2026-10", status: "open", page: 2 });
     expect(last().options).toEqual({ params: { query: { period: "2026-10", status: "open", page: 2 } } });
+    await fetchAdjustments({ period: "2026-10", status: "open", page: 1, perPage: 100 });
+    expect(last().options).toEqual({ params: { query: { period: "2026-10", status: "open", page: 1, per_page: 100 } } });
     await deleteAdjustment(4, 1);
     expect(last()).toEqual({ method: "DELETE", path: "/v1/admin/incentives/adjustments/{adjustment}", options: { params: { path: { adjustment: 4 } }, headers: { "If-Match": "1" } } });
   });

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button, Drawer } from "@/components/admin";
 import { isolate } from "@/lib/admin/format";
-import { canApprove, isStale } from "@/lib/admin/workforce/incentives";
+import { canApprove, canApproveAsProposed, isStale } from "@/lib/admin/workforce/incentives";
 import type { IncentiveProposal } from "@/lib/admin/workforce/types";
 import { ApproveProposalDialog, ReasonDecisionDialog, RecomputeButton } from "./ProposalDialogs";
 import { ProposalFacts } from "./ProposalFacts";
@@ -39,7 +39,8 @@ export function ProposalDrawer({
         <div className="flex flex-wrap items-center gap-2">
           {proposal.status === "proposed" && (
             <>
-              <Button onClick={() => setDecision("approve")} disabled={!canApprove(proposal)}>
+              {/* An AED 0.00 proposal cannot be approved as proposed (the API approves 1 fils or more): Edit or Reject. */}
+              <Button onClick={() => setDecision("approve")} disabled={!canApproveAsProposed(proposal)}>
                 {t("approve")}
               </Button>
               <Button variant="outline" onClick={() => setDecision("edit")} disabled={!canApprove(proposal)}>

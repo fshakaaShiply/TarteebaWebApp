@@ -7,8 +7,8 @@ import { useState } from "react";
 import { Button, Card, ErrorState, LoadingBlock, Notice, Select, StatusBadge, TextField } from "@/components/admin";
 import { businessToday } from "@/lib/admin/format";
 import { useAdminSession } from "@/lib/admin/session";
-import { fetchProposal, fetchWorkerStats } from "@/lib/admin/workforce/endpoints";
-import { canApprove, isStale } from "@/lib/admin/workforce/incentives";
+import { fetchProposals, fetchWorkerStats } from "@/lib/admin/workforce/endpoints";
+import { canApprove, canApproveAsProposed, findWorkerProposal, isStale, lastEndedPeriod } from "@/lib/admin/workforce/incentives";
 import { workforceKeys } from "@/lib/admin/workforce/keys";
 import { percentText, presetRange, rangeProblem, STATS_PRESETS, type Range, type StatsPreset } from "@/lib/admin/workforce/stats";
 import { useWorkforceText } from "@/lib/admin/workforce/text";
@@ -18,12 +18,15 @@ import { starsText } from "@/lib/admin/workforce/incentives";
 import { ApproveProposalDialog, ReasonDecisionDialog, RecomputeButton } from "../incentives/_components/ProposalDialogs";
 import { ProposalFacts } from "../incentives/_components/ProposalFacts";
 
+/** The month's proposals searched by employee number: the API's most per page, so a near match never hides hers. */
+const PROPOSAL_SEARCH_PER_PAGE = 100;
+
 /**
  * Performance and incentives tab (design «الأداء والحوافز», workforce §4.1, §5.5): the figures of a period (visits and
  * hours, how often she was asked for by name, her rating, upheld complaints, attendance, the team's arrivals which are
- * the transport's, substitutions) and, for incentives.approve, the month's incentive proposal with its score breakdown
- * and the decisions. Fields the API holds back for the viewer's permissions are simply absent. A rating never changes
- * pay automatically.
+ * the transport's, substitutions) and, for incentives.approve, the incentive proposal of the last ended month (the one
+ * waiting for a decision, whatever period the figures show) with its score breakdown and the decisions. Fields the API
+ * holds back for the viewer's permissions are simply absent. A rating never changes pay automatically.
  */
 export function WorkerPerformanceTab({ worker }: { worker: Worker }) {
   const t = useTranslations("admin.workers.performance");
@@ -55,7 +58,7 @@ export function WorkerPerformanceTab({ worker }: { worker: Worker }) {
         {!problem && stats.isError && <ErrorState error={stats.error} onRetry={() => void stats.refetch()} />}
         {!problem && stats.data && <StatsCards stats={stats.data} />}
       </Card>
-      {stats.data?.incentive && <IncentiveCard proposalId={stats.data.incentive.proposal_id} />}
+      <IncentiveCard worker={worker} />
     </div>
   );
 }
@@ -115,28 +118,51 @@ function StatsCards({ stats }: { stats: WorkerStats }) {
 
 type Decision = "approve" | "edit" | "reject" | "reopen";
 
-/** The month's proposal for incentives.approve: facts, the recompute when its figures changed, and the four decisions. */
-function IncentiveCard({ proposalId }: { proposalId: number }) {
+/**
+ * The incentive proposal HR decides on now, for incentives.approve: the last month that has ended, whatever period the
+ * figures above show (proposals exist only for ended months, so the API's `incentive` of a period starting this month is
+ * always null). Found in that month's proposals by her employee number (the search also matches names and longer
+ * numbers, so the row is picked by worker id); its facts, the recompute when its figures changed, and the four decisions.
+ */
+function IncentiveCard({ worker }: { worker: Worker }) {
   const t = useTranslations("admin.workers.performance.incentive");
   const wt = useWorkforceText();
   const { can } = useAdminSession();
+  const allowed = can("incentives.approve");
+  const period = lastEndedPeriod();
   const [decision, setDecision] = useState<Decision | null>(null);
-  const query = useQuery({ queryKey: workforceKeys.proposal(proposalId), queryFn: () => fetchProposal(proposalId), enabled: can("incentives.approve") });
-  if (!can("incentives.approve")) return null;
+  const query = useQuery({
+    queryKey: workforceKeys.proposals({ period, q: worker.employee_no, worker: worker.id, perPage: PROPOSAL_SEARCH_PER_PAGE }),
+    queryFn: async () => findWorkerProposal((await fetchProposals({ period, search: worker.employee_no, perPage: PROPOSAL_SEARCH_PER_PAGE })).data, worker.id),
+    enabled: allowed,
+  });
+  if (!allowed) return null;
   const proposal = query.data;
+  const monthLink = (
+    <Link href={`/admin/workers/incentives?period=${period}`} className="touch-target text-sm font-bold">
+      {t("openMonth")}
+    </Link>
+  );
   return (
-    <Card title={proposal ? t("title", { month: wt.month(proposal.period.start.slice(0, 7)) }) : t("titlePlain")}>
+    <Card title={t("title", { month: wt.month(period) })}>
       <p className="text-sm text-ink-600">{t("auto")}</p>
       <Notice tone="info">{t("ratingNote")}</Notice>
       {query.isPending && <LoadingBlock lines={4} />}
       {query.isError && <ErrorState error={query.error} onRetry={() => void query.refetch()} />}
+      {query.isSuccess && proposal === null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-ink-900">{t("none", { month: wt.month(period) })}</p>
+          {monthLink}
+        </div>
+      )}
       {proposal && (
         <>
           <ProposalFacts proposal={proposal} />
           <div className="flex flex-wrap items-center gap-2">
             {proposal.status === "proposed" && (
               <>
-                <Button onClick={() => setDecision("approve")} disabled={!canApprove(proposal)}>
+                {/* An AED 0.00 proposal cannot be approved as proposed (the API approves 1 fils or more): Edit or Reject. */}
+                <Button onClick={() => setDecision("approve")} disabled={!canApproveAsProposed(proposal)}>
                   {t("approve")}
                 </Button>
                 <Button variant="outline" onClick={() => setDecision("edit")} disabled={!canApprove(proposal)}>
@@ -154,9 +180,7 @@ function IncentiveCard({ proposalId }: { proposalId: number }) {
             )}
             {isStale(proposal) && proposal.status === "proposed" && <RecomputeButton proposal={proposal} />}
             {proposal.status === "posted" && <StatusBadge tone="success">{t("final")}</StatusBadge>}
-            <Link href={`/admin/workers/incentives?period=${proposal.period.start.slice(0, 7)}`} className="touch-target text-sm font-bold">
-              {t("openMonth")}
-            </Link>
+            {monthLink}
           </div>
           {(decision === "approve" || decision === "edit") && <ApproveProposalDialog proposal={proposal} live={proposal} mode={decision} onClose={() => setDecision(null)} />}
           {decision === "reject" && <ReasonDecisionDialog kind="reject" proposal={proposal} live={proposal} onClose={() => setDecision(null)} />}

@@ -58,6 +58,20 @@ export function isOpen(entry: Pick<WaitlistEntry, "status">): boolean {
   return entry.status === "waiting" || entry.status === "notified";
 }
 
+/** The account states a row names in words (`admin.waitlist.customerState`); any other value reads "not active". */
+export const CUSTOMER_STATES = ["blocked", "pending_deletion", "other"] as const;
+export type CustomerStateKey = (typeof CUSTOMER_STATES)[number];
+
+/**
+ * What the customer column says about the account: nothing for an active one (or a deleted one, which has its own
+ * words), a label for a blocked account or one being closed, and "not active" for a status this page does not know.
+ * The API's status token is never printed.
+ */
+export function customerStateKey(status: string): CustomerStateKey | null {
+  if (status === "active" || status === "deleted") return null;
+  return status === "blocked" || status === "pending_deletion" ? status : "other";
+}
+
 export const NOTIFY_BLOCKED_REASONS = ["closed", "slot_closed", "customer_inactive", "address_unavailable", "slot_full", "offer_limit"] as const satisfies readonly NotifyBlockedReason[];
 
 export type NotifyMode = "notify" | "again";

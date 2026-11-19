@@ -182,13 +182,47 @@ describe("A05 attendance tab (workforce §5.4)", () => {
     const user = userEvent.setup();
     await screen.findByText("20 working days", { exact: false });
     await user.click(within(rowOf("Present")).getByText("Show"));
-    expect(within(rowOf("Present")).getByText(/Visit .*TRB-AAAAAA.* \(completed\)/)).toBeInTheDocument();
+    expect(within(rowOf("Present")).getByText(/Visit .*TRB-AAAAAA.* \(Completed\)/)).toBeInTheDocument();
     expect(rowOf("Rest day")).toBeTruthy();
     // On leave the day is decided and nothing is offered.
     expect(within(rowOf(/Thu, 15 Oct 2026/)).queryByRole("button")).not.toBeInTheDocument();
     await user.click(within(rowOf("Rest day")).getByRole("button", { name: /Record attendance of/ }));
     const dialog = screen.getByRole("dialog", { name: /Attendance of/ });
     expect(within(within(dialog).getByRole("combobox", { name: /Status/ })).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose a status", "Present"]);
+  });
+
+  it("words the evidence's visit statuses and round kinds in the language, and never prints a code it has no words for", async () => {
+    const evidence = {
+      visits: [
+        { id: 5, booking_reference: "TRB-AAAAAA", status: "no_show_customer", slot_template_id: 1 },
+        { id: 6, booking_reference: "TRB-BBBBBB", status: "teleported", slot_template_id: 1 },
+      ],
+      rounds: [
+        { id: 7, kind: "dropoff", departed_at: "2026-10-19T05:10:00+00:00" },
+        { id: 8, kind: "hovercraft", departed_at: "2026-10-19T05:20:00+00:00" },
+      ],
+    };
+    api.fetchWorkerAttendance.mockResolvedValue(month([attendanceDay({ date: "2026-10-19", status: "present", status_label: { ar: "حاضرة", en: "Present" }, source: "derived", stored: true, version: 1, evidence })]));
+    const { unmount } = open();
+    const user = userEvent.setup();
+    await screen.findByText("20 working days", { exact: false });
+    await user.click(within(rowOf("Present")).getByText("Show"));
+    const row = within(rowOf("Present"));
+    expect(row.getByText(/Visit .*TRB-AAAAAA.* \(Customer not available\)/)).toBeInTheDocument();
+    expect(row.getByText(/^Visit .*TRB-BBBBBB\S*$/)).toBeInTheDocument();
+    expect(row.getByText("Drop-off round, left at 09:10")).toBeInTheDocument();
+    expect(row.getByText("Round, left at 09:20")).toBeInTheDocument();
+    expect(rowOf("Present").textContent).not.toMatch(/no_show_customer|teleported|dropoff|hovercraft/);
+    unmount();
+
+    open("ar");
+    await screen.findByText(/أيام عمل/);
+    await user.click(within(rowOf("حاضرة")).getByText("عرض"));
+    const ar = within(rowOf("حاضرة"));
+    expect(ar.getByText(/الزيارة .*TRB-AAAAAA.* \(العميل غير متواجد\)/)).toBeInTheDocument();
+    expect(ar.getByText("جولة توصيل، انطلقت الساعة 09:10")).toBeInTheDocument();
+    expect(ar.getByText("جولة انطلقت الساعة 09:20")).toBeInTheDocument();
+    expect(rowOf("حاضرة").textContent).not.toMatch(/no_show_customer|teleported|dropoff|hovercraft/);
   });
 
   it("has an empty state, a retry and Arabic words", async () => {

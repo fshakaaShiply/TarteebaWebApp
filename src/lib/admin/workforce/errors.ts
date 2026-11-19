@@ -5,7 +5,7 @@ import { useCallback, useMemo } from "react";
 import { formatAed } from "@/lib/money";
 import { AdminApiError } from "../client";
 import { describeAdminError, useServerFieldMessage } from "../errors";
-import { formatIsoDate, formatMonth } from "../format";
+import { formatIsoDate, formatMonth, isolate } from "../format";
 import { dubaiTime } from "./attendance";
 
 /*
@@ -143,7 +143,8 @@ function useFormatters(): Formatters {
   const locale = useLocale();
   return useMemo(
     () => ({
-      money: (fils: number) => formatAed(fils, locale, { fixed: true }),
+      // Inside a sentence: isolated left to right, so a negative bound keeps its sign before the digits in Arabic.
+      money: (fils: number) => isolate(formatAed(fils, locale, { fixed: true }), "ltr"),
       date: (iso: string) => formatIsoDate(iso, locale, "short"),
       month: (period: string) => formatMonth(`${period}-01`, locale),
       time: (iso: string) => dubaiTime(iso),

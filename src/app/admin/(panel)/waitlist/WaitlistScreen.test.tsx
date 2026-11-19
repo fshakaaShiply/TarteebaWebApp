@@ -130,6 +130,31 @@ describe("A04 waitlist page (waitlist §7.1)", () => {
     expect(screen.queryByRole("link", { name: /Deleted customer/ })).not.toBeInTheDocument();
   });
 
+  it("words an inactive account in the language, never the API's status token", async () => {
+    const customer = (id: string, name: string, status: string) => ({ id, name, phone_masked: "•••••••••4567", status });
+    const rows = [
+      waitlistEntry({ id: 1, customer: customer("01JA0000000000000000000001", "Maryam Saleh", "blocked") }),
+      waitlistEntry({ id: 2, customer: customer("01JA0000000000000000000002", "Huda Ali", "pending_deletion") }),
+      waitlistEntry({ id: 3, customer: customer("01JA0000000000000000000003", "Sara Omar", "suspended") }),
+      waitlistEntry({ id: 4, customer: customer("01JA0000000000000000000004", "Noor Adel", "active") }),
+    ];
+    const rowWith = (name: string) => screen.getAllByRole("row").find((r) => r.textContent?.includes(name))!;
+    const { unmount } = open(rows);
+    await screen.findByText("Maryam Saleh");
+    expect(rowWith("Maryam Saleh")).toHaveTextContent("Account blocked");
+    expect(rowWith("Huda Ali")).toHaveTextContent("Account being closed");
+    expect(rowWith("Sara Omar")).toHaveTextContent("Account not active");
+    expect(rowWith("Noor Adel")).not.toHaveTextContent(/Account/);
+    unmount();
+
+    open(rows, STAFF, "ar");
+    await screen.findByText("Maryam Saleh");
+    expect(rowWith("Maryam Saleh")).toHaveTextContent("الحساب موقوف");
+    expect(rowWith("Huda Ali")).toHaveTextContent("الحساب قيد الإغلاق");
+    expect(rowWith("Sara Omar")).toHaveTextContent("الحساب غير نشط");
+    expect(screen.getAllByRole("row").map((r) => r.textContent).join(" ")).not.toMatch(/blocked|pending_deletion|suspended/);
+  });
+
   it("shows the counts by status and filters by one when it is pressed", async () => {
     open();
     const user = userEvent.setup();

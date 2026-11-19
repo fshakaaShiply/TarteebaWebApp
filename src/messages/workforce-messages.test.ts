@@ -4,7 +4,7 @@ import { ATTENDANCE_STATUSES, SHEET_STATUSES } from "@/lib/admin/workforce/atten
 import { RELEASE_REASON_CODES } from "@/lib/admin/workforce/assignment";
 import { DOCUMENT_TYPES } from "@/lib/admin/workforce/documents";
 import { INCENTIVE_STATUSES, SCORE_KEYS } from "@/lib/admin/workforce/incentives";
-import { NOTIFY_BLOCKED_REASONS, WAITLIST_STATUS_CHOICES } from "@/lib/admin/workforce/waitlist";
+import { CUSTOMER_STATES, NOTIFY_BLOCKED_REASONS, WAITLIST_STATUS_CHOICES } from "@/lib/admin/workforce/waitlist";
 import ar from "./ar.json";
 import en from "./en.json";
 
@@ -44,6 +44,11 @@ const EXPECTED: [string, readonly string[]][] = [
   ["admin.workers.errors.incentiveState", INCENTIVE_STATUSES],
   ["admin.workers.detail.tabs", ["attendance", "documents", "performance"]],
   ["admin.nav", ["waitlist", "workersList", "attendance", "incentives", "incentivePostings"]],
+  ["admin.waitlist.customerState", CUSTOMER_STATES],
+  // The attendance evidence names a visit's status and a round's kind with the bookings' and trip planner's words: the
+  // statuses the deriver counts as present (AttendanceDeriver::PRESENT_VISIT_STATUSES) and the round kinds.
+  ["admin.bookings.enums.visit", ["arrived", "in_progress", "completed", "no_show_customer"]],
+  ["admin.trips.enums.kind", ["dropoff", "pickup"]],
 ];
 
 describe.each([

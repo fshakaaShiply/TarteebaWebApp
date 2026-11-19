@@ -47,12 +47,17 @@ export function EvidenceList({ day }: { day: AttendanceDay }) {
   if (!hasEvidence(e)) return <p className="text-sm text-ink-600">{t("none")}</p>;
   return (
     <ul className="flex flex-col gap-1 text-sm text-ink-900">
-      {e.visits.map((v) => (
-        <li key={`v${v.id}`}>{t("visit", { reference: isolate(v.reference, "ltr"), status: v.status })}</li>
-      ))}
-      {e.rounds.map((r) => (
-        <li key={`r${r.id}`}>{t("round", { kind: r.kind, time: r.departedAt ? wt.time(r.departedAt) : "—" })}</li>
-      ))}
+      {e.visits.map((v) => {
+        // The status and the kind are the API's codes: shown in words, and left out when this app has none for them.
+        const status = wt.visitStatus(v.status);
+        const reference = isolate(v.reference, "ltr");
+        return <li key={`v${v.id}`}>{status === null ? t("visitPlain", { reference }) : t("visit", { reference, status })}</li>;
+      })}
+      {e.rounds.map((r) => {
+        const kind = wt.roundKind(r.kind);
+        const time = r.departedAt ? wt.time(r.departedAt) : "—";
+        return <li key={`r${r.id}`}>{kind === null ? t("roundPlain", { time }) : t("round", { kind, time })}</li>;
+      })}
       {e.pickups > 0 && <li>{t("pickups", { count: e.pickups })}</li>}
       {e.liveOut && <li>{t("liveOut")}</li>}
       {e.released.map((r) => (
