@@ -20,6 +20,16 @@ function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
   );
 }
 
+/**
+ * A09 for the case's payment. The API's `link` (payments.view only) is `/admin/finance/payments/{ulid}`, but the payment
+ * page is addressed by number, so the payments list is opened on that one payment: its `reference` filter matches the
+ * payment's own ULID or the provider's reference (PaymentFilters), never the booking's or the series' reference.
+ */
+function casePaymentHref(link: string | null): string | null {
+  const ulid = link?.match(/\/payments\/([0-9a-z]{26})\/?$/i)?.[1];
+  return ulid ? `${PAYMENTS_PATH}?reference=${encodeURIComponent(ulid)}` : null;
+}
+
 /** What the case is about: the customer, the booking and its visit, the series, the money and the workers named. */
 export function CaseFacts({ c }: { c: AdminCaseDetail }) {
   const t = useTranslations("admin.quality.facts");
@@ -27,6 +37,7 @@ export function CaseFacts({ c }: { c: AdminCaseDetail }) {
   const { can, canAny } = useAdminSession();
   const b = c.booking;
   const p = c.payment;
+  const paymentHref = p ? casePaymentHref(p.link) : null;
   return (
     <Card title={t("title")}>
       <dl className="flex flex-col gap-2 text-sm">
@@ -60,7 +71,7 @@ export function CaseFacts({ c }: { c: AdminCaseDetail }) {
               </span>
             </Fact>
             <Fact label={t("visit")}>
-              {text.date(b.service_date)} · {b.slot.name} <Ltr>{`${b.slot.start}–${b.slot.end}`}</Ltr>
+              {text.date(b.service_date)} · {text.name(b.slot.name)} <Ltr>{`${b.slot.start}–${b.slot.end}`}</Ltr>
               <span className="block text-xs text-ink-600">{text.name(b.service.name)}</span>
             </Fact>
             {c.visit && (
@@ -84,7 +95,7 @@ export function CaseFacts({ c }: { c: AdminCaseDetail }) {
             )}
           </Fact>
         )}
-        {c.workers.length > 0 && <Fact label={t("workers")}>{c.workers.map((w) => w.name).join("، ")}</Fact>}
+        {c.workers.length > 0 && <Fact label={t("workers")}>{text.list(c.workers.map((w) => w.name))}</Fact>}
         {c.driver && <Fact label={t("driver")}>{c.driver.name ?? `#${c.driver.id}`}</Fact>}
         {c.merged_into && <Fact label={t("mergedInto")}>{c.merged_into.reference}</Fact>}
       </dl>
@@ -106,9 +117,8 @@ export function CaseFacts({ c }: { c: AdminCaseDetail }) {
             <Fact label={t("refundable")}>{text.money(p.refundable_fils)}</Fact>
             <Fact label={t("refundTo")}>{t(`destination.${p.destination}`)}</Fact>
           </dl>
-          {/* The payment page binds payments by number and the case carries its ULID, so A09 is opened on the list found by the reference. */}
-          {p.link && p.payable_reference && (
-            <Link href={`${PAYMENTS_PATH}?reference=${encodeURIComponent(p.payable_reference)}`} className="w-fit text-sm font-bold">
+          {paymentHref && (
+            <Link href={paymentHref} className="w-fit text-sm font-bold">
               {t("openPayment")}
             </Link>
           )}

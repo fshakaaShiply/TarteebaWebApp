@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { UnsavedChangesProvider } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { casesPage, caseDetail, caseRow } from "@/test/qualityFixtures";
 import { renderWithProviders } from "@/test/render";
-import { QualityInboxScreen } from "./QualityInboxScreen";
+import { INBOX_REFRESH_MS, QualityInboxScreen } from "./QualityInboxScreen";
 
 const url = vi.hoisted(() => {
   let params = new URLSearchParams();
@@ -41,6 +42,7 @@ const COORDINATOR = ["complaints.manage", "bookings.view"];
 const ACCOUNTANT = ["compensation.approve", "refunds.create"];
 const apiError = (status: number, code: string) => new AdminApiError(status, { code, message: "x", details: {} });
 const rowOf = (reference: string) => screen.getByRole("link", { name: `Open case ${reference}` }).closest("tr")!;
+const rowOf_ = (link: HTMLElement) => link.closest("tr")!;
 
 beforeEach(() => {
   url.set("");
@@ -151,11 +153,43 @@ describe("the A10 inbox", () => {
     expect(api.fetchCases).not.toHaveBeenCalled();
   });
 
+  it("lists a team's cleaners with the separator of the page's language", async () => {
+    api.fetchCases.mockResolvedValue(casesPage([caseRow({ workers: [{ id: 1, name: "Maria S." }, { id: 4, name: "Joy R." }] })]));
+    const { unmount } = renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR });
+    expect(within(rowOf_(await screen.findByRole("link", { name: "Open case TC-4XQ8NM" }))).getByText("Maria S., Joy R.")).toBeInTheDocument();
+    unmount();
+    renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR, locale: "ar" });
+    expect(within(rowOf_(await screen.findByRole("link", { name: "فتح الحالة TC-4XQ8NM" }))).getByText("Maria S.، Joy R.")).toBeInTheDocument();
+  });
+
   it("an accountant reads the inbox but cannot take a case", async () => {
     renderWithProviders(<QualityInboxScreen />, { permissions: ACCOUNTANT });
     await screen.findByRole("link", { name: "Open case TC-4XQ8NM" });
     expect(screen.queryByRole("button", { name: /^Take/ })).toBeNull();
     expect(api.fetchAssignees).not.toHaveBeenCalled();
+  });
+});
+
+describe("the timed refresh", () => {
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => vi.useRealTimers());
+
+  it("re-reads the inbox every 20 seconds as a background poll, with the same filters, and shows what came in", async () => {
+    expect(INBOX_REFRESH_MS).toBe(20_000);
+    url.set("priority=high");
+    renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR });
+    await screen.findByRole("link", { name: "Open case TC-4XQ8NM" });
+    expect(api.fetchCases).toHaveBeenCalledTimes(1);
+    expect(api.fetchCases.mock.calls[0]).toHaveLength(1);
+
+    api.fetchCases.mockResolvedValue(casesPage([caseRow(), caseRow({ id: 9, reference: "TC-NEW001" })]));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(await screen.findByRole("link", { name: "Open case TC-NEW001" })).toBeInTheDocument();
+    expect(api.fetchCases).toHaveBeenCalledTimes(2);
+    expect(api.fetchCases.mock.calls[1]).toEqual([api.fetchCases.mock.calls[0][0], { background: true }]);
+    expect(api.fetchCases.mock.calls[1][0]).toMatchObject({ priority: "high" });
   });
 });
 
@@ -188,15 +222,102 @@ describe("the side pane", () => {
     );
   afterEach(() => vi.unstubAllGlobals());
 
-  it("opens the case beside the list on a wide screen, and closes again", async () => {
+  /** Case 7 (TC-4XQ8NM) and case 8 (TC-9ZZ1AB), each read by its own number. */
+  const twoCases = () =>
+    api.fetchCase.mockImplementation(async (id: number) =>
+      id === 8 ? caseDetail({ id: 8, reference: "TC-9ZZ1AB", description: "The cleaner left early.", messages: [] }) : caseDetail(),
+    );
+
+  it("opens the case beside the list on a wide screen, moves focus to it, and gives it back to the row on close", async () => {
     wide(true);
     api.fetchCase.mockResolvedValue(caseDetail());
     renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR });
-    await userEvent.click(await screen.findByRole("link", { name: "Open case TC-4XQ8NM" }));
-    const pane = await screen.findByRole("complementary", { name: "Case" });
+    const link = await screen.findByRole("link", { name: "Open case TC-4XQ8NM" });
+    await userEvent.click(link);
+    const pane = await screen.findByRole("complementary", { name: "Case TC-4XQ8NM" });
+    // Keyboard and screen-reader users land on the pane, which is named by its case.
+    expect(pane).toHaveFocus();
     expect(await within(pane).findByText("The second bathroom was not cleaned at all.")).toBeInTheDocument();
+    // The pane's title sits under the page's own: one h1 on the page.
+    expect(within(pane).getByRole("heading", { level: 2, name: /TC-4XQ8NM/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(link).toHaveAttribute("aria-current", "true");
     await userEvent.click(within(pane).getByRole("button", { name: "Close the side panel" }));
-    expect(screen.queryByRole("complementary", { name: "Case" })).toBeNull();
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(link).toHaveFocus();
+  });
+
+  it("starts every case afresh: nothing chosen on one case is carried to the next, even when that one is already read", async () => {
+    wide(true);
+    twoCases();
+    renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR });
+    // Both cases read once, so the second visit to case 8 comes from the cache.
+    await userEvent.click(await screen.findByRole("link", { name: "Open case TC-9ZZ1AB" }));
+    expect(await within(await screen.findByRole("complementary", { name: "Case TC-9ZZ1AB" })).findByText("The cleaner left early.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "Open case TC-4XQ8NM" }));
+    const first = await screen.findByRole("complementary", { name: "Case TC-4XQ8NM" });
+    await userEvent.click(await within(first).findByRole("radio", { name: "Internal note" }));
+    expect(within(first).getByRole("radio", { name: "Internal note" })).toBeChecked();
+
+    await userEvent.click(screen.getByRole("link", { name: "Open case TC-9ZZ1AB" }));
+    const second = await screen.findByRole("complementary", { name: "Case TC-9ZZ1AB" });
+    expect(within(second).getByText("The cleaner left early.")).toBeInTheDocument();
+    expect(within(second).getByRole("radio", { name: "Reply to the customer" })).toBeChecked();
+    expect(second).toHaveFocus();
+  });
+
+  it("never moves a reply being written to another case: the guard asks, and leaving opens that case's own page", async () => {
+    wide(true);
+    twoCases();
+    const push = vi.fn();
+    renderWithProviders(
+      <UnsavedChangesProvider navigate={push}>
+        <QualityInboxScreen />
+      </UnsavedChangesProvider>,
+      { permissions: COORDINATOR },
+    );
+    await userEvent.click(await screen.findByRole("link", { name: "Open case TC-4XQ8NM" }));
+    const pane = await screen.findByRole("complementary", { name: "Case TC-4XQ8NM" });
+    await userEvent.type(await within(pane).findByLabelText(/Your reply/), "Which room was it?");
+
+    await userEvent.click(screen.getByRole("link", { name: "Open case TC-9ZZ1AB" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+    await userEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+    // Still case 7, with its draft.
+    expect(screen.getByRole("complementary", { name: "Case TC-4XQ8NM" })).toBe(pane);
+    expect(within(pane).getByLabelText(/Your reply/)).toHaveValue("Which room was it?");
+    expect(push).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("link", { name: "Open case TC-9ZZ1AB" }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave without saving" }));
+    expect(push).toHaveBeenCalledWith("/admin/quality/8");
+    expect(api.fetchCase).not.toHaveBeenCalledWith(8);
+  });
+
+  it("asks before closing the pane over an unsent reply", async () => {
+    wide(true);
+    api.fetchCase.mockResolvedValue(caseDetail());
+    renderWithProviders(<QualityInboxScreen />, { permissions: COORDINATOR });
+    const link = await screen.findByRole("link", { name: "Open case TC-4XQ8NM" });
+    await userEvent.click(link);
+    const pane = await screen.findByRole("complementary", { name: "Case TC-4XQ8NM" });
+    await userEvent.type(await within(pane).findByLabelText(/Your reply/), "Which room was it?");
+
+    await userEvent.click(within(pane).getByRole("button", { name: "Close the side panel" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Close the case with an unsent reply?" });
+    await userEvent.click(within(ask).getByRole("button", { name: "Keep writing" }));
+    expect(within(pane).getByLabelText(/Your reply/)).toHaveValue("Which room was it?");
+
+    await userEvent.click(within(pane).getByRole("button", { name: "Close the side panel" }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: "Close the case with an unsent reply?" })).getByRole("button", { name: "Close and discard the reply" }));
+    await waitFor(() => expect(screen.queryByRole("complementary")).toBeNull());
+    await waitFor(() => expect(link).toHaveFocus());
+
+    // With nothing typed, the pane closes at once.
+    await userEvent.click(link);
+    await userEvent.click(within(await screen.findByRole("complementary", { name: "Case TC-4XQ8NM" })).getByRole("button", { name: "Close the side panel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByRole("complementary")).toBeNull();
   });
 
   it("follows the link to the case's own page on a narrow screen", async () => {

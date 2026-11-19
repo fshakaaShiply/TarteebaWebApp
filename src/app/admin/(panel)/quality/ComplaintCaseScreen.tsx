@@ -51,8 +51,21 @@ type Dialog =
   | { kind: "approve"; compensationId: number }
   | { kind: "reject"; compensationId: number };
 
-/** The case read by its number, kept fresh, with every state: loading, error with retry, not found, denied. */
-export function CaseView({ id, compact = false, onClose }: { id: string; compact?: boolean; onClose?: () => void }) {
+type CaseViewProps = {
+  id: string;
+  /** The inbox's side pane: one column, its heading an h2 under the page's own h1, and a close button. */
+  compact?: boolean;
+  onClose?: () => void;
+  /** Whether the reply box holds an unsent draft (see ReplyComposer). */
+  onDraftChange?: (dirty: boolean) => void;
+};
+
+/**
+ * The case read by its number, kept fresh, with every state: loading, error with retry, not found, denied. Everything
+ * the person types or opens on it (the reply draft, a dialog) belongs to this one case: a parent showing another case
+ * renders it with another `key`, and the body is keyed by the case's id too.
+ */
+export function CaseView({ id, compact = false, onClose, onDraftChange }: CaseViewProps) {
   const t = useTranslations("admin.quality.case");
   const numericId = /^\d{1,10}$/.test(id) ? Number(id) : null;
   const queryClient = useQueryClient();
@@ -82,9 +95,11 @@ export function CaseView({ id, compact = false, onClose }: { id: string; compact
   }
   return (
     <CaseBody
+      key={detail.data.id}
       c={detail.data}
       compact={compact}
       onClose={onClose}
+      onDraftChange={onDraftChange}
       fetching={detail.isFetching}
       refreshFailed={detail.isError}
       onReload={() => void queryClient.invalidateQueries({ queryKey: qualityKeys.case(detail.data.id) })}
@@ -92,8 +107,11 @@ export function CaseView({ id, compact = false, onClose }: { id: string; compact
   );
 }
 
-function CaseBody({ c, compact, onClose, fetching, refreshFailed, onReload }: { c: AdminCaseDetail; compact: boolean; onClose?: () => void; fetching: boolean; refreshFailed: boolean; onReload: () => void }) {
+type CaseBodyProps = Omit<CaseViewProps, "id" | "compact"> & { c: AdminCaseDetail; compact: boolean; fetching: boolean; refreshFailed: boolean; onReload: () => void };
+
+function CaseBody({ c, compact, onClose, onDraftChange, fetching, refreshFailed, onReload }: CaseBodyProps) {
   const t = useTranslations("admin.quality.case");
+  const Heading = compact ? "h2" : "h1";
   const text = useQualityText();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const assignees = useQuery({ queryKey: qualityKeys.assignees(), queryFn: fetchAssignees, staleTime: 5 * 60_000, enabled: c.actions.assign });
@@ -112,10 +130,10 @@ function CaseBody({ c, compact, onClose, fetching, refreshFailed, onReload }: { 
       <section aria-labelledby={`case-title-${c.id}`} className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h1 id={`case-title-${c.id}`} className="text-[22px]/[30px] font-bold text-ink-900">
+            <Heading id={`case-title-${c.id}`} className="text-[22px]/[30px] font-bold text-ink-900">
               <span className="sr-only">{t("titlePrefix")} </span>
               <Ltr>{c.reference}</Ltr>
-            </h1>
+            </Heading>
             <div className="flex flex-wrap items-center gap-1.5">
               <StatusBadge tone="confirmed">{text.type(c.type, c.type_label)}</StatusBadge>
               <StatusBadge tone="neutral">{text.category(c.category, c.category_label)}</StatusBadge>
@@ -168,7 +186,7 @@ function CaseBody({ c, compact, onClose, fetching, refreshFailed, onReload }: { 
           </Card>
           {c.actions.reply && (
             <Card title={t("reply")}>
-              <ReplyComposer c={c} />
+              <ReplyComposer c={c} onDraftChange={onDraftChange} />
             </Card>
           )}
           {(c.compensations.length > 0 || c.pending_resolution) && (

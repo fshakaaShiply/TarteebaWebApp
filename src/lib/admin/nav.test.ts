@@ -205,6 +205,14 @@ describe("firstAccessiblePath", () => {
     expect(firstAccessiblePath(["trips.manage"])).toBe("/admin/trips");
     expect(firstAccessiblePath(["customers.view"])).toBe("/admin/overview");
   });
+
+  it("sends quality-only staff to the A10 inbox: the coordinator and the accountant who approves compensations", () => {
+    expect(firstAccessiblePath(["complaints.manage"])).toBe("/admin/quality");
+    expect(firstAccessiblePath(["compensation.approve"])).toBe("/admin/quality");
+    // Pages higher on the list still come first.
+    expect(firstAccessiblePath(["complaints.manage", "bookings.view"])).toBe("/admin/overview");
+    expect(firstAccessiblePath(["compensation.approve", "refunds.create"])).toBe("/admin/finance/refunds");
+  });
 });
 
 describe("isActivePath", () => {

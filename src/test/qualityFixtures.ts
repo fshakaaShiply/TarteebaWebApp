@@ -117,7 +117,8 @@ export const caseDetail = (over: Partial<AdminCaseDetail> = {}): AdminCaseDetail
     status: "completed",
     status_label: { ar: "مكتملة", en: "Completed" },
     service_date: "2026-10-22",
-    slot: { id: 1, start: "10:00", end: "14:00", name: "Morning" },
+    // Both languages, as the API sends a slot template's name (an array cast), never a plain string.
+    slot: { id: 1, start: "10:00", end: "14:00", name: { ar: "صباحًا", en: "Morning" } },
     service: { code: "STANDARD_VISIT", name: { ar: "زيارة تنظيف", en: "Cleaning visit" } },
     workers_count: 2,
     zone: { id: 1, name: "Business Bay" },
@@ -134,7 +135,7 @@ export const caseDetail = (over: Partial<AdminCaseDetail> = {}): AdminCaseDetail
     refundable_fils: 24_000,
     destination: "card",
     payable_reference: "TRB-R4RYSD",
-    link: "/admin/finance/payments/01JD0000000000000000000009",
+    link: "/admin/finance/payments/01jd0000000000000000000009",
   },
   worker_options: [
     { id: 1, name: "Maria S.", role: "primary", released: false },

@@ -3,6 +3,7 @@ import {
   approveCompensation,
   cancelCompensation,
   createCase,
+  fetchCase,
   fetchCases,
   fetchCompensations,
   fetchFreeVisitAvailability,
@@ -51,9 +52,16 @@ describe("A10 endpoints", () => {
     });
   });
 
-  it("marks a timer-driven read as a background poll", async () => {
+  it("marks a timer-driven read as a background poll: the inbox, a case and the compensation queue", async () => {
     await fetchCases({}, { background: true });
     expect(last().options.headers).toEqual({ "X-Background-Poll": "1" });
+    await fetchCase(7, { background: true });
+    expect(last()).toMatchObject({ path: "/v1/admin/complaints/{complaint}", options: { headers: { "X-Background-Poll": "1" } } });
+    await fetchCompensations({}, { background: true });
+    expect(last()).toMatchObject({ path: "/v1/admin/compensations", options: { headers: { "X-Background-Poll": "1" } } });
+    // A load the person starts has no such header.
+    await fetchCompensations({});
+    expect(last().options.headers).toEqual({});
   });
 
   it("sends a reply with its Idempotency-Key, and a resolve also with the case's version as If-Match", async () => {
@@ -94,7 +102,7 @@ describe("A10 endpoints", () => {
 
   it("reads the queue with a status array and the free-visit dates with the case's id", async () => {
     await fetchCompensations({ status: ["failed"], type: "refund", page: 1 });
-    expect(last().options).toEqual({ params: { query: { page: 1, "type[]": "refund", "status[]": ["failed"] } } });
+    expect(last().options).toEqual({ params: { query: { page: 1, "type[]": "refund", "status[]": ["failed"] } }, headers: {} });
     await fetchFreeVisitAvailability(7, { from: "2026-10-24", to: "2026-11-06", slotTemplateId: 2 });
     expect(last().options).toEqual({ params: { path: { complaint: 7 }, query: { from: "2026-10-24", to: "2026-11-06", slot_template_id: 2 } } });
   });

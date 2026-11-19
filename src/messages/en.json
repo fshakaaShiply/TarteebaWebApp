@@ -7128,7 +7128,13 @@
         "alreadyTaken": "{reference} was just taken by {name}",
         "empty": "No cases",
         "emptyFiltered": "No cases match these filters",
-        "pane": "Case",
+        "pane": "Case {reference}",
+        "discard": {
+          "title": "Close the case with an unsent reply?",
+          "body": "The reply you wrote has not been sent. If you close the case now, it is lost.",
+          "confirm": "Close and discard the reply",
+          "stay": "Keep writing"
+        },
         "counts": {
           "title": "Shortcuts",
           "active": "Active",

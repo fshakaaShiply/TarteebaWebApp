@@ -3,11 +3,12 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   Button,
   Card,
   Checkbox,
+  ConfirmDialog,
   DataTable,
   EmptyState,
   FilterBar,
@@ -84,7 +85,7 @@ function Inbox() {
   }, [meta, list.isPlaceholderData, filters.page, setPage]);
 
   // The case beside the list (wide screens only).
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<{ id: number; reference: string } | null>(null);
   const [wide, setWide] = useState(false);
   useEffect(() => {
     // No media queries (an old browser, a test): the row always opens the case's own page.
@@ -96,6 +97,19 @@ function Inbox() {
     return () => media.removeEventListener("change", sync);
   }, []);
   const pane = wide && selected !== null;
+  // Opening a case moves focus to the pane (it comes after the whole list in the page's order); closing it returns focus
+  // to the case's row.
+  const paneRef = useRef<HTMLElement>(null);
+  const focusPane = useRef(false);
+  const lastOpened = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusPane.current || selected === null) return;
+    focusPane.current = false;
+    paneRef.current?.focus();
+  }, [selected]);
+  // An unsent reply in the pane: closing the pane asks first (another row's link is held by the unsaved-changes guard).
+  const [paneDraft, setPaneDraft] = useState(false);
+  const [askClose, setAskClose] = useState(false);
 
   // "Take": read the case, and assign it only when nobody holds it (the row carries no version to send as If-Match).
   const [taking, setTaking] = useState<number | null>(null);
@@ -117,10 +131,27 @@ function Inbox() {
   });
 
   const open = (event: MouseEvent<HTMLAnchorElement>, row: AdminCaseRow) => {
+    // The unsaved-changes guard already held the click (a reply is being written in the pane): it asks, and "leave"
+    // opens the case's own page. The pane keeps the case the draft was written for meanwhile.
+    if (event.defaultPrevented) return;
     // A plain click on a wide screen opens the pane; a modified click or a narrow screen follows the link.
     if (!wide || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    setSelected(row.id);
+    if (selected?.id === row.id) {
+      paneRef.current?.focus();
+      return;
+    }
+    focusPane.current = true;
+    lastOpened.current = row.id;
+    setSelected({ id: row.id, reference: row.reference });
+  };
+
+  const closePane = () => {
+    const id = selected?.id;
+    setAskClose(false);
+    setPaneDraft(false);
+    setSelected(null);
+    if (id !== undefined) document.getElementById(caseLinkId(id))?.focus();
   };
 
   const columns: Column<AdminCaseRow>[] = [
@@ -130,9 +161,10 @@ function Inbox() {
       cell: (r) => (
         <span className="flex flex-col gap-0.5">
           <Link
+            id={caseLinkId(r.id)}
             href={`/admin/quality/${r.id}`}
             onClick={(e) => open(e, r)}
-            aria-current={selected === r.id && wide ? "true" : undefined}
+            aria-current={selected?.id === r.id && wide ? "true" : undefined}
             aria-label={t("openCase", { reference: r.reference })}
             className="w-fit font-bold"
           >
@@ -163,7 +195,7 @@ function Inbox() {
     {
       id: "workers",
       header: t("columns.workers"),
-      cell: (r) => (r.workers.length > 0 ? r.workers.map((w) => w.name).join("، ") : <span className="text-ink-600">—</span>),
+      cell: (r) => (r.workers.length > 0 ? text.list(r.workers.map((w) => w.name)) : <span className="text-ink-600">—</span>),
     },
     {
       id: "priority",
@@ -314,11 +346,31 @@ function Inbox() {
         {table}
       </Card>
       {pane && selected !== null && (
-        <aside aria-label={t("pane")} className="min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
-          <CaseView id={String(selected)} compact onClose={() => setSelected(null)} />
+        <aside
+          ref={paneRef}
+          tabIndex={-1}
+          aria-label={t("pane", { reference: selected.reference })}
+          className="min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-petrol-700 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
+        >
+          {/* One case per mount: a draft or a dialog never moves to the next case opened here. */}
+          <CaseView key={selected.id} id={String(selected.id)} compact onClose={() => (paneDraft ? setAskClose(true) : closePane())} onDraftChange={setPaneDraft} />
         </aside>
       )}
+      {/* Closing takes the pane and its close button away: focus goes back to the case's row. */}
+      <ConfirmDialog
+        open={askClose}
+        onOpenChange={(next) => !next && setAskClose(false)}
+        title={t("discard.title")}
+        description={t("discard.body")}
+        confirmLabel={t("discard.confirm")}
+        cancelLabel={t("discard.stay")}
+        tone="danger"
+        onConfirm={closePane}
+        returnFocusTo={() => (lastOpened.current === null ? null : document.getElementById(caseLinkId(lastOpened.current)))}
+      />
     </div>
   );
 }
+
+const caseLinkId = (id: number) => `inbox-case-${id}`;
 

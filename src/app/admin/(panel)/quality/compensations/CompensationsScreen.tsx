@@ -19,7 +19,8 @@ import { useUrlFilters } from "../../finance/_components/useUrlFilters";
 import { ApproveCompensationDialog, RejectCompensationDialog } from "../_components/CompensationDialogs";
 
 const PER_PAGE = 25;
-const QUEUE_REFRESH_MS = 20_000;
+/** The queue is read again this often in the background (D-11), while the tab is visible. */
+export const QUEUE_REFRESH_MS = 20_000;
 
 /**
  * A10 compensations (spec §17 A10; design §4; compensation.approve or complaints.manage): what staff proposed and the
@@ -45,7 +46,8 @@ function Queue() {
   const query = useMemo(() => compensationQuery(filters, PER_PAGE), [filters]);
   const key = qualityKeys.compensationList({ ...filters });
   const list = useQuery({ queryKey: key, queryFn: () => fetchCompensations(query), placeholderData: keepPreviousData });
-  useBackgroundRefresh(key, () => fetchCompensations(query), { everyMs: QUEUE_REFRESH_MS });
+  // A timer's read is a background poll (X-Background-Poll: 1): it must not count as the accountant's activity (spec §13.2).
+  useBackgroundRefresh(key, () => fetchCompensations(query, { background: true }), { everyMs: QUEUE_REFRESH_MS });
 
   const meta = list.data?.meta;
   useEffect(() => {

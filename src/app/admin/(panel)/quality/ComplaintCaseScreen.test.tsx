@@ -1,11 +1,12 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { UnsavedChangesProvider } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import type { AdminCaseDetail } from "@/lib/admin/quality/types";
 import { attachment, caseDetail, compensation, options } from "@/test/qualityFixtures";
 import { renderWithProviders } from "@/test/render";
-import { ComplaintCaseScreen } from "./ComplaintCaseScreen";
+import { CASE_REFRESH_MS, ComplaintCaseScreen } from "./ComplaintCaseScreen";
 
 const api = vi.hoisted(() => ({
   fetchCase: vi.fn(),
@@ -89,6 +90,32 @@ describe("the case page", () => {
     expect(await screen.findByText("المحادثة")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "حل الحالة" })).toBeInTheDocument();
     expect(screen.getByText("ملاحظة داخلية، لا يراها العميل")).toBeInTheDocument();
+  });
+
+  it("names the visit's slot in the page's language: the API sends a slot's name in both", async () => {
+    const fact = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling!;
+    const { unmount } = renderCase(caseDetail());
+    await screen.findByRole("heading", { level: 1, name: /TC-4XQ8NM/ });
+    expect(fact("Visit")).toHaveTextContent("Morning 10:00–14:00");
+    unmount();
+    renderCase(caseDetail(), COORDINATOR, "ar");
+    await screen.findByRole("heading", { level: 1, name: /TC-4XQ8NM/ });
+    expect(fact("الزيارة")).toHaveTextContent("صباحًا 10:00–14:00");
+  });
+
+  it("lists the cleaners named with the separator of the page's language", async () => {
+    const workers = [
+      { id: 1, name: "Maria S." },
+      { id: 4, name: "Joy R." },
+    ];
+    const fact = (label: string) => screen.getByText(label, { selector: "dt" }).nextElementSibling!;
+    const { unmount } = renderCase(caseDetail({ workers }));
+    await screen.findByRole("heading", { level: 1, name: /TC-4XQ8NM/ });
+    expect(fact("Cleaners named").textContent).toBe("Maria S., Joy R.");
+    unmount();
+    renderCase(caseDetail({ workers }), COORDINATOR, "ar");
+    await screen.findByRole("heading", { level: 1, name: /TC-4XQ8NM/ });
+    expect(fact("العاملات المذكورات").textContent).toBe("Maria S.، Joy R.");
   });
 });
 
@@ -195,6 +222,37 @@ describe("replying", () => {
     expect((await screen.findAllByText("A PDF can only go on an internal note.")).length).toBeGreaterThan(0);
     expect(api.uploadCaseFile).not.toHaveBeenCalled();
     expect(api.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("guards a draft: closing the tab and leaving through a link ask first, and nothing is asked once it is sent", async () => {
+    const push = vi.fn();
+    api.fetchCase.mockResolvedValue(caseDetail());
+    api.postMessage.mockResolvedValue(caseDetail({ version: 6 }));
+    renderWithProviders(
+      <UnsavedChangesProvider navigate={push}>
+        <ComplaintCaseScreen id="7" />
+      </UnsavedChangesProvider>,
+      { permissions: COORDINATOR },
+    );
+    const unload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    await screen.findByLabelText(/Your reply/);
+    expect(unload()).toBe(false);
+
+    await userEvent.type(screen.getByLabelText(/Your reply/), "Which room was it?");
+    expect(unload()).toBe(true);
+    await userEvent.click(screen.getByRole("link", { name: "Back to the inbox" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+    await userEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Your reply/)).toHaveValue("Which room was it?");
+
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+    expect(await screen.findByText("Reply sent")).toBeInTheDocument();
+    await waitFor(() => expect(unload()).toBe(false));
   });
 
   it("sends the same key again after a lost answer, and a new one once the text changes", async () => {
@@ -393,11 +451,67 @@ describe("closing, reopening and withdrawing", () => {
   });
 });
 
+describe("the timed refresh", () => {
+  const seconds = (n: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(n * 1000);
+    });
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => vi.useRealTimers());
+
+  it("re-reads the case every 20 seconds as a background poll, and shows what changed", async () => {
+    expect(CASE_REFRESH_MS).toBe(20_000);
+    renderCase(caseDetail());
+    await screen.findByRole("heading", { level: 1, name: /TC-4XQ8NM/ });
+    expect(api.fetchCase.mock.calls).toEqual([[7]]);
+
+    // The customer answered meanwhile.
+    const answered = caseDetail({
+      version: 6,
+      customer_replied: true,
+      messages: [...caseDetail().messages, { id: "01JD00000000000000000000M3", author_type: "customer", author: { id: null, name: "Laila Hassan" }, kind: "message", body: "It was the second bathroom.", is_internal: false, attachments: [], created_at: "2026-10-23T16:00:10+00:00" }],
+    });
+    api.fetchCase.mockResolvedValue(answered);
+    await seconds(20);
+    expect(await screen.findByText("It was the second bathroom.")).toBeInTheDocument();
+    expect(api.fetchCase.mock.calls).toEqual([[7], [7, { background: true }]]);
+  });
+
+  it("a poll never changes an open resolve dialog: it still sends the version it opened with", async () => {
+    renderCase(caseDetail());
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole("button", { name: "Resolve" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText(/^Outcome/), "upheld");
+    await user.type(within(dialog).getByLabelText(/^Reply to the customer/), "Sorry.");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    expect(screen.queryByText("Customer replied")).toBeNull();
+    api.fetchCase.mockResolvedValue(caseDetail({ version: 6, customer_replied: true }));
+    await seconds(20);
+    await waitFor(() => expect(api.fetchCase).toHaveBeenCalledTimes(2));
+    // The page behind shows the newer case; the dialog is the same one, on its own copy.
+    expect(await screen.findByText("Customer replied")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBe(dialog);
+
+    api.resolveCase.mockResolvedValue({ data: caseDetail({ version: 7 }), meta: { result: "resolved" } });
+    await user.click(within(dialog).getByRole("button", { name: "Send reply and resolve" }));
+    await waitFor(() => expect(api.resolveCase).toHaveBeenCalledTimes(1));
+    expect(api.resolveCase.mock.calls[0][2]).toBe(5);
+  });
+});
+
 describe("a payment link", () => {
-  it("opens finance on the list found by the booking's reference, since the payment page is addressed by number", async () => {
+  it("opens the payments list on the payment's own ULID from the API's link: that filter matches the ULID, never the booking's reference", async () => {
     renderCase(caseDetail(), [...COORDINATOR, "payments.view"]);
     const link = await screen.findByRole("link", { name: "Find the payment in finance" });
-    expect(link).toHaveAttribute("href", "/admin/finance/payments?reference=TRB-R4RYSD");
+    expect(link).toHaveAttribute("href", "/admin/finance/payments?reference=01jd0000000000000000000009");
+  });
+
+  it("offers no link when the API's link names no payment it can be found by", async () => {
+    renderCase(caseDetail({ payment: { ...caseDetail().payment!, link: "/admin/finance/payments" } }), [...COORDINATOR, "payments.view"]);
+    await screen.findByRole("heading", { level: 3, name: "Payment" });
+    expect(screen.queryByRole("link", { name: "Find the payment in finance" })).toBeNull();
   });
 
   it("is not offered to staff without the payments permission (the API sends no link)", async () => {

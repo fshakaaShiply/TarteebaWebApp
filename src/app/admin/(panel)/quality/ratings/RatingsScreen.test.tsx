@@ -105,6 +105,25 @@ describe("a rating's drawer and its exclusion", () => {
     return screen.findByRole("dialog", { name: /Rating of TRB-R4RYSD/ });
   }
 
+  it("lists a team's cleaners with the separator of the page's language, in the row and the drawer", async () => {
+    const workers = [
+      { id: 1, name: "Maria S." },
+      { id: 4, name: "Joy R." },
+    ];
+    api.fetchRatings.mockResolvedValue(page([ratingRow({ workers })]));
+    api.fetchRating.mockResolvedValue(ratingDetail({ workers }));
+    const { unmount } = renderWithProviders(<RatingsScreen />, { permissions: MANAGER });
+    const row = within((await screen.findByRole("link", { name: "TRB-R4RYSD" })).closest("tr")!);
+    expect(row.getByText("Maria S., Joy R.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Open the rating of TRB-R4RYSD" }));
+    const drawer = within(await screen.findByRole("dialog", { name: /Rating of TRB-R4RYSD/ }));
+    expect(await drawer.findByText("Maria S., Joy R.")).toBeInTheDocument();
+    unmount();
+    renderWithProviders(<RatingsScreen />, { permissions: MANAGER, locale: "ar" });
+    const arRow = within((await screen.findByRole("link", { name: "TRB-R4RYSD" })).closest("tr")!);
+    expect(arRow.getByText("Maria S.، Joy R.")).toBeInTheDocument();
+  });
+
   it("shows the scores, the whole comment and the photo as a signed link", async () => {
     const drawer = within(await openDrawer());
     expect(await drawer.findByText("“The bathroom was not clean.”")).toBeInTheDocument();

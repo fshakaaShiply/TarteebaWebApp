@@ -1,11 +1,11 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
 import type { Compensation } from "@/lib/admin/quality/types";
 import { caseDetail, compensation } from "@/test/qualityFixtures";
 import { renderWithProviders } from "@/test/render";
-import { CompensationsScreen } from "./CompensationsScreen";
+import { CompensationsScreen, QUEUE_REFRESH_MS } from "./CompensationsScreen";
 
 const url = vi.hoisted(() => {
   let params = new URLSearchParams();
@@ -193,6 +193,48 @@ describe("approving", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Approve and refund AED 30.00" }));
     expect(await within(dialog).findByText(/account is being closed/)).toBeInTheDocument();
     expect(api.approveCompensation.mock.calls[1][3]).toBe(api.approveCompensation.mock.calls[0][3]);
+  });
+});
+
+describe("the timed refresh", () => {
+  const seconds = (n: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(n * 1000);
+    });
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => vi.useRealTimers());
+
+  it("re-reads the queue every 20 seconds as a background poll, and shows what was proposed meanwhile", async () => {
+    expect(QUEUE_REFRESH_MS).toBe(20_000);
+    renderWithProviders(<CompensationsScreen />, { permissions: ACCOUNTANT });
+    await screen.findByRole("link", { name: "Open case TC-4XQ8NM" });
+    expect(api.fetchCompensations.mock.calls).toEqual([[expect.objectContaining({ page: 1 })]]);
+
+    api.fetchCompensations.mockResolvedValue(page([compensation(), compensation({ id: 13, case: { id: 9, reference: "TC-NEW001", type: "complaint", category: "quality" } })]));
+    await seconds(20);
+    expect(await screen.findByRole("link", { name: "Open case TC-NEW001" })).toBeInTheDocument();
+    expect(api.fetchCompensations).toHaveBeenCalledTimes(2);
+    // The poll is marked as one, so it does not count as the accountant's activity.
+    expect(api.fetchCompensations.mock.calls[1]).toEqual([api.fetchCompensations.mock.calls[0][0], { background: true }]);
+  });
+
+  it("a poll never changes an open approval: the dialog keeps the facts and the version it opened with", async () => {
+    const dialog = await openApprove();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    // The proposer changed the note meanwhile: the queue shows it, the open dialog does not.
+    api.fetchCompensations.mockResolvedValue(page([compensation({ version: 4, note: "Changed by the proposer" })]));
+    await seconds(20);
+    await waitFor(() => expect(api.fetchCompensations).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("“Changed by the proposer”")).toBeInTheDocument();
+    expect(within(dialog).queryByText("“Changed by the proposer”")).toBeNull();
+    expect(screen.getByRole("dialog")).toBe(dialog);
+
+    api.approveCompensation.mockResolvedValue({ data: compensation({ status: "executed", version: 5 }), case: caseDetail() });
+    await user.click(within(dialog).getByRole("button", { name: "Approve and refund AED 30.00" }));
+    await waitFor(() => expect(api.approveCompensation).toHaveBeenCalledTimes(1));
+    expect(api.approveCompensation.mock.calls[0][2]).toBe(3);
   });
 });
 

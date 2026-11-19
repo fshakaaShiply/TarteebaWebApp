@@ -189,9 +189,9 @@ export async function fetchFreeVisitAvailability(id: number, q: { from: string; 
 
 export type CompensationListQuery = { page?: number; perPage?: number; status?: readonly string[]; type?: string; customerId?: string };
 
-export async function fetchCompensations(q: CompensationListQuery): Promise<CompensationsPage> {
+export async function fetchCompensations(q: CompensationListQuery, opts: ReadOptions = {}): Promise<CompensationsPage> {
   const query = { ...compact({ page: q.page, per_page: q.perPage, "type[]": q.type, customer_id: q.customerId }), ...(q.status && q.status.length > 0 ? { "status[]": q.status } : {}) };
-  return unwrap<CompensationsPage>(adminApi.GET("/v1/admin/compensations", { params: { query: query as never } }));
+  return unwrap<CompensationsPage>(adminApi.GET("/v1/admin/compensations", { params: { query: query as never }, headers: backgroundPoll(opts.background) }));
 }
 
 export type ApproveResult = { data: Compensation; case: AdminCaseDetail };

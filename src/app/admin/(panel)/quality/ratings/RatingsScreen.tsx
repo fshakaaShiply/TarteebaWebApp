@@ -78,7 +78,7 @@ function Ratings() {
       ),
     },
     { id: "customer", header: t("columns.customer"), cell: (r) => <CustomerLink customer={r.customer} /> },
-    { id: "workers", header: t("columns.workers"), cell: (r) => (r.workers.length > 0 ? r.workers.map((w) => w.name).join("، ") : "—") },
+    { id: "workers", header: t("columns.workers"), cell: (r) => (r.workers.length > 0 ? text.list(r.workers.map((w) => w.name)) : "—") },
     {
       id: "rating",
       header: t("columns.rating"),
@@ -244,7 +244,7 @@ function RatingDrawer({ id, onClose }: { id: number; onClose: () => void }) {
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-600">{t("columns.workers")}</dt>
-                <dd className="text-end">{r.workers.length > 0 ? r.workers.map((w) => w.name).join("، ") : "—"}</dd>
+                <dd className="text-end">{r.workers.length > 0 ? text.list(r.workers.map((w) => w.name)) : "—"}</dd>
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-ink-600">{t("submitted")}</dt>

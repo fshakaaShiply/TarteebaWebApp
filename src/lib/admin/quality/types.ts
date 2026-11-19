@@ -166,7 +166,8 @@ export type CaseBooking = {
   status: string;
   status_label: Translatable;
   service_date: string;
-  slot: { id: number; start: string; end: string; name: string };
+  /** The slot template's name is cast as an array on the API (SlotTemplate `name`): both languages, like the service's. */
+  slot: { id: number; start: string; end: string; name: Translatable };
   service: { code: string; name: Translatable };
   workers_count: number;
   zone: { id: number; name: Translatable | string };

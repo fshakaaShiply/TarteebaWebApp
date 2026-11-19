@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Checkbox, FileField, Notice, TextArea, useToast, useUnsavedChanges } from "@/components/admin";
 import { keepsIdempotencyKey, useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { postMessage, uploadCaseFile } from "@/lib/admin/quality/endpoints";
@@ -18,7 +18,13 @@ import { useCaseRefresh } from "./useCaseRefresh";
  * (a PDF only on an internal note), and the message names them; a file that went up stays attached when the message
  * itself fails, so a retry never uploads it twice. The Idempotency-Key is kept for a retry of the same message.
  */
-export function ReplyComposer({ c }: { c: AdminCaseDetail }) {
+type ReplyComposerProps = {
+  c: AdminCaseDetail;
+  /** Told whether an unsent draft is in the box (the inbox's side pane asks before it closes one). */
+  onDraftChange?: (dirty: boolean) => void;
+};
+
+export function ReplyComposer({ c, onDraftChange }: ReplyComposerProps) {
   const t = useTranslations("admin.quality.reply");
   const describe = useQualityError();
   const toast = useToast();
@@ -34,7 +40,16 @@ export function ReplyComposer({ c }: { c: AdminCaseDetail }) {
   const [field, setField] = useState<{ field: "body" | "files"; error: string } | null>(null);
 
   // A draft is worth keeping: leaving through a link asks first, and so does closing the tab.
-  useUnsavedChanges(body.trim() !== "" || files.length > 0);
+  const dirty = body.trim() !== "" || files.length > 0;
+  useUnsavedChanges(dirty);
+  const reportDraft = useRef(onDraftChange);
+  useEffect(() => {
+    reportDraft.current = onDraftChange;
+  });
+  useEffect(() => {
+    reportDraft.current?.(dirty);
+  }, [dirty]);
+  useEffect(() => () => reportDraft.current?.(false), []);
   const mayAwait = canAwaitCustomer(c, internal);
   const waiting = c.status === "awaiting_customer";
 

@@ -40,8 +40,10 @@ export const compensationTone: Record<CompensationStatus, StatusTone> = {
 
 export function useQualityText() {
   const t = useTranslations("admin.quality.enums");
+  const ui = useTranslations("admin.ui");
   const locale = useLocale();
   return useMemo(() => {
+    const separator = ui("listSeparator");
     const label = (group: string, value: string, apiLabel?: Translatable | null) => {
       if (apiLabel) {
         const text = pickText(apiLabel, locale);
@@ -53,6 +55,8 @@ export function useQualityText() {
     return {
       locale,
       name: (value: Translatable | null | undefined) => (value ? pickText(value, locale) : ""),
+      /** Names in a row with the page language's own separator ("، " in Arabic, ", " in English). */
+      list: (items: readonly string[]) => items.join(separator),
       status: (value: string, apiLabel?: Translatable | null) => label("status", value, apiLabel),
       priority: (value: string, apiLabel?: Translatable | null) => label("priority", value, apiLabel),
       category: (value: string, apiLabel?: Translatable | null) => label("category", value, apiLabel),
@@ -68,7 +72,7 @@ export function useQualityText() {
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
     };
-  }, [t, locale]);
+  }, [t, ui, locale]);
 }
 
 export type QualityText = ReturnType<typeof useQualityText>;
