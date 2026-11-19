@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "@/lib/admin/client";
+import { formatIsoDate } from "@/lib/admin/format";
 import { txn, walletPage } from "@/test/financeFixtures";
 import { renderWithProviders } from "@/test/render";
 import { WalletPanel } from "./WalletPanel";
@@ -22,6 +23,8 @@ const open = (permissions: readonly string[] = STAFF, locale: "en" | "ar" = "en"
 beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset());
   api.fetchCustomerWallet.mockResolvedValue(walletPage());
+  // An attempt held after a lost answer is kept in this tab; each test starts with none.
+  window.sessionStorage.clear();
 });
 
 describe("A09 customer balance panel", () => {
@@ -57,7 +60,10 @@ describe("A09 customer balance panel", () => {
     expect(rows[1]).toHaveTextContent("AED 150.00");
     expect(rows[1]).toHaveTextContent("Test Accountant");
     expect(rows[1]).toHaveTextContent("“Late arrival on 14 Nov”");
-    expect(rows[1]).toHaveTextContent("2027");
+    // The expiry instant 2027-11-16T06:00:00+00:00 as its Dubai date, never the API's raw timestamp.
+    expect(rows[1]).toHaveTextContent(formatIsoDate("2027-11-16", "en", "short"));
+    expect(rows[1]).toHaveTextContent("16 Nov 2027");
+    expect(rows[1]).not.toHaveTextContent("T06:00");
     expect(rows[2]).toHaveTextContent("Debit");
     expect(rows[2]).toHaveTextContent("The customer");
     expect(rows[2]).toHaveTextContent("TRB-7K2Q9M");
@@ -73,6 +79,23 @@ describe("A09 customer balance panel", () => {
     expect(screen.getByRole("button", { name: "Add credit" })).toBeDisabled();
     expect(screen.getByText("The balance is switched off.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Correct balance" })).toBeEnabled();
+  });
+
+  it("shows a credit's expiry on the day it falls in Dubai, in both languages (late in the UTC day is the next day there)", async () => {
+    api.fetchCustomerWallet.mockResolvedValue(walletPage({}, [txn({ expires_at: "2027-11-16T22:30:00+00:00" })]));
+    const { unmount } = open();
+    await screen.findByText("Spendable balance");
+    let row = within(screen.getByRole("table", { name: "Balance movements" })).getAllByRole("row")[1];
+    expect(row).toHaveTextContent(formatIsoDate("2027-11-17", "en", "short"));
+    expect(row).toHaveTextContent("17 Nov 2027");
+    expect(row).not.toHaveTextContent("16 Nov 2027");
+    expect(row).not.toHaveTextContent("2027-11-16T22:30:00+00:00");
+    unmount();
+    open(STAFF, "ar");
+    await screen.findByText("الرصيد القابل للإنفاق");
+    row = within(screen.getByRole("table", { name: "حركات الرصيد" })).getAllByRole("row")[1];
+    expect(row).toHaveTextContent(formatIsoDate("2027-11-17", "ar", "short"));
+    expect(row).not.toHaveTextContent("2027-11-16T");
   });
 
   it("has nothing to take back from an empty balance, and an empty ledger says so", async () => {
@@ -169,6 +192,100 @@ describe("adding credit", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add AED 10.00" }));
     await waitFor(() => expect(api.adjustCustomerWallet).toHaveBeenCalledTimes(2));
     expect(api.adjustCustomerWallet.mock.calls[1][2]).toBe(api.adjustCustomerWallet.mock.calls[0][2]);
+  });
+
+  /** A credit of 150.00 whose answer was lost (the proxy's 502 after PHP may have booked it), then the dialog closed. */
+  async function lostCreditThenClose() {
+    api.adjustCustomerWallet.mockRejectedValueOnce(new AdminApiError(502, { code: "BAD_GATEWAY", message: "x", details: {} }));
+    const { user, dialog } = await openCredit();
+    await user.type(within(dialog).getByLabelText(/^Amount/), "150");
+    await user.type(within(dialog).getByLabelText(/^Note/), "Late arrival on 14 Nov");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add AED 150.00" }));
+    expect(await within(dialog).findByText("We don't know yet whether this was saved")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    return user;
+  }
+
+  it("keeps the key when the dialog is closed after a lost answer and opened again, so the same credit is never booked twice", async () => {
+    const user = await lostCreditThenClose();
+    api.adjustCustomerWallet.mockResolvedValue({ data: txn(), balance_fils: 30000 });
+    await user.click(screen.getByRole("button", { name: "Add credit" }));
+    const dialog = await screen.findByRole("dialog");
+    // The earlier attempt is named, with a way to send exactly that again.
+    expect(dialog).toHaveTextContent("An earlier attempt of AED 150.00 got no clear answer.");
+    // Typed again by hand: the same key goes with it, so the API replays the first credit instead of adding a second.
+    await user.type(within(dialog).getByLabelText(/^Amount/), "150");
+    await user.type(within(dialog).getByLabelText(/^Note/), "Late arrival on 14 Nov");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add AED 150.00" }));
+    await waitFor(() => expect(api.adjustCustomerWallet).toHaveBeenCalledTimes(2));
+    const [first, second] = api.adjustCustomerWallet.mock.calls;
+    expect(first[2]).toMatch(UUID);
+    expect(second[2]).toBe(first[2]);
+    expect(second[1]).toEqual(first[1]);
+    expect(await screen.findByText("Credit added. The balance is now AED 300.00.")).toBeInTheDocument();
+  });
+
+  it("sends the earlier credit again from a reopened dialog with its key and body, and forgets it once answered", async () => {
+    const user = await lostCreditThenClose();
+    api.adjustCustomerWallet.mockResolvedValue({ data: txn(), balance_fils: 30000 });
+    await user.click(screen.getByRole("button", { name: "Add credit" }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Send the earlier AED 150.00 again" }));
+    await waitFor(() => expect(api.adjustCustomerWallet).toHaveBeenCalledTimes(2));
+    const [first, second] = api.adjustCustomerWallet.mock.calls;
+    expect(second).toEqual(first);
+    expect(second[1]).toEqual({ type: "credit", amount_fils: 15000, reason_code: "goodwill", note: "Late arrival on 14 Nov" });
+    expect(await screen.findByText("Credit added. The balance is now AED 300.00.")).toBeInTheDocument();
+    // Answered: the next credit is a new intent with a new key and no note about an earlier attempt.
+    await user.click(screen.getByRole("button", { name: "Add credit" }));
+    dialog = await screen.findByRole("dialog");
+    expect(dialog).not.toHaveTextContent("An earlier attempt");
+  });
+
+  it("keeps the held attempt over a reload of the panel (this tab's storage)", async () => {
+    await lostCreditThenClose();
+    cleanup();
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole("button", { name: "Add credit" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("An earlier attempt of AED 150.00 got no clear answer.");
+    // The correction has its own key store: nothing held there.
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Correct balance" }));
+    expect(await screen.findByRole("dialog")).not.toHaveTextContent("An earlier attempt");
+  });
+
+  it("shows the first credit before another one when the API says the held key already booked it (422 IDEMPOTENCY_KEY_REUSED)", async () => {
+    const user = await lostCreditThenClose();
+    await user.click(screen.getByRole("button", { name: "Add credit" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Amount/), "200");
+    await user.type(within(dialog).getByLabelText(/^Note/), "Late arrival on 14 Nov");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    api.adjustCustomerWallet.mockRejectedValueOnce(new AdminApiError(422, { code: "IDEMPOTENCY_KEY_REUSED", message: "x", details: {} })).mockResolvedValue({ data: txn(), balance_fils: 30000 });
+    await user.click(within(dialog).getByRole("button", { name: "Add AED 200.00" }));
+    expect(await within(dialog).findByText("The first attempt was received")).toBeInTheDocument();
+    const [first, second] = api.adjustCustomerWallet.mock.calls;
+    expect(second[2]).toBe(first[2]);
+    expect(second[1]).toEqual(expect.objectContaining({ amount_fils: 20000 }));
+    await user.click(within(dialog).getByRole("button", { name: "Send the earlier AED 150.00 again" }));
+    await waitFor(() => expect(api.adjustCustomerWallet).toHaveBeenCalledTimes(3));
+    expect(api.adjustCustomerWallet.mock.calls[2]).toEqual(first);
+    expect(await screen.findByText("Credit added. The balance is now AED 300.00.")).toBeInTheDocument();
+  });
+
+  it("names the earlier attempt in Arabic too", async () => {
+    await lostCreditThenClose();
+    cleanup();
+    const user = userEvent.setup();
+    open(STAFF, "ar");
+    await user.click(await screen.findByRole("button", { name: "إضافة رصيد" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("لم تصلنا إجابة واضحة عن محاولة سابقة بمبلغ");
+    expect(within(dialog).getByRole("button", { name: /إعادة إرسال المحاولة السابقة بمبلغ/ })).toBeInTheDocument();
   });
 });
 

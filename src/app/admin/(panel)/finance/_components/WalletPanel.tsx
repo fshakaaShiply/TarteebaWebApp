@@ -3,12 +3,13 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { MinusCircle, PlusCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Card, DataTable, EmptyState, Notice, StatusBadge, type Column } from "@/components/admin";
 import { ExportButton } from "@/components/admin/ExportButton";
 import { exportFilters } from "@/lib/admin/exports";
 import { fetchCustomerWallet } from "@/lib/admin/finance/endpoints";
 import type { WalletTransaction } from "@/lib/admin/finance/wallet";
+import { walletKeysFor } from "@/lib/admin/finance/walletKeys";
 import { adminKeys } from "@/lib/admin/keys";
 import { useAdminSession } from "@/lib/admin/session";
 import { Code, Money } from "./FinanceParts";
@@ -37,6 +38,12 @@ export function WalletPanel({ customerUlid }: { customerUlid: string }) {
   });
   const info = wallet.data?.data;
   const mayAdjust = can("refunds.create");
+  /*
+   * The adjustments' Idempotency-Keys belong to the panel, not to the dialog: one store per movement type, kept in this
+   * tab (walletKeysFor). The route has no If-Match and no expected balance, so a credit whose answer was lost, sent again
+   * from a dialog closed and opened again, must carry the same key for the API to replay it instead of booking it twice.
+   */
+  const adjustKeys = useMemo(() => ({ credit: walletKeysFor(customerUlid, "credit"), debit: walletKeysFor(customerUlid, "debit") }), [customerUlid]);
 
   const columns: Column<WalletTransaction>[] = [
     { id: "created", header: t("columns.created"), cell: (r) => <span className="whitespace-nowrap">{text.dateTime(r.created_at)}</span> },
@@ -70,7 +77,8 @@ export function WalletPanel({ customerUlid }: { customerUlid: string }) {
     {
       id: "expires",
       header: t("columns.expires"),
-      cell: (r) => (r.type === "credit" ? r.expires_at ? <span className="whitespace-nowrap text-sm">{text.date(r.expires_at)}</span> : <span className="text-ink-600">{t("never")}</span> : <span className="text-ink-600">—</span>),
+      // `expires_at` is an instant: the date it falls on in Dubai (a credit ending at 22:30 UTC ends the next day there).
+      cell: (r) => (r.type === "credit" ? r.expires_at ? <span className="whitespace-nowrap text-sm">{text.instantDate(r.expires_at)}</span> : <span className="text-ink-600">{t("never")}</span> : <span className="text-ink-600">—</span>),
     },
     {
       id: "by",
@@ -135,7 +143,9 @@ export function WalletPanel({ customerUlid }: { customerUlid: string }) {
         pagination={wallet.data ? { meta: wallet.data.meta, onPageChange: setPage } : undefined}
         minWidth={820}
       />
-      {adjusting && info && <WalletAdjustDialog customerUlid={customerUlid} type={adjusting} balanceFils={info.balance_fils} onClose={() => setAdjusting(null)} />}
+      {adjusting && info && (
+        <WalletAdjustDialog customerUlid={customerUlid} type={adjusting} balanceFils={info.balance_fils} keys={adjustKeys[adjusting]} onClose={() => setAdjusting(null)} />
+      )}
     </Card>
   );
 }

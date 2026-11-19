@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import type { StatusTone } from "@/components/admin";
 import { pickText } from "@/lib/admin/catalog/fields";
-import { formatDateTime, formatIsoDate } from "@/lib/admin/format";
+import { businessToday, formatDateTime, formatIsoDate } from "@/lib/admin/format";
 import type { InvoiceStatus, RefundStatus, Translatable } from "@/lib/admin/types";
 import { formatAed } from "@/lib/money";
 
@@ -62,7 +62,16 @@ export function useFinanceText() {
        * column never mixes "120" with "114.29" and the page reads like the printed invoice.
        */
       money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale, { fixed: true })),
+      /** A local date "YYYY-MM-DD" as it is (no time zone to apply). */
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
+      /**
+       * The Dubai date an instant falls on ("2027-11-16T22:30:00+00:00" → Wed 17 Nov 2027), for timestamps shown as a day
+       * (a credit's expiry). `date` would print such a value as it came.
+       */
+      instantDate: (iso: string | null | undefined) => {
+        const at = iso ? new Date(iso) : null;
+        return at && !Number.isNaN(at.getTime()) ? formatIsoDate(businessToday(at), locale, "short") : "";
+      },
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
       /** A bilingual text from the API in the page language, else the other one. */
       either: (value: { ar: string | null; en: string | null } | null | undefined) =>

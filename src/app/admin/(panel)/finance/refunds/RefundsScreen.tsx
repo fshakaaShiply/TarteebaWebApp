@@ -87,6 +87,14 @@ function RefundsTable() {
 
   const seesPayments = can("payments.view");
   const [action, setAction] = useState<{ kind: "outcome" | "reinstate" | "clear"; refund: AdminRefund } | null>(null);
+  /*
+   * The refund as the list holds it now, not as it was when its button was pressed: a 409 (STALE_VERSION and the like)
+   * makes the dialog read the list again, and it takes the refund's new facts and version from here (useSeenRecord).
+   * The click's copy stands in while the list no longer holds the row; the dialog then says it can't show it.
+   */
+  const listedRefund = action ? list.data?.data.find((r) => r.id === action.refund.id) : undefined;
+  const actionRefund = listedRefund ?? action?.refund;
+  const refundUnavailable = action !== null && (listedRefund === undefined || list.isError);
   const mayRefund = can("refunds.create");
   const mayClear = can("reconciliation.run");
   const columns: Column<AdminRefund>[] = [
@@ -287,9 +295,15 @@ function RefundsTable() {
         pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
         minWidth={1300}
       />
-      {action?.kind === "outcome" && <RecordRefundOutcomeDialog refund={action.refund} onClose={() => setAction(null)} />}
-      {action?.kind === "reinstate" && <ReinstateRefundDialog refund={action.refund} onClose={() => setAction(null)} />}
-      {action?.kind === "clear" && <ClearReviewDialog target={{ kind: "refund", id: action.refund.id, version: action.refund.version ?? 0 }} onClose={() => setAction(null)} />}
+      {action?.kind === "outcome" && actionRefund && <RecordRefundOutcomeDialog refund={actionRefund} unavailable={refundUnavailable} onClose={() => setAction(null)} />}
+      {action?.kind === "reinstate" && actionRefund && <ReinstateRefundDialog refund={actionRefund} unavailable={refundUnavailable} onClose={() => setAction(null)} />}
+      {action?.kind === "clear" && actionRefund && (
+        <ClearReviewDialog
+          target={{ kind: "refund", id: actionRefund.id, version: actionRefund.version ?? 0, clearable: canClearRefundFlag(actionRefund) }}
+          unavailable={refundUnavailable}
+          onClose={() => setAction(null)}
+        />
+      )}
     </Card>
   );
 }

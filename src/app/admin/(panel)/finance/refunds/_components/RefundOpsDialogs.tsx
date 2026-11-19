@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Button, Dialog, Notice, TextArea, TextField, useToast } from "@/components/admin";
 import { recordRefundOutcome, reinstateRefund, type ReinstateBody, type RefundOutcomeBody } from "@/lib/admin/finance/endpoints";
 import { useFinanceError } from "@/lib/admin/finance/errors";
-import { PROVIDER_REF_MAX, REFUND_OPS_NOTE_MAX, buildOutcome, buildReinstate, type OpsFormError } from "@/lib/admin/finance/refundOps";
+import { PROVIDER_REF_MAX, REFUND_OPS_NOTE_MAX, buildOutcome, buildReinstate, canRecordOutcome, canReinstate, type OpsFormError } from "@/lib/admin/finance/refundOps";
 import { termsChangedAmount } from "@/lib/admin/finance/reconciliation";
 import { keepsIdempotencyKey, useIdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
@@ -14,6 +14,8 @@ import { subscriptionKeys } from "@/lib/admin/subscriptions/keys";
 import type { AdminRefund } from "@/lib/admin/types";
 import { Code, Money } from "../../_components/FinanceParts";
 import { useFinanceText } from "../../_components/financeText";
+import { RecordMovedNotice } from "../../_components/RecordMovedNotice";
+import { recordMoved, useSeenRecord } from "../../_components/useSeenRecord";
 
 /*
  * Two staff actions on a refund the provider's answers left flagged (refunds.create; finance §3.3, A1a §5.2):
@@ -22,9 +24,20 @@ import { useFinanceText } from "../../_components/financeText";
  *  - "Provider paid after all": a refund that failed and was later reported paid. The amount is the refund's own.
  * Both show the refund's facts first, then the exact amount in a second step, and send an Idempotency-Key (one per body)
  * and the refund's version as If-Match. A 409 TERMS_CHANGED puts the API's amount on screen and asks again.
+ *
+ * The facts and the version sent are the dialog's copy of the refund (useSeenRecord). When the API answers that the
+ * refund moved (409 STALE_VERSION, NOT_FLAGGED, REFUND_NOT_OPEN, REFUND_NOT_FAILED) the dialog goes back to the facts,
+ * the page reads the list again, and the refund's new facts and version replace the copy: the next confirmation is
+ * made on them, or the dialog says the action no longer applies. It never resends the refused version.
  */
 
-type Props = { refund: AdminRefund; onClose: () => void };
+type Props = {
+  /** The refund as the page holds it now (the list's row, read again after a 409). */
+  refund: AdminRefund;
+  /** The page can't show this refund any more (the list leaves it out now, or reading it again failed). */
+  unavailable?: boolean;
+  onClose: () => void;
+};
 
 function useRefresh() {
   const queryClient = useQueryClient();
@@ -96,13 +109,16 @@ function useConfirmFocus(active: boolean) {
   return summary;
 }
 
-export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
+export function RecordRefundOutcomeDialog({ refund: live, unavailable, onClose }: Props) {
   const t = useTranslations("admin.finance.refundOps");
   const text = useFinanceText();
   const describe = useFinanceError();
   const toast = useToast();
   const refresh = useRefresh();
   const keys = useIdempotencyKeys();
+  const seen = useSeenRecord(live);
+  const refund = seen.record;
+  const applies = canRecordOutcome(refund);
   const [status, setStatus] = useState<"succeeded" | "failed">("succeeded");
   const [providerRef, setProviderRef] = useState("");
   const [failureCode, setFailureCode] = useState("");
@@ -122,6 +138,11 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
     onError: (e) => {
       keys.settle(e);
       refresh();
+      if (recordMoved(e)) {
+        // Not the refund that was shown: back to its facts, which the page reads again.
+        setConfirming(null);
+        seen.moved();
+      }
     },
   });
 
@@ -133,6 +154,7 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
     }
     setErrors({});
     send.reset();
+    seen.seen();
     setConfirming(built.body);
   };
   const confirm = (event: MouseEvent<HTMLButtonElement>, body: RefundOutcomeBody) => {
@@ -141,6 +163,8 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
   };
 
   const unknown = send.isError && keepsIdempotencyKey(send.error);
+  // A moved refund is told by RecordMovedNotice, not as an error to retry.
+  const shownError = send.isError && !unknown && !recordMoved(send.error) ? send.error : null;
   const err = (field: keyof typeof errors) => (errors[field] ? t(`errors.${errors[field]}`) : undefined);
 
   return (
@@ -166,7 +190,7 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
             <Button key="cancel" variant="outline" onClick={onClose}>
               {t("cancel")}
             </Button>
-            <Button key="review" onClick={review}>
+            <Button key="review" onClick={review} disabled={seen.waiting || !applies}>
               {t("review")}
             </Button>
           </>
@@ -175,6 +199,7 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
     >
       <div className="flex flex-col gap-4">
         <RefundFacts refund={refund} />
+        <RecordMovedNotice kind="refund" waiting={seen.waiting} renewed={seen.renewed} applies={applies} unavailable={unavailable} />
         {confirming ? (
           <div ref={summary} tabIndex={-1} className="flex flex-col gap-3 outline-none">
             <Notice tone="warning">{confirming.status === "succeeded" ? t("outcome.confirmPaidNote") : t("outcome.confirmFailedNote")}</Notice>
@@ -245,21 +270,24 @@ export function RecordRefundOutcomeDialog({ refund, onClose }: Props) {
             <p>{describe(send.error)}</p>
             <p>{t("unknownBody")}</p>
           </Notice>
-        ) : send.isError ? (
-          <Notice tone="danger">{describe(send.error)}</Notice>
+        ) : shownError ? (
+          <Notice tone="danger">{describe(shownError)}</Notice>
         ) : null}
       </div>
     </Dialog>
   );
 }
 
-export function ReinstateRefundDialog({ refund, onClose }: Props) {
+export function ReinstateRefundDialog({ refund: live, unavailable, onClose }: Props) {
   const t = useTranslations("admin.finance.refundOps");
   const text = useFinanceText();
   const describe = useFinanceError();
   const toast = useToast();
   const refresh = useRefresh();
   const keys = useIdempotencyKeys();
+  const seen = useSeenRecord(live);
+  const refund = seen.record;
+  const applies = canReinstate(refund);
   const [providerRef, setProviderRef] = useState("");
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Partial<Record<"note" | "provider_refund_ref", OpsFormError>>>({});
@@ -278,10 +306,17 @@ export function ReinstateRefundDialog({ refund, onClose }: Props) {
     onError: (e) => {
       keys.settle(e);
       refresh();
-      const moved = termsChangedAmount(e);
-      if (moved !== null && confirming) {
-        setChanged({ from: confirming.expected_amount_fils, to: moved });
-        setConfirming({ ...confirming, expected_amount_fils: moved });
+      const amount = termsChangedAmount(e);
+      if (amount !== null && confirming) {
+        setChanged({ from: confirming.expected_amount_fils, to: amount });
+        setConfirming({ ...confirming, expected_amount_fils: amount });
+        return;
+      }
+      if (recordMoved(e)) {
+        // Not the refund that was shown: back to its facts, which the page reads again.
+        setChanged(null);
+        setConfirming(null);
+        seen.moved();
       }
     },
   });
@@ -295,6 +330,7 @@ export function ReinstateRefundDialog({ refund, onClose }: Props) {
     setErrors({});
     setChanged(null);
     send.reset();
+    seen.seen();
     setConfirming(built.body);
   };
   const confirm = (event: MouseEvent<HTMLButtonElement>, body: ReinstateBody) => {
@@ -303,7 +339,8 @@ export function ReinstateRefundDialog({ refund, onClose }: Props) {
   };
 
   const unknown = send.isError && keepsIdempotencyKey(send.error);
-  const shownError = send.error && termsChangedAmount(send.error) === null ? send.error : null;
+  // A moved refund is told by RecordMovedNotice; a changed amount by the termsChanged note.
+  const shownError = send.error && termsChangedAmount(send.error) === null && !recordMoved(send.error) ? send.error : null;
   const err = (field: keyof typeof errors) => (errors[field] ? t(`errors.${errors[field]}`) : undefined);
 
   return (
@@ -329,7 +366,7 @@ export function ReinstateRefundDialog({ refund, onClose }: Props) {
             <Button key="cancel" variant="outline" onClick={onClose}>
               {t("cancel")}
             </Button>
-            <Button key="review" onClick={review}>
+            <Button key="review" onClick={review} disabled={seen.waiting || !applies}>
               {t("review")}
             </Button>
           </>
@@ -338,6 +375,7 @@ export function ReinstateRefundDialog({ refund, onClose }: Props) {
     >
       <div className="flex flex-col gap-4">
         <RefundFacts refund={refund} amount={confirming?.expected_amount_fils} />
+        <RecordMovedNotice kind="refund" waiting={seen.waiting} renewed={seen.renewed} applies={applies} unavailable={unavailable} />
         {changed && (
           <Notice tone="warning" title={t("termsChangedTitle")}>
             {t("termsChanged", { from: text.money(changed.from), to: text.money(changed.to) })}

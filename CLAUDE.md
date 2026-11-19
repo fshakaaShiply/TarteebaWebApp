@@ -155,10 +155,17 @@ scripts/deploy-web.sh   # build + upload + PM2 reload on staging
   (`allowed_resolutions[].moves_money`) confirm the provider line's exact amount first and send it as
   `expected_amount_fils`, 409 TERMS_CHANGED puts the API's amount on screen and asks again. Refund operations
   (`refunds/_components/RefundOpsDialogs.tsx`: record the provider's answer, "Provider paid after all"; `ClearReviewDialog`
-  for payment and refund flags) follow the same rules; a refund to the customer's balance offers none of them. The refund
+  for payment and refund flags) follow the same rules; a refund to the customer's balance offers none of them. Those
+  dialogs act on a copy of their record (`_components/useSeenRecord.ts`): the page passes the row it holds now, and only
+  after the API says the record moved (409 STALE_VERSION, NOT_FLAGGED, REFUND_NOT_OPEN/NOT_FAILED/OPEN) and the page read
+  it again does the copy take the new facts and version (`RecordMovedNotice`: check and confirm again, or "no longer
+  needs this action"); a refused version is never resent. The refund
   dialog offers card or balance only while `/public/config` says `wallet.enabled`. Exports: `src/components/admin/ExportButton.tsx`
   + `src/lib/admin/exports.ts` (POST, poll as a background read every 2 s up to 3 min, then the signed link; hidden without
   `reports.export`) and `finance/exports`. `finance/_components/WalletPanel.tsx` is the A07 "Balance" tab W3 mounts
-  (`showWalletPanel()` says when). Messages `admin.finance.{reconciliation,exports,wallet,errors,refundOps,clearReview}`;
+  (`showWalletPanel()` says when). The balance adjustment has no If-Match, so its Idempotency-Key store belongs to the
+  panel, not the dialog (`lib/admin/finance/walletKeys.ts`: one per customer and type, `holdAfterUnknown`, kept in this
+  tab's sessionStorage like the refund key, `heldAttempts.ts`): a reopened dialog offers "Send the earlier … again". A
+  timestamp shown as a day (a credit's expiry) goes through `text.instantDate` (its Dubai date), never `text.date`. Messages `admin.finance.{reconciliation,exports,wallet,errors,refundOps,clearReview}`;
   enum coverage in `finance-messages.test.ts`. Test fixtures: `src/test/financeFixtures.ts`.
 - **Tests:** `renderWithProviders()` in `src/test/render.tsx` for component tests.

@@ -4992,6 +4992,7 @@
         },
         "items": "Items",
         "itemsCaption": "Items of this run",
+        "exportNoSearch": "The export holds every item of this tab with its filters: it doesn't apply the search.",
         "tabs": {
           "label": "Items",
           "differences": "Differences ({count})",
@@ -5276,6 +5277,14 @@
         },
         "noteField": "Note"
       },
+      "moved": {
+        "title": "{kind, select, payment {This payment} other {This refund}} changed meanwhile",
+        "waiting": "Nothing was saved. Its latest details will show here in a moment.",
+        "unavailable": "Nothing was saved, and its latest details can't be shown here: it may no longer match this list's filters. Close this window and check the list.",
+        "renewed": "Nothing was saved. Its latest details are shown here: check them, then confirm again.",
+        "renewedNoFacts": "Nothing was saved. {kind, select, payment {The payment} other {The refund}} has been read again: if you still want to clear its flag, confirm again.",
+        "noLonger": "Nothing was saved. {kind, select, payment {This payment} other {This refund}} no longer needs this action, so close this window."
+      },
       "clearReview": {
         "title": {
           "payment": "Clear the review flag of this payment",
@@ -5367,7 +5376,10 @@
           "amount": "Amount",
           "amountHint": "Up to {max}.",
           "noteHint": "Why this credit or correction. 3 to 500 characters. The customer never sees it.",
-          "heldNote": "An earlier attempt of {amount} got no clear answer. A different amount is refused, so the balance can't change twice.",
+          "heldNote": "An earlier attempt of {amount} got no clear answer. Send it again to see the result: it is applied only once. If it went through, a different amount or note is refused, so the balance can't change twice.",
+          "resendEarlier": "Send the earlier {amount} again",
+          "earlierTitle": "The first attempt was received",
+          "earlierBody": "It reached us before the amount or note changed. Send it again to see its result before you start another one.",
           "unknownTitle": "We don't know yet whether this was saved",
           "unknownBody": "Press the button again: it is applied only once, and if the first attempt went through you'll see the new balance.",
           "doneCredit": "Credit added. The balance is now {balance}.",

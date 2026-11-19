@@ -132,7 +132,7 @@ describe("A09 payment page: review flag", () => {
     expect(await screen.findByText("The payment's review flag was cleared.")).toBeInTheDocument();
   });
 
-  it("explains in words why the API refused to clear it", async () => {
+  it("explains in words why the API refused to clear it, and that a flag cleared meanwhile needs nothing more", async () => {
     api.fetchPayment.mockResolvedValue(flagged);
     const user = userEvent.setup();
     open();
@@ -142,12 +142,31 @@ describe("A09 payment page: review flag", () => {
     api.clearPaymentReview.mockRejectedValueOnce(new AdminApiError(409, { code: "PAYMENT_VERIFYING", message: "x", details: {} }));
     await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
     expect(await within(dialog).findByText("The provider hasn't settled this payment yet. Clear the flag once it has.")).toBeInTheDocument();
+    // Someone cleared it meanwhile: the page reads the payment again, and the dialog says there is nothing left to do.
+    api.fetchPayment.mockResolvedValue(payment({ version: 6 }));
     api.clearPaymentReview.mockRejectedValueOnce(new AdminApiError(409, { code: "NOT_FLAGGED", message: "x", details: {} }));
     await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
-    expect(await within(dialog).findByText("This is not flagged for review any more. Reload to see its state.")).toBeInTheDocument();
-    api.clearPaymentReview.mockRejectedValueOnce(new AdminApiError(409, { code: "STALE_VERSION", message: "x", details: {} }));
+    expect(await within(dialog).findByText("Nothing was saved. This payment no longer needs this action, so close this window.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("This payment changed meanwhile");
+    expect(within(dialog).getByRole("button", { name: "Clear flag" })).toBeDisabled();
+    expect(api.clearPaymentReview).toHaveBeenCalledTimes(2);
+  });
+
+  it("after 409 STALE_VERSION takes the payment's new version from the page, so the next confirmation can succeed", async () => {
+    api.fetchPayment.mockResolvedValue(flagged);
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole("button", { name: "Clear flag" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Note/), "Checked the provider statement");
+    api.fetchPayment.mockResolvedValue({ ...flagged, version: 6 });
+    api.clearPaymentReview.mockRejectedValueOnce(new AdminApiError(409, { code: "STALE_VERSION", message: "x", details: {} })).mockResolvedValue(payment({ version: 7 }));
     await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
-    expect(await within(dialog).findByText(/Someone else changed this record/)).toBeInTheDocument();
+    expect(await within(dialog).findByText(/The payment has been read again: if you still want to clear its flag, confirm again/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
+    await waitFor(() => expect(api.clearPaymentReview).toHaveBeenCalledTimes(2));
+    expect(api.clearPaymentReview.mock.calls.map((c) => c[2])).toEqual([5, 6]);
+    expect(await screen.findByText("The payment's review flag was cleared.")).toBeInTheDocument();
   });
 
   it("disables the button with the reason while the provider has not settled the payment", async () => {

@@ -273,6 +273,7 @@ function ItemsPanel({ run, active, canRun }: { run: RunDetail; active: boolean; 
   const [reopening, setReopening] = useState<ItemRow | null>(null);
   const view = itemView(filters.view);
   const q = useDebouncedValue(filters.q.trim(), 300);
+  const mayExport = useAdminSession().can("reports.export");
 
   const list = useQuery({
     queryKey: adminKeys.reconciliationItems(run.id, filterKey(ITEM_FILTERS, { ...filters, view }, { q })),
@@ -425,6 +426,8 @@ function ItemsPanel({ run, active, canRun }: { run: RunDetail; active: boolean; 
             </Button>
           )}
         </div>
+        {/* The items export has no search filter (A1b §3.2): say so while a search narrows the list. */}
+        {q !== "" && mayExport && <p className="text-xs text-ink-600">{t("exportNoSearch")}</p>}
         <DataTable
           caption={t("itemsCaption")}
           columns={columns}

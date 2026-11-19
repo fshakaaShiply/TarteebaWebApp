@@ -207,7 +207,9 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
       </div>
 
       {refunding && <RefundDialog payment={payment} keys={refundKeys} onClose={() => setRefunding(false)} />}
-      {clearing && <ClearReviewDialog target={{ kind: "payment", id: payment.id, version: payment.version }} onClose={() => setClearing(false)} />}
+      {clearing && (
+        <ClearReviewDialog target={{ kind: "payment", id: payment.id, version: payment.version, clearable: payment.needs_review && !verifying }} onClose={() => setClearing(false)} />
+      )}
     </>
   );
 }

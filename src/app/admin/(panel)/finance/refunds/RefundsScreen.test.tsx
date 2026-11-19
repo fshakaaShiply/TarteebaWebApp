@@ -193,7 +193,7 @@ describe("A09 refunds list: row actions", () => {
   });
 
   it("offers none of them for a refund to the customer's balance, and none without the permission", async () => {
-    api.fetchRefunds.mockResolvedValue(page([{ ...flaggedOpen, destination: "wallet", gateway: "wallet" } as AdminRefund, flaggedOpen]));
+    api.fetchRefunds.mockResolvedValue(page([{ ...flaggedOpen, id: 14, ulid: "01R14", destination: "wallet", gateway: "wallet" } as AdminRefund, flaggedOpen]));
     const { unmount } = open();
     await screen.findAllByText("Goodwill gesture");
     const rows = within(screen.getByRole("table", { name: "Refunds" })).getAllByRole("row");
@@ -275,19 +275,64 @@ describe("recording the provider's answer", () => {
     expect(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" })).toBeInTheDocument();
   });
 
-  it("says in words why the API refused: a reference already booked, a refund no longer open, an automatic balance refund", async () => {
+  it("says in words why the API refused: a reference already booked, an automatic balance refund", async () => {
     const { user, dialog } = await openOutcome({ ...flaggedOpen, gateway_refund_ref: "fref_have" } as AdminRefund);
     await user.type(within(dialog).getByLabelText(/^Note/), "Seen on the provider statement");
     await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "PROVIDER_REF_IN_USE", message: "x", details: { refund: { id: 1, ulid: "u", status: "succeeded" } } }));
     await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
     expect(await within(dialog).findByText("That provider reference is already booked on another refund. One provider refund is booked only once.")).toBeInTheDocument();
-    api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "REFUND_NOT_OPEN", message: "x", details: { status: "succeeded" } }));
-    await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
-    expect(await within(dialog).findByText(/no longer open, so the provider's answer can't be recorded/)).toBeInTheDocument();
     api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "WALLET_REFUND_AUTOMATIC", message: "x", details: {} }));
     await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
     expect(await within(dialog).findByText(/credited automatically/)).toBeInTheDocument();
+  });
+
+  it("after 409 STALE_VERSION shows the refund as the list reads it now and sends its new version on the next confirmation", async () => {
+    const { user, dialog } = await openOutcome({ ...flaggedOpen, gateway_refund_ref: "fref_have" } as AdminRefund);
+    await user.type(within(dialog).getByLabelText(/^Note/), "Seen on the provider statement");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    // A provider's answer changed the refund meanwhile (another reference, version 7): the list reads it again.
+    api.fetchRefunds.mockResolvedValue(page([{ ...flaggedOpen, gateway_refund_ref: "fref_new", version: 7 } as AdminRefund]));
+    api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "STALE_VERSION", message: "x", details: {} })).mockResolvedValue(refund({ id: 11 }));
+    await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
+    // Back to the facts, now the new ones, and asked to check them before confirming again.
+    expect(await within(dialog).findByText("Nothing was saved. Its latest details are shown here: check them, then confirm again.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("This refund changed meanwhile");
+    expect(dialog).toHaveTextContent("fref_new");
+    expect(within(dialog).getByLabelText(/^Note/)).toHaveValue("Seen on the provider statement");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
+    await waitFor(() => expect(api.recordRefundOutcome).toHaveBeenCalledTimes(2));
+    expect(api.recordRefundOutcome.mock.calls.map((c) => c[2])).toEqual([6, 7]);
+    expect(api.recordRefundOutcome.mock.calls[1][3]).not.toBe(api.recordRefundOutcome.mock.calls[0][3]);
+    expect(await screen.findByText("Recorded. Refund status: Refunded.")).toBeInTheDocument();
+  });
+
+  it("says the action no longer applies when the provider settled the refund meanwhile (409 REFUND_NOT_OPEN)", async () => {
+    const { user, dialog } = await openOutcome({ ...flaggedOpen, gateway_refund_ref: "fref_have" } as AdminRefund);
+    await user.type(within(dialog).getByLabelText(/^Note/), "Seen on the provider statement");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    api.fetchRefunds.mockResolvedValue(page([refund({ id: 11, ulid: "01R11", version: 7 })]));
+    api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "REFUND_NOT_OPEN", message: "x", details: { status: "succeeded" } }));
+    await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
+    expect(await within(dialog).findByText("Nothing was saved. This refund no longer needs this action, so close this window.")).toBeInTheDocument();
+    // The facts are the refund's status now (paid), and nothing more can be sent.
+    expect(dialog).toHaveTextContent("Refunded");
+    expect(within(dialog).getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(api.recordRefundOutcome).toHaveBeenCalledTimes(1);
+  });
+
+  it("can't show the refund again once the list leaves it out, and sends nothing more", async () => {
+    url.set("needs_review=1");
+    const { user, dialog } = await openOutcome({ ...flaggedOpen, gateway_refund_ref: "fref_have" } as AdminRefund);
+    await user.type(within(dialog).getByLabelText(/^Note/), "Seen on the provider statement");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    // Its flag was cleared meanwhile: the "needs review" list no longer holds it.
+    api.fetchRefunds.mockResolvedValue(page([]));
+    api.recordRefundOutcome.mockRejectedValueOnce(new AdminApiError(409, { code: "NOT_FLAGGED", message: "x", details: {} }));
+    await user.click(within(dialog).getByRole("button", { name: "Record as paid (AED 180.00)" }));
+    expect(await within(dialog).findByText(/its latest details can't be shown here: it may no longer match this list's filters/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continue" })).toBeDisabled();
   });
 
   it("keeps the same key after a lost answer, so a repeat never records twice", async () => {
@@ -346,19 +391,76 @@ describe("Provider paid after all", () => {
     expect(api.reinstateRefund.mock.calls[1][3]).not.toBe(api.reinstateRefund.mock.calls[0][3]);
   });
 
-  it("says why the API refused: not failed, not flagged, or the reference is already booked", async () => {
+  it("says why the API refused when the reference is already booked", async () => {
     const { user, dialog } = await openReinstate();
     await user.type(within(dialog).getByLabelText(/^Note/), "Provider statement of 23 Oct");
     await user.click(within(dialog).getByRole("button", { name: "Continue" }));
-    const send = () => user.click(within(dialog).getByRole("button", { name: "Record AED 180.00 as paid" }));
-    api.reinstateRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "REFUND_NOT_FAILED", message: "x", details: { status: "succeeded" } }));
-    await send();
-    expect(await within(dialog).findByText(/didn't fail, so it can't be marked as paid after all/)).toBeInTheDocument();
-    api.reinstateRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "NOT_FLAGGED", message: "x", details: {} }));
-    await send();
-    expect(await within(dialog).findByText(/not flagged for review any more/)).toBeInTheDocument();
     api.reinstateRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "PROVIDER_REF_IN_USE", message: "x", details: {} }));
-    await send();
+    await user.click(within(dialog).getByRole("button", { name: "Record AED 180.00 as paid" }));
     expect(await within(dialog).findByText(/already booked on another refund/)).toBeInTheDocument();
+  });
+
+  it("after 409 NOT_FLAGGED shows the refund as it is now and offers nothing more (someone cleared its flag)", async () => {
+    const { user, dialog } = await openReinstate();
+    await user.type(within(dialog).getByLabelText(/^Note/), "Provider statement of 23 Oct");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    api.fetchRefunds.mockResolvedValue(
+      page([{ ...failedPaid, needs_review: false, version: 7, review: { ...failedPaid.review!, cleared_at: "2026-10-23T18:00:00+00:00", cleared_by: 4, note: "Checked" } } as AdminRefund]),
+    );
+    api.reinstateRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "NOT_FLAGGED", message: "x", details: {} }));
+    await user.click(within(dialog).getByRole("button", { name: "Record AED 180.00 as paid" }));
+    expect(await within(dialog).findByText("Nothing was saved. This refund no longer needs this action, so close this window.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(api.reinstateRefund).toHaveBeenCalledTimes(1);
+  });
+
+  it("after 409 STALE_VERSION confirms again with the refund's new version and a new key", async () => {
+    const { user, dialog } = await openReinstate();
+    await user.type(within(dialog).getByLabelText(/^Note/), "Provider statement of 23 Oct");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    api.fetchRefunds.mockResolvedValue(page([{ ...failedPaid, version: 8 } as AdminRefund]));
+    api.reinstateRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "STALE_VERSION", message: "x", details: {} })).mockResolvedValue(refund({ id: 12 }));
+    await user.click(within(dialog).getByRole("button", { name: "Record AED 180.00 as paid" }));
+    expect(await within(dialog).findByText(/Its latest details are shown here: check them, then confirm again/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(within(dialog).getByRole("button", { name: "Record AED 180.00 as paid" }));
+    await waitFor(() => expect(api.reinstateRefund).toHaveBeenCalledTimes(2));
+    expect(api.reinstateRefund.mock.calls.map((c) => c[2])).toEqual([6, 8]);
+    expect(api.reinstateRefund.mock.calls[1][3]).not.toBe(api.reinstateRefund.mock.calls[0][3]);
+  });
+});
+
+describe("clearing a refund's flag from the list after it moved", () => {
+  it("after 409 STALE_VERSION sends the refund's new version on the next confirmation", async () => {
+    const flaggedFinal = refund({ needs_review: true, review: { reason: "refund_exceeds_capture", reason_label: null, cleared_at: null, cleared_by: null, note: null } });
+    api.fetchRefunds.mockResolvedValue(page([flaggedFinal]));
+    api.clearRefundReview.mockRejectedValueOnce(new AdminApiError(409, { code: "STALE_VERSION", message: "x", details: {} })).mockResolvedValue(refund());
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole("button", { name: /Clear flag/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Note/), "Checked the capture");
+    api.fetchRefunds.mockResolvedValue(page([{ ...flaggedFinal, version: 9 } as AdminRefund]));
+    await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
+    expect(await within(dialog).findByText(/The refund has been read again: if you still want to clear its flag, confirm again/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Clear flag" }));
+    await waitFor(() => expect(api.clearRefundReview).toHaveBeenCalledTimes(2));
+    expect(api.clearRefundReview.mock.calls.map((c) => c[2])).toEqual([6, 9]);
+    expect(await screen.findByText("The refund's review flag was cleared.")).toBeInTheDocument();
+  });
+
+  it("reads in Arabic", async () => {
+    const flaggedFinal = refund({ needs_review: true, review: { reason: "refund_exceeds_capture", reason_label: null, cleared_at: null, cleared_by: null, note: null } });
+    api.fetchRefunds.mockResolvedValue(page([flaggedFinal]));
+    api.clearRefundReview.mockRejectedValueOnce(new AdminApiError(409, { code: "NOT_FLAGGED", message: "x", details: {} }));
+    const user = userEvent.setup();
+    open(ACCOUNTANT, "ar");
+    await user.click(await screen.findByRole("button", { name: /إزالة العلامة/ }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^الملاحظة/), "راجعت المبلغ");
+    api.fetchRefunds.mockResolvedValue(page([refund({ version: 9 })]));
+    await user.click(within(dialog).getByRole("button", { name: "إزالة العلامة" }));
+    expect(await within(dialog).findByText("لم يُحفظ شيء. لم يعد هذا الاسترداد يحتاج إلى هذا الإجراء، فأغلق هذه النافذة.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("تغيّر هذا الاسترداد في هذه الأثناء");
   });
 });
