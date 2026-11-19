@@ -5,7 +5,7 @@ import { Ban, CalendarX2, Check, ChevronRight, CreditCard, RefreshCw, Snowflake,
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
-import { Button, Card, EmptyState, ErrorState, LoadingBlock, TabPanel, Tabs, type TabItem } from "@/components/admin";
+import { Button, Card, CustomerLink, EmptyState, ErrorState, LoadingBlock, TabPanel, Tabs, type TabItem } from "@/components/admin";
 import { SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import { ACTION_ORDER, availableActions, renewalBusy, type SubscriptionAction } from "@/lib/admin/subscriptions/actions";
@@ -17,6 +17,7 @@ import { useSubscriptionText } from "@/lib/admin/subscriptions/text";
 import { RequirePermission } from "../../../_components/RequirePermission";
 import { StaleDialog } from "../../catalog/_components/CatalogFields";
 import { Banners, HistoryTab, OverviewTab, PeriodsTab, type TabId } from "../_components/DetailParts";
+import { CustomerBlockedBanner } from "../../customers/_components/CustomerBlockedBanner";
 import { useSubscriptionDialogs, type DialogRequest } from "../_components/DialogHost";
 import { useMoveHandoff } from "../_components/MoveHandoff";
 import { HealthChip, StatusChip } from "../_components/SubscriptionBits";
@@ -163,7 +164,8 @@ function SubscriptionView({ subscription, handoff, onStale }: { subscription: Su
               <HealthChip health={subscription.payment_health} />
             </div>
             <p className="text-sm text-ink-600">
-              {text.type(subscription.type)} · {text.name(subscription.plan_label) || text.name(subscription.service.name)} · {subscription.customer.name ?? t("noName")} · {text.name(subscription.zone.name)}
+              {text.type(subscription.type)} · {text.name(subscription.plan_label) || text.name(subscription.service.name)} ·{" "}
+              <CustomerLink customer={{ id: subscription.customer.ulid, name: subscription.customer.name }}>{subscription.customer.name ?? t("noName")}</CustomerLink> · {text.name(subscription.zone.name)}
             </p>
             <p className="text-sm text-ink-600">
               {t("term", { start: text.dateShort(subscription.start_date), end: text.dateShort(subscription.term_end_date) })}
@@ -186,6 +188,7 @@ function SubscriptionView({ subscription, handoff, onStale }: { subscription: Su
             </div>
           )}
         </div>
+        <CustomerBlockedBanner customer={{ id: subscription.customer.ulid, name: subscription.customer.name, status: subscription.customer.status }} />
         <Banners subscription={subscription} open={open} goTo={setTab} />
         {handoffNotice}
       </section>

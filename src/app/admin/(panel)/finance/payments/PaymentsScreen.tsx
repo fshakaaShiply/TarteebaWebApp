@@ -9,6 +9,7 @@ import {
   ButtonLink,
   Card,
   Checkbox,
+  CustomerLink,
   DataTable,
   EmptyState,
   FilterBar,
@@ -103,7 +104,9 @@ function PaymentsTable() {
       cell: (p) =>
         p.customer ? (
           <span className="flex flex-col">
-            <span className="text-ink-900">{p.customer.name || t("noName")}</span>
+            <span className="text-ink-900">
+              <CustomerLink customer={{ id: p.customer.ulid, name: p.customer.name }}>{p.customer.name || t("noName")}</CustomerLink>
+            </span>
             <span className="text-xs text-ink-600">
               <Code>{p.customer.phone}</Code>
             </span>

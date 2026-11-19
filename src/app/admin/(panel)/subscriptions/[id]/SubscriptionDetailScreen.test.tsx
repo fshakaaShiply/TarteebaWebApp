@@ -91,6 +91,23 @@ describe("A08 subscription page", () => {
     expect(screen.getAllByText("Maria S.").length).toBeGreaterThan(0);
   });
 
+  it("links the customer to her A07 profile, and says when she is blocked: the paid term continues, renewals stopped (P5-C10)", async () => {
+    const detail = subscriptionDetail();
+    const blocked = subscriptionDetail({ customer: { ...detail.customer, ulid: "01JC0000000000000000000011", status: "blocked", status_label: { ar: "موقوف", en: "Blocked" } } });
+    open(blocked, [...MANAGER, "customers.view"]);
+    const banner = (await screen.findByText("Customer blocked")).closest("[role]") as HTMLElement;
+    expect(within(banner).getByRole("link", { name: "Open the profile of Sara Ahmed" })).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000011");
+    const header = screen.getByRole("heading", { level: 1 }).closest("section")!;
+    expect(within(header).getAllByRole("link", { name: "Sara Ahmed" })[0]).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000011");
+  });
+
+  it("shows no banner for an active customer, and plain names without customers.view", async () => {
+    open(subscriptionDetail(), MANAGER);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Customer blocked")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Sara Ahmed" })).toBeNull();
+  });
+
   it("adds the Calendar tab for a Live-out subscription only", async () => {
     open(liveOutDetail());
     await screen.findByRole("heading", { name: /TRS-L0NG01/ });

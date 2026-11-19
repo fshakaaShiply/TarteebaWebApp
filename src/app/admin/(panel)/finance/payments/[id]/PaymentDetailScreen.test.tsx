@@ -114,6 +114,16 @@ const open = (permissions: readonly string[] = ["payments.view", "refunds.create
   renderWithProviders(<PaymentDetailScreen id="9" />, { permissions, locale });
 
 describe("A09 payment page: review flag", () => {
+  it("links the payer to her A07 profile for customers.view", async () => {
+    api.fetchPayment.mockResolvedValue(payment({ customer: { id: 2, ulid: "01JC0000000000000000000002", name: "Omar Khalid", phone: "+971500000002" } }));
+    const { unmount } = open(["payments.view", "customers.view"]);
+    expect(await screen.findByRole("link", { name: "Omar Khalid" })).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000002");
+    unmount();
+    open(["payments.view"]);
+    expect(await screen.findByText("Omar Khalid")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Omar Khalid" })).toBeNull();
+  });
+
   it("shows why the payment was flagged and clears the flag with a note, sending the payment's version", async () => {
     api.fetchPayment.mockResolvedValue(flagged);
     api.clearPaymentReview.mockResolvedValue(payment());

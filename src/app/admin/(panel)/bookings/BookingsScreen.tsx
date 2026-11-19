@@ -10,6 +10,7 @@ import {
   ButtonLink,
   Card,
   Checkbox,
+  CustomerLink,
   DataTable,
   EmptyState,
   FilterBar,
@@ -197,7 +198,9 @@ function BookingsTable() {
       header: t("columns.customer"),
       cell: (b) => (
         <span className="flex flex-col">
-          <span className="text-ink-900">{b.customer.name || t("noName")}</span>
+          <span className="text-ink-900">
+            <CustomerLink customer={b.customer}>{b.customer.name || t("noName")}</CustomerLink>
+          </span>
           <span className="text-xs text-ink-600">
             <Ltr>{b.customer.phone}</Ltr>
           </span>

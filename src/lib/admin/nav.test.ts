@@ -47,6 +47,8 @@ describe("ADMIN_NAV", () => {
       "/admin/scheduling/rules",
       "/admin/scheduling/blackout-dates",
       "/admin/settings/notifications",
+      "/admin/settings/pages",
+      "/admin/settings/faq",
       "/admin/settings",
     ]);
   });
@@ -83,6 +85,7 @@ describe("filterNav", () => {
       "workers.view",
       "fleet.manage",
       "customers.view",
+      "customers.privacy_requests",
       "subscriptions.manage",
       "payments.view",
       "complaints.manage",
@@ -100,14 +103,30 @@ describe("filterNav", () => {
       "operations[schedule,capacity]",
       "workers",
       "fleet[vehicles,drivers,trips,driverReports]",
-      "customers",
+      "customers[customersList,privacyRequests]",
       "subscriptions",
       "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports]",
       "quality[qualityInbox,qualityRatings,qualityCompensations]",
-      "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,settings]",
+      "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,legalPages,faq,settings]",
       "reports",
       "users[staffUsers,audit]",
     ]);
+  });
+
+  it("builds A07: the list for customers.view and the privacy queue for customers.privacy_requests, each alone", () => {
+    const customers = ADMIN_NAV.find((m) => m.code === "A07")!;
+    expect(customers.built).toBe(true);
+    expect(customers.children!.map((c) => [c.id, c.href, c.built])).toEqual([
+      ["customersList", "/admin/customers", true],
+      ["privacyRequests", "/admin/customers/privacy-requests", true],
+    ]);
+    expect(ids(["customers.view"])).toEqual(["access", "customers[customersList]"]);
+    expect(ids(["customers.privacy_requests"])).toEqual(["access", "customers[privacyRequests]"]);
+    expect(ids(["bookings.view"])).not.toContain("customers");
+    // The queue is below the list's path: the longest match marks its own entry.
+    const children = customers.children!;
+    expect(activeChildHref(children, "/admin/customers/privacy-requests")).toBe("/admin/customers/privacy-requests");
+    expect(activeChildHref(children, "/admin/customers/01JC0000000000000000000001")).toBe("/admin/customers");
   });
 
   it("shows A08 to subscriptions.view and to subscriptions.manage alone, and to nobody else", () => {
@@ -155,7 +174,7 @@ describe("filterNav", () => {
       "access",
       "overview",
       "bookings",
-      "customers",
+      "customers[customersList]",
       "finance[financeSummary,payments,refunds,cancelReviews,invoices,creditNotes,billingRefusals,reconciliation]",
       "reports",
     ]);
@@ -171,7 +190,7 @@ describe("filterNav", () => {
   });
 
   it("keeps a module with only the children the user may open", () => {
-    expect(ids(["settings.manage"])).toEqual(["access", "catalog[notificationTemplates,settings]"]);
+    expect(ids(["settings.manage"])).toEqual(["access", "catalog[notificationTemplates,legalPages,faq,settings]"]);
     expect(ids(["catalog.manage"])).toEqual([
       "access",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates]",
@@ -181,7 +200,7 @@ describe("filterNav", () => {
 
   it("does not mutate the shared navigation", () => {
     filterNav(ADMIN_NAV, ["settings.manage"]);
-    expect(ADMIN_NAV.find((m) => m.id === "catalog")!.children).toHaveLength(12);
+    expect(ADMIN_NAV.find((m) => m.id === "catalog")!.children).toHaveLength(14);
   });
 });
 
@@ -203,7 +222,16 @@ describe("firstAccessiblePath", () => {
     expect(firstAccessiblePath(["workers.view"])).toBe("/admin/workers");
     expect(firstAccessiblePath(["fleet.manage"])).toBe("/admin/fleet/vehicles");
     expect(firstAccessiblePath(["trips.manage"])).toBe("/admin/trips");
-    expect(firstAccessiblePath(["customers.view"])).toBe("/admin/overview");
+    expect(firstAccessiblePath(["customers.view"])).toBe("/admin/customers");
+  });
+
+  it("sends customers-only staff to A07: the list, or the privacy queue for the privacy permission alone", () => {
+    expect(firstAccessiblePath(["customers.view", "customers.privacy_requests"])).toBe("/admin/customers");
+    expect(firstAccessiblePath(["customers.privacy_requests"])).toBe("/admin/customers/privacy-requests");
+    // Pages higher on the list still come first: the overview, finance and the A10 inbox.
+    expect(firstAccessiblePath(["customers.view", "bookings.view"])).toBe("/admin/overview");
+    expect(firstAccessiblePath(["customers.view", "payments.view"])).toBe("/admin/finance");
+    expect(firstAccessiblePath(["customers.view", "complaints.manage"])).toBe("/admin/quality");
   });
 
   it("sends quality-only staff to the A10 inbox: the coordinator and the accountant who approves compensations", () => {

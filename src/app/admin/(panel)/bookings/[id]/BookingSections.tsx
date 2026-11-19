@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { Button, Card, Checkbox, ConfirmDialog, Notice, StatusBadge, TextArea, useToast } from "@/components/admin";
+import { Button, Card, Checkbox, ConfirmDialog, CustomerLink, Notice, StatusBadge, TextArea, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { NOTE_PERMISSIONS, availableActions, isSeriesVisit } from "@/lib/admin/bookings/actions";
 import { NOTE_MAX, approveRequestSchema, customerNoteSchema, internalNoteSchema, type ApproveValues } from "@/lib/admin/bookings/forms";
@@ -51,7 +51,9 @@ export function CustomerCard({ booking }: { booking: BookingDetail }) {
   return (
     <Card title={t("customerTitle")}>
       <dl className="flex flex-col gap-2">
-        <Fact label={t("customerName")}>{booking.customer.name || t("noName")}</Fact>
+        <Fact label={t("customerName")}>
+          <CustomerLink customer={booking.customer}>{booking.customer.name || t("noName")}</CustomerLink>
+        </Fact>
         <Fact label={t("phone")}>
           <a href={`tel:${booking.customer.phone}`}>
             <Ltr>{booking.customer.phone}</Ltr>

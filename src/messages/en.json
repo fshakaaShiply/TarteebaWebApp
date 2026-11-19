@@ -450,7 +450,11 @@
       "exports": "Exports",
       "qualityInbox": "Inbox",
       "qualityRatings": "Ratings",
-      "qualityCompensations": "Compensation"
+      "qualityCompensations": "Compensation",
+      "customersList": "All customers",
+      "privacyRequests": "Privacy requests",
+      "legalPages": "Legal pages",
+      "faq": "FAQ"
     },
     "stub": {
       "subtitle": "Services & settings",
@@ -3826,7 +3830,10 @@
     },
     "globalSearch": {
       "label": "Search bookings",
-      "placeholder": "Reference, phone, name or address"
+      "placeholder": "Reference, phone, name or address",
+      "labelCustomers": "Search customers",
+      "placeholderCustomers": "Phone, name, e-mail, address or reference",
+      "customers": "Customers"
     },
     "schedule": {
       "title": "Operations schedule",
@@ -5980,7 +5987,9 @@
             "off": "Off"
           },
           "autoRenewReason": {
-            "offer_withdrawn": "Plan no longer offered"
+            "offer_withdrawn": "Plan no longer offered",
+            "customer_blocked": "Turned off because the customer's account is blocked",
+            "address_blocked": "Turned off because the subscription's address is blocked"
           }
         }
       },
@@ -7332,6 +7341,644 @@
           "too_long": "This is too long."
         }
       }
+    },
+    "customers": {
+      "title": "Customers",
+      "subtitle": "Search, profiles and internal notes",
+      "privacyQueue": "Privacy requests",
+      "noName": "No name",
+      "deletedCustomer": "Deleted customer",
+      "caption": "Customers",
+      "columns": {
+        "customer": "Customer",
+        "status": "Status",
+        "bookings": "Bookings",
+        "subscriptions": "Subscriptions",
+        "lastBooking": "Last booking",
+        "since": "Joined"
+      },
+      "deletionOn": "Deletion on {date}",
+      "privacyPending": {
+        "export": "Data copy requested",
+        "delete": "Deletion requested"
+      },
+      "bookingsTotal": "{count, plural, one {# booking} other {# bookings}}",
+      "bookingsOpen": "{count} open",
+      "subscriptionsOpen": "{count, plural, one {# open subscription} other {# open subscriptions}}",
+      "filters": {
+        "search": "Search customers",
+        "searchPlaceholder": "Phone, name, e-mail, address or reference",
+        "status": "Status",
+        "allStatuses": "All statuses",
+        "sort": "Order",
+        "sortDefault": "Latest booking first"
+      },
+      "sorts": {
+        "name": "Name",
+        "created": "Newest account",
+        "recent": "Latest booking first"
+      },
+      "empty": "No customers yet",
+      "emptyBody": "Customers appear here once they sign up in the app.",
+      "emptyFiltered": "No customer matches",
+      "emptyFilteredBody": "Try another phone, name, e-mail or reference, or clear the filters.",
+      "enums": {
+        "status": {
+          "active": "Active",
+          "blocked": "Blocked",
+          "pending_deletion": "Deletion pending",
+          "deleted": "Deleted"
+        }
+      },
+      "errors": {
+        "INVALID_STATE": "The customer's status does not allow this.",
+        "invalidState": {
+          "active": "This only applies to a blocked customer; she is active.",
+          "blocked": "The customer is blocked.",
+          "pending_deletion": "The customer's account is waiting to be deleted, so this cannot be done.",
+          "deleted": "The account has been deleted and is read-only."
+        },
+        "ALREADY_OPTED_OUT": "The customer has already opted out of marketing.",
+        "PRIVACY_REQUEST_OPEN": "This customer already has an open request of this kind. Wait for it to finish or cancel it first.",
+        "DELETION_BLOCKED": "The deletion cannot be filed yet. See what is open below.",
+        "VERIFICATION_REQUIRED": "Proof of who is asking is required.",
+        "verificationRequired": {
+          "otp_code": "Send the code to the registered phone and enter the one the caller reads back.",
+          "verification_note": "Write the reference of the document that proved who is asking (10 characters or more)."
+        },
+        "OTP_INVALID": "That code is not right.",
+        "OTP_INVALID_left": "That code is not right. {count, plural, one {# attempt} other {# attempts}} left.",
+        "OTP_EXPIRED": "That code has expired. Send a new one.",
+        "OTP_LOCKED": "Too many wrong codes. Wait a while before trying again.",
+        "OTP_ATTEMPTS_EXCEEDED": "Too many wrong attempts. Send a new code.",
+        "OTP_RESEND_TOO_SOON": "A code was sent a moment ago. Wait before sending another.",
+        "ERASURE_STARTED": "The erasure has already started, so this request can no longer be cancelled."
+      },
+      "detail": {
+        "back": "Back to customers",
+        "refresh": "Refresh",
+        "notFound": "Customer not found",
+        "deletedCustomer": "Deleted customer",
+        "noName": "No name",
+        "block": "Block customer",
+        "changeReason": "Change block reason",
+        "unblock": "Unblock",
+        "refreshFailed": "The profile could not be refreshed. What is shown may be out of date.",
+        "tabsLabel": "Customer sections",
+        "tabs": {
+          "overview": "Overview",
+          "payments": "Payments",
+          "quality": "Quality",
+          "balance": "Balance",
+          "privacy": "Privacy"
+        }
+      },
+      "banners": {
+        "blockedTitle": "Customer blocked",
+        "blockedReason": "Reason: {reason}",
+        "blockedBy": "Blocked by {name} on {at}",
+        "blockedAt": "Blocked on {at}",
+        "blockedEffects": "She cannot sign in or book, and her subscriptions no longer renew by themselves. Her open bookings stay for you to decide.",
+        "deletionTitle": "Account deletion pending",
+        "deletionOn": "The deletion runs on {date}, unless support stops it first.",
+        "deletionScheduled": "The deletion is scheduled.",
+        "deletionWaiting": "Waiting on: {holds}",
+        "deletedTitle": "Deleted account",
+        "deletedBody": "This account was deleted. Nothing can be changed, and no personal data is kept."
+      },
+      "moved": {
+        "title": "The customer changed",
+        "waiting": "Someone changed this customer while the window was open. Nothing was saved. We are loading the latest version.",
+        "renewed": "The customer was read again. Check what is shown, then confirm once more."
+      },
+      "profile": {
+        "title": "Profile",
+        "since": "Customer since",
+        "status": "Status",
+        "bookings": "Bookings",
+        "bookingsValue": "{total} · {cancelled} cancelled",
+        "open": "Open now",
+        "openValue": "{bookings} bookings · {subscriptions} subscriptions",
+        "paid": "Total paid",
+        "rating": "Average rating she gave",
+        "preferred": "Preferred cleaners",
+        "marketing": "Marketing",
+        "marketingYes": "Agreed",
+        "marketingNo": "Not agreed",
+        "lastBooking": "Last booking",
+        "lastLogin": "Last sign-in",
+        "complaints": "Open complaints",
+        "language": "Language"
+      },
+      "addresses": {
+        "title": "Addresses",
+        "empty": "No saved addresses",
+        "default": "Default",
+        "blocked": "Blocked",
+        "deleted": "Deleted by the customer",
+        "property": {
+          "villa": "Villa",
+          "apartment": "Apartment",
+          "townhouse": "Townhouse",
+          "office": "Office"
+        },
+        "blockedReason": "Blocked: {reason}",
+        "blockedNoReason": "Blocked",
+        "block": "Block",
+        "blockLabel": "Block {label}",
+        "unblock": "Unblock",
+        "unblockLabel": "Unblock {label}"
+      },
+      "consents": {
+        "title": "Consents and contact",
+        "marketing": "Marketing messages",
+        "analytics": "Usage analytics",
+        "terms": "Terms accepted",
+        "privacy": "Privacy policy accepted",
+        "cards": "Saved cards",
+        "email": "E-mail",
+        "yes": "Agreed",
+        "no": "Not agreed",
+        "none": "None",
+        "since": "Since {at}",
+        "upToDate": "Current version",
+        "current": "Current is {version}",
+        "emailVerified": "Verified",
+        "emailUnverified": "Not verified"
+      },
+      "activity": {
+        "title": "Recent bookings and subscriptions",
+        "caption": "Recent bookings and subscriptions of the customer",
+        "empty": "No bookings or subscriptions yet",
+        "subscription": "Subscription",
+        "termEnds": "Term ends {date}",
+        "columns": {
+          "reference": "Reference",
+          "when": "When",
+          "status": "Status",
+          "amount": "Amount"
+        }
+      },
+      "payments": {
+        "title": "Payments",
+        "caption": "Payments of the customer",
+        "empty": "No payments yet",
+        "refunded": "Refunded {amount}",
+        "payable": {
+          "booking": "Booking",
+          "subscription_period": "Subscription period",
+          "wallet_topup": "Balance top-up"
+        },
+        "columns": {
+          "date": "Date",
+          "for": "For",
+          "amount": "Amount",
+          "status": "Status"
+        }
+      },
+      "quality": {
+        "casesTitle": "Complaints and support requests",
+        "allCases": "Open in the inbox",
+        "noCases": "No complaints or support requests",
+        "casesCaption": "Cases of the customer",
+        "ratingsTitle": "Ratings she gave",
+        "allRatings": "Open in ratings",
+        "noRatings": "She has not rated a visit yet",
+        "ratingsCaption": "Ratings given by the customer",
+        "columns": {
+          "case": "Case",
+          "status": "Status",
+          "created": "Opened",
+          "visit": "Visit",
+          "rating": "Rating",
+          "comment": "Comment"
+        }
+      },
+      "privacy": {
+        "title": "Privacy requests",
+        "optOut": "Record marketing opt-out",
+        "create": "New privacy request",
+        "empty": "No privacy requests",
+        "runsOn": "runs on {at}",
+        "completedOn": "completed {at}",
+        "openQueue": "Open in the privacy queue"
+      },
+      "notes": {
+        "title": "Internal notes",
+        "hint": "Staff only: these never reach the customer. A note cannot be changed or removed.",
+        "deleted": "A deleted account keeps no notes",
+        "add": "Add a note",
+        "save": "Save",
+        "empty": "No notes yet",
+        "errors": {
+          "required": "Write the note first.",
+          "tooShort": "The note is too short.",
+          "tooLong": "A note can have at most {max} characters."
+        }
+      },
+      "block": {
+        "block": {
+          "title": "Block this customer",
+          "description": "Use this when she should not book or sign in. The reason is kept with your name.",
+          "confirm": "Block customer"
+        },
+        "unblock": {
+          "title": "Unblock this customer",
+          "description": "She will be able to sign in again. The reason is kept with your name.",
+          "confirm": "Unblock"
+        },
+        "effects": {
+          "signIn": "She cannot sign in or make new bookings or subscriptions.",
+          "sessions": "Every session she has open ends now.",
+          "renewals": "Auto-renew of her subscriptions switches off. The term she paid for continues.",
+          "bookings": "Her open bookings and subscriptions stay as they are: you decide each one.",
+          "silent": "She is not notified.",
+          "access": "She can sign in again, from the start.",
+          "renewalsStayOff": "Auto-renew stays off: only she can switch it back on."
+        },
+        "openTitle": "Open bookings and subscriptions",
+        "openBody": "These stay as they are. Open each one to cancel it with its own policy preview, or to leave it.",
+        "changeReason": "She is already blocked. This changes the reason that is kept.",
+        "reason": "Reason",
+        "reasonHint": "3 to 500 characters.",
+        "errors": {
+          "required": "Write the reason.",
+          "tooShort": "The reason needs at least {min} characters.",
+          "tooLong": "The reason can have at most {max} characters."
+        },
+        "blocked": "Customer blocked",
+        "unblocked": "Customer unblocked"
+      },
+      "optOut": {
+        "title": "Record marketing opt-out",
+        "description": "Use this when the customer asks you to stop marketing messages. It is kept with your name.",
+        "confirm": "Record opt-out",
+        "reason": "What the customer said",
+        "reasonHint": "For example: asked on the phone to stop offers. 3 to 500 characters.",
+        "done": "Marketing opt-out recorded",
+        "errors": {
+          "required": "Write the reason.",
+          "tooShort": "The reason needs at least {min} characters.",
+          "tooLong": "The reason can have at most {max} characters."
+        }
+      },
+      "addressBlock": {
+        "block": {
+          "title": "Block address {label}",
+          "description": "New bookings and renewals at this address are refused. Auto-renew of the subscriptions there switches off.",
+          "confirm": "Block address"
+        },
+        "unblock": {
+          "title": "Unblock address {label}",
+          "description": "The address can be booked again. Auto-renew stays off.",
+          "confirm": "Unblock address"
+        },
+        "reason": "Reason",
+        "errors": {
+          "required": "Write the reason.",
+          "tooShort": "The reason needs at least {min} characters.",
+          "tooLong": "The reason can have at most {max} characters."
+        },
+        "blocked": "Address blocked",
+        "unblocked": "Address unblocked"
+      },
+      "blockedBanner": {
+        "title": "Customer blocked",
+        "body": "She cannot sign in or book, and renewals stopped. This one stays for you to decide.",
+        "open": "Open the profile of {name}",
+        "unnamed": "the customer"
+      }
+    },
+    "privacy": {
+      "title": "Privacy requests",
+      "subtitle": "Data copies and account deletions",
+      "caption": "Privacy requests",
+      "deletedCustomer": "Deleted customer",
+      "columns": {
+        "request": "Request",
+        "customer": "Customer",
+        "status": "Status",
+        "dates": "Dates",
+        "actions": "Actions"
+      },
+      "fromStaff": "Filed by staff",
+      "fromApp": "From the app",
+      "handledBy": "Handled by {name}",
+      "waitingOn": "Waiting on",
+      "failedWith": "Failed: {reason} ({attempts, plural, one {# attempt} other {# attempts}})",
+      "failedUnknown": "no reason recorded",
+      "createdOn": "Filed {at}",
+      "runsOn": "Runs {at}",
+      "completedOn": "Completed {at}",
+      "cancelledOn": "Cancelled {at}",
+      "exportInfo": "Downloaded {downloads, plural, one {# time} other {# times}} · link until {expires}",
+      "cancel": "Cancel",
+      "cancelLabel": "Cancel request #{id}",
+      "retry": "Retry",
+      "retryLabel": "Retry request #{id}",
+      "retried": "The request will run again",
+      "retryStale": "The request changed meanwhile. The queue was refreshed.",
+      "counts": "Requests by status",
+      "openCount": "Open ({count})",
+      "statusCount": "{status} ({count})",
+      "filters": {
+        "search": "Search requests",
+        "searchPlaceholder": "Name, phone or request number",
+        "type": "Type",
+        "allTypes": "All types",
+        "status": "Status",
+        "openDefault": "Open requests",
+        "allStatuses": "All statuses"
+      },
+      "empty": "No privacy requests are open",
+      "emptyBody": "Data copies and deletions asked for in the app or filed by staff appear here.",
+      "emptyFiltered": "No request matches",
+      "emptyFilteredBody": "Try another search, or clear the filters.",
+      "enums": {
+        "type": {
+          "export": "Data copy",
+          "delete": "Account deletion"
+        },
+        "status": {
+          "received": "Received",
+          "scheduled": "Scheduled",
+          "processing": "Processing",
+          "completed": "Completed",
+          "expired": "Expired",
+          "cancelled": "Cancelled",
+          "failed": "Failed"
+        },
+        "verification": {
+          "in_app_otp": "Code in the app",
+          "in_app_session": "Signed in to the app",
+          "registered_phone_call": "Call to the registered phone",
+          "in_person": "In person",
+          "written_request": "Written request"
+        },
+        "waitingOn": {
+          "refund_processing": "a refund in progress",
+          "payment_verifying": "a payment being checked",
+          "payment_authorized": "a payment hold not yet released",
+          "wallet_balance": "a balance on the account",
+          "compensation_pending": "a compensation awaiting approval",
+          "open_booking": "an open booking"
+        },
+        "failure": {
+          "worker_lost": "the job stopped before it finished",
+          "blocked_hash_key_missing": "the key for blocked numbers is not set",
+          "export_failed": "the data copy could not be built",
+          "eraser_failed": "erasing one part of the data failed",
+          "ledger_failed": "the erasure record could not be written",
+          "account_deleted": "the account was deleted, so no copy was prepared"
+        }
+      },
+      "cancelDialog": {
+        "title": "Cancel request #{id}",
+        "descriptionDelete": "The account comes back to what it was before the request. Nothing is erased.",
+        "descriptionExport": "No data copy will be prepared for this request.",
+        "confirm": "Cancel request",
+        "done": "Request cancelled",
+        "notRestoredTitle": "Cancelled by this request, not restored",
+        "notRestoredBody": "These were cancelled when the request was sent, at the amounts shown to the customer. Stopping the deletion does not bring them back.",
+        "bookingMoney": "fee {fee}, refund {refund}",
+        "subscriptionMoney": "fee {fee}, refund {refund}",
+        "reason": "Why it is cancelled",
+        "reasonHint": "For example: the customer called to stop it. 3 to 500 characters.",
+        "errors": {
+          "required": "Write the reason.",
+          "tooShort": "The reason needs at least {min} characters.",
+          "tooLong": "The reason can have at most {max} characters."
+        }
+      },
+      "create": {
+        "title": "New privacy request",
+        "description": "For a customer who asked by phone, in person or in writing. Prove who is asking first.",
+        "cancel": "Cancel",
+        "submitExport": "File data copy request",
+        "submitDelete": "File deletion request",
+        "type": "What she asked for",
+        "verification": "How she proved who she is",
+        "callHelp": "Send a code to the phone registered on the account. She reads it back to you on the call.",
+        "sendCode": "Send code",
+        "sendAgain": "Send a new code",
+        "resendIn": "A new code can be sent in {seconds} s",
+        "codeSent": "A code was sent to {phone}.",
+        "code": "Code she read back",
+        "codeErrors": {
+          "required": "Enter the code she read back.",
+          "tooShort": "The code is too short.",
+          "tooLong": "The code is too long."
+        },
+        "note": "Document reference",
+        "noteHint": "The type of ID and its last 4 digits, or the document number. 10 to 500 characters.",
+        "noteErrors": {
+          "required": "Write the reference of the document.",
+          "tooShort": "The reference needs at least {min} characters.",
+          "tooLong": "The reference can have at most {max} characters."
+        },
+        "retry": "Retry",
+        "deleteTitle": "What a deletion does",
+        "deleteBody": "The account is signed out everywhere and closed. After {days, plural, one {# day} other {# days}} it is erased, unless a refund or payment is still in progress. Only staff can stop it before then.",
+        "exportBody": "The copy is prepared in the background and sent to the customer's phone as a link. Staff never download it.",
+        "doneExport": "Data copy request filed",
+        "doneDelete": "Deletion request filed",
+        "blockedTitle": "The deletion cannot be filed yet",
+        "blockedBody": "Cancel or finish these first, then file the request again.",
+        "openTitle": "Open bookings and subscriptions",
+        "openBody": "Staff cancel these first, each with its own policy preview, then file the deletion.",
+        "openBookings": "Bookings",
+        "openSubscriptions": "Subscriptions",
+        "blocking": {
+          "visit_in_progress": "A visit is under way or can no longer be cancelled.",
+          "payment_verifying": "A payment is still being checked.",
+          "review_required": "Cancelling this needs a review by the team.",
+          "cancel_review_pending": "An earlier cancellation is waiting for the team.",
+          "wallet_balance": "There is a balance on the account.",
+          "open_booking": "A booking is still open on this account.",
+          "open_subscription": "A subscription is still open on this account."
+        }
+      }
+    },
+    "legal": {
+      "title": "Legal pages",
+      "subtitle": "The terms, the privacy policy and the cancellation policy customers read, by version",
+      "empty": "No legal pages found",
+      "slugs": {
+        "terms": "Terms and conditions",
+        "privacy": "Privacy policy",
+        "cancellation": "Cancellation and refund policy"
+      },
+      "hints": {
+        "terms": "Customers accept each new version before they continue. Publishing one asks everyone to accept it again.",
+        "privacy": "Customers accept each new version before they continue. Publishing one asks everyone to accept it again.",
+        "cancellation": "Quote no fee, percentage or number of hours here. The fee and refund of each cancellation follow the policy approved for the service and are shown, with the amounts, before the customer confirms. A text with a percentage cannot be published."
+      },
+      "viewPublic": "View as customers see it",
+      "newVersion": "New version",
+      "newVersionLabel": "New version of {page}",
+      "published": "Published",
+      "noPublished": "Nothing is published yet: customers cannot read this page.",
+      "drafts": "Drafts",
+      "noDrafts": "No draft is being written.",
+      "history": "Earlier versions ({count})",
+      "version": "Version",
+      "effective": "Effective {date}",
+      "publishedOn": "published {at} by {name}",
+      "edit": "Edit",
+      "editLabel": "Edit version {version}",
+      "open": "Open",
+      "openLabel": "Open version {version}",
+      "versionDialog": {
+        "title": "New version of {page}",
+        "descriptionCopy": "It starts as a copy of version {version}. Change what changed, then publish.",
+        "descriptionEmpty": "It starts empty.",
+        "cancel": "Cancel",
+        "create": "Create draft",
+        "label": "Version label",
+        "labelHint": "What customers see and accept, for example 2026-11. Letters, digits, dot, dash or underscore.",
+        "effective": "Effective from",
+        "errors": {
+          "label": {
+            "required": "Write the version label.",
+            "tooLong": "The label can have at most {max} characters.",
+            "invalid": "Use letters, digits, dot, dash or underscore, starting with a letter or digit."
+          },
+          "date": {
+            "required": "Choose the day it takes effect.",
+            "invalid": "Choose a valid date."
+          }
+        }
+      },
+      "editor": {
+        "back": "Back to legal pages",
+        "notFound": "Page version not found",
+        "deleteDraft": "Delete draft",
+        "save": "Save draft",
+        "publish": "Publish",
+        "saveFirst": "Save the draft before publishing it.",
+        "readOnly": "This version is published or in the history, so it cannot be changed. Start a new version to change the text.",
+        "figures": "This text quotes a percentage. The cancellation page may not: the fee and refund are shown with the amounts before the customer confirms.",
+        "staleTitle": "Someone changed this page",
+        "staleBody": "Your changes were not saved. Load the latest version and make them again.",
+        "reload": "Load the latest version",
+        "fields": "Text",
+        "label": "Version label",
+        "labelHint": "What customers see and accept.",
+        "effective": "Effective from",
+        "language": "Language of the text",
+        "arabic": "Arabic",
+        "english": "English",
+        "pageTitle": "Title",
+        "body": "Text",
+        "bodyHint": "A line starting with “# ” is a heading, a line starting with “- ” is a bullet, a blank line starts a new paragraph.",
+        "count": "{count} of {max} characters",
+        "preview": "Preview",
+        "previewHint": "Shown exactly as the customer page renders it.",
+        "untitled": "No title yet",
+        "saved": "Draft saved",
+        "deleted": "Draft deleted",
+        "errors": {
+          "label": {
+            "required": "Write the version label.",
+            "tooLong": "The label can have at most {max} characters.",
+            "invalid": "Use letters, digits, dot, dash or underscore, starting with a letter or digit."
+          },
+          "date": {
+            "required": "Choose the day it takes effect.",
+            "invalid": "Choose a valid date."
+          },
+          "title": {
+            "required": "Write the title in this language.",
+            "tooLong": "The title can have at most {max} characters."
+          },
+          "body": {
+            "required": "Write the text in this language.",
+            "tooLong": "The text can have at most {max} characters."
+          }
+        }
+      },
+      "publish": {
+        "title": "Publish {page}, version {version}",
+        "description": "Customers read this version from now on. The previous version moves to the history.",
+        "confirm": "Publish",
+        "acceptTitle": "Everyone is asked to accept again",
+        "acceptBody": "Publishing a new version of this page asks every customer to accept it the next time she signs in.",
+        "reason": "Reason",
+        "reasonHint": "Kept in the audit trail. 3 to 500 characters.",
+        "reasonError": "Write the reason, {min} to {max} characters.",
+        "done": "{page} version {version} is published"
+      },
+      "delete": {
+        "title": "Delete draft {version}",
+        "description": "The draft is removed for good. Published versions are not affected.",
+        "confirm": "Delete draft"
+      },
+      "errors": {
+        "SLUG_UNKNOWN": "That page does not exist.",
+        "VERSION_LABEL_TAKEN": "Version {label} already exists for this page. Choose another label.",
+        "VERSION_LABEL_TAKEN_plain": "That version label already exists for this page. Choose another.",
+        "PAGE_NOT_EDITABLE": "Only a draft can be changed, published or deleted.",
+        "PAGE_FIGURES_NOT_ALLOWED": "The cancellation page may not quote a percentage: the fee and refund are shown with the amounts before the customer confirms.",
+        "PLACEHOLDER_UNKNOWN": "{placeholder} is not a placeholder we can fill in.",
+        "PLACEHOLDER_UNKNOWN_plain": "The text has a placeholder we cannot fill in.",
+        "FAQ_LIMIT_REACHED": "The FAQ is full ({max} questions). Remove one to add another.",
+        "FAQ_LIMIT_REACHED_plain": "The FAQ is full. Remove a question to add another.",
+        "ORDER_INCOMPLETE": "The list changed meanwhile. Reload it and move the question again."
+      }
+    },
+    "faq": {
+      "title": "FAQ",
+      "subtitle": "The questions customers read in Help, in the order shown",
+      "add": "Add a question",
+      "limit": "The FAQ is full ({max} questions). Remove one to add another.",
+      "empty": "No questions yet",
+      "emptyBody": "Add the questions customers ask most.",
+      "listLabel": "Questions, in the order customers see them",
+      "hidden": "Hidden",
+      "shown": "Shown",
+      "activeFor": "Show question {n} to customers",
+      "moveUp": "Move question {n} up",
+      "moveDown": "Move question {n} down",
+      "edit": "Edit question {n}",
+      "delete": "Delete question {n}",
+      "dialog": {
+        "addTitle": "Add a question",
+        "editTitle": "Edit the question",
+        "cancel": "Cancel",
+        "save": "Save",
+        "questionAr": "Question (Arabic)",
+        "questionEn": "Question (English)",
+        "answerAr": "Answer (Arabic)",
+        "answerEn": "Answer (English)",
+        "placeholdersTitle": "Values the answer can hold",
+        "placeholders": {
+          "confirmation_sla": "becomes the working hours a booking takes to confirm, for example “4 working hours”.",
+          "refund_estimated_arrival": "becomes the text about when a refund arrives (from the settings)."
+        },
+        "active": "Show to customers",
+        "activeHint": "A hidden question stays here for later.",
+        "shown": "Shown",
+        "hidden": "Hidden",
+        "created": "Question added",
+        "updated": "Question saved",
+        "errors": {
+          "question": {
+            "required": "Write the question in this language.",
+            "tooLong": "The question can have at most {max} characters."
+          },
+          "answer": {
+            "required": "Write the answer in this language.",
+            "tooLong": "The answer can have at most {max} characters."
+          },
+          "placeholder": "{placeholder} is not a value we can fill in."
+        }
+      },
+      "deleteDialog": {
+        "title": "Delete this question",
+        "description": "“{question}” is removed for good.",
+        "confirm": "Delete question",
+        "done": "Question deleted"
+      }
     }
   },
   "driver": {
@@ -7348,5 +7995,127 @@
     "call": "Call us:",
     "whatsapp": "Message us on WhatsApp",
     "helpApp": "Contact us from the Help page in the Tarteeba app."
+  },
+  "customerWeb": {
+    "common": {
+      "switchLanguage": "العربية"
+    },
+    "policies": {
+      "version": "Version {version} · {date}",
+      "unavailableTitle": "This page can't be shown right now",
+      "unavailableBody": "Please try again in a moment.",
+      "slugs": {
+        "terms": "Terms and conditions",
+        "privacy": "Privacy policy",
+        "cancellation": "Cancellation and refund policy"
+      }
+    },
+    "help": {
+      "title": "Help",
+      "subtitle": "Reach us, or find an answer below.",
+      "contactTitle": "Contact us",
+      "call": "Call us:",
+      "whatsapp": "Message us on WhatsApp",
+      "email": "E-mail us",
+      "contactNone": "Contact us from the Help page in the Tarteeba app.",
+      "supportRequest": "To send a request about a booking or anything else, open Help in the app and choose Support request.",
+      "faqTitle": "Frequently asked questions",
+      "faqEmpty": "No questions yet.",
+      "faqUnavailable": "The questions can't be loaded right now. Please try again in a moment.",
+      "policiesTitle": "Policies",
+      "policies": {
+        "terms": "Terms and conditions",
+        "privacy": "Privacy policy",
+        "cancellation": "Cancellation and refund policy"
+      }
+    },
+    "accountDeletion": {
+      "title": "Delete your Tarteeba account",
+      "intro": "Deleting your account removes your personal data from Tarteeba and cannot be undone. We keep tax invoices and financial records for as long as the law requires.",
+      "removedTitle": "What we remove",
+      "removed": {
+        "profile": "Your name, phone number and e-mail",
+        "addresses": "Your saved addresses and booking instructions",
+        "devices": "Your signed-in devices and notification settings",
+        "notes": "Your complaints and requests, and the words you wrote in them"
+      },
+      "keptTitle": "What we keep",
+      "kept": {
+        "invoices": "Tax invoices and credit notes",
+        "payments": "Payment and refund records",
+        "records": "A record of what was done on your account, without your personal details"
+      },
+      "keptNote": "These records are kept only for the period the law requires.",
+      "coolingTitle": "Cooling-off period",
+      "coolingDays": "After you ask, your account is closed and waits {days, plural, one {# day} other {# days}} before the deletion is carried out.",
+      "coolingGeneric": "After you ask, your account is closed and waits a few days before the deletion is carried out.",
+      "coolingNote": "During this time you cannot sign in, and only our support team can stop the request if you contact them. The deletion also waits until any refund in progress has finished.",
+      "howTitle": "How to ask",
+      "inAppTitle": "In the app",
+      "steps": {
+        "open": "Open Account, then Delete account.",
+        "bookings": "Review the bookings and subscriptions that will be cancelled, with the amount shown for each.",
+        "code": "Enter the code sent to your registered phone number and send the request.",
+        "signedOut": "You are signed out and your account is closed."
+      },
+      "cancelNote": "Bookings and subscriptions cancelled by the request stay cancelled, even if the deletion is stopped later.",
+      "supportTitle": "Through support",
+      "supportBody": "If you cannot sign in, contact us from the phone number or e-mail registered on the account. We check who is asking before we file the request.",
+      "contactNone": "Contact us from the Help page in the Tarteeba app.",
+      "call": "Call us:",
+      "whatsapp": "Message us on WhatsApp",
+      "email": "E-mail us"
+    },
+    "emailVerified": {
+      "metaTitle": "E-mail confirmation",
+      "verified": {
+        "title": "Your e-mail is confirmed",
+        "body": "This e-mail address is now confirmed for your Tarteeba account."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "body": "Open the Tarteeba app and ask for a new confirmation e-mail."
+      },
+      "invalid": {
+        "title": "This link isn't valid",
+        "body": "Check that you opened the whole link from the e-mail, or ask for a new one in the Tarteeba app."
+      },
+      "backToApp": "You can close this page and go back to the app."
+    },
+    "privacyExport": {
+      "metaTitle": "Download your data",
+      "title": "Download your data",
+      "intro": "The copy of the data we keep about your account is ready. To protect it, we first send a code to the phone number registered on your account.",
+      "note": "The download link works for a short time. If it stops working, ask for a new copy in the app or from support.",
+      "sendCode": "Send me a code",
+      "sending": "Sending…",
+      "codeSent": "We sent a code to {phone}.",
+      "yourPhone": "your registered phone",
+      "code": "Code",
+      "download": "Download my data",
+      "downloading": "Preparing…",
+      "resend": "Send a new code",
+      "resendIn": "Send a new code in {seconds} s",
+      "started": {
+        "title": "Your download is starting",
+        "body": "If nothing happens, go back to the link in your message and start again."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "body": "Ask for a new copy in the Tarteeba app (Account, then Privacy), or contact support."
+      },
+      "invalid": {
+        "title": "This link isn't valid",
+        "body": "Open the link exactly as it was sent to you, or ask for a new copy in the app or from support."
+      },
+      "failures": {
+        "wrongCode": "That code isn't right. Check it and try again.",
+        "wrongCodeLeft": "That code isn't right. {count, plural, one {# attempt} other {# attempts}} left.",
+        "codeExpired": "That code has expired. Ask for a new one.",
+        "locked": "Too many wrong attempts. Wait a while, then ask for a new code or contact support.",
+        "wait": "Please wait a moment before trying again.",
+        "network": "Something went wrong. Check your connection and try again."
+      }
+    }
   }
 }

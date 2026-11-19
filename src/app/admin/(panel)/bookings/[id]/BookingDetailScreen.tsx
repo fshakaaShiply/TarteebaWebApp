@@ -34,6 +34,7 @@ import {
   RescheduleRequestsCard,
 } from "./BookingSections";
 import { QualityCard } from "./QualityCard";
+import { CustomerBlockedBanner } from "../../customers/_components/CustomerBlockedBanner";
 
 /**
  * A03 booking page (spec §17; designs AdminBookings.dc.html and the review panel of AdminSchedule.dc.html;
@@ -170,6 +171,7 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
             </span>
           </Notice>
         )}
+        <CustomerBlockedBanner customer={booking.customer} />
         {booking.capture_unknown_at && <Notice tone="warning">{t("captureUnknown")}</Notice>}
         {paymentVerifying(booking) && (
           <Notice tone="info">{booking.status === "pending_confirmation" && can("bookings.confirm") ? t("verifyingConfirm") : t("verifying")}</Notice>

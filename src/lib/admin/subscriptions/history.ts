@@ -74,7 +74,8 @@ export const HISTORY_LABELS = {
   outcome: ["completed", "cancelled", "none"],
   visitStatus: ["completed", "no_show_customer", "missed_by_company", "cancelled"],
   autoRenew: ["on", "off"],
-  autoRenewReason: ["offer_withdrawn"],
+  // The API serves these codes only (A4a P5-C72), so the web words them: customer_blocked / address_blocked come from A07 blocks.
+  autoRenewReason: ["offer_withdrawn", "customer_blocked", "address_blocked"],
 } as const satisfies Partial<Record<LabelGroup, readonly string[]>>;
 
 /** Every fact key a line can carry (admin.subscriptions.history.facts.*). */

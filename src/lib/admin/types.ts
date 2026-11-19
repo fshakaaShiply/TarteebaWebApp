@@ -991,6 +991,9 @@ export type BookingSubscriptionLink = {
 /** subscription_periods.status as the staff booking link gives it (P4-264). */
 export type SeriesPeriodStatus = "upcoming" | "pending_payment" | "paid" | "failed" | "refunded_partial" | "refunded" | "closed" | "void";
 
+/** customers.status as the booking resources print it. */
+export type CustomerStatusValue = "active" | "blocked" | "pending_deletion" | "deleted";
+
 export type BookingRow = {
   id: number;
   ulid: string;
@@ -998,7 +1001,8 @@ export type BookingRow = {
   kind: BookingKind | (string & {});
   /** Null for a single booking. */
   subscription: BookingSubscriptionLink | null;
-  customer: { id: string; name: string | null; phone: string };
+  /** `id` is the customer's ULID (the A07 profile); `status` / `status_label` say whether she is blocked (Phase 5, P5-C10). */
+  customer: { id: string; name: string | null; phone: string; status?: CustomerStatusValue; status_label?: Translatable };
   service: { id: number; code: string; name: Translatable };
   service_date: string;
   slot: { id: number; code: string; name: Translatable; start: string; end: string };
@@ -2065,6 +2069,8 @@ export type ZoneCheck = { in_service_area: boolean; zone: { code: string; name: 
 export type PublicConfig = {
   support: { phone: string | null; whatsapp: string | null; email: string | null };
   default_locale?: string;
+  /** `privacy.deletion_grace_days`: the cooling-off between a deletion request and the erasure (Phase 5). */
+  deletion_grace_days?: number;
   currency?: string;
   timezone?: string;
 };

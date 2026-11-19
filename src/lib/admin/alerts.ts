@@ -93,8 +93,8 @@ export const BUILT_PREFIXES: readonly string[] = [
  * W4 incentives and the waitlist. alerts.test.ts fails while an entry names a page that exists.
  */
 export const PAGES_NOT_BUILT_YET: readonly string[] = [
-  // W1 built /admin/finance/reconciliation (runs and /{id}); W2 built /admin/quality (inbox, /{id}, ratings, compensations).
-  "/admin/customers",
+  // W1 built /admin/finance/reconciliation (runs and /{id}); W2 built /admin/quality (inbox, /{id}, ratings, compensations);
+  // W3 built /admin/customers (list, /{ulid}, privacy-requests).
   "/admin/workers/incentives",
   "/admin/waitlist",
 ];

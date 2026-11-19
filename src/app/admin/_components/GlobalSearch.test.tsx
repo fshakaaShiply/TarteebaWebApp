@@ -28,6 +28,30 @@ describe("top bar search (spec §17)", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("also opens the customers list searched by the term, for staff who read customers (A07)", async () => {
+    renderWithProviders(<GlobalSearch />, { permissions: ["bookings.view", "customers.view"] });
+    const user = userEvent.setup();
+    const button = screen.getByRole("button", { name: "Customers" });
+    // Nothing to search for yet.
+    expect(button).toBeDisabled();
+    await user.type(screen.getByRole("searchbox", { name: "Search bookings" }), " 0559871234 ");
+    await user.click(button);
+    expect(push).toHaveBeenCalledWith("/admin/customers?q=0559871234");
+    // Enter still searches bookings.
+    await user.type(screen.getByRole("searchbox", { name: "Search bookings" }), "{Enter}");
+    expect(push).toHaveBeenLastCalledWith("/admin/bookings?search=0559871234");
+  });
+
+  it("searches customers from the box itself for staff who read customers but not bookings", async () => {
+    renderWithProviders(<GlobalSearch />, { permissions: ["customers.view"] });
+    const user = userEvent.setup();
+    const field = screen.getByRole("searchbox", { name: "Search customers" });
+    expect(field).toHaveAttribute("placeholder", "Phone, name, e-mail, address or reference");
+    expect(screen.queryByRole("button", { name: "Customers" })).toBeNull();
+    await user.type(field, "sara{Enter}");
+    expect(push).toHaveBeenCalledWith("/admin/customers?q=sara");
+  });
+
   it("is not offered to staff who cannot read bookings", () => {
     renderWithProviders(<GlobalSearch />, { permissions: ["schedule.view"] });
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();

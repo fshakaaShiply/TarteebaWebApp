@@ -19,9 +19,12 @@ export function readPublicConfig(body: unknown): PublicConfig | null {
   if (!data || typeof data !== "object") return null;
   const support = (data as { support?: unknown }).support;
   const s = support && typeof support === "object" ? (support as Record<string, unknown>) : {};
+  const privacy = (data as { privacy?: unknown }).privacy;
+  const grace = privacy && typeof privacy === "object" ? (privacy as { deletion_grace_days?: unknown }).deletion_grace_days : undefined;
   return {
     support: { phone: text(s.phone), whatsapp: text(s.whatsapp), email: text(s.email) },
     default_locale: text((data as { default_locale?: unknown }).default_locale) ?? undefined,
+    ...(typeof grace === "number" && Number.isInteger(grace) && grace > 0 ? { deletion_grace_days: grace } : {}),
   };
 }
 

@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { Button, Card, Checkbox, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
+import { Button, Card, Checkbox, CustomerLink, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
 import { ExportButton } from "@/components/admin/ExportButton";
 import { fetchRefunds } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
@@ -109,7 +109,9 @@ function RefundsTable() {
       cell: (r) =>
         r.customer ? (
           <span className="flex flex-col">
-            <span className="text-ink-900">{r.customer.name || t("noName")}</span>
+            <span className="text-ink-900">
+              <CustomerLink customer={{ id: r.customer.ulid, name: r.customer.name }}>{r.customer.name || t("noName")}</CustomerLink>
+            </span>
             <span className="text-xs text-ink-600">
               <Code>{r.customer.phone}</Code>
             </span>

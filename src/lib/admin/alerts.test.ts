@@ -126,6 +126,10 @@ describe("alerts bell state (D-11 polling)", () => {
     for (const link of ["/admin/quality/41", "/admin/customers/01JC0000000000000000000001", "/admin/waitlist", "/admin/finance/reconciliation/9"]) {
       expect(alertHref({ link, entity: null }), link).toBe(once(link));
     }
+    // W3 built A07: the customer alerts (a privacy request, a blocked customer) open the profile by its ULID.
+    expect(alertHref({ link: "/admin/customers/01JC0000000000000000000001", entity: { type: "privacy_request", id: 21 } })).toBe("/admin/customers/01JC0000000000000000000001");
+    expect(isBuiltAdminPage("/admin/customers")).toBe(true);
+    expect(isBuiltAdminPage("/admin/customers/privacy-requests")).toBe(true);
     // A prefix is not a page: "/admin/qualityx", "/admin/waitlistx" and a foreign origin stay closed.
     expect(alertHref({ link: "/admin/qualityx/1", entity: null })).toBeNull();
     expect(alertHref({ link: "/admin/waitlistx", entity: null })).toBeNull();

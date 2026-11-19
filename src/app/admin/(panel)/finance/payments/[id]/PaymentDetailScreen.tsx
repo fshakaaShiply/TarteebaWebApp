@@ -5,7 +5,7 @@ import { RefreshCw, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, StatusBadge } from "@/components/admin";
+import { Button, Card, CustomerLink, EmptyState, ErrorState, LoadingBlock, Notice, StatusBadge } from "@/components/admin";
 import { fetchPayment } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
 import { canRefund } from "@/lib/admin/finance/refund";
@@ -280,7 +280,7 @@ function PayerCard({ payment }: { payment: AdminPaymentDetail }) {
         <Fact label={t("customer")}>
           {payment.customer ? (
             <span className="flex flex-col">
-              <span>{payment.customer.name || t("noName")}</span>
+              <CustomerLink customer={{ id: payment.customer.ulid, name: payment.customer.name }}>{payment.customer.name || t("noName")}</CustomerLink>
               <Code className="text-xs text-ink-600">{payment.customer.phone}</Code>
             </span>
           ) : (

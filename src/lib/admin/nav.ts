@@ -71,6 +71,13 @@ export const QUALITY_PATH = "/admin/quality";
 export const QUALITY_RATINGS_PATH = "/admin/quality/ratings";
 export const QUALITY_COMPENSATIONS_PATH = "/admin/quality/compensations";
 
+/** A07: the customer list and profile (customers.view); the privacy request queue is its own permission (customers.privacy_requests). */
+export const CUSTOMERS_LIST_PATH = "/admin/customers";
+export const PRIVACY_REQUESTS_PATH = "/admin/customers/privacy-requests";
+/** A11 content: the legal pages (terms, privacy, cancellation) and the FAQ, edited with settings.manage. */
+export const LEGAL_PAGES_PATH = "/admin/settings/pages";
+export const FAQ_PATH = "/admin/settings/faq";
+
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
@@ -113,9 +120,14 @@ export const ADMIN_NAV: readonly NavModule[] = [
     id: "customers",
     code: "A07",
     labelKey: "customers",
-    href: "/admin/customers",
-    anyOf: ["customers.view"],
-    built: false,
+    href: CUSTOMERS_LIST_PATH,
+    anyOf: ["customers.view", "customers.privacy_requests"],
+    built: true,
+    children: [
+      // The list is a prefix of the queue: activeChildHref marks the longest match, so the queue keeps its own entry.
+      { id: "customersList", labelKey: "customersList", href: CUSTOMERS_LIST_PATH, anyOf: ["customers.view"], built: true },
+      { id: "privacyRequests", labelKey: "privacyRequests", href: PRIVACY_REQUESTS_PATH, anyOf: ["customers.privacy_requests"], built: true },
+    ],
   },
   {
     id: "subscriptions",
@@ -184,6 +196,9 @@ export const ADMIN_NAV: readonly NavModule[] = [
       { id: "blackoutDates", labelKey: "blackoutDates", href: "/admin/scheduling/blackout-dates", anyOf: CATALOG, built: true },
       // Notification templates are edited with settings.manage (Notification routes/admin.php).
       { id: "notificationTemplates", labelKey: "notificationTemplates", href: NOTIFICATION_TEMPLATES_PATH, anyOf: ["settings.manage"], built: true },
+      // Phase 5: the legal pages (versioned) and the FAQ the customers read (settings.manage, Settings routes/admin.php).
+      { id: "legalPages", labelKey: "legalPages", href: LEGAL_PAGES_PATH, anyOf: ["settings.manage"], built: true },
+      { id: "faq", labelKey: "faq", href: FAQ_PATH, anyOf: ["settings.manage"], built: true },
       { id: "settings", labelKey: "settings", href: "/admin/settings", anyOf: ["settings.manage"], built: true },
     ],
   },
@@ -235,7 +250,7 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
  * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 summary (or the refunds
- * list for refunds.create alone), the A08 subscriptions, the A10 inbox, else the overview's welcome note.
+ * list for refunds.create alone), the A08 subscriptions, the A10 inbox, the A07 customers, else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
@@ -249,6 +264,8 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (permissions.includes("refunds.create")) return REFUNDS_PATH;
   if (hasAnyPermission(permissions, SUBSCRIPTIONS_READ)) return SUBSCRIPTIONS_PATH;
   if (hasAnyPermission(permissions, QUALITY_READ)) return QUALITY_PATH;
+  if (permissions.includes("customers.view")) return CUSTOMERS_LIST_PATH;
+  if (permissions.includes("customers.privacy_requests")) return PRIVACY_REQUESTS_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 

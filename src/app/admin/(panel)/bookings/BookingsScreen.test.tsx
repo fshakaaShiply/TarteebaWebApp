@@ -63,6 +63,16 @@ describe("A03 bookings list", () => {
     url.set("/admin/bookings");
   });
 
+  it("links the customer's name to her A07 profile for staff who read customers, and shows plain text to the others", async () => {
+    api.fetchBookings.mockResolvedValue(page([bookingRow({ customer: { id: "01m5dtszzdhx5gtmwvj7bmbvm9", name: "Sara Ahmed", phone: "+971500000001" } })]));
+    const { unmount } = renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view", "customers.view"] });
+    expect(await screen.findByRole("link", { name: "Sara Ahmed" })).toHaveAttribute("href", "/admin/customers/01m5dtszzdhx5gtmwvj7bmbvm9");
+    unmount();
+    renderWithProviders(<BookingsScreen />, { permissions: ["bookings.view"] });
+    expect(await screen.findByText("Sara Ahmed")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sara Ahmed" })).toBeNull();
+  });
+
   it("labels a subscription visit with its subscription and place, linked to A08", async () => {
     api.fetchBookings.mockResolvedValue(
       page([

@@ -174,6 +174,20 @@ describe("A08 error copy", () => {
     expect(subscriptionErrorText(error("FREEZE_NOT_ALLOWED", { reason: "live_out" }), lookup, has)).toContain("Live-out");
   });
 
+  it("words the reasons an A07 block gives for switching auto-renew off, and keeps staff text as text (A4a P5-C72)", () => {
+    for (const reason of ["customer_blocked", "address_blocked"]) {
+      expect(historyFacts("auto_renew_changed", { auto_renew: false, reason })).toEqual([
+        { key: "autoRenew", value: { kind: "label", group: "autoRenew", value: "off" } },
+        { key: "reason", value: { kind: "label", group: "autoRenewReason", value: reason } },
+      ]);
+      for (const messages of [en, ar]) {
+        const label = (messages as unknown as { admin: { subscriptions: { history: { values: { autoRenewReason: Record<string, string> } } } } }).admin.subscriptions.history.values.autoRenewReason[reason];
+        expect(label, reason).toBeTruthy();
+      }
+    }
+    expect(historyFacts("auto_renew_changed", { auto_renew: false, reason: "Customer asked on the phone" })[1]).toEqual({ key: "reason", value: { kind: "quote", text: "Customer asked on the phone" } });
+  });
+
   it("names the earliest date an error gives in the admin's date format, never the API's YYYY-MM-DD", () => {
     // FreezeSubscription answers FREEZE_DATES_INVALID {min_from}; AssignSeriesWorker DATE_OUT_OF_RANGE {min_date}.
     const { lookup, has } = t(en);

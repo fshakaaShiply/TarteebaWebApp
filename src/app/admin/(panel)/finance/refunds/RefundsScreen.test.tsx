@@ -123,6 +123,28 @@ afterEach(() => vi.restoreAllMocks());
 const ACCOUNTANT = ["payments.view", "refunds.create", "reconciliation.run"];
 const open = (permissions: readonly string[] = ACCOUNTANT, locale: "en" | "ar" = "en") => renderWithProviders(<RefundsScreen />, { permissions, locale });
 
+describe("A09 refunds list: the customer (A07)", () => {
+  it("links a customer with a ULID to her profile for customers.view, and leaves any other id as text", async () => {
+    api.fetchRefunds.mockResolvedValue(
+      page([
+        refund({ customer: { id: 2, ulid: "01JC0000000000000000000002", name: "Omar Khalid", phone: "+971500000002" } }),
+        refund({ id: 5, ulid: "01R5", customer: { id: 3, ulid: "01C3", name: "Not Linked", phone: "+971500000003" } }),
+      ]),
+    );
+    open([...ACCOUNTANT, "customers.view"]);
+    expect(await screen.findByRole("link", { name: "Omar Khalid" })).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000002");
+    expect(screen.getByText("Not Linked")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Not Linked" })).toBeNull();
+  });
+
+  it("shows the name as text without customers.view", async () => {
+    api.fetchRefunds.mockResolvedValue(page([refund({ customer: { id: 2, ulid: "01JC0000000000000000000002", name: "Omar Khalid", phone: "+971500000002" } })]));
+    open();
+    expect(await screen.findByText("Omar Khalid")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Omar Khalid" })).toBeNull();
+  });
+});
+
 describe("A09 refunds list: destination and context", () => {
   it("shows where each refund went and what it compensates, with the link only for a person the API gave one", async () => {
     api.fetchRefunds.mockResolvedValue(
