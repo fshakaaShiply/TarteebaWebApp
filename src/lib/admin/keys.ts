@@ -141,6 +141,17 @@ export const adminKeys = {
   creditNote: (id: number) => ["admin", "finance", "credit-notes", "detail", id] as const,
   billingRefusalList: (query: Record<string, string | number>) => ["admin", "finance", "billing-refusals", "list", query] as const,
 
+  // Phase 5 A09 (all under "finance", so a resolution or a refund refreshes every page that shows the figures).
+  reconciliationRuns: (query: Record<string, string | number>) => ["admin", "finance", "reconciliation", "runs", query] as const,
+  reconciliationRun: (id: number) => ["admin", "finance", "reconciliation", "run", id] as const,
+  reconciliationItems: (runId: number, query: Record<string, string | number>) => ["admin", "finance", "reconciliation", "items", runId, query] as const,
+  reconciliationItem: (id: number) => ["admin", "finance", "reconciliation", "item", id] as const,
+  settlementFormats: () => ["admin", "finance", "reconciliation", "formats"] as const,
+  exportList: (page: number) => ["admin", "finance", "exports", "list", page] as const,
+  /** The customer's balance (ULID): the A07 panel, and the refund dialog's "is the balance on" reads the public config. */
+  customerWallet: (customerUlid: string, page: number) => ["admin", "finance", "wallet", customerUlid, page] as const,
+  walletEnabled: () => ["admin", "finance", "wallet-enabled"] as const,
+
   // A11 notification templates (settings.manage).
   notificationTemplates: () => ["admin", "notification-templates"] as const,
   notificationTemplateList: () => ["admin", "notification-templates", "list"] as const,

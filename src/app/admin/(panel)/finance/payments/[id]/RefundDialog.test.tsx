@@ -17,6 +17,10 @@ vi.mock("@/lib/admin/endpoints", () => ({
   fetchRefundReasons: (...a: unknown[]) => api.fetchRefundReasons(...a),
 }));
 
+// Whether the customer balance is on (the public config): off by owner ruling, so by default the dialog offers the card only.
+const walletApi = { fetchWalletEnabled: vi.fn() };
+vi.mock("@/lib/admin/finance/endpoints", () => ({ fetchWalletEnabled: (...a: unknown[]) => walletApi.fetchWalletEnabled(...a) }));
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 // GET /admin/refund-reasons (shape and labels from the API contract): staff reasons, then the system-only one.
@@ -148,6 +152,8 @@ describe("RefundDialog", () => {
   beforeEach(() => {
     Object.values(api).forEach((fn) => fn.mockReset());
     api.fetchRefundReasons.mockResolvedValue(REASONS);
+    walletApi.fetchWalletEnabled.mockReset();
+    walletApi.fetchWalletEnabled.mockResolvedValue(false);
     consoleError.mockClear();
   });
   afterEach(() => {
@@ -587,5 +593,82 @@ describe("PaymentDetailScreen", () => {
     renderWithProviders(<PaymentDetailScreen id="9" />, { permissions: ["payments.view", "refunds.create"] });
     expect(await screen.findByRole("button", { name: "Refund" })).toBeDisabled();
     expect(screen.getByText("Only a payment that has been taken, with money left to refund, can be refunded.")).toBeInTheDocument();
+  });
+});
+
+describe("RefundDialog destination (Phase 5)", () => {
+  beforeEach(() => {
+    Object.values(api).forEach((fn) => fn.mockReset());
+    api.fetchRefundReasons.mockResolvedValue(REASONS);
+    walletApi.fetchWalletEnabled.mockReset();
+    consoleError.mockClear();
+  });
+  afterEach(() => {
+    expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/MISSING_MESSAGE/);
+  });
+
+  it("offers the card only, and sends no destination, while the customer balance is off", async () => {
+    walletApi.fetchWalletEnabled.mockResolvedValue(false);
+    api.createRefund.mockResolvedValue(refund());
+    const { user } = openDialog();
+    await fillAndReview(user, "180");
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00" }));
+    await waitFor(() => expect(api.createRefund).toHaveBeenCalledTimes(1));
+    expect(api.createRefund.mock.calls[0][1]).toEqual({ amount_fils: 18000, reason_code: "complaint_compensation", reason_text: null });
+  });
+
+  it("offers the card or the balance once the balance is on, and names the destination in the confirmation", async () => {
+    walletApi.fetchWalletEnabled.mockResolvedValue(true);
+    api.createRefund.mockResolvedValue(refund({ destination: "wallet", gateway: "wallet" }));
+    const { user } = openDialog();
+    const card = await screen.findByRole("radio", { name: /To the customer's card/ });
+    const balance = screen.getByRole("radio", { name: /Tarteeba balance/ });
+    expect(card).toBeChecked();
+    await user.click(balance);
+    await fillAndReview(user, "180");
+    const dialog = await screen.findByRole("dialog", { name: "Confirm the refund" });
+    expect(dialog).toHaveTextContent("Where the money goesTo the customer's Tarteeba balance");
+    expect(dialog).toHaveTextContent("the balance is credited at once");
+    await user.click(within(dialog).getByRole("button", { name: "Refund AED 180.00 to the balance" }));
+    await waitFor(() => expect(api.createRefund).toHaveBeenCalledTimes(1));
+    expect(api.createRefund.mock.calls[0][1]).toEqual({ amount_fils: 18000, reason_code: "complaint_compensation", reason_text: null, destination: "wallet" });
+  });
+
+  it("sends destination card when the card is chosen with the balance on", async () => {
+    walletApi.fetchWalletEnabled.mockResolvedValue(true);
+    api.createRefund.mockResolvedValue(refund());
+    const { user } = openDialog();
+    await screen.findByRole("radio", { name: /To the customer's card/ });
+    await fillAndReview(user, "180");
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00" }));
+    await waitFor(() => expect(api.createRefund).toHaveBeenCalledTimes(1));
+    expect(api.createRefund.mock.calls[0][1].destination).toBe("card");
+  });
+
+  it("sends a payment the customer paid from the balance back to the balance, without a choice", async () => {
+    walletApi.fetchWalletEnabled.mockResolvedValue(true);
+    api.createRefund.mockResolvedValue(refund({ destination: "wallet", gateway: "wallet" }));
+    const { user } = openDialog(payment({ method: "wallet", card: null }));
+    expect(await screen.findByText("The customer paid this from their Tarteeba balance, so the refund goes back to the balance.")).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    await fillAndReview(user, "180");
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00 to the balance" }));
+    await waitFor(() => expect(api.createRefund).toHaveBeenCalledTimes(1));
+    expect(api.createRefund.mock.calls[0][1].destination).toBe("wallet");
+  });
+
+  it("says in words when the balance is off or the account is closing", async () => {
+    walletApi.fetchWalletEnabled.mockResolvedValue(true);
+    const { user } = openDialog();
+    await screen.findByRole("radio", { name: /To the customer's card/ });
+    await user.click(screen.getByRole("radio", { name: /Tarteeba balance/ }));
+    await fillAndReview(user, "180");
+    api.createRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "WALLET_DISABLED", message: "x", details: {} }));
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00 to the balance" }));
+    expect(await screen.findByText("The customer balance is switched off, so nothing can be credited to it.")).toBeInTheDocument();
+    api.createRefund.mockRejectedValueOnce(new AdminApiError(409, { code: "ACCOUNT_CLOSING", message: "x", details: {} }));
+    await user.click(screen.getByRole("button", { name: "Refund AED 180.00 to the balance" }));
+    expect(await screen.findByText("This customer's account is being closed, so nothing can be credited to the balance.")).toBeInTheDocument();
   });
 });

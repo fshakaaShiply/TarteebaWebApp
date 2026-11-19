@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { PAYMENT_STATUSES } from "@/lib/admin/bookings/filters";
 import { BILLING_DOCUMENTS, INVOICE_STATUSES, PAYABLE_TYPES } from "@/lib/admin/finance/filters";
 import { REFUND_FORM_ERRORS, REFUND_STATUSES } from "@/lib/admin/finance/refund";
+import { EXPORT_FAILURES, EXPORT_REPORTS, EXPORT_STATUSES } from "@/lib/admin/exports";
+import { FINANCE_ERROR_CODES, PAIR_REASONS } from "@/lib/admin/finance/errors";
+import { OPS_FORM_ERRORS } from "@/lib/admin/finance/refundOps";
+import { DOCUMENT_CHECKS, ITEM_REASONS, ITEM_STATUSES, LINE_TYPES, RESOLUTIONS, RESOLVE_FORM_ERRORS, RUN_STATUSES } from "@/lib/admin/finance/reconciliation";
+import { WALLET_FORM_ERRORS, WALLET_SOURCES, WALLET_TYPES } from "@/lib/admin/finance/wallet";
 import { AUDIENCES, CHANNELS, LOCALES, TEMPLATE_FORM_ERRORS, TEMPLATE_GROUPS } from "@/lib/admin/notifications/templates";
 import ar from "./ar.json";
 import en from "./en.json";
@@ -136,5 +141,81 @@ describe("finance copy formats", () => {
     expect(finance("en")("refund.done", { amount: "AED 180", status: "Refund processing" })).toBe("Refund of AED 180 sent. Provider status: Refund processing.");
     expect(finance("ar")("refund.done", { amount: "180 د.إ", status: "الاسترداد قيد المعالجة" })).toBe("أُرسل استرداد بمبلغ 180 د.إ. حالة المزود: الاسترداد قيد المعالجة.");
     expect(finance("ar")("refund.errors.amount_over", { max: "240 د.إ" })).toBe("الحد الأقصى القابل للاسترداد 240 د.إ.");
+  });
+});
+
+/*
+ * Phase 5 (W1): reconciliation, exports, refund operations and the customer balance look their labels up by the API's
+ * codes at run time. Every code must read in both languages, so a code the API adds later shows as a gap here, never as
+ * a raw key on screen.
+ */
+const RECONCILIATION_ENUMS: Record<string, readonly string[]> = {
+  runStatus: RUN_STATUSES,
+  itemStatus: ITEM_STATUSES,
+  reason: ITEM_REASONS,
+  resolution: RESOLUTIONS,
+  documentCheck: DOCUMENT_CHECKS,
+  lineType: LINE_TYPES,
+};
+
+describe.each([
+  ["ar", ar],
+  ["en", en],
+] as const)("Phase 5 finance messages (%s)", (_, messages) => {
+  it("label every reconciliation run status, item status, reason, resolution, document check and line type", () => {
+    for (const [group, values] of Object.entries(RECONCILIATION_ENUMS)) {
+      for (const value of values) expect(get(messages, `admin.finance.reconciliation.enums.${group}.${value}`), `${group}.${value}`).toEqual(expect.any(String));
+    }
+  });
+
+  it("label every export status, failure, format and report", () => {
+    for (const status of EXPORT_STATUSES) expect(get(messages, `admin.finance.exports.status.${status}`), status).toEqual(expect.any(String));
+    for (const failure of EXPORT_FAILURES) expect(get(messages, `admin.finance.exports.failure.${failure}`), failure).toEqual(expect.any(String));
+    for (const format of ["xlsx", "csv", "pdf"]) expect(get(messages, `admin.finance.exports.formats.${format}`), format).toEqual(expect.any(String));
+    expect(Object.keys(EXPORT_REPORTS)).toHaveLength(9);
+  });
+
+  it("label every customer balance source and movement", () => {
+    for (const source of WALLET_SOURCES) expect(get(messages, `admin.finance.wallet.sources.${source}`), source).toEqual(expect.any(String));
+    for (const type of WALLET_TYPES) {
+      expect(get(messages, `admin.finance.wallet.types.${type}`), type).toEqual(expect.any(String));
+      expect(get(messages, `admin.finance.wallet.signs.${type}`), type).toEqual(expect.any(String));
+    }
+    for (const actor of ["staff", "customer", "system"]) expect(get(messages, `admin.finance.wallet.actors.${actor}`), actor).toEqual(expect.any(String));
+  });
+
+  it("explain every error code of the Phase 5 finance routes", () => {
+    for (const code of FINANCE_ERROR_CODES) expect(get(messages, `admin.finance.errors.${code}`), code).toEqual(expect.any(String));
+    for (const reason of PAIR_REASONS) expect(get(messages, `admin.finance.errors.PAIRED_ITEM_INVALID_${reason}`), reason).toEqual(expect.any(String));
+    for (const status of REFUND_STATUSES) expect(get(messages, `admin.finance.errors.refundStatus.${status}`), status).toEqual(expect.any(String));
+  });
+
+  it("explain every form error of the resolve, refund operation, clear-flag and balance forms", () => {
+    for (const code of RESOLVE_FORM_ERRORS) expect(get(messages, `admin.finance.reconciliation.resolve.errors.${code}`), code).toEqual(expect.any(String));
+    for (const code of OPS_FORM_ERRORS) expect(get(messages, `admin.finance.refundOps.errors.${code}`), code).toEqual(expect.any(String));
+    for (const code of ["note_required", "note_short", "note_long"]) expect(get(messages, `admin.finance.clearReview.errors.${code}`), code).toEqual(expect.any(String));
+    for (const code of WALLET_FORM_ERRORS) expect(get(messages, `admin.finance.wallet.adjust.errors.${code}`), code).toEqual(expect.any(String));
+  });
+});
+
+describe("Phase 5 finance copy formats", () => {
+  const reconciliation = (locale: "ar" | "en") => createTranslator({ locale, messages: locale === "ar" ? ar : en, namespace: "admin.finance.reconciliation" });
+
+  it("counts the differences that need action and the lines of a report with plural forms", () => {
+    expect(reconciliation("en")("subtitleUnresolved", { count: 1 })).toBe("1 difference needs action across all runs.");
+    expect(reconciliation("en")("subtitleUnresolved", { count: 5 })).toBe("5 differences need action across all runs.");
+    expect(reconciliation("ar")("subtitleUnresolved", { count: 2 })).toContain("فرقان");
+    expect(reconciliation("ar")("runSubtitle", { gateway: "fake", lines: 10 })).toBe("fake · 10 أسطر في التقرير");
+    expect(reconciliation("ar")("runSubtitle", { gateway: "fake", lines: 11 })).toBe("fake · 11 سطرًا في التقرير");
+  });
+
+  it("names what a recheck did", () => {
+    expect(reconciliation("en")("rechecked", { rechecked: 1, resolved: 0 })).toBe("Rechecked 1 item; 0 were resolved by the new facts.");
+    expect(reconciliation("en")("rechecked", { rechecked: 4, resolved: 1 })).toBe("Rechecked 4 items; 1 was resolved by the new facts.");
+  });
+
+  it("states a money resolution with its amount", () => {
+    expect(reconciliation("en")("resolve.confirmButton", { amount: "AED 120.00" })).toBe("Book AED 120.00");
+    expect(reconciliation("en")("resolve.termsChanged", { from: "AED 120.00", to: "AED 130.00" })).toBe("The line's amount is now AED 130.00 (it was AED 120.00). Check it, then confirm again.");
   });
 });

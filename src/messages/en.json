@@ -446,7 +446,8 @@
       "creditNotes": "Credit notes",
       "billingRefusals": "Documents not issued",
       "reconciliation": "Reconciliation",
-      "notificationTemplates": "Notification templates"
+      "notificationTemplates": "Notification templates",
+      "exports": "Exports"
     },
     "stub": {
       "subtitle": "Services & settings",
@@ -4280,7 +4281,18 @@
           "refundsDetail": "{count, plural, one {# refund completed by the provider} other {# refunds completed by the provider}}",
           "reconciliationUnavailable": "Shown once reconciliation with the provider's settlement reports is set up.",
           "reconciliationDetail": "Settlement items that don't match and aren't resolved yet.",
-          "basisNote": "Collected counts payments by when they were taken, and refunds by when the provider completed them; VAT counts the tax invoices and credit notes by issue date. The payments list filters by the date a payment was created, so near the ends of the period the two can differ."
+          "basisNote": "Collected counts payments by when they were taken, and refunds by when the provider completed them; VAT counts the tax invoices and credit notes by issue date. The payments list filters by the date a payment was created, so near the ends of the period the two can differ.",
+          "atProvider": "At the payment provider; payments from the balance are shown separately.",
+          "reviewDifferences": "Review the differences",
+          "balancePaid": "Paid from the balance: {amount}",
+          "balanceCredited": "Credited to the balance: {amount}",
+          "balanceOutstanding": "Outstanding on customers' balances at the end of the period."
+        },
+        "exportVat": "Export VAT summary",
+        "latestRun": {
+          "title": "Reconciliation {date}",
+          "review": "Review {count, plural, one {# difference} other {# differences}}",
+          "open": "Open the run"
         }
       },
       "enums": {
@@ -4365,7 +4377,11 @@
         "oneInvoice": "Showing the credit notes of invoice #{id} only.",
         "onePaymentInvoices": "Showing the invoices of payment #{id} only.",
         "document": "Document",
-        "allDocuments": "All documents"
+        "allDocuments": "All documents",
+        "destination": "Where it went",
+        "allDestinations": "Everywhere",
+        "context": "What for",
+        "allContexts": "Everything"
       },
       "pdf": {
         "get": "Download PDF",
@@ -4436,7 +4452,9 @@
           "refundable": "Left to refund",
           "fee": "Provider fee",
           "netSettled": "Net settled",
-          "refundableNote": "Left to refund already excludes refunds that are still processing."
+          "refundableNote": "Left to refund already excludes refunds that are still processing.",
+          "disputed": "Disputed by the customer's bank",
+          "refundableNoteDisputed": "Left to refund already excludes refunds still processing and the amount the customer's bank disputed."
         },
         "provider": {
           "title": "Payment provider",
@@ -4498,6 +4516,16 @@
           "signatureInvalid": "Invalid signature",
           "received": "Received {time}",
           "payload": "Show the details (card data and tokens removed)"
+        },
+        "clearFlag": "Clear flag",
+        "clearFlagVerifying": "Available once the provider has settled this payment.",
+        "reviewCleared": "The review flag was cleared on {time}",
+        "reconciliation": {
+          "title": "Reconciliation",
+          "run": "Report of {date}",
+          "resolved": "Resolved",
+          "matched": "Matched",
+          "needsAction": "Needs action"
         }
       },
       "refunds": {
@@ -4512,7 +4540,9 @@
           "status": "Provider status",
           "reason": "Reason",
           "requestedBy": "Requested by",
-          "creditNote": "Credit note"
+          "creditNote": "Credit note",
+          "destination": "Where it went",
+          "actions": "Actions"
         },
         "noName": "No name",
         "estimate": "Expected {text}",
@@ -4523,7 +4553,25 @@
         "requestedBy": "Requested by <who>{name}</who> · {time}",
         "succeededAt": "Refunded by the provider on {time}",
         "failed": "The provider couldn't complete this refund.",
-        "providerRef": "Provider reference"
+        "providerRef": "Provider reference",
+        "destination": {
+          "card": "Card",
+          "wallet": "Tarteeba balance"
+        },
+        "context": {
+          "complaint": "Complaint {reference}",
+          "other": "{reference}",
+          "types": {
+            "complaint": "Complaint"
+          }
+        },
+        "reviewCleared": "Review cleared {time}",
+        "recordOutcome": "Record provider answer",
+        "recordOutcomeLabel": "Record provider answer for the refund {ref}",
+        "reinstate": "Provider paid after all",
+        "reinstateLabel": "Provider paid after all: refund {ref}",
+        "clearFlag": "Clear flag",
+        "clearFlagLabel": "Clear flag of the refund {ref}"
       },
       "refund": {
         "title": "Refund this payment",
@@ -4569,7 +4617,15 @@
           "note_required": "Explain the reason in a note.",
           "note_length": "Keep the note under 500 characters."
         },
-        "resendEarlier": "Send the earlier refund of {amount} again"
+        "resendEarlier": "Send the earlier refund of {amount} again",
+        "destination": "Where the money goes",
+        "destinationCard": "To the customer's card",
+        "destinationWallet": "To the customer's Tarteeba balance",
+        "destinationCardHint": "Through the payment provider, in about 5 to 10 business days.",
+        "destinationWalletHint": "Credited at once. The customer can spend it on a booking; it can't be paid out.",
+        "paidFromBalance": "The customer paid this from their Tarteeba balance, so the refund goes back to the balance.",
+        "confirmWallet": "Refund {amount} to the balance",
+        "confirmNoteWallet": "Check the amount: the balance is credited at once and the customer is told."
       },
       "invoices": {
         "title": "Tax invoices",
@@ -4594,7 +4650,8 @@
         "empty": "No invoices yet.",
         "emptyBody": "Invoices appear here when payments are taken.",
         "emptyFiltered": "No invoices match these filters.",
-        "supplyPeriod": "Supply period: {from} – {to}"
+        "supplyPeriod": "Supply period: {from} – {to}",
+        "exportLines": "Export lines"
       },
       "invoice": {
         "back": "Tax invoices",
@@ -4698,7 +4755,13 @@
           "net": "Net of VAT",
           "vat": "VAT ({rate})",
           "total": "Total credited (AED)"
-        }
+        },
+        "emailedAt": "E-mailed to the customer",
+        "notEmailed": "Not sent yet",
+        "email": "Send by e-mail",
+        "emailLabel": "Send by e-mail: credit note {number}",
+        "emailQueued": "Credit note {number} is on its way to the customer's e-mail address.",
+        "emailMissing": "This customer has no e-mail address on their profile, so the credit note can't be e-mailed."
       },
       "refusals": {
         "title": "Documents not issued",
@@ -4741,6 +4804,585 @@
           "invoice": "Invoice",
           "invoice_open_fils": "Left on the invoice",
           "payable_id": "Subscription period"
+        }
+      },
+      "errors": {
+        "refundStatus": {
+          "requested": "requested",
+          "processing": "processing",
+          "succeeded": "paid",
+          "failed": "failed"
+        },
+        "SETTLEMENT_FORMAT_UNKNOWN": "This file format isn't supported. Choose one from the list.",
+        "SETTLEMENT_FILE_TOO_LARGE": "The file is too large. A settlement file can be up to {size} and {lines} lines.",
+        "SETTLEMENT_FILE_TOO_LARGE_plain": "The file is too large.",
+        "SETTLEMENT_DATE_MISMATCH": "The file is for {date}, not the report date you chose. Change the date or choose another file.",
+        "SETTLEMENT_DATE_MISMATCH_plain": "The file is for another date than the report date you chose.",
+        "GATEWAY_UNKNOWN": "That payment provider can't be fetched from here. Upload its file instead.",
+        "RECONCILIATION_RUN_EXISTS": "A report for this date has already been read. Replace it if you want to read it again.",
+        "RECONCILIATION_RUN_IN_PROGRESS": "A report for this date is still being read. Wait for it to finish.",
+        "SETTLEMENT_FILE_DUPLICATE": "This is the same file as the one already used for this date. Nothing was changed.",
+        "RECONCILIATION_RUN_NOT_ACTIVE": "This run was replaced or did not finish, so its items can't be changed any more. Open the current run for this date.",
+        "RECONCILIATION_ITEM_RESOLVED": "Someone already resolved this item. Reload to see how.",
+        "RECONCILIATION_ITEM_NOT_RESOLVED": "This item isn't resolved, so there is nothing to reopen.",
+        "RESOLUTION_NOT_REOPENABLE": "This resolution booked money or paired two lines, so it can't be reopened here.",
+        "RESOLUTION_NOT_ALLOWED": "This item can't be resolved that way any more. Reload to see what is allowed now.",
+        "PAIRED_ITEM_INVALID": "The line you chose can't be paired with this one.",
+        "PAIRED_ITEM_INVALID_not_found": "The line you chose no longer exists.",
+        "PAIRED_ITEM_INVALID_resolved": "The line you chose is already resolved.",
+        "PAIRED_ITEM_INVALID_reference_differs": "The two lines name different references, so they are not the same charge.",
+        "PAIRED_ITEM_INVALID_amount_differs": "The two lines have different amounts, so a charge and its refund don't cancel out.",
+        "PAIRED_ITEM_INVALID_wrong_kind": "A charge can only be paired with the refund of the same charge.",
+        "TERMS_CHANGED": "The figures changed while you were looking. Check the new amount and confirm again.",
+        "OPEN_REFUND_EXISTS": "This payment already has a refund open ({amount}, {status}). Wait for the provider's answer first.",
+        "OPEN_REFUND_EXISTS_plain": "This payment already has a refund that is still open. Wait for the provider's answer first.",
+        "PROVIDER_REF_IN_USE": "That provider reference is already booked on another refund. One provider refund is booked only once.",
+        "REFUND_NOT_OPEN": "This refund is no longer open, so the provider's answer can't be recorded. Reload to see its status.",
+        "REFUND_NOT_FAILED": "This refund didn't fail, so it can't be marked as paid after all. Reload to see its status.",
+        "REFUND_OPEN": "This refund is still open. Record the provider's answer first, then clear the flag.",
+        "NOT_FLAGGED": "This is not flagged for review any more. Reload to see its state.",
+        "PAYMENT_VERIFYING": "The provider hasn't settled this payment yet. Clear the flag once it has.",
+        "REFUND_AMOUNT_INVALID": "At most {max} can be refunded.",
+        "REFUND_AMOUNT_INVALID_plain": "That amount can't be refunded. Check what is left to refund.",
+        "WALLET_REFUND_AUTOMATIC": "A refund to the customer's balance is credited automatically. There is nothing to record or correct here.",
+        "WALLET_DISABLED": "The customer balance is switched off, so nothing can be credited to it.",
+        "ACCOUNT_CLOSING": "This customer's account is being closed, so nothing can be credited to the balance.",
+        "WALLET_BALANCE_INSUFFICIENT": "The balance is only {balance}. Enter an amount up to the balance.",
+        "WALLET_BALANCE_INSUFFICIENT_plain": "The balance is not enough for this amount.",
+        "EXPORT_REPORT_UNKNOWN": "This report can't be exported.",
+        "EXPORT_FORMAT_UNSUPPORTED": "This report can't be exported in that format. Choose another.",
+        "EXPORT_TOO_LARGE": "There are too many rows to export in one file (up to {max}). Narrow the filters and try again.",
+        "EXPORT_TOO_LARGE_plain": "There are too many rows to export in one file. Narrow the filters and try again.",
+        "EXPORT_TOO_LARGE_csv": "CSV takes more rows than Excel.",
+        "EXPORT_PERIOD_TOO_LONG": "The period is too long. Choose at most {days} days.",
+        "EXPORT_PERIOD_TOO_LONG_plain": "The period is too long. Choose a shorter one.",
+        "EXPORT_NOT_READY": "This file isn't ready yet. Try again in a moment.",
+        "EXPORT_EXPIRED": "This file has expired. Ask for the export again."
+      },
+      "exports": {
+        "button": "Export",
+        "formatsLabel": "File format",
+        "formats": {
+          "xlsx": "Excel (.xlsx)",
+          "csv": "CSV (.csv)",
+          "pdf": "PDF (.pdf)"
+        },
+        "preparing": "Preparing your file…",
+        "ready": "Your file is ready: {file}",
+        "expired": "This file expired before it could be downloaded. Ask for the export again.",
+        "stillRunning": "The file is taking longer than usual. It will appear on the Exports page when it is ready.",
+        "failure": {
+          "too_large": "There are too many rows to export in one file. Narrow the filters and try again.",
+          "internal_error": "The file couldn't be prepared. Try again.",
+          "worker_lost": "The file wasn't finished in time. Try again."
+        },
+        "status": {
+          "queued": "Waiting",
+          "running": "Preparing",
+          "ready": "Ready",
+          "failed": "Failed",
+          "expired": "Expired"
+        },
+        "title": "Exports",
+        "subtitle": "The files you asked for in the last days. A ready file is kept for a day.",
+        "caption": "Exports",
+        "columns": {
+          "report": "Report",
+          "format": "Format",
+          "created": "Requested",
+          "status": "Status",
+          "size": "Size",
+          "expires": "Available until",
+          "download": "Download"
+        },
+        "rows": "{count, plural, one {# row} other {# rows}}",
+        "download": "Download",
+        "downloadLabel": "Download {file}",
+        "empty": "No exports yet.",
+        "emptyBody": "Use the Export button on a list to prepare a file."
+      },
+      "reconciliation": {
+        "title": "Reconciliation",
+        "subtitle": "The payment provider's settlement reports against our payments and refunds, one run per day.",
+        "subtitleUnresolved": "{count, plural, one {# difference needs action} other {# differences need action}} across all runs.",
+        "caption": "Reconciliation runs",
+        "fetchReport": "Fetch report",
+        "uploadFile": "Upload file",
+        "source": {
+          "fetch": "Fetched",
+          "upload": "Uploaded"
+        },
+        "replacedBy": "Replaced by a newer run",
+        "charges": "Charges",
+        "fees": "Fees",
+        "net": "Net",
+        "columns": {
+          "date": "Report date",
+          "source": "Source",
+          "status": "Status",
+          "counts": "Items",
+          "unresolved": "Needs action",
+          "totals": "Provider totals",
+          "line": "Line",
+          "type": "Type",
+          "references": "References",
+          "ourRecord": "Our record",
+          "ourAmount": "Our amount",
+          "providerAmount": "Provider amount",
+          "difference": "Difference",
+          "fee": "Fee",
+          "documents": "Tax documents",
+          "resolution": "Resolution",
+          "actions": "Actions"
+        },
+        "filters": {
+          "from": "Report date from",
+          "to": "Report date to",
+          "unresolved": "Needs action only",
+          "search": "Search",
+          "searchPlaceholder": "Provider reference, payout or payment ID",
+          "status": "Status",
+          "allStatuses": "All statuses",
+          "lineType": "Line type",
+          "allTypes": "All types",
+          "reset": "Clear filters"
+        },
+        "empty": "No reconciliation yet.",
+        "emptyBody": "Fetch the provider's report for a day, or upload its settlement file.",
+        "emptyBodyReadOnly": "A reconciliation run appears here once the accountant has read a settlement report.",
+        "emptyFiltered": "No runs match these filters.",
+        "back": "Reconciliation",
+        "refresh": "Refresh",
+        "notFound": "This run doesn't exist.",
+        "runTitle": "Reconciliation {date}",
+        "runSubtitle": "{gateway} · {lines, plural, one {# line} other {# lines}} in the report",
+        "inFlight": "The report is being read. This page refreshes by itself.",
+        "supersededNote": "This run was replaced by a newer one. Its items are kept as history and can't be changed.",
+        "openReplacement": "Open the newer run",
+        "failedTitle": "The report couldn't be read",
+        "recheck": "Recheck",
+        "replaceFetch": "Replace: fetch again",
+        "replaceUpload": "Replace: upload a corrected file",
+        "fetchAgain": "Fetch again",
+        "uploadAgain": "Upload again",
+        "rechecked": "Rechecked {rechecked, plural, one {# item} other {# items}}; {resolved, plural, one {# was} other {# were}} resolved by the new facts.",
+        "facts": {
+          "title": "About this report",
+          "date": "Report date",
+          "source": "Source",
+          "file": "File",
+          "sha": "SHA-256 of the file",
+          "reportRef": "Provider report reference",
+          "startedBy": "Started by",
+          "system": "The daily schedule",
+          "startedAt": "Started",
+          "finishedAt": "Finished",
+          "supersedes": "Replaces",
+          "openRun": "Run #{id}",
+          "replaceReason": "Why it was replaced"
+        },
+        "errors": {
+          "title": "Errors in the file",
+          "hint": "Nothing was matched. Correct these lines, then upload the file again.",
+          "caption": "Errors by line",
+          "line": "Line",
+          "column": "Column",
+          "message": "Problem",
+          "more": "Showing {shown} of {total} errors."
+        },
+        "items": "Items",
+        "itemsCaption": "Items of this run",
+        "tabs": {
+          "label": "Items",
+          "differences": "Differences ({count})",
+          "documents": "Documents ({count})",
+          "matched": "Matched ({count})",
+          "resolved": "Resolved",
+          "all": "All"
+        },
+        "refs": {
+          "gateway": "Charge",
+          "refund": "Refund",
+          "merchant": "Our reference",
+          "payout": "Payout"
+        },
+        "bySystem": "Closed by the system",
+        "byStaff": "A staff member",
+        "carried": "Carried over from the replaced run",
+        "needsAction": "Needs action",
+        "resolve": {
+          "title": "Resolve line {line}",
+          "description": "Choose what the difference is, and say why. Resolutions that book money show the exact amount first.",
+          "reference": "Reference",
+          "captured": "Taken",
+          "refunded": "Refunded",
+          "disputed": "Disputed by the customer's bank",
+          "refundable": "Left to refund",
+          "ourRefund": "Our refund",
+          "refundStatus": {
+            "requested": "requested",
+            "processing": "processing",
+            "succeeded": "paid",
+            "failed": "failed"
+          },
+          "resolution": "Resolution",
+          "chooseResolution": "Choose how to resolve it",
+          "movesMoney": "books money",
+          "needsRefundPermission": "This books a refund in our records, which needs the refund permission. Ask the accountant or a system admin.",
+          "pair": "Matching refund line",
+          "pairHint": "The refund of the same charge, in this or another run.",
+          "noPairs": "No line can be paired with this one",
+          "choosePair": "Choose the line",
+          "pairOption": "Line {line} · {type} · {ref} · {amount}",
+          "refundReason": "Refund reason",
+          "reasonsLoading": "Loading the reasons…",
+          "chooseReason": "Choose a reason",
+          "noteHint": "What you checked and why. 3 to 1000 characters. Saved in the audit log.",
+          "note": "Note",
+          "nothingAllowed": "Nothing can be done with this item right now. It may have been resolved or its run replaced.",
+          "amountToBook": "Amount to book",
+          "termsChangedTitle": "The amount changed",
+          "termsChanged": "The line's amount is now {to} (it was {from}). Check it, then confirm again.",
+          "confirmNote": "Check the amount: once it is booked, the refund and its credit note can't be undone here.",
+          "back": "Back",
+          "confirmButton": "Book {amount}",
+          "cancel": "Cancel",
+          "review": "Continue",
+          "resolve": "Resolve",
+          "unknownTitle": "We don't know yet whether this was saved",
+          "unknownBody": "Press the button again: it is applied only once, and if the first attempt went through you'll see it resolved.",
+          "done": "The item was resolved.",
+          "doneRefund": "The item was resolved. Refund status: {status}.",
+          "errors": {
+            "note_required": "Write a note.",
+            "note_short": "Write at least 3 characters.",
+            "note_long": "Keep the note under 1000 characters.",
+            "pair_required": "Choose the matching refund line.",
+            "reason_required": "Choose the refund reason.",
+            "code_required": "Choose how to resolve it."
+          },
+          "noteField": "Note"
+        },
+        "reopen": {
+          "title": "Reopen line {line}",
+          "description": "Takes back the resolution «{resolution}» so the item needs action again.",
+          "cancel": "Cancel",
+          "confirm": "Reopen",
+          "note": "Why reopen it",
+          "noteHint": "3 to 1000 characters. Saved in the audit log.",
+          "noteRequired": "Write a note.",
+          "noteShort": "Write at least 3 characters.",
+          "noteLong": "Keep the note under 1000 characters.",
+          "done": "The item needs action again."
+        },
+        "noDifferences": "No differences need action.",
+        "noDifferencesBody": "Every line of this report matches our records or has been resolved.",
+        "noItems": "No items here.",
+        "copyRef": "Copy {label}",
+        "copied": "Copied",
+        "noRecord": "Not in our records",
+        "paymentLink": "Payment",
+        "refundLink": "Refunds of this payment",
+        "totals": {
+          "title": "Totals",
+          "provider": "The provider's report",
+          "ours": "Our records",
+          "documents": "Tax documents",
+          "lines": "Lines",
+          "charges": "Charges",
+          "refunds": "Refunds",
+          "fees": "Fees",
+          "net": "Net",
+          "payout": "Payout",
+          "payoutDifference": "Payout difference",
+          "tolerance": "Differences inside the tolerance",
+          "expectedCharges": "Charges we expected",
+          "expectedRefunds": "Refunds we expected",
+          "matchedCharges": "Charges matched",
+          "matchedRefunds": "Refunds matched",
+          "invoices": "Tax invoices",
+          "discount": "Discounts",
+          "vatInvoices": "VAT on invoices",
+          "creditNotes": "Credit notes",
+          "vatCreditNotes": "VAT on credit notes",
+          "netVat": "Net VAT",
+          "chargesVsInvoices": "Charges against invoices",
+          "refundsVsCreditNotes": "Refunds against credit notes",
+          "payouts": "Payouts",
+          "payoutRef": "Payout",
+          "payoutDiff": "Difference",
+          "documentIssues": "Document checks to look at:"
+        },
+        "dialog": {
+          "fetchTitle": "Fetch the provider's report",
+          "fetchDescription": "Reads the settlement report for one day from the payment provider and matches it with our records.",
+          "uploadTitle": "Upload a settlement file",
+          "uploadDescription": "Reads a settlement file you downloaded from the provider and matches it with our records.",
+          "cancel": "Cancel",
+          "fetch": "Fetch report",
+          "fetchReplace": "Replace and fetch",
+          "upload": "Upload and read",
+          "uploadReplace": "Replace and upload",
+          "date": "Report date",
+          "dateHint": "The day the transactions happened, in UAE time. Not later than today.",
+          "uploadDateHint": "The day the file covers, in UAE time. The file's own date must be the same.",
+          "dateRequired": "Choose the report date.",
+          "dateFuture": "The report date can't be in the future.",
+          "dateInvalid": "Choose a valid report date.",
+          "gateway": "Payment provider",
+          "chooseGateway": "Choose a provider",
+          "noGateway": "No provider can be fetched from here. Upload its settlement file instead.",
+          "replace": "Replace the report already read for this date",
+          "replaceReason": "Why replace it",
+          "replaceReasonHint": "3 to 500 characters. Saved in the audit log. Differences you already resolved with a note stay resolved.",
+          "reasonShort": "Write at least 3 characters.",
+          "replaceInstead": "Replace it",
+          "openRun": "Open that run",
+          "started": "Reading the report in the background. The run appears in the list when it is done.",
+          "format": "File format",
+          "formatOne": "File format:",
+          "formatsFailed": "The file formats couldn't be loaded.",
+          "formatsRetry": "Try again",
+          "template": "Download a blank file in this format",
+          "file": "Settlement file",
+          "fileRequired": "Choose the file to upload.",
+          "fileInvalid": "This file can't be used.",
+          "columnsTitle": "Columns of this format",
+          "columnRequired": "(required)",
+          "columnOptional": "(optional)"
+        },
+        "enums": {
+          "runStatus": {
+            "pending": "Waiting",
+            "processing": "Reading",
+            "completed": "Done",
+            "failed": "Failed",
+            "superseded": "Replaced"
+          },
+          "itemStatus": {
+            "matched": "Matched",
+            "amount_mismatch": "Amount differs",
+            "missing_in_system": "Not in our records",
+            "missing_in_gateway": "Not in the provider's report",
+            "status_mismatch": "Status differs"
+          },
+          "reason": {
+            "ok": "Matches",
+            "amount_differs": "The amounts differ",
+            "currency_differs": "The currencies differ",
+            "payout_total_differs": "The payout total differs",
+            "unknown_reference": "Reference we don't know",
+            "charge_not_current": "Charge that isn't the payment's current one",
+            "refund_unknown": "Refund we didn't make",
+            "duplicate_line": "Duplicate line",
+            "chargeback": "Chargeback",
+            "provider_adjustment": "Provider adjustment",
+            "charge_not_reported": "Charge missing from the report",
+            "refund_not_reported": "Refund missing from the report",
+            "not_captured_in_system": "Taken at the provider, not in our records",
+            "refund_open_in_system": "Refund still open on our side",
+            "refund_failed_in_system": "Refund failed on our side",
+            "refund_payment_differs": "Refund of another payment"
+          },
+          "resolution": {
+            "accepted": "Accepted as it is",
+            "provider_to_correct": "The provider will correct it",
+            "timing": "A timing difference",
+            "stray_charge_refunded": "Stray charge, refunded",
+            "refund_confirmed": "Refund confirmed",
+            "provider_refund_recorded": "Provider refund recorded",
+            "refund_reinstated": "Refund paid after all",
+            "reported_later": "Reported later",
+            "resolved_in_system": "Resolved in our records"
+          },
+          "documentCheck": {
+            "ok": "Documents match",
+            "no_invoice": "No invoice",
+            "invoice_differs": "Invoice differs",
+            "no_credit_note": "No credit note",
+            "credit_note_differs": "Credit note differs",
+            "not_invoiceable": "Can't be invoiced",
+            "refused": "Document refused",
+            "not_applicable": "No document needed"
+          },
+          "lineType": {
+            "charge": "Charge",
+            "refund": "Refund",
+            "chargeback": "Chargeback",
+            "chargeback_reversal": "Chargeback reversed",
+            "fee": "Fee",
+            "adjustment": "Adjustment",
+            "payout": "Payout"
+          }
+        },
+        "resolveAction": "Resolve",
+        "resolveActionLabel": "Resolve the item {ref}",
+        "reopenAction": "Reopen",
+        "reopenActionLabel": "Reopen the item {ref}"
+      },
+      "refundOps": {
+        "amount": "Refund",
+        "status": "Provider status",
+        "customer": "Customer",
+        "flag": "Why it was flagged",
+        "providerRef": "Provider reference",
+        "failure": "Provider's failure code",
+        "back": "Back",
+        "cancel": "Cancel",
+        "review": "Continue",
+        "note": "Note",
+        "noteHint": "What you checked and why. 3 to 500 characters. Saved in the audit log.",
+        "providerRefOptional": "Provider's refund reference (optional)",
+        "providerRefRequired": "Provider's refund reference",
+        "providerRefHint": "As it appears on the provider's statement. A reference is booked on one refund only.",
+        "failureCode": "Provider's failure code",
+        "failureCodeHint": "As the provider gave it: letters, digits and _ . : -",
+        "unknownTitle": "We don't know yet whether this was saved",
+        "unknownBody": "Press the button again: it is applied only once, and if the first attempt went through you'll see the new status.",
+        "termsChangedTitle": "The amount changed",
+        "termsChanged": "The refund's amount is now {to} (it was {from}). Check it, then confirm again.",
+        "errors": {
+          "note_required": "Write a note.",
+          "note_short": "Write at least 3 characters.",
+          "note_long": "Keep the note under 500 characters.",
+          "ref_required": "Enter the provider's refund reference.",
+          "ref_long": "The reference is too long.",
+          "code_required": "Enter the provider's failure code.",
+          "code_long": "The code is too long.",
+          "code_invalid": "Use letters, digits and _ . : - only."
+        },
+        "outcome": {
+          "title": "Record the provider's answer",
+          "description": "For a refund the provider hasn't answered through the normal channel. This is what happens in our records, as if the provider had told us.",
+          "confirmTitle": "Confirm the provider's answer",
+          "answer": "What the provider answered",
+          "answers": {
+            "succeeded": "The provider paid the refund",
+            "failed": "The provider declined the refund"
+          },
+          "confirmPaid": "Record as paid ({amount})",
+          "confirmFailed": "Record as declined",
+          "confirmPaidNote": "The refund becomes paid and its credit note is issued. This can't be undone here.",
+          "confirmFailedNote": "The refund becomes failed and the money stays with the customer's payment, ready to refund again.",
+          "done": "Recorded. Refund status: {status}."
+        },
+        "reinstate": {
+          "title": "The provider paid after all",
+          "description": "This refund failed, and the provider later reported it paid. Record it as paid so our records match the provider's.",
+          "confirmTitle": "Confirm the refund",
+          "confirm": "Record {amount} as paid",
+          "confirmNote": "The refund becomes paid and its credit note is issued. Check the amount against the provider's statement.",
+          "done": "Recorded: the refund of {amount} is paid."
+        },
+        "noteField": "Note"
+      },
+      "clearReview": {
+        "title": {
+          "payment": "Clear the review flag of this payment",
+          "refund": "Clear the review flag of this refund"
+        },
+        "description": {
+          "payment": "Say what you checked. The flag is closed and the action is saved in the audit log under your name.",
+          "refund": "Say what you checked. The flag is closed and the action is saved in the audit log under your name."
+        },
+        "cancel": "Cancel",
+        "confirm": "Clear flag",
+        "note": "Note",
+        "noteHint": "What you checked and why. 3 to 500 characters.",
+        "done": {
+          "payment": "The payment's review flag was cleared.",
+          "refund": "The refund's review flag was cleared."
+        },
+        "errors": {
+          "note_required": "Write a note.",
+          "note_short": "Write at least 3 characters.",
+          "note_long": "Keep the note under 500 characters."
+        }
+      },
+      "wallet": {
+        "title": "Balance",
+        "off": "The customer balance is switched off. No credit can be added.",
+        "offWithBalance": "The customer balance is switched off, but this customer still has money in it. Customers can't spend it while it is off; you can correct it.",
+        "balance": "Spendable balance",
+        "balanceNote": "Credits past their expiry are left out.",
+        "expiring": "Expiring in 30 days",
+        "expiringNote": "Free credits (compensation, goodwill) expire; refunds don't.",
+        "addCredit": "Add credit",
+        "addCreditOff": "The balance is switched off.",
+        "correct": "Correct balance",
+        "correctEmpty": "There is nothing to take back.",
+        "caption": "Balance movements",
+        "columns": {
+          "created": "Date",
+          "type": "Movement",
+          "amount": "Amount",
+          "balanceAfter": "Balance after",
+          "remaining": "Left to spend",
+          "expires": "Expires",
+          "by": "By"
+        },
+        "types": {
+          "credit": "Credit",
+          "debit": "Debit"
+        },
+        "signs": {
+          "credit": "Added",
+          "debit": "Taken"
+        },
+        "sources": {
+          "refund": "Refund",
+          "compensation": "Compensation",
+          "goodwill": "Goodwill credit",
+          "promo": "Promotion",
+          "payment": "Payment",
+          "expiry": "Expired",
+          "correction": "Correction"
+        },
+        "never": "Never",
+        "staff": "Staff",
+        "actors": {
+          "staff": "Staff",
+          "customer": "The customer",
+          "system": "The system"
+        },
+        "empty": "No movements yet.",
+        "emptyBody": "Credits and payments from the balance appear here.",
+        "adjust": {
+          "creditTitle": "Add credit",
+          "debitTitle": "Correct the balance",
+          "creditDescription": "A goodwill credit the customer can spend on a booking. It expires, can't be paid out, and the customer is told.",
+          "debitDescription": "Takes money back from the balance after a mistake. The customer isn't told; the note stays with staff.",
+          "confirmTitle": "Confirm the amount",
+          "back": "Back",
+          "cancel": "Cancel",
+          "review": "Continue",
+          "confirmCredit": "Add {amount}",
+          "confirmDebit": "Take back {amount}",
+          "amountCredit": "Credit",
+          "amountDebit": "To take back",
+          "balanceNow": "Balance now",
+          "note": "Note",
+          "confirmNoteCredit": "Check the amount: the balance is credited at once and the customer is told.",
+          "confirmNoteDebit": "Check the amount: it is taken from the balance at once, oldest credits first.",
+          "amount": "Amount",
+          "amountHint": "Up to {max}.",
+          "noteHint": "Why this credit or correction. 3 to 500 characters. The customer never sees it.",
+          "heldNote": "An earlier attempt of {amount} got no clear answer. A different amount is refused, so the balance can't change twice.",
+          "unknownTitle": "We don't know yet whether this was saved",
+          "unknownBody": "Press the button again: it is applied only once, and if the first attempt went through you'll see the new balance.",
+          "doneCredit": "Credit added. The balance is now {balance}.",
+          "doneDebit": "Balance corrected. It is now {balance}.",
+          "errors": {
+            "amount_required": "Enter the amount.",
+            "amount_invalid": "Enter an amount in dirhams, for example 150 or 150.50.",
+            "amount_precision": "Use at most two decimals.",
+            "amount_zero": "The amount must be more than zero.",
+            "amount_over": "At most {max} is allowed here.",
+            "note_required": "Write a note.",
+            "note_short": "Write at least 3 characters.",
+            "note_long": "Keep the note under 500 characters."
+          },
+          "noteField": "Note (staff only)"
         }
       }
     },

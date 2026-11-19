@@ -95,7 +95,11 @@ export function phoneSearchValid(value: string): boolean {
   return /^[\d\s+\-().]{1,30}$/.test(text) && text.replace(/\D/g, "").replace(/^0+/, "").length >= 4;
 }
 
-export const PAYABLE_TYPES = ["booking", "subscription_period", "wallet_topup"] as const;
+/** AdminRefundResource `destination`, and the contexts a refund can name today (Quality's compensation). */
+export const REFUND_DESTINATIONS = ["card", "wallet"] as const;
+export const REFUND_CONTEXT_TYPES = ["complaint"] as const;
+
+export const PAYABLE_TYPES =["booking", "subscription_period", "wallet_topup"] as const;
 
 export const INVOICE_STATUSES = ["issued", "credited_partial", "credited_full"] as const;
 
@@ -120,6 +124,9 @@ export const REFUND_FILTERS = {
   needs_review: { kind: "flag" },
   phone: { kind: "text", max: 30 },
   payment_id: { kind: "id" },
+  // Phase 5: where the money went and what it was for (a complaint's compensation).
+  destination: { kind: "enum", values: REFUND_DESTINATIONS },
+  context_type: { kind: "enum", values: REFUND_CONTEXT_TYPES },
 } as const satisfies FilterSpec;
 
 export const INVOICE_FILTERS = {

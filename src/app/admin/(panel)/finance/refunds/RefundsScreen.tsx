@@ -3,22 +3,27 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card, Checkbox, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
+import { ExportButton } from "@/components/admin/ExportButton";
 import { fetchRefunds } from "@/lib/admin/endpoints";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
-import { REFUND_FILTERS, dateRangeValid, filterKey, idOrUndefined, phoneSearchValid } from "@/lib/admin/finance/filters";
+import { exportFilters } from "@/lib/admin/exports";
+import { REFUND_CONTEXT_TYPES, REFUND_DESTINATIONS, REFUND_FILTERS, dateRangeValid, filterKey, idOrUndefined, phoneSearchValid } from "@/lib/admin/finance/filters";
 import { REFUND_STATUSES } from "@/lib/admin/finance/refund";
+import { canClearRefundFlag, canRecordOutcome, canReinstate } from "@/lib/admin/finance/refundOps";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
 import { REFUNDS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminRefund, RefundStatus } from "@/lib/admin/types";
 import { RequirePermission } from "../../../_components/RequirePermission";
-import { Code, CreditNoteNumber, DateRangeFields, Money, ReviewBadge } from "../_components/FinanceParts";
+import { ClearReviewDialog } from "../_components/ClearReviewDialog";
+import { Code, CreditNoteNumber, DateRangeFields, Money, RefundContextLabel, RefundDestination, ReviewBadge } from "../_components/FinanceParts";
 import { refundTone, useFinanceText } from "../_components/financeText";
 import { useRefundReasons } from "../_components/useRefundReasons";
 import { useUrlFilters } from "../_components/useUrlFilters";
+import { RecordRefundOutcomeDialog, ReinstateRefundDialog } from "./_components/RefundOpsDialogs";
 
 const PER_PAGE = 25;
 
@@ -68,6 +73,8 @@ function RefundsTable() {
         reasonCode: filters.reason_code || undefined,
         needsReview: filters.needs_review === "1",
         phone: phone || undefined,
+        destination: filters.destination as "card" | "wallet" | "",
+        contextType: filters.context_type || undefined,
       }),
     placeholderData: keepPreviousData,
     enabled: rangeValid && phoneValid,
@@ -79,6 +86,9 @@ function RefundsTable() {
   }, [meta, list.isPlaceholderData, filters.page, setPage]);
 
   const seesPayments = can("payments.view");
+  const [action, setAction] = useState<{ kind: "outcome" | "reinstate" | "clear"; refund: AdminRefund } | null>(null);
+  const mayRefund = can("refunds.create");
+  const mayClear = can("reconciliation.run");
   const columns: Column<AdminRefund>[] = [
     {
       id: "created",
@@ -126,6 +136,7 @@ function RefundsTable() {
             <StatusBadge tone={refundTone[r.status] ?? "neutral"}>{text.refund(r.status, r.status_label)}</StatusBadge>
             {r.needs_review && <ReviewBadge />}
           </span>
+          {!r.needs_review && r.review?.cleared_at && <span className="text-xs text-ink-600">{t("reviewCleared", { time: text.dateTime(r.review.cleared_at) })}</span>}
           {r.status !== "succeeded" && r.status !== "failed" && text.either(r.estimated_arrival_text) && (
             <span className="text-xs text-ink-600">{t("estimate", { text: text.either(r.estimated_arrival_text) })}</span>
           )}
@@ -139,8 +150,18 @@ function RefundsTable() {
         <span className="flex flex-col">
           <span>{text.reason(r.reason_label)}</span>
           {r.reason_text && <span className="text-xs text-ink-600">“{r.reason_text}”</span>}
+          {r.context && (
+            <span className="text-xs">
+              <RefundContextLabel context={r.context} />
+            </span>
+          )}
         </span>
       ),
+    },
+    {
+      id: "destination",
+      header: t("columns.destination"),
+      cell: (r) => (r.destination ? <RefundDestination refund={r} /> : <span className="text-ink-600">—</span>),
     },
     {
       id: "requestedBy",
@@ -152,10 +173,36 @@ function RefundsTable() {
       header: t("columns.creditNote"),
       cell: (r) => (r.credit_note ? <CreditNoteNumber note={r.credit_note} /> : <span className="text-ink-600">—</span>),
     },
+    {
+      id: "actions",
+      header: <span className="sr-only">{t("columns.actions")}</span>,
+      cell: (r) => {
+        const refundRef = r.gateway_refund_ref ?? r.ulid;
+        return (
+          <span className="flex flex-col items-start gap-1">
+            {mayRefund && canRecordOutcome(r) && (
+              <Button size="sm" variant="secondary" onClick={() => setAction({ kind: "outcome", refund: r })} aria-label={t("recordOutcomeLabel", { ref: refundRef })}>
+                {t("recordOutcome")}
+              </Button>
+            )}
+            {mayRefund && canReinstate(r) && (
+              <Button size="sm" variant="secondary" onClick={() => setAction({ kind: "reinstate", refund: r })} aria-label={t("reinstateLabel", { ref: refundRef })}>
+                {t("reinstate")}
+              </Button>
+            )}
+            {mayClear && canClearRefundFlag(r) && (
+              <Button size="sm" variant="ghost" onClick={() => setAction({ kind: "clear", refund: r })} aria-label={t("clearFlagLabel", { ref: refundRef })}>
+                {t("clearFlag")}
+              </Button>
+            )}
+          </span>
+        );
+      },
+    },
   ];
 
   return (
-    <Card>
+    <Card actions={<ExportButton report="refunds" filters={exportFilters({ status: filters.status, from: filters.from, to: filters.to, payment_id: idOrUndefined(filters.payment_id), reason_code: filters.reason_code, needs_review: filters.needs_review === "1", phone: phone || undefined, destination: filters.destination, context_type: filters.context_type })} />}>
       <FilterBar canReset={filtered} onReset={reset}>
         <SearchField label={f("phone")} placeholder={f("phonePlaceholder")} value={filters.phone} onChange={(v) => set({ phone: v })} className="max-w-[240px]" />
         <Select
@@ -174,6 +221,22 @@ function RefundsTable() {
           onChange={(e) => set({ reason_code: e.target.value })}
           options={reasonOptions}
           containerClassName="min-w-[200px]"
+        />
+        <Select
+          label={f("destination")}
+          placeholder={f("allDestinations")}
+          value={filters.destination}
+          onChange={(e) => set({ destination: e.target.value })}
+          options={REFUND_DESTINATIONS.map((d) => ({ value: d, label: t(`destination.${d}`) }))}
+          containerClassName="min-w-[170px]"
+        />
+        <Select
+          label={f("context")}
+          placeholder={f("allContexts")}
+          value={filters.context_type}
+          onChange={(e) => set({ context_type: e.target.value })}
+          options={REFUND_CONTEXT_TYPES.map((c) => ({ value: c, label: t(`context.types.${c}`) }))}
+          containerClassName="min-w-[170px]"
         />
         <DateRangeFields from={filters.from} to={filters.to} onChange={set} valid={rangeValid} fromLabel={f("createdFrom")} toLabel={f("createdTo")} />
         <Checkbox
@@ -222,8 +285,11 @@ function RefundsTable() {
         onRetry={() => void list.refetch()}
         empty={<EmptyState title={filtered ? t("emptyFiltered") : t("empty")} body={filtered ? f("emptyFilteredBody") : undefined} />}
         pagination={list.data ? { meta: list.data.meta, onPageChange: setPage } : undefined}
-        minWidth={1100}
+        minWidth={1300}
       />
+      {action?.kind === "outcome" && <RecordRefundOutcomeDialog refund={action.refund} onClose={() => setAction(null)} />}
+      {action?.kind === "reinstate" && <ReinstateRefundDialog refund={action.refund} onClose={() => setAction(null)} />}
+      {action?.kind === "clear" && <ClearReviewDialog target={{ kind: "refund", id: action.refund.id, version: action.refund.version ?? 0 }} onClose={() => setAction(null)} />}
     </Card>
   );
 }

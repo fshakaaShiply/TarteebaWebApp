@@ -1416,6 +1416,15 @@ export type AdminRefund = {
   /** The setting's text when the refund was made, until the provider gives its own estimate. */
   estimated_arrival_text: { ar: string | null; en: string | null } | null;
   needs_review: boolean;
+  /**
+   * Phase 5 (finance §5.2): where the money went (card, or the customer balance), what it was for (a complaint's
+   * compensation, with a link only for complaints.manage), the review flag with who cleared it, and the version that
+   * goes with If-Match. Optional here because older fixtures and the booking page do not carry them.
+   */
+  destination?: "card" | "wallet";
+  context?: RefundContext | null;
+  review?: RefundReview;
+  version?: number;
   created_at: string | null;
   submitted_at: string | null;
   succeeded_at: string | null;
@@ -1431,6 +1440,12 @@ export type AdminRefund = {
   };
   customer?: FinanceCustomer | null;
 };
+
+/** AdminRefundResource `context`: what a refund compensates; `link` is null without complaints.manage (P3-59). */
+export type RefundContext = { type: string; id: number; reference: string; link: { list: string; path: string; params: Record<string, never> } | null };
+
+/** AdminRefundResource `review`: why a person was asked to look (a code with its label), and who closed it. */
+export type RefundReview = { reason: string | null; reason_label: Translatable | null; cleared_at: string | null; cleared_by: number | null; note: string | null };
 
 /** AdminRefundResource `credit_note`: the tax credit note of a refund (opens /admin/finance/credit-notes/{id}). */
 export type RefundCreditNote = { id: number; number: string; issue_date: string; total_fils: number };
@@ -1800,6 +1815,30 @@ export type AdminPaymentDetail = AdminPayment & {
   updated_at: string | null;
   events: PaymentEvent[];
   refunds: AdminRefund[];
+  /** Phase 5: the review flag with who cleared it, the chargeback amount held out of refunds, and where it stands in reconciliation. */
+  review?: PaymentReview;
+  disputed_fils?: number;
+  reconciliation?: PaymentReconciliation[];
+};
+
+export type PaymentReview = {
+  needs_review: boolean;
+  reason: string | null;
+  reason_label: Translatable | null;
+  cleared_at: string | null;
+  cleared_by: { id: number | null; name: unknown } | null;
+  note: string | null;
+};
+
+/** One line of an active reconciliation run that names this payment (at most 50). */
+export type PaymentReconciliation = {
+  item_id: number;
+  run_id: number;
+  report_date: string;
+  line_type: string;
+  status: string;
+  reason_code: string;
+  resolved: boolean;
 };
 
 /**
@@ -1809,7 +1848,13 @@ export type AdminPaymentDetail = AdminPayment & {
 export type RefundReason = GetJson<"/v1/admin/refund-reasons">["data"][number];
 
 /** POST /admin/payments/{id}/refunds. `reason_code` is a selectable code of GET /admin/refund-reasons. */
-export type CreateRefundPayload = { amount_fils: number; reason_code: string; reason_text: string | null };
+export type CreateRefundPayload = {
+  amount_fils: number;
+  reason_code: string;
+  reason_text: string | null;
+  /** Sent only while the customer balance is on (default: the card); a balance-paid payment is refunded to the balance. */
+  destination?: "card" | "wallet";
+};
 
 /** GET /admin/finance/summary: the A09 KPI cards for a period (local dates) and optionally one zone. */
 export type FinanceSummary = GetJson<"/v1/admin/finance/summary">["data"];
@@ -1940,6 +1985,8 @@ export type AdminCreditNote = {
   currency: string;
   total_text: string;
   pdf_ready: boolean;
+  /** Phase 5: when the credit note e-mail was sent (set only once it went out), null before. */
+  emailed_at?: string | null;
 };
 
 /** DocumentFields::creditLines: the refund shared over the invoice lines. */

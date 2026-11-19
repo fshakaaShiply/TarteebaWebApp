@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { ButtonLink, Card, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, type Column } from "@/components/admin";
+import { ExportButton } from "@/components/admin/ExportButton";
 import { fetchCreditNotes } from "@/lib/admin/endpoints";
+import { exportFilters } from "@/lib/admin/exports";
 import { CREDIT_NOTE_FILTERS, dateRangeValid, filterKey, idOrUndefined } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
@@ -122,7 +124,7 @@ function CreditNotesTable() {
   ];
 
   return (
-    <Card>
+    <Card actions={<ExportButton report="credit_notes" filters={exportFilters({ from: filters.from, to: filters.to, invoice_id: idOrUndefined(filters.invoice_id), search: search || undefined })} />}>
       <FilterBar canReset={filtered} onReset={reset}>
         <SearchField label={f("documentSearch")} placeholder={f("creditNoteSearchPlaceholder")} value={filters.search} onChange={(v) => set({ search: v })} />
         <DateRangeFields from={filters.from} to={filters.to} onChange={set} valid={rangeValid} fromLabel={f("issuedFrom")} toLabel={f("issuedTo")} />

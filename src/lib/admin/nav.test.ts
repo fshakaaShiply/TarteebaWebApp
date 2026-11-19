@@ -91,6 +91,7 @@ describe("filterNav", () => {
       "reports.view.operations",
       "users.manage",
       "audit.view",
+      "reports.export",
     ];
     expect(ids([...all, "trips.manage"])).toEqual([
       "access",
@@ -101,7 +102,7 @@ describe("filterNav", () => {
       "fleet[vehicles,drivers,trips,driverReports]",
       "customers",
       "subscriptions",
-      "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]",
+      "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports]",
       "quality",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,settings]",
       "reports",
@@ -155,7 +156,7 @@ describe("filterNav", () => {
       "overview",
       "bookings",
       "customers",
-      "finance[financeSummary,payments,refunds,cancelReviews,invoices,creditNotes,billingRefusals]",
+      "finance[financeSummary,payments,refunds,cancelReviews,invoices,creditNotes,billingRefusals,reconciliation]",
       "reports",
     ]);
   });
@@ -166,7 +167,7 @@ describe("filterNav", () => {
     expect(ids(["bookings.view", "refunds.create"])).toContain("finance[refunds,cancelReviews]");
     // refunds.create alone can't open the bookings list; bookings.view alone doesn't resolve reviews.
     expect(ids(["refunds.create"])).toEqual(["access", "finance[refunds]"]);
-    expect(ids(["bookings.view", "payments.view"])).toContain("finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]");
+    expect(ids(["bookings.view", "payments.view"])).toContain("finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation]");
   });
 
   it("keeps a module with only the children the user may open", () => {
@@ -247,7 +248,7 @@ describe("safeAdminNext", () => {
 });
 
 describe("A09 finance and A11 notification templates", () => {
-  it("builds A09 summary, payments, refunds, invoices, credit notes and refused documents (reconciliation later)", () => {
+  it("builds A09 summary, payments, refunds, invoices, credit notes, refused documents, reconciliation and exports", () => {
     const finance = ADMIN_NAV.find((m) => m.code === "A09")!;
     expect(finance.built).toBe(true);
     expect(finance.href).toBe("/admin/finance");
@@ -259,14 +260,17 @@ describe("A09 finance and A11 notification templates", () => {
       "/admin/finance/invoices:built",
       "/admin/finance/credit-notes:built",
       "/admin/finance/billing-refusals:built",
-      "/admin/finance/reconciliation:later",
+      "/admin/finance/reconciliation:built",
+      "/admin/finance/exports:built",
     ]);
   });
 
   it("shows each finance page to the permissions its API routes accept", () => {
     // payments.view reads everything in A09; invoices.manage the summary and the documents; refunds.create the refunds
     // list.
-    expect(ids(["payments.view"])).toEqual(["access", "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals]"]);
+    expect(ids(["payments.view"])).toEqual(["access", "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation]"]);
+    // Exports need reports.export on top of the data's own read permission (the API checks both).
+    expect(ids(["payments.view", "reports.export"])).toEqual(["access", "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports]"]);
     expect(ids(["invoices.manage"])).toEqual(["access", "finance[financeSummary,invoices,creditNotes,billingRefusals]"]);
     expect(ids(["refunds.create"])).toEqual(["access", "finance[refunds]"]);
     expect(ids(["reconciliation.run"])).toEqual(["access", "finance[reconciliation]"]);

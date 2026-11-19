@@ -12,13 +12,16 @@ import { canRefund } from "@/lib/admin/finance/refund";
 import { refundKeysFor } from "@/lib/admin/finance/refundKeys";
 import type { IdempotencyKeys } from "@/lib/admin/idempotency";
 import { adminKeys } from "@/lib/admin/keys";
-import { BILLING_REFUSALS_PATH, INVOICES_PATH, PAYMENTS_PATH } from "@/lib/admin/nav";
+import { BILLING_REFUSALS_PATH, INVOICES_PATH, PAYMENTS_PATH, RECONCILIATION_PATH } from "@/lib/admin/nav";
+import { itemTone } from "@/lib/admin/finance/reconciliation";
 import { useAdminSession } from "@/lib/admin/session";
 import type { AdminPaymentDetail, AdminRefund, InvoiceStatus, PaymentEvent } from "@/lib/admin/types";
 import { RequirePermission } from "../../../../_components/RequirePermission";
 import { paymentTone } from "../../../bookings/_components/bookingText";
-import { BackLink, Code, CreditNoteNumber, Fact, Facts, Money, PayableRef, ReviewBadge, TotalRow } from "../../_components/FinanceParts";
+import { BackLink, Code, CreditNoteNumber, Fact, Facts, Money, PayableRef, RefundContextLabel, RefundDestination, ReviewBadge, TotalRow } from "../../_components/FinanceParts";
 import { invoiceTone, refundTone, useFinanceText } from "../../_components/financeText";
+import { ClearReviewDialog } from "../../_components/ClearReviewDialog";
+import { useReconText } from "../../reconciliation/_components/ReconParts";
 import { RefundDialog } from "./RefundDialog";
 
 /**
@@ -104,7 +107,9 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
   const text = useFinanceText();
   const { can } = useAdminSession();
   const [refunding, setRefunding] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const refundable = canRefund(payment);
+  const verifying = payment.status === "verifying";
 
   return (
     <>
@@ -140,7 +145,21 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
           )}
         </div>
         {payment.needs_review && (
-          <Notice tone="warning" title={t("reviewTitle")}>
+          <Notice
+            tone="warning"
+            title={t("reviewTitle")}
+            action={
+              // Closing the flag needs reconciliation.run; a payment the provider has not settled yet can't be closed.
+              can("reconciliation.run") ? (
+                <span className="flex flex-col items-start gap-1">
+                  <Button variant="secondary" size="sm" onClick={() => setClearing(true)} disabled={verifying}>
+                    {t("clearFlag")}
+                  </Button>
+                  {verifying && <span className="text-xs font-normal">{t("clearFlagVerifying")}</span>}
+                </span>
+              ) : undefined
+            }
+          >
             <p>
               {t("reviewReason")} {payment.review_reason_label ? text.name(payment.review_reason_label) : t("reviewReasonUnknown")}
             </p>
@@ -149,6 +168,13 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
                 {payment.review_reason}
               </Code>
             )}
+          </Notice>
+        )}
+        {!payment.needs_review && payment.review?.cleared_at && (
+          <Notice tone="neutral">
+            {t("reviewCleared", { time: text.dateTime(payment.review.cleared_at) })}
+            {typeof payment.review.cleared_by?.name === "string" && payment.review.cleared_by.name !== "" && <> · {payment.review.cleared_by.name}</>}
+            {payment.review.note && <> · “{payment.review.note}”</>}
           </Notice>
         )}
         {payment.status === "verifying" && (
@@ -175,11 +201,13 @@ function PaymentView({ payment, refundKeys }: { payment: AdminPaymentDetail; ref
         <div className="flex min-w-0 flex-col gap-5">
           <PayerCard payment={payment} />
           <ProviderCard payment={payment} />
+          <ReconciliationCard payment={payment} />
           <InvoiceCard payment={payment} />
         </div>
       </div>
 
       {refunding && <RefundDialog payment={payment} keys={refundKeys} onClose={() => setRefunding(false)} />}
+      {clearing && <ClearReviewDialog target={{ kind: "payment", id: payment.id, version: payment.version }} onClose={() => setClearing(false)} />}
     </>
   );
 }
@@ -197,11 +225,47 @@ function AmountsCard({ payment }: { payment: AdminPaymentDetail }) {
       <dl className="flex flex-col gap-2 border-t border-line pt-3">
         <TotalRow label={t("captured")} fils={payment.captured_fils} />
         <TotalRow label={t("refunded")} fils={payment.refunded_fils} />
+        {/* A chargeback the provider reported: held out of what can be refunded until it is reversed (P5-F59). */}
+        {(payment.disputed_fils ?? 0) > 0 && <TotalRow label={t("disputed")} fils={payment.disputed_fils ?? 0} />}
         <TotalRow label={t("refundable")} fils={payment.refundable_fils} strong />
         {payment.fee_fils !== null && <TotalRow label={t("fee")} fils={payment.fee_fils} />}
         {payment.net_settled_fils !== null && <TotalRow label={t("netSettled")} fils={payment.net_settled_fils} />}
       </dl>
-      <p className="text-xs text-ink-600">{t("refundableNote")}</p>
+      <p className="text-xs text-ink-600">{(payment.disputed_fils ?? 0) > 0 ? t("refundableNoteDisputed") : t("refundableNote")}</p>
+    </Card>
+  );
+}
+
+/** Where this payment stands in the provider's settlement reports: each line of an active run that names it (at most 50). */
+function ReconciliationCard({ payment }: { payment: AdminPaymentDetail }) {
+  const t = useTranslations("admin.finance.payment.reconciliation");
+  const text = useFinanceText();
+  const label = useReconText();
+  const { canAny } = useAdminSession();
+  const rows = payment.reconciliation ?? [];
+  if (rows.length === 0) return null;
+  const linked = canAny(["reconciliation.run", "payments.view"]);
+  return (
+    <Card title={t("title")}>
+      <ul className="flex flex-col">
+        {rows.map((r) => (
+          <li key={r.item_id} className="flex flex-col gap-1 border-t border-line py-2.5 text-sm first:border-t-0 first:pt-0 last:pb-0">
+            <span className="flex flex-wrap items-center gap-2">
+              {linked ? (
+                <Link href={`${RECONCILIATION_PATH}/${r.run_id}`} className="font-medium">
+                  {t("run", { date: text.date(r.report_date) })}
+                </Link>
+              ) : (
+                <span className="font-medium">{t("run", { date: text.date(r.report_date) })}</span>
+              )}
+              <StatusBadge tone={itemTone[r.status as keyof typeof itemTone] ?? "neutral"}>{label.item(r.status as never)}</StatusBadge>
+            </span>
+            <span className="text-xs text-ink-600">
+              {label.line(r.line_type)} · {label.reason(r.reason_code)} · {r.resolved ? t("resolved") : r.status === "matched" ? t("matched") : t("needsAction")}
+            </span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }
@@ -324,6 +388,12 @@ export function RefundList({ refunds }: { refunds: readonly AdminRefund[] }) {
             {text.reason(r.reason_label)}
             {r.reason_text && <span className="text-ink-600"> · “{r.reason_text}”</span>}
           </span>
+          {(r.destination || r.context) && (
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-600">
+              {r.destination && <RefundDestination refund={r} />}
+              {r.context && <RefundContextLabel context={r.context} />}
+            </span>
+          )}
           <span className="text-xs text-ink-600">
             {/* A Latin name next to an Arabic date keeps its own order. */}
             {t.rich("requestedBy", {

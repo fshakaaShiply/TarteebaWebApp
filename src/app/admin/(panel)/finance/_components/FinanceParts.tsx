@@ -2,16 +2,17 @@
 
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
-import { ChevronRight, Download, FileText } from "lucide-react";
+import { ChevronRight, CreditCard, Download, FileText, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Card, Notice, StatusBadge, TextField } from "@/components/admin";
 import { useAdminErrorMessage } from "@/lib/admin/errors";
+import { isBuiltAdminPage } from "@/lib/admin/alerts";
 import { useNow } from "@/lib/admin/hooks";
 import { DOCUMENTS_READ, SUBSCRIPTIONS_PATH, SUBSCRIPTIONS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
-import type { AdminPayment, DocumentUrl, RefundCreditNote, SupplierBlock } from "@/lib/admin/types";
+import type { AdminPayment, AdminRefund, DocumentUrl, RefundCreditNote, SupplierBlock } from "@/lib/admin/types";
 import { useFinanceText } from "./financeText";
 
 /**
@@ -108,6 +109,36 @@ export function CreditNoteNumber({ note }: { note: RefundCreditNote }) {
     </Link>
   ) : (
     <Code>{note.number}</Code>
+  );
+}
+
+/** Where a refund's money went: the card through the provider, or the customer's balance (Phase 5). An icon never stands alone. */
+export function RefundDestination({ refund }: { refund: Pick<AdminRefund, "destination" | "gateway"> }) {
+  const t = useTranslations("admin.finance.refunds.destination");
+  const wallet = refund.destination === "wallet" || refund.gateway === "wallet";
+  const Icon = wallet ? Wallet : CreditCard;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon aria-hidden className="size-4 shrink-0 text-ink-600" />
+      {wallet ? t("wallet") : t("card")}
+    </span>
+  );
+}
+
+/**
+ * What a refund compensates ("Complaint TC-…"). The link opens the case (A10) only for a person the API gave a link
+ * (complaints.manage, P3-59) and once that page exists; without it the reference is plain text.
+ */
+export function RefundContextLabel({ context }: { context: NonNullable<AdminRefund["context"]> }) {
+  const t = useTranslations("admin.finance.refunds.context");
+  const name = context.type === "complaint" ? t("complaint", { reference: context.reference }) : t("other", { reference: context.reference });
+  const href = `/admin/quality/${context.id}`;
+  return context.link && context.type === "complaint" && isBuiltAdminPage(href) ? (
+    <Link href={href} className="font-medium">
+      {name}
+    </Link>
+  ) : (
+    <span>{name}</span>
   );
 }
 

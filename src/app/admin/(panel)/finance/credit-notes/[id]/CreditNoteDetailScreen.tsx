@@ -1,11 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Mail, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Button, Card, DataTable, EmptyState, ErrorState, LoadingBlock, type Column } from "@/components/admin";
+import { Button, Card, DataTable, EmptyState, ErrorState, LoadingBlock, useToast, type Column } from "@/components/admin";
 import { fetchCreditNote, fetchCreditNotePdf } from "@/lib/admin/endpoints";
+import { AdminApiError } from "@/lib/admin/client";
+import { emailCreditNote } from "@/lib/admin/finance/endpoints";
+import { useFinanceError } from "@/lib/admin/finance/errors";
 import { adminKeys } from "@/lib/admin/keys";
 import { CREDIT_NOTES_PATH, DOCUMENTS_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
@@ -64,6 +67,31 @@ function CreditNoteDetailContent({ id }: { id: string }) {
   );
 }
 
+/**
+ * Send by e-mail (invoices.manage): queued to the customer's own address; the page's "E-mailed" fact is set once the
+ * mail has gone out. 422 EMAIL_MISSING when the customer has no address, 429 after five sends in an hour.
+ */
+function EmailButton({ note }: { note: AdminCreditNoteDetail }) {
+  const t = useTranslations("admin.finance.creditNote");
+  const describe = useFinanceError();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const send = useMutation({
+    mutationFn: () => emailCreditNote(note.id),
+    onSuccess: () => {
+      // The address is not shown: the customer's profile holds it. The fact below follows once the mail is sent.
+      toast.success(t("emailQueued", { number: note.number }));
+      void queryClient.invalidateQueries({ queryKey: adminKeys.creditNote(note.id) });
+    },
+    onError: (error) => toast.error(error instanceof AdminApiError && error.code === "EMAIL_MISSING" ? t("emailMissing") : describe(error)),
+  });
+  return (
+    <Button variant="outline" onClick={() => send.mutate()} loading={send.isPending} icon={<Mail aria-hidden className="size-4" />} aria-label={t("emailLabel", { number: note.number })}>
+      {t("email")}
+    </Button>
+  );
+}
+
 function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
   const t = useTranslations("admin.finance.creditNote");
   const text = useFinanceText();
@@ -90,7 +118,10 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
               {t("summary", { total: text.money(note.total_fils), invoice: note.invoice.number, date: text.date(note.issue_date) })}
             </p>
           </div>
-          <PdfDownload load={() => fetchCreditNotePdf(note.id)} documentNumber={note.number} />
+          <div className="flex flex-wrap items-start gap-2">
+            <PdfDownload load={() => fetchCreditNotePdf(note.id)} documentNumber={note.number} />
+            {can("invoices.manage") && <EmailButton note={note} />}
+          </div>
         </div>
       </section>
 
@@ -115,6 +146,7 @@ function CreditNoteView({ note }: { note: AdminCreditNoteDetail }) {
               </Fact>
               <Fact label={t("issueDate")}>{text.date(note.issue_date)}</Fact>
               <Fact label={t("issuedAt")}>{text.dateTime(note.issued_at)}</Fact>
+              <Fact label={t("emailedAt")}>{note.emailed_at ? text.dateTime(note.emailed_at) : t("notEmailed")}</Fact>
               <Fact label={t("customer")}>{note.customer.name || t("noName")}</Fact>
               {note.subscription && !note.booking_reference ? (
                 <>

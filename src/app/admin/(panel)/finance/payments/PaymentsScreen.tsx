@@ -19,8 +19,10 @@ import {
   StatusBadge,
   type Column,
 } from "@/components/admin";
+import { ExportButton } from "@/components/admin/ExportButton";
 import { PAYMENT_STATUSES } from "@/lib/admin/bookings/filters";
 import { fetchPayments } from "@/lib/admin/endpoints";
+import { exportFilters } from "@/lib/admin/exports";
 import { PAYABLE_TYPES, PAYMENT_FILTERS, dateRangeValid, filterKey, phoneSearchValid } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
@@ -174,7 +176,22 @@ function PaymentsTable() {
   ];
 
   return (
-    <Card>
+    <Card
+      actions={
+        <ExportButton
+          report="payments"
+          filters={exportFilters({
+            status: filters.status,
+            from: filters.from,
+            to: filters.to,
+            phone: phone || undefined,
+            payable_type: filters.payable_type,
+            needs_review: filters.needs_review === "1",
+            reference: reference || undefined,
+          })}
+        />
+      }
+    >
       <FilterBar canReset={filtered} onReset={reset}>
         <SearchField
           label={f("reference")}

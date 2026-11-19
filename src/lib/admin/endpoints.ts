@@ -1895,6 +1895,9 @@ export type RefundListQuery = {
   reasonCode?: string;
   needsReview?: boolean;
   phone?: string;
+  /** Phase 5: where the money went (card or the customer balance) and what it was for (complaint). */
+  destination?: "card" | "wallet" | "";
+  contextType?: string;
 };
 
 /** Newest first (refunds.create or payments.view). */
@@ -1912,6 +1915,8 @@ export async function fetchRefunds(q: RefundListQuery): Promise<Paginated<AdminR
           reason_code: q.reasonCode,
           needs_review: q.needsReview ? 1 : undefined,
           phone: q.phone?.trim(),
+          destination: q.destination,
+          context_type: q.contextType,
         }) as never,
       },
     }),

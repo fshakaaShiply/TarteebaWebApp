@@ -50,7 +50,9 @@ const api = {
   retryBillingRefusal: vi.fn(),
   fetchRefundReasons: vi.fn(),
   fetchFinanceSummary: vi.fn(),
+  emailCreditNote: vi.fn(),
 };
+vi.mock("@/lib/admin/finance/endpoints", () => ({ emailCreditNote: (...a: unknown[]) => api.emailCreditNote(...a) }));
 vi.mock("@/lib/admin/endpoints", () => ({
   fetchRefundReasons: (...a: unknown[]) => api.fetchRefundReasons(...a),
   fetchFinanceSummary: (...a: unknown[]) => api.fetchFinanceSummary(...a),
@@ -709,8 +711,71 @@ describe("A09 finance summary", () => {
     renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view"] });
     await screen.findByText("Collected (incl. VAT)");
     const recon = card("Reconciliation differences");
-    expect(within(recon).getByText("2")).toHaveClass("text-danger-700");
+    // The count is a link to the runs that still need action, in the danger colour.
+    expect(within(recon).getByRole("link", { name: /2/ })).toHaveAttribute("href", "/admin/finance/reconciliation?unresolved=1");
+    expect(recon.querySelector("span.text-danger-700")).not.toBeNull();
     expect(recon).toHaveTextContent("Settlement items that don't match and aren't resolved yet.");
+  });
+
+  it("shows the latest run's five counts with a way to review the differences (the design's side card)", async () => {
+    api.fetchFinanceSummary.mockResolvedValue({
+      ...summary,
+      cards: {
+        ...summary.cards,
+        reconciliation_differences: {
+          ...summary.cards.reconciliation_differences,
+          count: 2,
+          available: true,
+          latest_run: {
+            id: 41,
+            gateway: "fake",
+            report_date: "2026-10-18",
+            status: "completed",
+            counts: { matched: 41, amount_mismatch: 1, missing_in_system: 1, missing_in_gateway: 0, status_mismatch: 0 },
+            unresolved_count: 2,
+          },
+        },
+      },
+    });
+    renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view"] });
+    const heading = await screen.findByRole("heading", { name: /Reconciliation/ });
+    const side = heading.closest("section")!;
+    expect(side).toHaveTextContent("Matched 41");
+    expect(side).toHaveTextContent("Amount differs 1");
+    expect(side).toHaveTextContent("Not in our records 1");
+    expect(within(side).getByRole("link", { name: "Review 2 differences" })).toHaveAttribute("href", "/admin/finance/reconciliation/41");
+  });
+
+  it("shows the balance card only when the customer balance exists, with the API's figures", async () => {
+    api.fetchFinanceSummary.mockResolvedValue({
+      ...summary,
+      cards: { ...summary.cards, balance: { label: { ar: "الرصيد", en: "Customer balance" }, paid_from_balance_fils: 24000, credited_to_balance_fils: 50000, outstanding_fils: 26000, available: true } },
+    });
+    renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view"] });
+    await screen.findByText("Collected (incl. VAT)");
+    const balance = card("Customer balance");
+    expect(balance).toHaveTextContent("AED 260.00");
+    expect(balance).toHaveTextContent("Paid from the balance: AED 240.00");
+    expect(balance).toHaveTextContent("Credited to the balance: AED 500.00");
+    // Collected and refunds say they count what the provider handled.
+    expect(card("Collected (incl. VAT)")).toHaveTextContent("At the payment provider");
+    expect(card("Refunds")).toHaveTextContent("At the payment provider");
+  });
+
+  it("hides the balance card while no balance exists", async () => {
+    renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view"] });
+    await screen.findByText("Collected (incl. VAT)");
+    expect(screen.queryByText("Balance")).not.toBeInTheDocument();
+  });
+
+  it("offers the VAT summary export for the period the API counted, only with reports.export", async () => {
+    const { unmount } = renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view"] });
+    await screen.findByText("Collected (incl. VAT)");
+    expect(screen.queryByRole("button", { name: /Export VAT summary/ })).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(<FinanceSummaryScreen />, { permissions: ["payments.view", "reports.export"] });
+    await screen.findByText("Collected (incl. VAT)");
+    expect(screen.getByRole("button", { name: /Export VAT summary/ })).toBeInTheDocument();
   });
 
   it("offers a retry when the figures can't be loaded", async () => {
@@ -725,5 +790,45 @@ describe("A09 finance summary", () => {
     renderWithProviders(<FinanceSummaryScreen />, { permissions: ["refunds.create"] });
     expect(screen.getByText("You don't have access to this page")).toBeInTheDocument();
     expect(api.fetchFinanceSummary).not.toHaveBeenCalled();
+  });
+});
+
+describe("A09 credit note e-mail (Phase 5)", () => {
+  it("sends the credit note by e-mail with invoices.manage and says it is on its way", async () => {
+    api.fetchCreditNote.mockResolvedValue({ ...creditNote, emailed_at: null });
+    api.emailCreditNote.mockResolvedValue({ status: "queued", email: "omar@example.test", message: "queued" });
+    const user = userEvent.setup();
+    renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["invoices.manage", "payments.view"] });
+    expect(await screen.findByText("Not sent yet")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Send by e-mail: credit note CN-2026-000003" }));
+    await waitFor(() => expect(api.emailCreditNote).toHaveBeenCalledWith(3));
+    expect(await screen.findByText("Credit note CN-2026-000003 is on its way to the customer's e-mail address.")).toBeInTheDocument();
+    // The address is not shown on the page: the customer's profile holds it.
+    expect(document.body).not.toHaveTextContent("omar@example.test");
+  });
+
+  it("shows when it was e-mailed, and offers the button only to invoices.manage", async () => {
+    api.fetchCreditNote.mockResolvedValue({ ...creditNote, emailed_at: "2026-10-24T08:00:00+00:00" });
+    const { unmount } = renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["payments.view"] });
+    const fact = (await screen.findByText("E-mailed to the customer")).parentElement!;
+    expect(fact).not.toHaveTextContent("Not sent yet");
+    expect(fact).toHaveTextContent("2026");
+    expect(screen.queryByRole("button", { name: /Send by e-mail/ })).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["invoices.manage"] });
+    expect(await screen.findByRole("button", { name: /Send by e-mail/ })).toBeInTheDocument();
+  });
+
+  it("says in words when the customer has no e-mail address, and when the hourly limit is reached", async () => {
+    api.fetchCreditNote.mockResolvedValue(creditNote);
+    const user = userEvent.setup();
+    renderWithProviders(<CreditNoteDetailScreen id="3" />, { permissions: ["invoices.manage"] });
+    const send = await screen.findByRole("button", { name: /Send by e-mail/ });
+    api.emailCreditNote.mockRejectedValueOnce(new AdminApiError(422, { code: "EMAIL_MISSING", message: "x", details: {} }));
+    await user.click(send);
+    expect(await screen.findByText("This customer has no e-mail address on their profile, so the credit note can't be e-mailed.")).toBeInTheDocument();
+    api.emailCreditNote.mockRejectedValueOnce(new AdminApiError(429, { code: "RATE_LIMITED", message: "x", details: { retry_after_seconds: 1800 } }));
+    await user.click(send);
+    expect(await screen.findByText(/Too many requests/)).toBeInTheDocument();
   });
 });

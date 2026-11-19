@@ -1,14 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { Button, Dialog, MoneyField, Notice, Select, TextArea, useToast } from "@/components/admin";
 import { AdminApiError } from "@/lib/admin/client";
 import { createRefund } from "@/lib/admin/endpoints";
-import { useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
+import { useServerFieldMessage } from "@/lib/admin/errors";
+import { fetchWalletEnabled } from "@/lib/admin/finance/endpoints";
+import { useFinanceError } from "@/lib/admin/finance/errors";
 import {
   REFUND_NOTE_MAX,
   checkRefund,
@@ -46,7 +48,8 @@ import { useRefundReasons } from "../../_components/useRefundReasons";
 export function RefundDialog({ payment, keys, onClose }: { payment: AdminPaymentDetail; keys: IdempotencyKeys; onClose: () => void }) {
   const t = useTranslations("admin.finance.refund");
   const text = useFinanceText();
-  const describe = useAdminErrorMessage();
+  // The Phase 5 codes (WALLET_DISABLED, ACCOUNT_CLOSING, REFUND_AMOUNT_INVALID with the figure …) first, the rest as before.
+  const describe = useFinanceError();
   const serverMessage = useServerFieldMessage();
   const errorsT = useTranslations("admin.errors");
   const toast = useToast();
@@ -62,6 +65,17 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
   const summary = useRef<HTMLDivElement>(null);
   const reasons = useRefundReasons();
   const reasonList = reasons.data ?? [];
+
+  /*
+   * Where the money goes (Phase 5). The customer balance is off by owner ruling: the choice appears only while the public
+   * config says it is on. A payment the customer paid from the balance has no card to refund, so its refund goes back to
+   * the balance (named, not chosen). With the balance off and a card payment nothing is sent: the API's default is the card.
+   */
+  const walletConfig = useQuery({ queryKey: adminKeys.walletEnabled(), queryFn: fetchWalletEnabled, staleTime: 5 * 60_000, retry: false });
+  const paidFromBalance = payment.method === "wallet";
+  const offersChoice = walletConfig.data === true && !paidFromBalance;
+  const [destination, setDestination] = useState<"card" | "wallet">("card");
+  const destinationSent: "card" | "wallet" | null = paidFromBalance ? "wallet" : offersChoice ? destination : null;
 
   const form = useForm<RefundFormValues>({
     resolver: zodResolver(refundFormSchema(refundable, reasonList)) as Resolver<RefundFormValues>,
@@ -139,7 +153,9 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
    * payment page, so it is still held when the dialog is closed and opened again.
    */
   const held = keys.heldBody<{ payment: number } & CreateRefundPayload>();
-  const heldPayload: CreateRefundPayload | null = held ? { amount_fils: held.amount_fils, reason_code: held.reason_code, reason_text: held.reason_text } : null;
+  const heldPayload: CreateRefundPayload | null = held
+    ? { amount_fils: held.amount_fils, reason_code: held.reason_code, reason_text: held.reason_text, ...(held.destination ? { destination: held.destination } : {}) }
+    : null;
   const errorCode = send.error instanceof AdminApiError ? send.error.code : null;
   const outcomeUnknown = send.isError && keepsIdempotencyKey(send.error);
   const earlierStored = errorCode === "IDEMPOTENCY_KEY_REUSED" && heldPayload !== null;
@@ -152,7 +168,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
 
   const review = form.handleSubmit((values) => {
     const check = checkRefund(values, refundable, reasonList);
-    if (check.ok) setConfirming(check.payload);
+    if (check.ok) setConfirming(destinationSent ? { ...check.payload, destination: destinationSent } : check.payload);
   });
 
   const busy = send.isPending;
@@ -186,7 +202,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
               {t("back")}
             </Button>
             <Button key="confirm" variant="danger" onClick={(event) => confirm(event, confirming)} loading={busy}>
-              {t("confirm", { amount: text.money(confirming.amount_fils) })}
+              {t(confirming.destination === "wallet" ? "confirmWallet" : "confirm", { amount: text.money(confirming.amount_fils) })}
             </Button>
           </>
         ) : (
@@ -216,6 +232,12 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
               {/* A phone without a name is isolated LTR, so its "+" stays in front in Arabic. */}
               <dd className="text-end">{payment.customer?.name || (payment.customer?.phone ? <Code>{payment.customer.phone}</Code> : "—")}</dd>
             </div>
+            {confirming.destination && (
+              <div className="flex justify-between gap-3">
+                <dt>{t("destination")}</dt>
+                <dd className="text-end">{confirming.destination === "wallet" ? t("destinationWallet") : t("destinationCard")}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-3">
               <dt>{t("reason")}</dt>
               <dd className="text-end">{reasonLabel(confirming.reason_code)}</dd>
@@ -233,7 +255,7 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
               </dd>
             </div>
           </dl>
-          <Notice tone="warning">{t("confirmNote")}</Notice>
+          <Notice tone="warning">{confirming.destination === "wallet" ? t("confirmNoteWallet") : t("confirmNote")}</Notice>
           {outcomeUnknown ? (
             <Notice
               tone="warning"
@@ -280,6 +302,21 @@ export function RefundDialog({ payment, keys, onClose }: { payment: AdminPayment
                 )}
               </p>
             </Notice>
+          )}
+          {paidFromBalance && <Notice tone="info">{t("paidFromBalance")}</Notice>}
+          {offersChoice && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm font-medium text-ink-900">{t("destination")}</legend>
+              {(["card", "wallet"] as const).map((value) => (
+                <label key={value} className="touch-target flex items-start gap-2.5 rounded-md border border-line px-3 py-2.5 text-sm has-[:checked]:border-petrol-700 has-[:checked]:bg-petrol-50">
+                  <input type="radio" name={`${formId}-destination`} value={value} checked={destination === value} onChange={() => setDestination(value)} className="mt-1" />
+                  <span className="flex flex-col">
+                    <span className="font-medium text-ink-900">{value === "card" ? t("destinationCard") : t("destinationWallet")}</span>
+                    <span className="text-xs text-ink-600">{value === "card" ? t("destinationCardHint") : t("destinationWalletHint")}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
           )}
           <MoneyField
             label={t("amount")}

@@ -39,6 +39,10 @@ export const REFUNDS_PATH = "/admin/finance/refunds";
 export const INVOICES_PATH = "/admin/finance/invoices";
 export const CREDIT_NOTES_PATH = "/admin/finance/credit-notes";
 export const BILLING_REFUSALS_PATH = "/admin/finance/billing-refusals";
+/** Phase 5: settlement reconciliation runs (and a run's page at /{id}) and the exports page. */
+export const RECONCILIATION_PATH = "/admin/finance/reconciliation";
+export const EXPORTS_PATH = "/admin/finance/exports";
+export const RECONCILIATION_READ = ["reconciliation.run", "payments.view"] as const;
 export const NOTIFICATION_TEMPLATES_PATH = "/admin/settings/notifications";
 /** GET /admin/refunds (Payment routes/admin.php). */
 export const REFUNDS_READ = ["refunds.create", "payments.view"] as const;
@@ -131,7 +135,9 @@ export const ADMIN_NAV: readonly NavModule[] = [
       { id: "invoices", labelKey: "invoices", href: INVOICES_PATH, anyOf: DOCUMENTS_READ, built: true },
       { id: "creditNotes", labelKey: "creditNotes", href: CREDIT_NOTES_PATH, anyOf: DOCUMENTS_READ, built: true },
       { id: "billingRefusals", labelKey: "billingRefusals", href: BILLING_REFUSALS_PATH, anyOf: DOCUMENTS_READ, built: true },
-      { id: "reconciliation", labelKey: "reconciliation", href: "/admin/finance/reconciliation", anyOf: ["reconciliation.run"], built: false },
+      // Phase 5: the run pages read with either permission (reconciliation.run resolves), exports need reports.export.
+      { id: "reconciliation", labelKey: "reconciliation", href: RECONCILIATION_PATH, anyOf: RECONCILIATION_READ, built: true },
+      { id: "exports", labelKey: "exports", href: EXPORTS_PATH, anyOf: ["reports.export"], built: true },
     ],
   },
   {

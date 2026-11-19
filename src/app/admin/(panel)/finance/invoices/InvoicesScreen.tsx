@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { ButtonLink, Card, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, type Column } from "@/components/admin";
+import { ExportButton } from "@/components/admin/ExportButton";
 import { fetchInvoices } from "@/lib/admin/endpoints";
+import { exportFilters } from "@/lib/admin/exports";
 import { INVOICE_FILTERS, INVOICE_STATUSES, dateRangeValid, filterKey, idOrUndefined } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
@@ -151,8 +153,16 @@ function InvoicesTable() {
     },
   ];
 
+  const exported = exportFilters({ status: filters.status, from: filters.from, to: filters.to, search: search || undefined, payment_id: idOrUndefined(filters.payment_id) });
   return (
-    <Card>
+    <Card
+      actions={
+        <span className="flex flex-wrap items-center gap-2">
+          <ExportButton report="invoices" filters={exported} />
+          <ExportButton report="invoice_lines" filters={exported} label={t("exportLines")} />
+        </span>
+      }
+    >
       <FilterBar canReset={filtered} onReset={reset}>
         <SearchField label={f("documentSearch")} placeholder={f("invoiceSearchPlaceholder")} value={filters.search} onChange={(v) => set({ search: v })} />
         <Select

@@ -5,15 +5,19 @@ import clsx from "clsx";
 import { RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Button, Card, ErrorState, FilterBar, Notice, PageHeader, Skeleton, TextField } from "@/components/admin";
+import { ExportButton } from "@/components/admin/ExportButton";
 import { fetchFinanceSummary } from "@/lib/admin/endpoints";
+import { exportFilters } from "@/lib/admin/exports";
+import { ITEM_STATUSES } from "@/lib/admin/finance/reconciliation";
 import { useAdminErrorMessage, useServerFieldMessage } from "@/lib/admin/errors";
 import { SUMMARY_FILTERS } from "@/lib/admin/finance/filters";
 import { summaryFieldErrors, summaryPeriod } from "@/lib/admin/finance/summary";
 import { businessToday } from "@/lib/admin/format";
 import { useDebouncedValue } from "@/lib/admin/hooks";
 import { adminKeys } from "@/lib/admin/keys";
-import { DOCUMENTS_READ } from "@/lib/admin/nav";
+import { DOCUMENTS_READ, RECONCILIATION_PATH, RECONCILIATION_READ } from "@/lib/admin/nav";
 import { useAdminSession } from "@/lib/admin/session";
 import type { FinanceSummary } from "@/lib/admin/types";
 import { useAdminZone } from "@/lib/admin/zone";
@@ -89,6 +93,10 @@ function SummaryContent() {
                 zone: data.zone ? text.name(data.zone.name) : t("allZones"),
               })
             : t("subtitleLoading")
+        }
+        actions={
+          // The VAT summary of the period on screen (the API needs both dates; the period the API counted).
+          counted ? <ExportButton report="vat_summary" label={t("exportVat")} filters={exportFilters({ from: counted.from, to: counted.to, zone_id: zoneId })} /> : undefined
         }
       />
 
@@ -199,14 +207,25 @@ function KpiCard({ label, value, detail, tone = "neutral" }: { label: string; va
 function SummaryCards({ summary, stale }: { summary: FinanceSummary; stale: boolean }) {
   const t = useTranslations("admin.finance.summary.cards");
   const text = useFinanceText();
-  const { collected, vat, refunds, reconciliation_differences: recon } = summary.cards;
-  const differences = recon.available && recon.count !== null ? recon.count : null;
+  const { canAny } = useAdminSession();
+  const { collected, vat, refunds, reconciliation_differences: recon, balance } = summary.cards;
+  const differences = recon.available ? recon.count : null;
+  const runsLink = canAny(RECONCILIATION_READ);
 
   return (
     <div className="flex flex-col gap-3">
       {/* While another period loads, the last figures stay, dimmed and marked busy. */}
       <div aria-busy={stale || undefined} className={clsx("grid gap-4 sm:grid-cols-2 xl:grid-cols-4", stale && "opacity-60")}>
-        <KpiCard label={text.name(collected.label)} value={text.money(collected.amount_fils)} detail={<span>{t("collectedDetail", { count: collected.payments })}</span>} />
+        <KpiCard
+          label={text.name(collected.label)}
+          value={text.money(collected.amount_fils)}
+          detail={
+            <>
+              <span>{t("collectedDetail", { count: collected.payments })}</span>
+              <span>{t("atProvider")}</span>
+            </>
+          }
+        />
         <KpiCard
           label={text.name(vat.label)}
           value={text.money(vat.amount_fils)}
@@ -218,15 +237,70 @@ function SummaryCards({ summary, stale }: { summary: FinanceSummary; stale: bool
             </>
           }
         />
-        <KpiCard label={text.name(refunds.label)} value={text.money(refunds.amount_fils)} detail={<span>{t("refundsDetail", { count: refunds.refunds })}</span>} />
+        <KpiCard
+          label={text.name(refunds.label)}
+          value={text.money(refunds.amount_fils)}
+          detail={
+            <>
+              <span>{t("refundsDetail", { count: refunds.refunds })}</span>
+              <span>{t("atProvider")}</span>
+            </>
+          }
+        />
         <KpiCard
           label={text.name(recon.label)}
-          value={differences ?? "—"}
+          value={
+            differences !== null && differences > 0 && runsLink ? (
+              <Link href={`${RECONCILIATION_PATH}?unresolved=1`} className="underline-offset-4 hover:underline">
+                {differences}
+                <span className="sr-only"> — {t("reviewDifferences")}</span>
+              </Link>
+            ) : (
+              (differences ?? "—")
+            )
+          }
           tone={differences !== null && differences > 0 ? "danger" : "neutral"}
           detail={<span>{differences === null ? t("reconciliationUnavailable") : t("reconciliationDetail")}</span>}
         />
+        {balance?.available && (
+          <KpiCard
+            label={text.name(balance.label)}
+            value={text.money(balance.outstanding_fils as number)}
+            detail={
+              <>
+                <span>{t("balancePaid", { amount: text.money(balance.paid_from_balance_fils) })}</span>
+                <span>{t("balanceCredited", { amount: text.money(balance.credited_to_balance_fils) })}</span>
+                <span>{t("balanceOutstanding")}</span>
+              </>
+            }
+          />
+        )}
       </div>
+      {recon.available && recon.latest_run && <LatestRunCard run={recon.latest_run} link={runsLink} />}
       <p className="text-xs text-ink-600">{t("basisNote")}</p>
     </div>
+  );
+}
+
+/** The design's side card: the latest run's five counts, with a way to the differences (screen AdminFinance aside). */
+function LatestRunCard({ run, link }: { run: NonNullable<FinanceSummary["cards"]["reconciliation_differences"]["latest_run"]>; link: boolean }) {
+  const t = useTranslations("admin.finance.summary.latestRun");
+  const label = useTranslations("admin.finance.reconciliation.enums.itemStatus");
+  const text = useFinanceText();
+  return (
+    <Card title={t("title", { date: text.date(run.report_date) })}>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-900">
+        {ITEM_STATUSES.map((s) => (
+          <li key={s}>
+            {label(s)} <span className="font-latin font-bold">{run.counts[s]}</span>
+          </li>
+        ))}
+      </ul>
+      {link && (
+        <Link href={`${RECONCILIATION_PATH}/${run.id}`} className="w-fit text-sm font-bold">
+          {run.unresolved_count > 0 ? t("review", { count: run.unresolved_count }) : t("open")}
+        </Link>
+      )}
+    </Card>
   );
 }
