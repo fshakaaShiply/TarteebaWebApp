@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { fetchLinked } from "@/lib/admin/customers/endpoints";
+import { businessToday } from "@/lib/admin/format";
 import { customerKeys } from "@/lib/admin/customers/keys";
 import { isOpenBooking, isOpenSubscription } from "@/lib/admin/customers/status";
 import type { CustomerDetail } from "@/lib/admin/customers/types";
@@ -11,6 +12,11 @@ import type { SubscriptionRow } from "@/lib/admin/subscriptions/types";
 import type { OpenItem } from "./BlockCustomerDialog";
 
 const RECENT = 5;
+
+function dubaiDay(instant: string | null | undefined): string | null {
+  const at = instant ? new Date(instant) : null;
+  return at && !Number.isNaN(at.getTime()) ? businessToday(at) : null;
+}
 
 export type ActivityRow =
   | { kind: "booking"; key: string; date: string; booking: BookingRow }
@@ -40,7 +46,13 @@ export function useCustomerActivity(customer: CustomerDetail) {
     const out: ActivityRow[] = [
       ...(bookings.data?.data ?? []).map((booking): ActivityRow => ({ kind: "booking", key: `b${booking.id}`, date: booking.service_date, booking })),
       ...(subscriptions.data?.data ?? []).map(
-        (subscription): ActivityRow => ({ kind: "subscription", key: `s${subscription.id}`, date: (subscription.first_visit_at ?? subscription.term_end_date).slice(0, 10), subscription }),
+        (subscription): ActivityRow => ({
+          kind: "subscription",
+          key: `s${subscription.id}`,
+          // The first visit is an instant (UTC): its Dubai day, so it sorts with the bookings' local service dates.
+          date: dubaiDay(subscription.first_visit_at) ?? subscription.term_end_date,
+          subscription,
+        }),
       ),
     ];
     return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));

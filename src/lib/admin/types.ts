@@ -2071,6 +2071,8 @@ export type PublicConfig = {
   default_locale?: string;
   /** `privacy.deletion_grace_days`: the cooling-off between a deletion request and the erasure (Phase 5). */
   deletion_grace_days?: number;
+  /** `wallet.enabled`: whether customers have a balance (finance §5.3; off until the owner switches it on). */
+  wallet_enabled?: boolean;
   currency?: string;
   timezone?: string;
 };

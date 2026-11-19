@@ -24,6 +24,11 @@ function draftOf(page: ContentPage): PageDraft {
   return { version_label: page.version_label, effective_date: page.effective_date, title: { ...page.title }, body: { ...page.body } };
 }
 
+/** The languages whose title or text has a problem, Arabic first. */
+export function languagesWithErrors(errors: PageErrors): ("ar" | "en")[] {
+  return (["ar", "en"] as const).filter((l) => errors.title?.[l] || errors.body?.[l]);
+}
+
 /** Only what changed, so a save never overwrites a field the person did not touch. */
 export function changedFields(page: ContentPage, draft: PageDraft): PagePatch {
   const patch: PagePatch = {};
@@ -111,7 +116,14 @@ function EditorBody({ page }: { page: ContentPage }) {
       toast.success(t("saved"));
     },
     onError: (e) => {
-      if (e instanceof Invalid) return setErrors(e.errors);
+      if (e instanceof Invalid) {
+        setErrors(e.errors);
+        // The tab on screen shows only its own language's errors: when only the other language is wrong, go to it, so
+        // a save that stopped always shows why.
+        const wrong = languagesWithErrors(e.errors);
+        if (wrong.length > 0 && !wrong.includes(lang)) setLang(wrong[0]);
+        return;
+      }
       if (e instanceof AdminApiError && e.code === "STALE_VERSION") setStale(true);
     },
   });
@@ -120,6 +132,11 @@ function EditorBody({ page }: { page: ContentPage }) {
   const setTitle = (value: string) => setDraft((d) => ({ ...d, title: { ...d.title, [lang]: value } }));
   const setBody = (value: string) => setDraft((d) => ({ ...d, body: { ...d.body, [lang]: value } }));
   const langErrors = (field: "title" | "body") => errors[field]?.[lang] ?? null;
+  const wrongLanguages = languagesWithErrors(errors);
+  const tabLabel = (language: "ar" | "en") => {
+    const name = t(language === "ar" ? "arabic" : "english");
+    return wrongLanguages.includes(language) ? t("tabNeedsFix", { language: name }) : name;
+  };
 
   return (
     <>
@@ -192,12 +209,17 @@ function EditorBody({ page }: { page: ContentPage }) {
               error={errors.effective_date ? t(`errors.date.${errors.effective_date}`) : undefined}
             />
           </div>
+          {wrongLanguages.length > 0 && (
+            <Notice tone="danger" role="alert">
+              {t("fixLanguages", { which: wrongLanguages.length > 1 ? "both" : wrongLanguages[0] })}
+            </Notice>
+          )}
           <Tabs
             id={TAB_ID}
             label={t("language")}
             items={[
-              { value: "ar", label: t("arabic") },
-              { value: "en", label: t("english") },
+              { value: "ar", label: tabLabel("ar") },
+              { value: "en", label: tabLabel("en") },
             ]}
             value={lang}
             onValueChange={(v) => setLang(v as "ar" | "en")}

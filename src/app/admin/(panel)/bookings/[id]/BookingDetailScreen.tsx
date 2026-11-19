@@ -171,7 +171,7 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
             </span>
           </Notice>
         )}
-        <CustomerBlockedBanner customer={booking.customer} />
+        <CustomerBlockedBanner customer={booking.customer} kind="booking" />
         {booking.capture_unknown_at && <Notice tone="warning">{t("captureUnknown")}</Notice>}
         {paymentVerifying(booking) && (
           <Notice tone="info">{booking.status === "pending_confirmation" && can("bookings.confirm") ? t("verifyingConfirm") : t("verifying")}</Notice>

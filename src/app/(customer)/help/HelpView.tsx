@@ -1,6 +1,6 @@
 import type { PublicConfig } from "@/lib/admin/types";
 import type { FaqEntry, LegalLocale, Loaded } from "@/lib/server/legal";
-import { CustomerPageShell, SupportContacts, otherLanguageHref } from "../_components/CustomerPageShell";
+import { CustomerPageShell, SupportContacts, TAP_LINK, otherLanguageHref } from "../_components/CustomerPageShell";
 
 type T = (key: string, values?: Record<string, string>) => string;
 
@@ -50,9 +50,9 @@ export function HelpView({ lang, faq, support, t, common }: { lang: LegalLocale;
         )}
       </section>
 
-      <nav aria-label={t("policiesTitle")} className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+      <nav aria-label={t("policiesTitle")} className="mt-8 flex flex-wrap gap-x-5 text-sm">
         {(["terms", "privacy", "cancellation"] as const).map((slug) => (
-          <a key={slug} href={`/policies/${slug}?lang=${lang}`} className="font-medium">
+          <a key={slug} href={`/policies/${slug}?lang=${lang}`} className={TAP_LINK}>
             {t(`policies.${slug}`)}
           </a>
         ))}

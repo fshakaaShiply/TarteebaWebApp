@@ -96,6 +96,7 @@ describe("A08 subscription page", () => {
     const blocked = subscriptionDetail({ customer: { ...detail.customer, ulid: "01JC0000000000000000000011", status: "blocked", status_label: { ar: "موقوف", en: "Blocked" } } });
     open(blocked, [...MANAGER, "customers.view"]);
     const banner = (await screen.findByText("Customer blocked")).closest("[role]") as HTMLElement;
+    expect(banner).toHaveTextContent("This subscription stays for you to decide.");
     expect(within(banner).getByRole("link", { name: "Open the profile of Sara Ahmed" })).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000011");
     const header = screen.getByRole("heading", { level: 1 }).closest("section")!;
     expect(within(header).getAllByRole("link", { name: "Sara Ahmed" })[0]).toHaveAttribute("href", "/admin/customers/01JC0000000000000000000011");

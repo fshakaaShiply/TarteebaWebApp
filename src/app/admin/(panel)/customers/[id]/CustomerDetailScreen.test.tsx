@@ -66,12 +66,29 @@ describe("A07 profile", () => {
     expect(within(header).getByText("+971559871234")).toBeInTheDocument();
     const card = screen.getByRole("heading", { name: "Profile" }).closest("section")!;
     expect(card).toHaveTextContent("Bookings14 · 1 cancelled");
-    expect(card).toHaveTextContent("Open now1 bookings · 1 subscriptions");
+    expect(card).toHaveTextContent("Open now1 booking · 1 subscription");
     expect(card).toHaveTextContent("Total paidAED 3,120.00");
     expect(card).toHaveTextContent("Preferred cleanersMaria (3), Joy (2)");
     expect(card).toHaveTextContent("MarketingNot agreed");
     expect(card).toHaveTextContent("4.8");
     expect(api.fetchCustomer).toHaveBeenCalledWith(CUSTOMER_ULID);
+  });
+
+  it("dates 'customer since' by the Dubai day of the instant, as the list does, not by its UTC day", async () => {
+    // 02:00 on 19 Nov in Dubai is still 18 Nov in UTC.
+    api.fetchCustomer.mockResolvedValue(customerDetail({ created_at: "2026-11-18T22:00:00+00:00", stats: { ...customerDetail().stats, bookings_open: 2, subscriptions_open: 0 } }));
+    open();
+    const card = (await screen.findByRole("heading", { name: "Profile" })).closest("section")!;
+    expect(card).toHaveTextContent("Customer sinceThu, 19 Nov 2026");
+    expect(card).not.toHaveTextContent("18 Nov 2026");
+    expect(card).toHaveTextContent("Open now2 bookings · 0 subscriptions");
+  });
+
+  it("counts the open items in Arabic with the right plural", async () => {
+    api.fetchCustomer.mockResolvedValue(customerDetail({ stats: { ...customerDetail().stats, bookings_open: 2, subscriptions_open: 1 } }));
+    open(COORDINATOR, "ar");
+    const card = (await screen.findByRole("heading", { name: "الملف" })).closest("section")!;
+    expect(card).toHaveTextContent("حجزان · اشتراك واحد");
   });
 
   it("merges her latest bookings and subscriptions by date through the profile's links", async () => {
@@ -102,6 +119,8 @@ describe("A07 profile", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.addCustomerNote).toHaveBeenCalledWith(CUSTOMER_ULID, "Asked for the same cleaner"));
     await waitFor(() => expect(screen.getByLabelText("Add a note")).toHaveValue(""));
+    // Said aloud too (the toast's live region), not only by the list changing.
+    expect((await screen.findByText("Note added")).closest("[role=status]")).not.toBeNull();
   });
 
   it("offers no note box without customers.notes, and reads the notes with customers.view alone", async () => {
@@ -421,18 +440,81 @@ describe("filing a privacy request for her", () => {
     const dialog = await openDialog();
     api.sendPrivacyOtp.mockResolvedValue({ phone_masked: "+971•••••1234", expires_in: 300, resend_in: 30 });
     api.createPrivacyRequest.mockResolvedValue({ id: 30 });
-    // Without the code nothing is filed.
+    // Without a code sent for this request nothing is filed.
     await userEvent.click(within(dialog).getByRole("button", { name: "File data copy request" }));
-    expect(await within(dialog).findByText("Enter the code she read back.")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Send a code for this request first, then enter the code she reads back.")).toBeInTheDocument();
     expect(api.createPrivacyRequest).not.toHaveBeenCalled();
     await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
     expect(api.sendPrivacyOtp).toHaveBeenCalledWith(CUSTOMER_ULID, "export");
-    expect(await within(dialog).findByText("A code was sent to +971•••••1234.")).toBeInTheDocument();
+    const sent = await within(dialog).findByText((_, el) => el?.tagName === "P" && el.textContent === "A code was sent to +971•••••1234.");
+    // The masked number is its own left-to-right run inside the sentence.
+    expect(within(sent).getByText("+971•••••1234").tagName).toBe("BDI");
+    expect(within(sent).getByText("+971•••••1234")).toHaveAttribute("dir", "ltr");
     expect(within(dialog).getByText(/A new code can be sent in 30 s/)).toBeInTheDocument();
+    // Once sent, an empty code is the usual "enter it".
+    await userEvent.click(within(dialog).getByRole("button", { name: "File data copy request" }));
+    expect(await within(dialog).findByText("Enter the code she read back.")).toBeInTheDocument();
     await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "482913");
     await userEvent.click(within(dialog).getByRole("button", { name: "File data copy request" }));
     await waitFor(() => expect(api.createPrivacyRequest).toHaveBeenCalledWith(CUSTOMER_ULID, { type: "export", verification: "registered_phone_call", otp_code: "482913" }));
     expect(await screen.findByText("Data copy request filed")).toBeInTheDocument();
+  });
+
+  it("never files a deletion on a code the customer was told was for a copy of her data", async () => {
+    const dialog = await openDialog();
+    api.sendPrivacyOtp.mockResolvedValue({ phone_masked: "+971•••••1234", expires_in: 300, resend_in: 30 });
+    api.fetchDeletionImpact.mockResolvedValue({ can_request: true, grace_days: 7, executes_after: "2026-11-26", bookings: [], subscriptions: [], blocking: [] });
+    api.createPrivacyRequest.mockResolvedValue({ id: 33 });
+    // The code goes out with the data-copy wording, and the caller reads it back...
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    expect(api.sendPrivacyOtp).toHaveBeenLastCalledWith(CUSTOMER_ULID, "export");
+    await within(dialog).findByText(/A code was sent to/);
+    await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "482913");
+    // ...then the request becomes a deletion: the code is gone, and so is the line saying one was sent.
+    await userEvent.selectOptions(within(dialog).getByLabelText("What she asked for"), "delete");
+    await within(dialog).findByText(/signed out everywhere/);
+    expect(within(dialog).getByLabelText(/Code she read back/)).toHaveValue("");
+    expect(within(dialog).queryByText(/A code was sent to/)).toBeNull();
+    expect(within(dialog).getByText("The request changed, so the earlier code no longer counts. Send a new code for this request.")).toBeInTheDocument();
+    // Typing the old code back in proves nothing: no code was sent for a deletion.
+    await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "482913");
+    await userEvent.click(within(dialog).getByRole("button", { name: "File deletion request" }));
+    expect(await within(dialog).findByText("Send a code for this request first, then enter the code she reads back.")).toBeInTheDocument();
+    expect(api.createPrivacyRequest).not.toHaveBeenCalled();
+    // The API's cooldown is per phone, so the countdown keeps running; once over, a code is sent with the deletion wording.
+    expect(within(dialog).getByRole("button", { name: "Send code" })).toBeDisabled();
+    expect(within(dialog).getByText(/A new code can be sent in \d+ s/)).toBeInTheDocument();
+  });
+
+  it("files a deletion once a code was sent for the deletion itself", async () => {
+    const dialog = await openDialog();
+    api.sendPrivacyOtp.mockResolvedValue({ phone_masked: "+971•••••1234", expires_in: 300, resend_in: 0 });
+    api.fetchDeletionImpact.mockResolvedValue({ can_request: true, grace_days: 7, executes_after: "2026-11-26", bookings: [], subscriptions: [], blocking: [] });
+    api.createPrivacyRequest.mockResolvedValue({ id: 34 });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    await within(dialog).findByText(/A code was sent to/);
+    await userEvent.selectOptions(within(dialog).getByLabelText("What she asked for"), "delete");
+    await within(dialog).findByText(/signed out everywhere/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    await waitFor(() => expect(api.sendPrivacyOtp).toHaveBeenLastCalledWith(CUSTOMER_ULID, "delete"));
+    await within(dialog).findByText(/A code was sent to/);
+    expect(within(dialog).queryByText(/The request changed/)).toBeNull();
+    await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "715204");
+    await userEvent.click(within(dialog).getByRole("button", { name: "File deletion request" }));
+    await waitFor(() => expect(api.createPrivacyRequest).toHaveBeenCalledWith(CUSTOMER_ULID, { type: "delete", verification: "registered_phone_call", otp_code: "715204" }));
+    expect(api.sendPrivacyOtp.mock.calls.map((c) => c[1])).toEqual(["export", "delete"]);
+  });
+
+  it("drops the code when the way she proved it changes too", async () => {
+    const dialog = await openDialog();
+    api.sendPrivacyOtp.mockResolvedValue({ phone_masked: "+971•••••1234", expires_in: 300, resend_in: 0 });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    await within(dialog).findByText(/A code was sent to/);
+    await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "482913");
+    await userEvent.selectOptions(within(dialog).getByLabelText("How she proved who she is"), "in_person");
+    await userEvent.selectOptions(within(dialog).getByLabelText("How she proved who she is"), "registered_phone_call");
+    expect(within(dialog).getByLabelText(/Code she read back/)).toHaveValue("");
+    expect(within(dialog).getByRole("button", { name: "Send code" })).toBeEnabled();
   });
 
   it("proves a visit by the reference of the document, 10 characters or more", async () => {
@@ -488,6 +570,9 @@ describe("filing a privacy request for her", () => {
 
   it("shows what the API refused: a wrong code in words, and a deletion blocked meanwhile with its items", async () => {
     const dialog = await openDialog();
+    api.sendPrivacyOtp.mockResolvedValue({ phone_masked: "+971•••••1234", expires_in: 300, resend_in: 0 });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    await within(dialog).findByText(/A code was sent to/);
     await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "000000");
     api.createPrivacyRequest.mockRejectedValueOnce(new AdminApiError(422, { code: "OTP_INVALID", message: "", details: { attempts_left: 2 } }));
     await userEvent.click(within(dialog).getByRole("button", { name: "File data copy request" }));
@@ -496,7 +581,11 @@ describe("filing a privacy request for her", () => {
     api.fetchDeletionImpact.mockResolvedValue({ can_request: true, grace_days: 7, executes_after: null, bookings: [], subscriptions: [], blocking: [] });
     await userEvent.selectOptions(within(dialog).getByLabelText("What she asked for"), "delete");
     await within(dialog).findByText(/signed out everywhere/);
-    await userEvent.clear(within(dialog).getByLabelText(/Code she read back/));
+    // The answer about the data copy's code no longer stands once the request changed.
+    expect(within(dialog).queryByText("That code is not right. 2 attempts left.")).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send code" }));
+    await waitFor(() => expect(api.sendPrivacyOtp).toHaveBeenLastCalledWith(CUSTOMER_ULID, "delete"));
+    await within(dialog).findByText(/A code was sent to/);
     await userEvent.type(within(dialog).getByLabelText(/Code she read back/), "111111");
     api.createPrivacyRequest.mockRejectedValueOnce(
       new AdminApiError(409, { code: "DELETION_BLOCKED", message: "", details: { items: [{ code: "open_booking", type: "booking", id: 92, reference: "TRB-NEW002", message: "A booking is still open on this account.", link: { path: "/api/v1/admin/bookings/92" } }] } }),

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { AdminApiError } from "../client";
 import { describeAdminError } from "../errors";
+import { PRIVACY_STATUSES, type PrivacyStatus } from "./types";
 
 /*
  * The error codes of the A07 routes (contracts A4a §3, A4b §3) in our own words, Arabic and English, with the figures the
@@ -71,4 +72,39 @@ export function useCustomerError(): (error: unknown) => string {
 /** Whether the answer says the record is not the version the person was looking at. */
 export function isStale(error: unknown): boolean {
   return error instanceof AdminApiError && error.code === "STALE_VERSION";
+}
+
+/**
+ * The status of a 409 INVALID_STATE from the privacy queue's cancel and retry (A4b §3): there `details.status` is the
+ * request's own status (processing, completed, cancelled…), not the customer's. The hourly deletion run claims a request
+ * (scheduled → processing) without changing its version, so a cancel confirmed meanwhile gets this, not STALE_VERSION.
+ */
+export function privacyStateOf(error: unknown): PrivacyStatus | null {
+  if (!(error instanceof AdminApiError) || error.code !== "INVALID_STATE") return null;
+  const status = error.details.status;
+  return typeof status === "string" && (PRIVACY_STATUSES as readonly string[]).includes(status) ? (status as PrivacyStatus) : null;
+}
+
+/** The API said the request can no longer take this action: its status moved on (INVALID_STATE) or its erasure began. */
+export function privacyRequestEnded(error: unknown): boolean {
+  return error instanceof AdminApiError && (error.code === "INVALID_STATE" || error.code === "ERASURE_STARTED");
+}
+
+/**
+ * `(error, action, id) => text` for the privacy queue: an INVALID_STATE names the request's status now and what can no
+ * longer be done to it; everything else reads as the other A07 errors.
+ */
+export function usePrivacyError(): (error: unknown, action: "cancel" | "retry", id: number) => string {
+  const t = useTranslations("admin.privacy");
+  const describe = useCustomerError();
+  return useCallback(
+    (error: unknown, action: "cancel" | "retry", id: number) => {
+      if (error instanceof AdminApiError && error.code === "INVALID_STATE") {
+        const status = privacyStateOf(error);
+        return status ? t(`state.${action}`, { id, status: t(`enums.status.${status}`) }) : t("state.generic", { id });
+      }
+      return describe(error);
+    },
+    [t, describe],
+  );
 }

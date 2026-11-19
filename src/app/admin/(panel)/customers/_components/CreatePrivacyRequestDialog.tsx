@@ -7,7 +7,7 @@ import { Button, Dialog, LoadingBlock, Notice, Select, TextArea, TextField, useT
 import { AdminApiError } from "@/lib/admin/client";
 import { createPrivacyRequest, fetchDeletionImpact, sendPrivacyOtp } from "@/lib/admin/customers/endpoints";
 import { useCustomerError } from "@/lib/admin/customers/errors";
-import { FormProblem, OTP_CODE_MAX, VERIFICATION_NOTE_MAX, buildPrivacyRequest, type FormError } from "@/lib/admin/customers/forms";
+import { FormProblem, OTP_CODE_MAX, VERIFICATION_NOTE_MAX, buildPrivacyRequest, type PrivacyFormError } from "@/lib/admin/customers/forms";
 import { customerKeys } from "@/lib/admin/customers/keys";
 import { useCustomerText } from "@/lib/admin/customers/text";
 import { PRIVACY_TYPES, STAFF_VERIFICATIONS, type CustomerDetail, type DeletionBlocker, type PrivacyType, type StaffVerification } from "@/lib/admin/customers/types";
@@ -39,7 +39,7 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
   const [verification, setVerification] = useState<StaffVerification>("registered_phone_call");
   const [note, setNote] = useState("");
   const [code, setCode] = useState("");
-  const [problem, setProblem] = useState<{ field: "note" | "code"; error: FormError } | null>(null);
+  const [problem, setProblem] = useState<{ field: "note" | "code"; error: PrivacyFormError } | null>(null);
 
   const impact = useQuery({
     queryKey: customerKeys.deletionImpact(customer.id),
@@ -50,8 +50,12 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
   });
   const refused = type === "delete" && impact.data !== undefined && !impact.data.can_request;
 
-  // The code is for one request: changing the type or the method starts again.
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  // The code is for one request. The API signs a data copy and a deletion with the same purpose (P5-C121); only the SMS
+  // says which one the code is for (A4b §12). So the dialog keeps the type each code was sent for, and changing the type or
+  // the method drops the code: a code the customer read back after an SMS about a data copy never files a deletion. The
+  // resend countdown keeps running, since the API's cooldown is per phone (a new code cannot come sooner).
+  const [sent, setSent] = useState<{ to: string; type: PrivacyType } | null>(null);
+  const [codeReset, setCodeReset] = useState(false);
   const [wait, setWait] = useState(0);
   useEffect(() => {
     if (wait <= 0) return;
@@ -60,16 +64,17 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
   }, [wait]);
 
   const send = useMutation({
-    mutationFn: () => sendPrivacyOtp(customer.id, type),
-    onSuccess: (answer) => {
-      setSentTo(answer.phone_masked);
+    mutationFn: (forType: PrivacyType) => sendPrivacyOtp(customer.id, forType),
+    onSuccess: (answer, forType) => {
+      setSent({ to: answer.phone_masked, type: forType });
+      setCodeReset(false);
       setWait(Math.max(0, answer.resend_in));
     },
   });
 
   const submit = useMutation({
     mutationFn: () => {
-      const built = buildPrivacyRequest({ type, verification, note, code });
+      const built = buildPrivacyRequest({ type, verification, note, code, codeFor: sent?.type ?? null });
       if (!built.ok) throw new FormProblem(built.field, built.error);
       return createPrivacyRequest(customer.id, built.body);
     },
@@ -79,11 +84,21 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
       onClose();
     },
     onError: (e) => {
-      if (e instanceof FormProblem) setProblem({ field: e.field as "note" | "code", error: e.error });
+      if (e instanceof FormProblem) setProblem({ field: e.field as "note" | "code", error: e.error as PrivacyFormError });
     },
   });
   const failed = submit.isError && !(submit.error instanceof FormProblem) ? submit.error : null;
   const busy = submit.isPending || send.isPending;
+
+  /** What she asked for or how she proved it changed: the code in hand (and any answer about it) no longer counts. */
+  const restart = () => {
+    if (sent) setCodeReset(true);
+    setSent(null);
+    setCode("");
+    setProblem(null);
+    send.reset();
+    submit.reset();
+  };
 
   return (
     <Dialog
@@ -109,13 +124,15 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
           <Select
             label={t("type")}
             value={type}
-            onChange={(e) => (setType(e.target.value as PrivacyType), setSentTo(null), setProblem(null))}
+            disabled={busy}
+            onChange={(e) => (setType(e.target.value as PrivacyType), restart())}
             options={PRIVACY_TYPES.map((v) => ({ value: v, label: text.privacyType(v) }))}
           />
           <Select
             label={t("verification")}
             value={verification}
-            onChange={(e) => (setVerification(e.target.value as StaffVerification), setSentTo(null), setProblem(null))}
+            disabled={busy}
+            onChange={(e) => (setVerification(e.target.value as StaffVerification), restart())}
             options={STAFF_VERIFICATIONS.map((v) => ({ value: v, label: text.verification(v) }))}
           />
         </div>
@@ -123,15 +140,27 @@ export function CreatePrivacyRequestDialog({ customer, onClose }: { customer: Cu
         {verification === "registered_phone_call" ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm/6 text-ink-600">{t("callHelp")}</p>
+            {codeReset && (
+              <Notice tone="info" role="status">
+                {t("codeReset")}
+              </Notice>
+            )}
             <div className="flex flex-wrap items-end gap-3">
-              <Button variant="secondary" onClick={() => send.mutate()} loading={send.isPending} disabled={wait > 0}>
-                {sentTo ? t("sendAgain") : t("sendCode")}
+              <Button variant="secondary" onClick={() => send.mutate(type)} loading={send.isPending} disabled={wait > 0}>
+                {sent ? t("sendAgain") : t("sendCode")}
               </Button>
               {wait > 0 && <span className="text-xs text-ink-600">{t("resendIn", { seconds: wait })}</span>}
             </div>
-            {sentTo && (
+            {sent && (
               <p role="status" className="text-sm text-ink-900">
-                {t("codeSent", { phone: sentTo })}
+                {t.rich("codeSent", {
+                  phone: sent.to,
+                  ltr: (chunks) => (
+                    <bdi dir="ltr" className="font-latin">
+                      {chunks}
+                    </bdi>
+                  ),
+                })}
               </p>
             )}
             {send.isError && <Notice tone="danger">{describe(send.error)}</Notice>}

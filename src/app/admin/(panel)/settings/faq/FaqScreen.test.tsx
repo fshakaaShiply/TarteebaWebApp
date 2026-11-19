@@ -117,15 +117,65 @@ describe("A11 FAQ", () => {
     expect(api.updateFaq).toHaveBeenCalledWith(1, expect.objectContaining({ is_active: true }), 1);
   });
 
-  it("deletes a question after a confirmation", async () => {
+  it("deletes a question after a confirmation, with the version shown as If-Match", async () => {
     renderWithProviders(<FaqScreen />, { permissions: STAFF });
     await userEvent.click(await screen.findByRole("button", { name: "Delete question 3" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("“What is the cancellation policy?” is removed for good.");
     api.deleteFaq.mockResolvedValue(undefined);
     await userEvent.click(within(dialog).getByRole("button", { name: "Delete question" }));
-    await waitFor(() => expect(api.deleteFaq).toHaveBeenCalledWith(3));
+    await waitFor(() => expect(api.deleteFaq).toHaveBeenCalledWith(3, 1));
     expect(await screen.findByText("Question deleted")).toBeInTheDocument();
+  });
+
+  it("does not delete a question someone rewrote meanwhile unseen: it shows the new text and confirms with its version", async () => {
+    renderWithProviders(<FaqScreen />, { permissions: STAFF });
+    await userEvent.click(await screen.findByRole("button", { name: "Delete question 3" }));
+    const dialog = await screen.findByRole("alertdialog");
+    api.deleteFaq.mockRejectedValueOnce(err(409, "STALE_VERSION", { current_version: 2 }));
+    const rewritten = { ...third, question: { ar: "ما سياسة الإلغاء والاسترداد؟", en: "What is the cancellation and refund policy?" }, answer: { ar: "تظهر الرسوم والمبلغ المسترد قبل التأكيد.", en: "Fees and refunds are shown first." }, version: 2 };
+    api.fetchFaq.mockResolvedValue([first, second, rewritten]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete question" }));
+    expect(await within(dialog).findByText("Someone changed this question")).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByText("The question now reads as below. Check it, then confirm again.")).toBeInTheDocument());
+    expect(dialog).toHaveTextContent("“What is the cancellation and refund policy?” is removed for good.");
+    expect(within(dialog).getByText("Fees and refunds are shown first.")).toBeInTheDocument();
+    expect(api.deleteFaq).toHaveBeenCalledTimes(1);
+    api.deleteFaq.mockResolvedValue(undefined);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete question" }));
+    await waitFor(() => expect(api.deleteFaq).toHaveBeenCalledTimes(2));
+    expect(api.deleteFaq.mock.calls.map((c) => c[1])).toEqual([1, 2]);
+  });
+
+  it("saves an edit after a STALE_VERSION with the new version, keeping the typed text and showing what is saved now", async () => {
+    renderWithProviders(<FaqScreen />, { permissions: STAFF });
+    await userEvent.click(await screen.findByRole("button", { name: "Edit question 2" }));
+    const dialog = await screen.findByRole("dialog");
+    await paste(within(dialog).getByLabelText(/Answer.*English/), "We always try your preferred cleaner first.");
+    api.updateFaq.mockRejectedValueOnce(err(409, "STALE_VERSION", { current_version: 5 }));
+    api.fetchFaq.mockResolvedValue([first, { ...second, answer: { ...second.answer, en: "Someone else's answer." }, version: 5 }, third]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(within(dialog).getByText(/Your text is still here/)).toBeInTheDocument());
+    expect(within(dialog).getByText("Someone else's answer.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Answer.*English/)).toHaveValue("We always try your preferred cleaner first.");
+    api.updateFaq.mockResolvedValue({ ...second, version: 6 });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.updateFaq).toHaveBeenCalledTimes(2));
+    // The refused version 4 is never sent again.
+    expect(api.updateFaq.mock.calls.map((c) => c[2])).toEqual([4, 5]);
+    expect(api.updateFaq.mock.calls[1][1]).toMatchObject({ answer: { en: "We always try your preferred cleaner first." } });
+    expect(await screen.findByText("Question saved")).toBeInTheDocument();
+  });
+
+  it("stops an edit of a question that was deleted meanwhile", async () => {
+    renderWithProviders(<FaqScreen />, { permissions: STAFF });
+    await userEvent.click(await screen.findByRole("button", { name: "Edit question 2" }));
+    const dialog = await screen.findByRole("dialog");
+    api.updateFaq.mockRejectedValueOnce(err(409, "STALE_VERSION", { current_version: 5 }));
+    api.fetchFaq.mockResolvedValue([first, third]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByText("This question was deleted meanwhile. Nothing was saved.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("stops adding at the limit the API sets", async () => {

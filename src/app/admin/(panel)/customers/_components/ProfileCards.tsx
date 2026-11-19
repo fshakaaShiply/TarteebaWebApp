@@ -21,7 +21,7 @@ export function CustomerProfileCard({ customer }: { customer: CustomerDetail }) 
   return (
     <Card title={t("title")}>
       <Facts>
-        <Fact label={t("since")}>{text.date(customer.created_at?.slice(0, 10))}</Fact>
+        <Fact label={t("since")}>{text.instantDate(customer.created_at) || "—"}</Fact>
         <Fact label={t("status")}>
           <StatusBadge tone={customerToneOf(customer.status)}>{text.status(customer.status, customer.status_label)}</StatusBadge>
         </Fact>

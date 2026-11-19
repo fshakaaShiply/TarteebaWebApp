@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
@@ -108,22 +108,61 @@ describe("help page", () => {
     view("en", ok([]), support);
     expect(screen.getByText("No questions yet.")).toBeInTheDocument();
   });
+
+  it("gives every contact and policy link a 44 px tap height of its own, for the app's WebView", () => {
+    view("en", ok(faq), support);
+    const links = [
+      screen.getByRole("link", { name: /\+97140000000/ }),
+      screen.getByRole("link", { name: "Message us on WhatsApp" }),
+      screen.getByRole("link", { name: "help@example.test" }),
+      ...(["Terms and conditions", "Privacy policy", "Cancellation and refund policy"] as const).map((name) => screen.getByRole("link", { name })),
+    ];
+    for (const link of links) expect(link, link.textContent ?? "").toHaveClass("inline-flex", "min-h-11", "items-center");
+    // Real height rather than an overlay hit area, so stacked links never share one: no touch-target pseudo-element.
+    for (const link of links) expect(link).not.toHaveClass("touch-target");
+  });
 });
 
 describe("account deletion page", () => {
   const support = { phone: "+97140000000", whatsapp: null, email: "help@example.test" };
-  const view = (lang: "ar" | "en", graceDays: number | null, contacts: typeof support | null = support) =>
-    render(<AccountDeletionView lang={lang} support={contacts} graceDays={graceDays} t={tr(lang, "customerWeb.accountDeletion")} common={tr(lang, "customerWeb.common")} />);
+  const view = (lang: "ar" | "en", graceDays: number | null, contacts: typeof support | null = support, walletEnabled?: boolean) =>
+    render(<AccountDeletionView lang={lang} support={contacts} graceDays={graceDays} walletEnabled={walletEnabled} t={tr(lang, "customerWeb.accountDeletion")} common={tr(lang, "customerWeb.common")} />);
 
   it("says what deletion removes and keeps, the cooling-off in days, and both ways to ask", () => {
     view("en", 7);
     expect(screen.getByRole("heading", { level: 1, name: "Delete your Tarteeba account" })).toBeInTheDocument();
     expect(within(screen.getByRole("heading", { name: "What we remove" }).closest("section")!).getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.getByText("Tax invoices and credit notes")).toBeInTheDocument();
     expect(screen.getByText(/waits 7 days before the deletion is carried out/)).toBeInTheDocument();
     expect(screen.getByText("Open Account, then Delete account.")).toBeInTheDocument();
     expect(screen.getByText(/stay cancelled, even if the deletion is stopped later/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /\+97140000000/ })).toHaveAttribute("href", "tel:+97140000000");
+  });
+
+  it("claims no more than deletion erases: invoices keep the printed name and phone, cases stay without her words, no purge is promised", () => {
+    view("en", 7);
+    const removed = within(screen.getByRole("heading", { name: "What we remove" }).closest("section")!);
+    const kept = within(screen.getByRole("heading", { name: "What we keep" }).closest("section")!);
+    expect(removed.getByText("Your name, phone number and e-mail on your account")).toBeInTheDocument();
+    // Complaints and ratings are kept (scores and outcomes), only her words in them go.
+    expect(removed.queryByText(/^Your complaints/)).toBeNull();
+    expect(removed.getByText("The words and photos you added to complaints, ratings and requests")).toBeInTheDocument();
+    expect(kept.getByText(/Tax invoices and credit notes, which keep your name and phone number as printed/)).toBeInTheDocument();
+    expect(kept.getByText("Your complaints and ratings without your words: only their scores and outcomes")).toBeInTheDocument();
+    expect(kept.getAllByRole("listitem")).toHaveLength(4);
+    expect(kept.getByText("These records are kept for the period the law requires.")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/removes your personal data from Tarteeba|kept only for/);
+  });
+
+  it("says a balance must be used or given up first only while the balance is switched on", () => {
+    view("en", 7);
+    expect(screen.queryByText(/If your account has a balance/)).toBeNull();
+    cleanup();
+    view("en", 7, support, true);
+    expect(screen.getByText(/If your account has a balance, use it first or tell our support team that you give it up/)).toBeInTheDocument();
+    cleanup();
+    view("ar", 7, support, true);
+    expect(screen.getByText(/إذا كان في حسابك رصيد/)).toBeInTheDocument();
+    expect(screen.getByText("تُحفظ هذه السجلات للمدة التي يفرضها القانون.")).toBeInTheDocument();
   });
 
   it("does not name a number of days it was not told, and promises no amount", () => {
@@ -188,6 +227,8 @@ describe("data copy download page", () => {
   const SIGNATURE = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
   const link = { request: REQUEST, expires: "1790000000", signature: SIGNATURE, status: null } as const;
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  /** The line saying where the code went (the page's own status line, not the toast region the test providers add). */
+  const codeLine = () => screen.findByText((_, el) => el?.tagName === "P" && el.getAttribute("role") === "status");
 
   function open(fetcher: ReturnType<typeof vi.fn>, over: Partial<Parameters<typeof PrivacyExportFlow>[0]> = {}, locale: "ar" | "en" = "en") {
     const redirect = vi.fn();
@@ -210,7 +251,7 @@ describe("data copy download page", () => {
     // Nothing is handed over before the code: there is no download button yet.
     expect(screen.queryByRole("button", { name: "Download my data" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Send me a code" }));
-    expect(await screen.findByText("We sent a code to +971•••••1234.")).toBeInTheDocument();
+    expect(await codeLine()).toHaveTextContent("We sent a code to +971•••••1234.");
     const [url, init] = fetcher.mock.calls[0];
     expect(url).toBe(`/backend/api/v1/public/privacy-exports/${REQUEST}/otp`);
     expect(init).toMatchObject({ method: "POST", credentials: "omit", cache: "no-store", body: JSON.stringify({ expires: "1790000000", signature: SIGNATURE }), headers: expect.objectContaining({ "Accept-Language": "en" }) });
@@ -296,7 +337,7 @@ describe("data copy download page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send me a code" }));
     expect(await screen.findByText("Something went wrong. Check your connection and try again.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Send me a code" }));
-    expect(await screen.findByText("We sent a code to +971•••••1234.")).toBeInTheDocument();
+    expect(await codeLine()).toHaveTextContent("We sent a code to +971•••••1234.");
   });
 
   it("speaks Arabic", async () => {
@@ -306,5 +347,23 @@ describe("data copy download page", () => {
     await userEvent.click(screen.getByRole("button", { name: "أرسل لي رمزًا" }));
     expect(await screen.findByText(/أرسلنا رمزًا إلى/)).toBeInTheDocument();
     expect(fetcher.mock.calls[0][1].headers["Accept-Language"]).toBe("ar");
+  });
+
+  it("keeps the masked number in one left-to-right run inside the sentence, so the Arabic text cannot reorder it", async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ data: { phone_masked: "+971•••••1234", expires_in: 300, resend_in: 0 } }));
+    open(fetcher, {}, "ar");
+    await userEvent.click(screen.getByRole("button", { name: "أرسل لي رمزًا" }));
+    const line = await codeLine();
+    expect(line).toHaveTextContent("أرسلنا رمزًا إلى +971•••••1234.");
+    const phone = within(line).getByText("+971•••••1234");
+    expect(phone.tagName).toBe("BDI");
+    expect(phone).toHaveAttribute("dir", "ltr");
+  });
+
+  it("names the registered phone in words when the API sent no masked number", async () => {
+    const fetcher = vi.fn().mockResolvedValue(json({ data: { expires_in: 300, resend_in: 0 } }));
+    open(fetcher);
+    await userEvent.click(screen.getByRole("button", { name: "Send me a code" }));
+    expect(await codeLine()).toHaveTextContent("We sent a code to your registered phone.");
   });
 });

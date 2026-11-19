@@ -7444,7 +7444,7 @@
         "deletionScheduled": "The deletion is scheduled.",
         "deletionWaiting": "Waiting on: {holds}",
         "deletedTitle": "Deleted account",
-        "deletedBody": "This account was deleted. Nothing can be changed, and no personal data is kept."
+        "deletedBody": "This account was deleted and nothing in it can be changed. Its personal data was erased; tax invoices and credit notes keep the name and phone number printed on them."
       },
       "moved": {
         "title": "The customer changed",
@@ -7458,7 +7458,7 @@
         "bookings": "Bookings",
         "bookingsValue": "{total} · {cancelled} cancelled",
         "open": "Open now",
-        "openValue": "{bookings} bookings · {subscriptions} subscriptions",
+        "openValue": "{bookings, plural, one {# booking} other {# bookings}} · {subscriptions, plural, one {# subscription} other {# subscriptions}}",
         "paid": "Total paid",
         "rating": "Average rating she gave",
         "preferred": "Preferred cleaners",
@@ -7574,7 +7574,8 @@
           "required": "Write the note first.",
           "tooShort": "The note is too short.",
           "tooLong": "A note can have at most {max} characters."
-        }
+        },
+        "added": "Note added"
       },
       "block": {
         "block": {
@@ -7644,9 +7645,10 @@
       },
       "blockedBanner": {
         "title": "Customer blocked",
-        "body": "She cannot sign in or book, and renewals stopped. This one stays for you to decide.",
         "open": "Open the profile of {name}",
-        "unnamed": "the customer"
+        "unnamed": "the customer",
+        "bodyBooking": "She cannot sign in or book, and renewals stopped. This booking stays for you to decide.",
+        "bodySubscription": "She cannot sign in or book, and renewals stopped. This subscription stays for you to decide."
       }
     },
     "privacy": {
@@ -7762,12 +7764,13 @@
         "sendCode": "Send code",
         "sendAgain": "Send a new code",
         "resendIn": "A new code can be sent in {seconds} s",
-        "codeSent": "A code was sent to {phone}.",
+        "codeSent": "A code was sent to <ltr>{phone}</ltr>.",
         "code": "Code she read back",
         "codeErrors": {
           "required": "Enter the code she read back.",
           "tooShort": "The code is too short.",
-          "tooLong": "The code is too long."
+          "tooLong": "The code is too long.",
+          "notSent": "Send a code for this request first, then enter the code she reads back."
         },
         "note": "Document reference",
         "noteHint": "The type of ID and its last 4 digits, or the document number. 10 to 500 characters.",
@@ -7796,7 +7799,19 @@
           "wallet_balance": "There is a balance on the account.",
           "open_booking": "A booking is still open on this account.",
           "open_subscription": "A subscription is still open on this account."
-        }
+        },
+        "codeReset": "The request changed, so the earlier code no longer counts. Send a new code for this request."
+      },
+      "state": {
+        "cancel": "Request #{id} can no longer be cancelled: its status is now “{status}”.",
+        "retry": "Request #{id} can no longer be retried: its status is now “{status}”.",
+        "generic": "Request #{id} has moved on, so this can no longer be done."
+      },
+      "moved": {
+        "title": "The request changed",
+        "waiting": "Someone changed this request while the window was open. Nothing was saved. We are reading it again.",
+        "renewed": "The request was read again. Check what is shown, then confirm once more.",
+        "readAgain": "Read it again"
       }
     },
     "legal": {
@@ -7895,7 +7910,9 @@
             "required": "Write the text in this language.",
             "tooLong": "The text can have at most {max} characters."
           }
-        }
+        },
+        "tabNeedsFix": "{language} · needs fixing",
+        "fixLanguages": "{which, select, ar {Check the marked fields in the Arabic text before saving.} en {Check the marked fields in the English text before saving.} other {Check the marked fields in the Arabic and the English text before saving.}}"
       },
       "publish": {
         "title": "Publish {page}, version {version}",
@@ -7978,6 +7995,13 @@
         "description": "“{question}” is removed for good.",
         "confirm": "Delete question",
         "done": "Question deleted"
+      },
+      "moved": {
+        "title": "Someone changed this question",
+        "waiting": "Nothing was saved. We are reading the latest version.",
+        "renewedEdit": "Your text is still here. The question is now saved as below; save again to replace it with yours.",
+        "renewedDelete": "The question now reads as below. Check it, then confirm again.",
+        "gone": "This question was deleted meanwhile. Nothing was saved."
       }
     }
   },
@@ -8031,21 +8055,22 @@
     },
     "accountDeletion": {
       "title": "Delete your Tarteeba account",
-      "intro": "Deleting your account removes your personal data from Tarteeba and cannot be undone. We keep tax invoices and financial records for as long as the law requires.",
+      "intro": "Deleting your account erases your profile and the personal data in it, and cannot be undone. Tax invoices and financial records are kept, with the details printed on them, for as long as the law requires.",
       "removedTitle": "What we remove",
       "removed": {
-        "profile": "Your name, phone number and e-mail",
+        "profile": "Your name, phone number and e-mail on your account",
         "addresses": "Your saved addresses and booking instructions",
         "devices": "Your signed-in devices and notification settings",
-        "notes": "Your complaints and requests, and the words you wrote in them"
+        "notes": "The words and photos you added to complaints, ratings and requests"
       },
       "keptTitle": "What we keep",
       "kept": {
-        "invoices": "Tax invoices and credit notes",
+        "invoices": "Tax invoices and credit notes, which keep your name and phone number as printed, because the law requires it",
         "payments": "Payment and refund records",
-        "records": "A record of what was done on your account, without your personal details"
+        "records": "A record of what was done on your account, without your personal details",
+        "cases": "Your complaints and ratings without your words: only their scores and outcomes"
       },
-      "keptNote": "These records are kept only for the period the law requires.",
+      "keptNote": "These records are kept for the period the law requires.",
       "coolingTitle": "Cooling-off period",
       "coolingDays": "After you ask, your account is closed and waits {days, plural, one {# day} other {# days}} before the deletion is carried out.",
       "coolingGeneric": "After you ask, your account is closed and waits a few days before the deletion is carried out.",
@@ -8064,7 +8089,8 @@
       "contactNone": "Contact us from the Help page in the Tarteeba app.",
       "call": "Call us:",
       "whatsapp": "Message us on WhatsApp",
-      "email": "E-mail us"
+      "email": "E-mail us",
+      "balanceNote": "If your account has a balance, use it first or tell our support team that you give it up: the deletion cannot start while a balance would remain."
     },
     "emailVerified": {
       "metaTitle": "E-mail confirmation",
@@ -8089,8 +8115,7 @@
       "note": "The download link works for a short time. If it stops working, ask for a new copy in the app or from support.",
       "sendCode": "Send me a code",
       "sending": "Sending…",
-      "codeSent": "We sent a code to {phone}.",
-      "yourPhone": "your registered phone",
+      "codeSent": "We sent a code to <ltr>{phone}</ltr>.",
       "code": "Code",
       "download": "Download my data",
       "downloading": "Preparing…",
@@ -8115,7 +8140,8 @@
         "locked": "Too many wrong attempts. Wait a while, then ask for a new code or contact support.",
         "wait": "Please wait a moment before trying again.",
         "network": "Something went wrong. Check your connection and try again."
-      }
+      },
+      "codeSentRegistered": "We sent a code to your registered phone."
     }
   }
 }

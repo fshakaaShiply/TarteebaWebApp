@@ -188,7 +188,7 @@ function SubscriptionView({ subscription, handoff, onStale }: { subscription: Su
             </div>
           )}
         </div>
-        <CustomerBlockedBanner customer={{ id: subscription.customer.ulid, name: subscription.customer.name, status: subscription.customer.status }} />
+        <CustomerBlockedBanner customer={{ id: subscription.customer.ulid, name: subscription.customer.name, status: subscription.customer.status }} kind="subscription" />
         <Banners subscription={subscription} open={open} goTo={setTab} />
         {handoffNotice}
       </section>

@@ -48,6 +48,13 @@ export function otherLanguageHref(path: string, lang: "ar" | "en", params: Recor
   return `${path}?${query.toString()}`;
 }
 
+/**
+ * A link the customer taps in the app's WebView: at least 44 px tall (the phase's touch-target rule) and as wide as its
+ * text, so links stacked or side by side never share a tap area. The height is real, not a pseudo-element's hit area: a
+ * 44 px overlay on a 20 px line would reach into the link next to it.
+ */
+export const TAP_LINK = "inline-flex min-h-11 items-center font-medium";
+
 /** A support contact line: the phone and e-mail are Latin text, isolated so they keep their order in Arabic. */
 export function SupportContacts({
   support,
@@ -59,10 +66,10 @@ export function SupportContacts({
   const whatsapp = support?.whatsapp ? support.whatsapp.replace(/\D/g, "") : null;
   if (!support || (!support.phone && !whatsapp && !support.email)) return null;
   return (
-    <ul className="flex flex-col gap-2 text-sm">
+    <ul className="flex flex-col text-sm">
       {support.phone && (
         <li>
-          <a href={`tel:${support.phone}`} className="font-medium">
+          <a href={`tel:${support.phone}`} className={`${TAP_LINK} gap-1`}>
             {t("call")}{" "}
             <bdi dir="ltr" className="font-latin">
               {support.phone}
@@ -72,14 +79,14 @@ export function SupportContacts({
       )}
       {whatsapp && (
         <li>
-          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="font-medium">
+          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className={TAP_LINK}>
             {t("whatsapp")}
           </a>
         </li>
       )}
       {support.email && (
         <li>
-          <a href={`mailto:${support.email}`} className="font-medium">
+          <a href={`mailto:${support.email}`} className={TAP_LINK}>
             <bdi dir="ltr" className="font-latin">
               {support.email}
             </bdi>

@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, ConfirmDialog, CustomerLink, DataTable, EmptyState, FilterBar, Notice, PageHeader, SearchField, Select, StatusBadge, TextArea, useToast, type Column } from "@/components/admin";
 import { filterKey } from "@/lib/admin/finance/filters";
 import { useDebouncedValue } from "@/lib/admin/hooks";
-import { cancelPrivacyRequest, fetchPrivacyRequests, retryPrivacyRequest } from "@/lib/admin/customers/endpoints";
-import { isStale, useCustomerError } from "@/lib/admin/customers/errors";
+import { cancelPrivacyRequest, fetchPrivacyRequest, fetchPrivacyRequests, retryPrivacyRequest } from "@/lib/admin/customers/endpoints";
+import { isStale, privacyRequestEnded, usePrivacyError } from "@/lib/admin/customers/errors";
 import { FormProblem, REASON_MAX, checkReason, type FormError } from "@/lib/admin/customers/forms";
 import { PRIVACY_FILTERS, PRIVACY_STATUS_CHOICES, privacyQuery } from "@/lib/admin/customers/filters";
 import { customerKeys } from "@/lib/admin/customers/keys";
@@ -44,7 +44,7 @@ function Queue() {
   const t = useTranslations("admin.privacy");
   const text = useCustomerText();
   const toast = useToast();
-  const describe = useCustomerError();
+  const describe = usePrivacyError();
   const queryClient = useQueryClient();
   const { filters, set, setPage, reset, filtered } = useUrlFilters(PRIVACY_FILTERS);
   const q = useDebouncedValue(filters.q.trim(), 300);
@@ -70,8 +70,8 @@ function Queue() {
       refresh();
       toast.success(t("retried"));
     },
-    onError: (e) => {
-      toast.error(isStale(e) ? t("retryStale") : describe(e));
+    onError: (e, row) => {
+      toast.error(isStale(e) ? t("retryStale") : describe(e, "retry", row.id));
       refresh();
     },
   });
@@ -99,7 +99,9 @@ function Queue() {
       header: t("columns.customer"),
       cell: (r) => (
         <span className="flex flex-col gap-0.5">
-          <CustomerLink customer={{ id: r.customer.id, name: r.customer.name ?? t("deletedCustomer"), phone: r.customer.phone }} />
+          {/* A null name is a deleted account only when the status says so: a live customer may not have given one yet
+              (the phone stands in, as CustomerLink does). */}
+          <CustomerLink customer={{ id: r.customer.id, name: r.customer.name || (r.customer.status === "deleted" ? t("deletedCustomer") : null), phone: r.customer.phone }} />
           {r.customer.status !== "active" && <span className="text-xs text-ink-600">{text.status(r.customer.status, r.customer.status_label)}</span>}
         </span>
       ),
@@ -217,21 +219,52 @@ function Queue() {
 /**
  * Cancels a request that has not started erasing (customers.privacy_requests; reason 3 to 500 characters, the request's
  * version as If-Match). A deletion's account is restored to what it was, but what the request cancelled stays cancelled
- * (P5-C15): the dialog lists it as not restored. 409 ERASURE_STARTED means the erasure began meanwhile.
+ * (P5-C15): the dialog lists it as not restored.
+ *
+ * The dialog acts on its copy of the request (useSeenRecord). After a 409 STALE_VERSION it reads the request itself
+ * (GET /admin/privacy-requests/{id}): the queue's filtered page may no longer hold it (one someone else cancelled leaves the
+ * default "open" list), so waiting for the list would wait for ever and resend the refused version. When the request can
+ * still be cancelled, its new facts and version replace the copy and staff confirm again; when it cannot (the API's
+ * `actions.cancel` is false), or the API answers 409 INVALID_STATE (the hourly run claimed it: processing, without a new
+ * version) or ERASURE_STARTED, the dialog closes and says why, and the queue is read again.
  */
 function CancelRequestDialog({ request, onClose }: { request: PrivacyRequest; onClose: () => void }) {
   const t = useTranslations("admin.privacy.cancelDialog");
+  const privacy = useTranslations("admin.privacy");
+  const errors = useTranslations("admin.customers.errors");
   const text = useCustomerText();
-  const describe = useCustomerError();
+  const describe = usePrivacyError();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const seen = useSeenRecord(request);
+  // The request as read on its own after the API said it moved; the newer of it and the queue's row is the live one.
+  const [fresh, setFresh] = useState<PrivacyRequest | null>(null);
+  const [rereadError, setRereadError] = useState<unknown>(null);
+  const live = fresh && fresh.version >= request.version ? fresh : request;
+  const seen = useSeenRecord(live);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<FormError | null>(null);
-  const snapshot = request.type === "delete" ? request.impact_snapshot : null;
+  const shownRequest = seen.record;
+  const snapshot = shownRequest.type === "delete" ? shownRequest.impact_snapshot : null;
   const bookings = snapshot?.bookings ?? [];
   const subscriptions = snapshot?.subscriptions ?? [];
   const refresh = () => void queryClient.invalidateQueries({ queryKey: customerKeys.all });
+  const ended = (message: string) => {
+    toast.error(message);
+    onClose();
+  };
+
+  const reread = async () => {
+    setRereadError(null);
+    try {
+      const now = await fetchPrivacyRequest(request.id);
+      if (now.actions.cancel) return setFresh(now);
+      // A failed deletion whose erasure began keeps a cancellable status but is no longer cancellable (P5-C51).
+      const erasing = now.status === "failed" && (now.processing_started_at !== null || Object.keys(now.erasure_log ?? {}).length > 0);
+      ended(erasing ? errors("ERASURE_STARTED") : privacy("state.cancel", { id: now.id, status: text.privacyStatus(now.status, now.status_label) }));
+    } catch (e) {
+      setRereadError(e);
+    }
+  };
 
   const run = useMutation({
     mutationFn: () => {
@@ -246,11 +279,16 @@ function CancelRequestDialog({ request, onClose }: { request: PrivacyRequest; on
     },
     onError: (e) => {
       if (e instanceof FormProblem) return setError(e.error);
-      if (isStale(e)) seen.moved();
       refresh();
+      if (isStale(e)) {
+        seen.moved();
+        void reread();
+      } else if (privacyRequestEnded(e)) {
+        ended(describe(e, "cancel", request.id));
+      }
     },
   });
-  const shown = run.isError && !(run.error instanceof FormProblem) && !isStale(run.error) ? run.error : null;
+  const shown = run.isError && !(run.error instanceof FormProblem) && !isStale(run.error) && !privacyRequestEnded(run.error) ? run.error : null;
 
   return (
     <ConfirmDialog
@@ -261,7 +299,8 @@ function CancelRequestDialog({ request, onClose }: { request: PrivacyRequest; on
       confirmLabel={t("confirm")}
       tone="danger"
       pending={run.isPending}
-      onConfirm={() => (setError(null), seen.seen(), run.mutate())}
+      // While the request is being read again, a confirm would only send the refused version once more.
+      onConfirm={() => !seen.waiting && (setError(null), seen.seen(), run.mutate())}
     >
       <div className="flex flex-col gap-4">
         {(bookings.length > 0 || subscriptions.length > 0) && (
@@ -293,8 +332,22 @@ function CancelRequestDialog({ request, onClose }: { request: PrivacyRequest; on
           onChange={(e) => setReason(e.target.value)}
           error={error ? t(`errors.${error}`, { min: 3, max: REASON_MAX }) : undefined}
         />
-        <MovedNotice waiting={seen.waiting} renewed={seen.renewed} />
-        {shown && <Notice tone="danger">{describe(shown)}</Notice>}
+        <MovedNotice kind="request" waiting={seen.waiting} renewed={seen.renewed} />
+        {seen.waiting && rereadError !== null && (
+          <Notice
+            tone="danger"
+            action={
+              <div>
+                <Button size="sm" variant="secondary" onClick={() => void reread()}>
+                  {privacy("moved.readAgain")}
+                </Button>
+              </div>
+            }
+          >
+            {describe(rereadError, "cancel", request.id)}
+          </Notice>
+        )}
+        {shown && <Notice tone="danger">{describe(shown, "cancel", request.id)}</Notice>}
       </div>
     </ConfirmDialog>
   );

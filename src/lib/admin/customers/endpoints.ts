@@ -156,3 +156,12 @@ export async function retryPrivacyRequest(id: number, version: number): Promise<
   );
   return body.data;
 }
+
+/**
+ * One request as it stands now. The cancel dialog reads it after a 409 STALE_VERSION: the queue's filtered page may no
+ * longer hold the row (a request someone else cancelled leaves the default "open" list), so the list cannot renew it.
+ */
+export async function fetchPrivacyRequest(id: number): Promise<PrivacyRequest> {
+  const body = await unwrap<DataEnvelope<PrivacyRequest>>(adminApi.GET("/v1/admin/privacy-requests/{privacyRequest}", { params: { path: { privacyRequest: id } } }));
+  return body.data;
+}

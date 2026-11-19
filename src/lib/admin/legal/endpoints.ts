@@ -72,8 +72,9 @@ export async function updateFaq(id: number, patch: Partial<FaqBody>, version: nu
   return answer.data;
 }
 
-export async function deleteFaq(id: number): Promise<void> {
-  await unwrap(adminApi.DELETE("/v1/admin/faq/{item}", { params: { path: { item: id } } }));
+/** Deletes an item with the version shown as If-Match (A4a §3): a question someone rewrote meanwhile is 409 STALE_VERSION. */
+export async function deleteFaq(id: number, version: number): Promise<void> {
+  await unwrap(adminApi.DELETE("/v1/admin/faq/{item}", { params: { path: { item: id } }, headers: ifMatch(version) } as never));
 }
 
 /** Every item id once, in the new order (422 ORDER_INCOMPLETE otherwise); answers the list in that order. */

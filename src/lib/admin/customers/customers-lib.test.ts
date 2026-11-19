@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminApiError } from "../client";
 import { customerQuery, privacyQuery } from "./filters";
 import { FormProblem, NOTE_MAX, REASON_MAX, buildPrivacyRequest, checkNote, checkReason } from "./forms";
-import { describeCustomerError } from "./errors";
+import { describeCustomerError, privacyRequestEnded, privacyStateOf } from "./errors";
 import { isOpenBooking, isOpenSubscription, customerToneOf, privacyToneOf, isDeletedCustomer } from "./status";
 
 describe("reason and note checks", () => {
@@ -33,16 +33,25 @@ describe("reason and note checks", () => {
 
 describe("a staff-filed privacy request (P5-C50)", () => {
   it("proves a call by the code the caller read back", () => {
-    expect(buildPrivacyRequest({ type: "export", verification: "registered_phone_call", note: "ignored", code: " 482913 " })).toEqual({
+    expect(buildPrivacyRequest({ type: "export", verification: "registered_phone_call", note: "ignored", code: " 482913 ", codeFor: "export" })).toEqual({
       ok: true,
       body: { type: "export", verification: "registered_phone_call", otp_code: "482913" },
     });
-    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "  " })).toEqual({ ok: false, field: "code", error: "required" });
-    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "1".repeat(11) })).toEqual({ ok: false, field: "code", error: "tooLong" });
+    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "  ", codeFor: "delete" })).toEqual({ ok: false, field: "code", error: "required" });
+    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "1".repeat(11), codeFor: "delete" })).toEqual({ ok: false, field: "code", error: "tooLong" });
+  });
+
+  it("takes a code only for the request it was sent for: a data copy's code never files a deletion (P5-C121, A4b §12)", () => {
+    // The SMS said the code was for a copy of her data; the request is now a deletion.
+    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "482913", codeFor: "export" })).toEqual({ ok: false, field: "code", error: "notSent" });
+    expect(buildPrivacyRequest({ type: "export", verification: "registered_phone_call", note: "", code: "482913", codeFor: "delete" })).toEqual({ ok: false, field: "code", error: "notSent" });
+    // A code typed in without one sent from this dialog proves nothing either.
+    expect(buildPrivacyRequest({ type: "export", verification: "registered_phone_call", note: "", code: "482913", codeFor: null })).toEqual({ ok: false, field: "code", error: "notSent" });
+    expect(buildPrivacyRequest({ type: "delete", verification: "registered_phone_call", note: "", code: "482913", codeFor: "delete" }).ok).toBe(true);
   });
 
   it("proves a visit or a letter by the reference of the document, 10 to 500 characters", () => {
-    const base = { type: "delete", verification: "in_person" } as const;
+    const base = { type: "delete", verification: "in_person", codeFor: null } as const;
     expect(buildPrivacyRequest({ ...base, note: "", code: "123456" })).toEqual({ ok: false, field: "note", error: "required" });
     expect(buildPrivacyRequest({ ...base, note: "ID 4321", code: "" })).toEqual({ ok: false, field: "note", error: "tooShort" });
     expect(buildPrivacyRequest({ ...base, note: "x".repeat(501), code: "" })).toEqual({ ok: false, field: "note", error: "tooLong" });
@@ -50,7 +59,7 @@ describe("a staff-filed privacy request (P5-C50)", () => {
       ok: true,
       body: { type: "delete", verification: "in_person", verification_note: "Emirates ID ending 4321" },
     });
-    expect(buildPrivacyRequest({ type: "export", verification: "written_request", note: "Letter dated 2026-11-02, ref L-77", code: "" }).ok).toBe(true);
+    expect(buildPrivacyRequest({ type: "export", verification: "written_request", note: "Letter dated 2026-11-02, ref L-77", code: "", codeFor: null }).ok).toBe(true);
   });
 });
 
@@ -109,6 +118,16 @@ describe("error words", () => {
     expect(describeCustomerError(error("ERASURE_STARTED", { processing_started_at: "x" }), t, fallback)).toBe("ERASURE_STARTED");
     expect(describeCustomerError(error("STALE_VERSION"), t, fallback)).toBe("shared");
     expect(describeCustomerError(new Error("boom"), t, fallback)).toBe("shared");
+  });
+
+  it("reads the privacy queue's INVALID_STATE as the request's own status, never a customer's", () => {
+    expect(privacyStateOf(error("INVALID_STATE", { status: "processing" }))).toBe("processing");
+    expect(privacyStateOf(error("INVALID_STATE", { status: "cancelled" }))).toBe("cancelled");
+    expect(privacyStateOf(error("INVALID_STATE", { status: "blocked" }))).toBeNull();
+    expect(privacyStateOf(error("STALE_VERSION"))).toBeNull();
+    expect(privacyRequestEnded(error("INVALID_STATE", { status: "completed" }))).toBe(true);
+    expect(privacyRequestEnded(error("ERASURE_STARTED"))).toBe(true);
+    expect(privacyRequestEnded(error("STALE_VERSION"))).toBe(false);
   });
 });
 
@@ -187,5 +206,11 @@ describe("A07 endpoints", () => {
     expect(last()).toMatchObject({ path: "/v1/admin/privacy-requests/{privacyRequest}/retry", options: { headers: { "If-Match": "4" } } });
     await fetchDeletionImpact("01JC");
     expect(last().path).toBe("/v1/admin/customers/{customer}/deletion-impact");
+  });
+
+  it("reads one privacy request by its id", async () => {
+    const { fetchPrivacyRequest } = await import("./endpoints");
+    await fetchPrivacyRequest(21);
+    expect(last()).toMatchObject({ method: "GET", path: "/v1/admin/privacy-requests/{privacyRequest}", options: { params: { path: { privacyRequest: 21 } } } });
   });
 });

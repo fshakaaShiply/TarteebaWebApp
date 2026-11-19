@@ -99,6 +99,37 @@ describe("A11 legal page editor", () => {
     expect(api.updatePage).not.toHaveBeenCalled();
   });
 
+  it("shows why a save stopped when only the language not on screen is wrong: it goes to that tab and marks it", async () => {
+    open();
+    // Empty the Arabic text, then go back to the English tab, which is fine.
+    await userEvent.click(await screen.findByRole("tab", { name: "Arabic" }));
+    await userEvent.clear(screen.getByLabelText(/^Text/));
+    await userEvent.click(screen.getByRole("tab", { name: "English" }));
+    expect(screen.getByLabelText(/^Title/)).toHaveValue("Terms and conditions");
+    await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(api.updatePage).not.toHaveBeenCalled();
+    expect(await screen.findByText("Check the marked fields in the Arabic text before saving.")).toBeInTheDocument();
+    // The Arabic tab is shown with its error, and its label says it needs fixing.
+    const arabic = screen.getByRole("tab", { name: "Arabic · needs fixing" });
+    expect(arabic).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText(/^Text/)).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText("Write the text in this language.")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "English" })).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("names both languages when both are wrong, and stays on the tab on screen", async () => {
+    open();
+    await userEvent.click(await screen.findByRole("tab", { name: "Arabic" }));
+    await userEvent.clear(screen.getByLabelText(/^Title/));
+    await userEvent.click(screen.getByRole("tab", { name: "English" }));
+    await userEvent.clear(screen.getByLabelText(/^Title/));
+    await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByText("Check the marked fields in the Arabic and the English text before saving.")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "English · needs fixing" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Arabic · needs fixing" })).toBeInTheDocument();
+    expect(screen.getByText("Write the title in this language.")).toBeInTheDocument();
+  });
+
   it("does not overwrite a page someone else changed: it says so and loads the latest on request", async () => {
     open();
     await userEvent.type(await screen.findByLabelText(/Version label/), "x");

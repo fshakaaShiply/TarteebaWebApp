@@ -5,7 +5,7 @@ import { CustomerPageShell, SupportContacts, otherLanguageHref } from "../_compo
 type T = (key: string, values?: Record<string, string | number>) => string;
 
 const REMOVED = ["profile", "addresses", "devices", "notes"] as const;
-const KEPT = ["invoices", "payments", "records"] as const;
+const KEPT = ["invoices", "payments", "cases", "records"] as const;
 const STEPS = ["open", "bookings", "code", "signedOut"] as const;
 
 /**
@@ -13,8 +13,27 @@ const STEPS = ["open", "bookings", "code", "signedOut"] as const;
  * the law makes us keep, the cooling-off, and the two ways to ask (in the app, with a code sent to the registered phone, or
  * through support, who check who is asking and file it). It states the facts of the process, never a promise about a
  * date or an amount: the app shows the exact figures before the customer confirms.
+ *
+ * It says no more than the erasers do (customers §4.3): the account's name, phone and e-mail go, but tax invoices and
+ * credit notes keep the name and phone printed on them (P5-C20); complaints and ratings stay without her words (P5-X08);
+ * nothing promises a purge after the legal period, which Phase 5 does not build. With the balance switched on
+ * (`/public/config` `wallet.enabled`) it adds that a balance has to be used or given up first (P5-C47, owner Q13).
  */
-export function AccountDeletionView({ lang, support, graceDays, t, common }: { lang: LegalLocale; support: PublicConfig["support"] | null; graceDays: number | null; t: T; common: T }) {
+export function AccountDeletionView({
+  lang,
+  support,
+  graceDays,
+  walletEnabled = false,
+  t,
+  common,
+}: {
+  lang: LegalLocale;
+  support: PublicConfig["support"] | null;
+  graceDays: number | null;
+  walletEnabled?: boolean;
+  t: T;
+  common: T;
+}) {
   return (
     <CustomerPageShell lang={lang} switchHref={otherLanguageHref("/account-deletion", lang)} switchLabel={common("switchLanguage")}>
       <h1 className="text-[28px]/[38px] font-bold text-ink-900">{t("title")}</h1>
@@ -50,6 +69,7 @@ export function AccountDeletionView({ lang, support, graceDays, t, common }: { l
         </h2>
         <p className="mt-2 text-base/7 text-ink-900">{graceDays !== null ? t("coolingDays", { days: graceDays }) : t("coolingGeneric")}</p>
         <p className="mt-2 text-sm/6 text-ink-600">{t("coolingNote")}</p>
+        {walletEnabled && <p className="mt-2 text-sm/6 text-ink-600">{t("balanceNote")}</p>}
       </section>
 
       <section aria-labelledby="del-how" className="mt-4 rounded-lg bg-surface p-5 shadow-card">

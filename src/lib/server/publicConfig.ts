@@ -21,10 +21,13 @@ export function readPublicConfig(body: unknown): PublicConfig | null {
   const s = support && typeof support === "object" ? (support as Record<string, unknown>) : {};
   const privacy = (data as { privacy?: unknown }).privacy;
   const grace = privacy && typeof privacy === "object" ? (privacy as { deletion_grace_days?: unknown }).deletion_grace_days : undefined;
+  const wallet = (data as { wallet?: unknown }).wallet;
   return {
     support: { phone: text(s.phone), whatsapp: text(s.whatsapp), email: text(s.email) },
     default_locale: text((data as { default_locale?: unknown }).default_locale) ?? undefined,
     ...(typeof grace === "number" && Number.isInteger(grace) && grace > 0 ? { deletion_grace_days: grace } : {}),
+    // The balance is built but off (Q1): only an explicit true switches on what the pages say about it.
+    wallet_enabled: !!wallet && typeof wallet === "object" && (wallet as { enabled?: unknown }).enabled === true,
   };
 }
 

@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { pickText } from "@/lib/admin/catalog/fields";
-import { formatDateTime, formatIsoDate } from "@/lib/admin/format";
+import { businessToday, formatDateTime, formatIsoDate } from "@/lib/admin/format";
 import type { Translatable } from "@/lib/admin/types";
 import { formatAed } from "@/lib/money";
 
@@ -40,6 +40,14 @@ export function useCustomerText() {
       failure: (value: string, apiLabel?: Translatable | null) => label(p, "failure", value, apiLabel),
       money: (fils: number | null | undefined) => (fils === null || fils === undefined ? "—" : formatAed(fils, locale, { fixed: true })),
       date: (iso: string | null | undefined) => formatIsoDate(iso, locale, "short"),
+      /**
+       * The Dubai day of an instant ("2026-11-18T22:00:00+00:00" is Thu 19 Nov), short; "" without one. Never the instant's
+       * first 10 characters: the API's instants are UTC.
+       */
+      instantDate: (iso: string | null | undefined) => {
+        const at = iso ? new Date(iso) : null;
+        return at && !Number.isNaN(at.getTime()) ? formatIsoDate(businessToday(at), locale, "short") : "";
+      },
       dateTime: (iso: string | null | undefined) => formatDateTime(iso, locale),
     };
   }, [t, p, ui, locale]);

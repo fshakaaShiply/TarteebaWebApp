@@ -31,16 +31,30 @@ export function checkNote(raw: string): FormError | null {
   return n > NOTE_MAX ? "tooLong" : null;
 }
 
-export type PrivacyRequestInput = { type: PrivacyType; verification: StaffVerification; note: string; code: string };
+export type PrivacyRequestInput = {
+  type: PrivacyType;
+  verification: StaffVerification;
+  note: string;
+  code: string;
+  /** The request type the code in hand was sent for from this dialog (null: none sent, or the request changed since). */
+  codeFor: PrivacyType | null;
+};
 export type PrivacyRequestBody = { type: PrivacyType; verification: StaffVerification; verification_note?: string; otp_code?: string };
-export type PrivacyRequestBuild = { ok: true; body: PrivacyRequestBody } | { ok: false; field: "note" | "code"; error: FormError };
+/** `notSent`: no code was sent for this request, so a code typed in cannot prove it. */
+export type PrivacyFormError = FormError | "notSent";
+export type PrivacyRequestBuild = { ok: true; body: PrivacyRequestBody } | { ok: false; field: "note" | "code"; error: PrivacyFormError };
 
 /**
  * The body of a staff-filed request (P5-C50). A call to the registered number is proved by the code the caller reads back;
  * a visit or a letter by the reference of the document that proved who she is (10 to 500 characters).
+ *
+ * The code must have been sent for this very request: the API signs a data copy and a deletion with the same purpose
+ * (P5-C121) and only the SMS wording says which one the code is for (A4b §12), so a code the customer read back after an
+ * SMS about a data copy must never file a deletion. Changing the type after sending asks for a new code.
  */
 export function buildPrivacyRequest(input: PrivacyRequestInput): PrivacyRequestBuild {
   if (input.verification === "registered_phone_call") {
+    if (input.codeFor !== input.type) return { ok: false, field: "code", error: "notSent" };
     const code = input.code.trim();
     if (code === "") return { ok: false, field: "code", error: "required" };
     if (code.length > OTP_CODE_MAX) return { ok: false, field: "code", error: "tooLong" };
@@ -54,10 +68,10 @@ export function buildPrivacyRequest(input: PrivacyRequestInput): PrivacyRequestB
 }
 
 /** Thrown inside a mutation when the form is not valid, so the dialog shows the field's message and nothing is sent. */
-export class FormProblem<F extends string = string> extends Error {
+export class FormProblem<F extends string = string, E extends string = FormError> extends Error {
   constructor(
     readonly field: F,
-    readonly error: FormError,
+    readonly error: E,
   ) {
     super(`${field}: ${error}`);
   }

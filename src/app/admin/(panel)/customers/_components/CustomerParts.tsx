@@ -6,12 +6,14 @@ import { useCustomerText } from "@/lib/admin/customers/text";
 import type { CustomerDetail } from "@/lib/admin/customers/types";
 
 /**
- * What a dialog says after the API answered that the customer is not the version it showed (409 STALE_VERSION): nothing was
- * saved, the profile was read again, and the person confirms once more. A status region, so a screen reader hears it
- * without losing its place.
+ * What a dialog says after the API answered that the customer (or, in the privacy queue, the request) is not the version it
+ * showed (409 STALE_VERSION): nothing was saved, the record was read again, and the person confirms once more. A status
+ * region, so a screen reader hears it without losing its place.
  */
-export function MovedNotice({ waiting, renewed }: { waiting: boolean; renewed: boolean }) {
-  const t = useTranslations("admin.customers.moved");
+export function MovedNotice({ waiting, renewed, kind = "customer" }: { waiting: boolean; renewed: boolean; kind?: "customer" | "request" }) {
+  const customer = useTranslations("admin.customers.moved");
+  const request = useTranslations("admin.privacy.moved");
+  const t = kind === "request" ? request : customer;
   if (!waiting && !renewed) return null;
   return (
     <Notice tone="warning" title={t("title")} role="status">

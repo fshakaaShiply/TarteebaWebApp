@@ -58,4 +58,11 @@ describe("the customer web's legal pages and FAQ", () => {
     expect(readPublicConfig({ data: { support: {}, privacy: { deletion_grace_days: "7" } } })?.deletion_grace_days).toBeUndefined();
     expect(readPublicConfig({ data: { support: {} } })?.deletion_grace_days).toBeUndefined();
   });
+
+  it("reads the balance as on only when the public config says exactly so", () => {
+    expect(readPublicConfig({ data: { support: {}, wallet: { enabled: true } } })?.wallet_enabled).toBe(true);
+    expect(readPublicConfig({ data: { support: {}, wallet: { enabled: false } } })?.wallet_enabled).toBe(false);
+    expect(readPublicConfig({ data: { support: {}, wallet: { enabled: "1" } } })?.wallet_enabled).toBe(false);
+    expect(readPublicConfig({ data: { support: {} } })?.wallet_enabled).toBe(false);
+  });
 });

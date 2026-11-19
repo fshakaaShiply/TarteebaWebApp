@@ -101,4 +101,38 @@ describe("plural messages", () => {
     expect(say("ar", "admin.customers", "deletionOn", { date: "24 نوفمبر 2026" })).toBe("الحذف في 24 نوفمبر 2026");
     expect(say("en", "admin.legal.publish", "title", { page: "Terms", version: "2026-11" })).toBe("Publish Terms, version 2026-11");
   });
+
+  it("counts a customer's open bookings and subscriptions with real plurals", () => {
+    expect(say("en", "admin.customers.profile", "openValue", { bookings: 1, subscriptions: 1 })).toBe("1 booking · 1 subscription");
+    expect(say("en", "admin.customers.profile", "openValue", { bookings: 3, subscriptions: 0 })).toBe("3 bookings · 0 subscriptions");
+    expect(say("ar", "admin.customers.profile", "openValue", { bookings: 1, subscriptions: 2 })).toBe("حجز واحد · اشتراكان");
+    expect(say("ar", "admin.customers.profile", "openValue", { bookings: 0, subscriptions: 5 })).toBe("لا حجوزات · 5 اشتراكات");
+    expect(say("ar", "admin.customers.profile", "openValue", { bookings: 11, subscriptions: 100 })).toBe("11 حجزًا · 100 اشتراك");
+  });
+
+  it("names the language whose legal text needs fixing", () => {
+    expect(say("en", "admin.legal.editor", "fixLanguages", { which: "en" })).toBe("Check the marked fields in the English text before saving.");
+    expect(say("en", "admin.legal.editor", "fixLanguages", { which: "both" })).toBe("Check the marked fields in the Arabic and the English text before saving.");
+    expect(say("ar", "admin.legal.editor", "fixLanguages", { which: "ar" })).toBe("راجع الحقول المعلّمة في النص العربي قبل الحفظ.");
+    expect(say("ar", "admin.legal.editor", "tabNeedsFix", { language: "الإنجليزية" })).toBe("الإنجليزية · يلزم التصحيح");
+  });
+
+  it("names the request's status when the queue can no longer act on it", () => {
+    expect(say("en", "admin.privacy", "state.cancel", { id: 12, status: "Processing" })).toBe("Request #12 can no longer be cancelled: its status is now “Processing”.");
+    expect(say("ar", "admin.privacy", "state.retry", { id: 12, status: "مكتمل" })).toBe("لم تعد إعادة محاولة الطلب رقم 12 ممكنة: حالته الآن «مكتمل».");
+  });
+});
+
+describe("what the account deletion page promises", () => {
+  it("does not say records are kept 'only' for the legal period: nothing purges them after it (P5-C20)", () => {
+    expect(get(en, "customerWeb.accountDeletion.keptNote")).not.toMatch(/\bonly\b/);
+    expect(get(ar, "customerWeb.accountDeletion.keptNote")).not.toContain("فقط");
+  });
+
+  it("says invoices keep the name and phone printed on them, and does not list complaints as removed", () => {
+    expect(get(en, "customerWeb.accountDeletion.kept.invoices")).toMatch(/name and phone number/);
+    expect(get(ar, "customerWeb.accountDeletion.kept.invoices")).toContain("اسمك ورقم هاتفك");
+    expect(get(en, "customerWeb.accountDeletion.removed.notes")).not.toMatch(/^Your complaints/);
+    expect(get(en, "admin.customers.banners.deletedBody")).not.toMatch(/no personal data is kept/);
+  });
 });

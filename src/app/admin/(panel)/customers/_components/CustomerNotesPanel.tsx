@@ -3,7 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, TextArea } from "@/components/admin";
+import { Button, Card, EmptyState, ErrorState, LoadingBlock, Notice, TextArea, useToast } from "@/components/admin";
 import { Pagination } from "@/components/admin/DataTable";
 import { addCustomerNote, fetchCustomerNotes } from "@/lib/admin/customers/endpoints";
 import { useCustomerError } from "@/lib/admin/customers/errors";
@@ -23,6 +23,7 @@ export function CustomerNotesPanel({ customer }: { customer: CustomerDetail }) {
   const t = useTranslations("admin.customers.notes");
   const text = useCustomerText();
   const describe = useCustomerError();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [body, setBody] = useState("");
@@ -47,6 +48,8 @@ export function CustomerNotesPanel({ customer }: { customer: CustomerDetail }) {
       setPage(1);
       void queryClient.invalidateQueries({ queryKey: ["admin", "customers", "notes", customer.id] });
       void queryClient.invalidateQueries({ queryKey: customerKeys.detail(customer.id) });
+      // Said in the toast's live region: the list may refresh only after a while, or out of sight.
+      toast.success(t("added"));
     },
     onError: (e) => {
       if (e instanceof FormProblem) setError(e.error);

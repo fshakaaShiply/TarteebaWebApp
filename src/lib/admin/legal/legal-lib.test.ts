@@ -110,8 +110,9 @@ describe("A11 content endpoints", () => {
     expect(last()).toMatchObject({ method: "POST", path: "/v1/admin/faq" });
     await updateFaq(4, { is_active: false }, 2);
     expect(last()).toMatchObject({ method: "PATCH", path: "/v1/admin/faq/{item}", options: { params: { path: { item: 4 } }, body: { is_active: false }, headers: { "If-Match": "2" } } });
-    await deleteFaq(4);
-    expect(last()).toMatchObject({ method: "DELETE", path: "/v1/admin/faq/{item}" });
+    // A delete carries the version shown too (A4a §3), so a question rewritten meanwhile answers 409 STALE_VERSION.
+    await deleteFaq(4, 3);
+    expect(last()).toMatchObject({ method: "DELETE", path: "/v1/admin/faq/{item}", options: { params: { path: { item: 4 } }, headers: { "If-Match": "3" } } });
     await reorderFaq([3, 1, 2]);
     expect(last()).toMatchObject({ method: "PUT", path: "/v1/admin/faq/order", options: { body: { ids: [3, 1, 2] } } });
   });

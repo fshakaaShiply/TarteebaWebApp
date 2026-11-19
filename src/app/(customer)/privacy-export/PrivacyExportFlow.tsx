@@ -183,7 +183,18 @@ export function PrivacyExportFlow({ lang, request, expires, signature, status, f
       ) : (
         <form onSubmit={(e) => void download(e)} className="flex flex-col gap-3" noValidate>
           <p role="status" className="text-sm text-ink-900">
-            {t("codeSent", { phone: phone || t("yourPhone") })}
+            {/* The masked number ("+971•••••1234") is its own left-to-right run: in an Arabic sentence the bidi algorithm
+                would otherwise move the "+" and swap the digit groups around the bullets. */}
+            {phone
+              ? t.rich("codeSent", {
+                  phone,
+                  ltr: (chunks) => (
+                    <bdi dir="ltr" className="font-latin">
+                      {chunks}
+                    </bdi>
+                  ),
+                })
+              : t("codeSentRegistered")}
           </p>
           <label className="flex max-w-xs flex-col gap-1.5 text-sm font-medium text-ink-900">
             {t("code")}

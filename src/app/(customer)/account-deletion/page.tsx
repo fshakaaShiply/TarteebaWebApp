@@ -17,5 +17,14 @@ export default async function AccountDeletionPage({ searchParams }: PageProps<"/
     getTranslations({ locale: lang, namespace: "customerWeb.accountDeletion" }),
     getTranslations({ locale: lang, namespace: "customerWeb.common" }),
   ]);
-  return <AccountDeletionView lang={lang} support={config?.support ?? null} graceDays={config?.deletion_grace_days ?? null} t={t as never} common={common as never} />;
+  return (
+    <AccountDeletionView
+      lang={lang}
+      support={config?.support ?? null}
+      graceDays={config?.deletion_grace_days ?? null}
+      walletEnabled={config?.wallet_enabled === true}
+      t={t as never}
+      common={common as never}
+    />
+  );
 }

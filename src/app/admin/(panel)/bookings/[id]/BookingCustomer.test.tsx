@@ -28,7 +28,7 @@ describe("A03 booking page: the customer (A07)", () => {
     api.fetchBooking.mockResolvedValue(blocked());
     renderWithProviders(<BookingDetailScreen id="12" />, { permissions: COORDINATOR });
     const banner = (await screen.findByText("Customer blocked")).closest("[role]")!;
-    expect(banner).toHaveTextContent("This one stays for you to decide.");
+    expect(banner).toHaveTextContent("This booking stays for you to decide.");
     expect(within(banner as HTMLElement).getByRole("link", { name: "Open the profile of Sara Ahmed" })).toHaveAttribute("href", `/admin/customers/${ULID}`);
   });
 
