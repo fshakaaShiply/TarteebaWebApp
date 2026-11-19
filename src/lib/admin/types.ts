@@ -4,6 +4,7 @@
 // is exact (the pick-lists, the document URLs), the types come from it.
 
 import type { components, paths } from "@/lib/api/schema";
+import type { BookingQuality } from "./quality/types";
 
 export type DataEnvelope<T> = { data: T };
 
@@ -1262,6 +1263,8 @@ export type BookingDetail = BookingRow & {
   alternative_proposals: AlternativeProposal[];
   reschedule_requests: RescheduleRequest[];
   notes: BookingNote[];
+  /** Phase 5: the rating and the cases of this booking (A10); absent from an older API. */
+  quality?: BookingQuality | null;
 };
 
 /** POST /admin/bookings/{id}/cancel/preview: the money plan before cancelling. */

@@ -33,6 +33,7 @@ import {
   RequestCard,
   RescheduleRequestsCard,
 } from "./BookingSections";
+import { QualityCard } from "./QualityCard";
 
 /**
  * A03 booking page (spec §17; designs AdminBookings.dc.html and the review panel of AdminSchedule.dc.html;
@@ -200,6 +201,7 @@ function BookingView({ booking, onStale }: { booking: BookingDetail; onStale: ()
           <CustomerCard booking={booking} />
           <AddressCard booking={booking} />
           <PaymentCard booking={booking} />
+          <QualityCard booking={booking} />
           <NotesCard booking={booking} />
         </div>
       </div>

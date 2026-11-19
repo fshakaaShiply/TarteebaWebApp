@@ -130,6 +130,16 @@ describe("A02 links to admin pages", () => {
     expect(dashboardHref(link("drivers", "/api/v1/admin/drivers", { search: "Omar" }))).toBe("/admin/fleet/drivers?search=Omar");
   });
 
+  it("opens the A10 case and the accountant's queue from the overview now that W2 built them", () => {
+    const link = (list: string, path: string): DashboardLink => ({ list, path, params: {} });
+    expect(isBuiltAdminPage("/admin/quality/41")).toBe(true);
+    expect(isBuiltAdminPage("/admin/quality/compensations")).toBe(true);
+    expect(isBuiltAdminPage("/admin/quality/ratings")).toBe(true);
+    expect(dashboardHref(link("complaint", "/api/v1/admin/complaints/41"))).toBe("/admin/quality/41");
+    expect(dashboardHref(link("compensations", "/api/v1/admin/compensations"))).toBe("/admin/quality/compensations");
+    expect(dashboardAlertHref({ link: null, entity: { type: "complaint", id: 41, reference: "TC-4XQ8NM", case_type: "complaint" } })).toBe("/admin/quality/41");
+  });
+
   it("opens a case or a run from the alert's entity when the API gave no link, once its page is built", () => {
     const caseHref = dashboardAlertHref({ link: null, entity: { type: "complaint", id: 41, reference: "TC-4XQ8NM", case_type: "complaint" } });
     expect(caseHref).toBe(isBuiltAdminPage("/admin/quality/41") ? "/admin/quality/41" : null);

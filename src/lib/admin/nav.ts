@@ -62,6 +62,15 @@ export const SUBSCRIPTIONS_READ = ["subscriptions.view", "subscriptions.manage"]
  */
 export const SUBSCRIPTIONS_PATH = "/admin/subscriptions";
 
+/**
+ * A10 reads with either permission (Quality routes/admin.php): complaints.manage works the cases, compensation.approve is the
+ * accountant, who reads cases and decides compensations. The ratings need complaints.manage.
+ */
+export const QUALITY_READ = ["complaints.manage", "compensation.approve"] as const;
+export const QUALITY_PATH = "/admin/quality";
+export const QUALITY_RATINGS_PATH = "/admin/quality/ratings";
+export const QUALITY_COMPENSATIONS_PATH = "/admin/quality/compensations";
+
 const CATALOG = ["catalog.manage"] as const;
 
 export const ADMIN_NAV: readonly NavModule[] = [
@@ -144,9 +153,15 @@ export const ADMIN_NAV: readonly NavModule[] = [
     id: "quality",
     code: "A10",
     labelKey: "quality",
-    href: "/admin/quality",
-    anyOf: ["complaints.manage", "compensation.approve"],
-    built: false,
+    href: QUALITY_PATH,
+    anyOf: QUALITY_READ,
+    built: true,
+    children: [
+      // The inbox is a prefix of the other two: activeChildHref marks the longest match, so they keep their own entry.
+      { id: "qualityInbox", labelKey: "qualityInbox", href: QUALITY_PATH, anyOf: QUALITY_READ, built: true },
+      { id: "qualityRatings", labelKey: "qualityRatings", href: QUALITY_RATINGS_PATH, anyOf: ["complaints.manage"], built: true },
+      { id: "qualityCompensations", labelKey: "qualityCompensations", href: QUALITY_COMPENSATIONS_PATH, anyOf: QUALITY_READ, built: true },
+    ],
   },
   {
     id: "catalog",
@@ -220,7 +235,7 @@ export function filterNav(nav: readonly NavModule[], permissions: readonly strin
 /**
  * Where /admin sends a user: the A02 overview for everyone who reads bookings or the schedule, then catalog for
  * catalog.manage, settings, users, the workers and vehicles pages, the trip planner, the A09 summary (or the refunds
- * list for refunds.create alone), the A08 subscriptions, else the overview's welcome note.
+ * list for refunds.create alone), the A08 subscriptions, the A10 inbox, else the overview's welcome note.
  */
 export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, OVERVIEW_PERMISSIONS)) return OVERVIEW_PATH;
@@ -233,6 +248,7 @@ export function firstAccessiblePath(permissions: readonly string[]): string {
   if (hasAnyPermission(permissions, DOCUMENTS_READ)) return FINANCE_SUMMARY_PATH;
   if (permissions.includes("refunds.create")) return REFUNDS_PATH;
   if (hasAnyPermission(permissions, SUBSCRIPTIONS_READ)) return SUBSCRIPTIONS_PATH;
+  if (hasAnyPermission(permissions, QUALITY_READ)) return QUALITY_PATH;
   return OVERVIEW_PLACEHOLDER_PATH;
 }
 

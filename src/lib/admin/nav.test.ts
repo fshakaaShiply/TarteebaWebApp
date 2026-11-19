@@ -103,7 +103,7 @@ describe("filterNav", () => {
       "customers",
       "subscriptions",
       "finance[financeSummary,payments,refunds,invoices,creditNotes,billingRefusals,reconciliation,exports]",
-      "quality",
+      "quality[qualityInbox,qualityRatings,qualityCompensations]",
       "catalog[services,packages,liveOut,addons,coupons,policies,zones,slotTemplates,slotRules,blackoutDates,notificationTemplates,settings]",
       "reports",
       "users[staffUsers,audit]",
